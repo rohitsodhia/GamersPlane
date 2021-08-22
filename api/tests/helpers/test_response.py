@@ -1,4 +1,4 @@
-from generators import faker
+from generators import mimesis
 
 from helpers.response import Response
 
@@ -8,8 +8,16 @@ class TestResponse:
         response = Response()
 
         success = True
-        data = {faker.random_letter(): faker.random_digit()}
-        errors = {faker.random_letter(): faker.random_digit()}
+        data = {
+            mimesis.random.randstr(length=1): mimesis.random.randints(
+                amount=1, a=0, b=9
+            )[0]
+        }
+        errors = {
+            mimesis.random.randstr(length=1): mimesis.random.randints(
+                amount=1, a=0, b=9
+            )[0]
+        }
 
         response_body, returned_response_code = response.build(
             success=success, data=data, errors=errors
@@ -22,7 +30,11 @@ class TestResponse:
     def test_success(self):
         response = Response()
 
-        data = {faker.random_letter(): faker.random_digit()}
+        data = {
+            mimesis.random.randstr(length=1): mimesis.random.randints(
+                amount=1, a=0, b=9
+            )[0]
+        }
 
         response_body, returned_response_code = response.success(data)
         assert returned_response_code == 200
@@ -33,7 +45,11 @@ class TestResponse:
     def test_errors(self):
         response = Response()
 
-        errors = {faker.random_letter(): faker.random_digit()}
+        errors = {
+            mimesis.random.randstr(length=1): mimesis.random.randints(
+                amount=1, a=0, b=9
+            )[0]
+        }
 
         response_body, returned_response_code = response.errors(errors)
         assert returned_response_code == 200

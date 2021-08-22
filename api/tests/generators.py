@@ -1,19 +1,25 @@
 import random
 import math
+from datetime import datetime
 
-from faker import Faker
+import factory
+from mimesis import Generic
+from mimesis_factory import MimesisField
 
 from users.models import User
 
-faker = Faker()
 random_seed = math.floor(random.random() * 100000)
-Faker.seed(random_seed)
+mimesis = Generic(seed=random_seed)
 
 
-class Generator:
-    @staticmethod
-    def user():
-        user = User()
-        user.name = faker.name()
+class UserFactory(factory.Factory):
+    class Meta(object):
+        model = User
 
-        return user
+    username = MimesisField("username", template="l_d")
+    password = "test1234"
+    email = factory.LazyAttribute(
+        lambda instance: "{0}@test.com".format(instance.username)
+    )
+    joinDate = datetime.now()
+    activatedOn = datetime.now()

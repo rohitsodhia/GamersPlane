@@ -6,23 +6,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 code_path = Path("../")
-sys.path.append(code_path / "/src")
-load_dotenv(dotenv_path=code_path / ".env")
-
+load_dotenv(code_path / ".env")
 
 import django
 
 django.setup()
 
-import json
-
-from faker import Faker
-
-faker = Faker()
-
 from datetime import datetime
-
-from django.db import connection
+import json
 
 from users.functions import register_user
 from permissions.models import Role, Permission
@@ -30,6 +21,9 @@ from permissions.models.permission import ValidPermissions
 from permissions.functions import create_permission
 from systems.models import System, Genre, Publisher
 from forums.models import Forum
+
+sys.path.append(str(code_path / "tests"))
+from generators import mimesis, UserFactory
 
 print("\n\n")
 
@@ -56,8 +50,8 @@ print("Add Member role to first user\n")
 extra_users = []
 for i in range(2):
     user = register_user(
-        email=faker.email(),
-        username=faker.simple_profile()["username"],
+        email=mimesis.person.email(),
+        username=mimesis.person.username(template="ld"),
         password="test1234",
     )
     user.activate()
