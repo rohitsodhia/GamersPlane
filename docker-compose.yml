@@ -10,7 +10,7 @@ services:
     container_name: gamersplane-proxy
     build:
       context: ./
-      dockerfile: Dockerfile-nginx
+      dockerfile: ./docker/Dockerfile-nginx
     ports:
       - 80:80
       - 443:443
