@@ -1,6 +1,6 @@
 import os
 
-ENVIRONMENT = os.getenv("FLASK_ENV", "dev")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
 
 SERVER_NAME = os.getenv("SERVER_NAME")
 

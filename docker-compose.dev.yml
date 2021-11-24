@@ -11,6 +11,3 @@ services:
   mysql:
     ports:
       - 3306:3306
-    environment:
-      - MYSQL_ROOT_PASSWORD=test123
-      - MYSQL_PASSWORD=test123
