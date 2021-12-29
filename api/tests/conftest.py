@@ -11,3 +11,8 @@ def app():
     with app.app_context():
         with app.test_client() as client, app.test_request_context():
             yield client
+
+
+@pytest.fixture(autouse=True)
+def enable_db_access(db):
+    pass
