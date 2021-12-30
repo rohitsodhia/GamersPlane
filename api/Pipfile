@@ -21,7 +21,7 @@ pytest-factoryboy = "*"
 
 [packages]
 bcrypt = "*"
-django = "*"
+django = "~=3.0"
 django-mysql = "*"
 django-redis = "*"
 djangorestframework = "*"
