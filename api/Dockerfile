@@ -18,7 +18,7 @@ RUN pipenv install --deploy --system
 COPY . /usr/src/app/
 WORKDIR /usr/src/app/src
 
-ENV PYTHONPATH="$PYTHONPATH:/usr/src/app/src"
+# ENV PYTHONPATH="$PYTHONPATH:/usr/src/app/src"
 ENV DJANGO_SETTINGS_MODULE='django_conf'
 
 # ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
