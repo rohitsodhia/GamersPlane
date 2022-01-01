@@ -1,10 +1,8 @@
 from typing import Dict
 from fastapi import APIRouter, status
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr
 
-# from helpers.response import response
-# from helpers.endpoint import require_values
+from helpers.functions import error_response
 from helpers.email import get_template, send_email
 
 from users.models import User
@@ -48,8 +46,9 @@ def login(user_details: UserInput):
                 "jwt": user.generate_jwt(),
                 "user": user.to_dict(),
             }
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND, content={"invalid_user": True}
+    return error_response(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"errors": {"invalid_user": True}},
     )
 
 
