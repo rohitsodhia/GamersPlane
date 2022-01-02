@@ -1,10 +1,9 @@
-from typing import Dict
 from fastapi import APIRouter, status
-from pydantic import BaseModel, EmailStr
 
 from helpers.functions import error_response
 from helpers.email import get_template, send_email
 
+from authorization import schemas
 from users.models import User
 from users import functions as users_functions
 from users.exceptions import UserExists
@@ -14,29 +13,12 @@ from tokens.models import AccountActivationToken, PasswordResetToken
 authorization = APIRouter(prefix="/auth")
 
 
-class UserInput(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class AuthResponse(BaseModel):
-    logged_in: bool
-    jwt: str
-    user: Dict
-
-
-class AuthFailedBody(BaseModel):
-    invalid_user = True
-
-
-class AuthFailed(BaseModel):
-    error: AuthFailedBody
-
-
 @authorization.post(
-    "/login", response_model=AuthResponse, responses={404: {"model": AuthFailed}}
+    "/login",
+    response_model=schemas.AuthResponse,
+    responses={404: {"model": schemas.AuthFailed}},
 )
-def login(user_details: UserInput):
+def login(user_details: schemas.UserInput):
     email = user_details.email
     try:
         user = User.objects.get(email=email)
