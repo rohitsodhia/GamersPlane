@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status
+from pydantic import UUID1
 
 from helpers.functions import error_response
 from helpers.email import get_template, send_email
@@ -67,17 +68,20 @@ def register(user_details: schemas.Register):
         )
 
 
-# @authorization.route("/activate/<token>", methods=["POST"])
-# def activate_user(token):
-#     try:
-#         account_activation_token = AccountActivationToken.objects.get(token=token)
-#     except AccountActivationToken.DoesNotExist:
-#         return response.errors({"invalid_token": True})
+@authorization.post("/activate/{token}")
+def activate_user(token: UUID1):
+    try:
+        account_activation_token = AccountActivationToken.objects.get(token=token)
+    except AccountActivationToken.DoesNotExist:
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"invalid_token": True},
+        )
 
-#     user = account_activation_token.user
-#     user.activate()
-#     account_activation_token.use()
-#     return response.success()
+    user = account_activation_token.user
+    user.activate()
+    account_activation_token.use()
+    return {}
 
 
 # @authorization.route("/password_reset", methods=["POST"])
