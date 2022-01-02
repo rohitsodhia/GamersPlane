@@ -25,8 +25,12 @@ class AuthResponse(BaseModel):
     user: Dict
 
 
-class AuthFailed(BaseModel):
+class AuthFailedBody(BaseModel):
     invalid_user = True
+
+
+class AuthFailed(BaseModel):
+    error: AuthFailedBody
 
 
 @authorization.post(
