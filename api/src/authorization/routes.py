@@ -34,35 +34,37 @@ def login(user_details: schemas.UserInput):
             }
     return error_response(
         status_code=status.HTTP_404_NOT_FOUND,
-        content={"errors": {"invalid_user": True}},
+        content={"invalid_user": True},
     )
 
 
-# @authorization.route("/register", methods=["POST"])
-# def register():
-#     errors = {}
+@authorization.post(
+    "/register",
+    response_model=schemas.Register,
+)
+def register(user_details: schemas.Register):
+    errors = {}
+    pass_invalid = User.validate_password(user_details.password)
+    if pass_invalid:
+        errors["pass_errors"] = pass_invalid
 
-#     fields_missing = require_values(request.json, ["email", "username", "password"])
-#     if len(fields_missing):
-#         errors["fields_missing"] = fields_missing
+    if len(errors):
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=errors,
+        )
 
-#     email = request.json["email"]
-#     username = request.json["username"]
-#     password = request.json["password"]
-#     if password:
-#         pass_invalid = User.validate_password(password)
-#         if len(pass_invalid):
-#             errors["pass_errors"] = pass_invalid
-
-#     if len(errors):
-#         return response.errors(errors)
-
-#     try:
-#         users_functions.register_user(email=email, username=username, password=password)
-#     except UserExists as e:
-#         response.errors(e.errors)
-
-#     return response.success()
+    try:
+        users_functions.register_user(
+            email=user_details.email,
+            username=user_details.username,
+            password=user_details.password,
+        )
+    except UserExists as e:
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=e.errors,
+        )
 
 
 # @authorization.route("/activate/<token>", methods=["POST"])

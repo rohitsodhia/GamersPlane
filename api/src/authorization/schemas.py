@@ -1,10 +1,10 @@
 from typing import Dict
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserInput(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=7)
 
 
 class AuthResponse(BaseModel):
@@ -19,3 +19,7 @@ class AuthFailedBody(BaseModel):
 
 class AuthFailed(BaseModel):
     error: AuthFailedBody
+
+
+class Register(UserInput):
+    username: str = Field(..., regex="^[a-zA-Z]")
