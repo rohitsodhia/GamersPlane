@@ -2,6 +2,10 @@ from typing import Dict
 from pydantic import BaseModel, EmailStr, Field
 
 
+class ErrorResponse(BaseModel):
+    error: BaseModel
+
+
 class UserInput(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=7)
@@ -13,12 +17,8 @@ class AuthResponse(BaseModel):
     user: Dict
 
 
-class AuthFailedBody(BaseModel):
-    invalid_user = True
-
-
 class AuthFailed(BaseModel):
-    error: AuthFailedBody
+    invalid_user = True
 
 
 class Register(UserInput):
