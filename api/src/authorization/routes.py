@@ -1,6 +1,7 @@
-from fastapi import APIRouter, status
-from pydantic import UUID1
+from fastapi import APIRouter, status, Body
+from pydantic import UUID1, EmailStr
 
+from envs import HOST_NAME
 from helpers.functions import error_response
 from helpers.email import get_template, send_email
 
@@ -84,30 +85,29 @@ def activate_user(token: UUID1):
     return {}
 
 
-# @authorization.route("/password_reset", methods=["POST"])
-# def generate_password_reset():
-#     fields_missing = require_values(request.json, ["email"])
-#     if len(fields_missing):
-#         return response.errors({"fields_missing": fields_missing})
+@authorization.post("/password_reset")
+def generate_password_reset(email: EmailStr = Body(..., embed=True)):
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"no_account": True},
+        )
 
-#     email = request.json["email"]
-#     try:
-#         user = User.objects.get(email=email)
-#     except User.DoesNotExist:
-#         return response.errors({"no_account": True})
+    try:
+        password_reset = PasswordResetToken.objects.get(user=user)
+    except PasswordResetToken.DoesNotExist:
+        password_reset = PasswordResetToken(user=user)
+        password_reset.save()
+    email_content = get_template(
+        "authorization/templates/reset_password.html",
+        reset_link=f"{HOST_NAME}/activate/{password_reset.token}",
+    )
+    print(email_content)
+    send_email(email, "Password reset for Gamers' Plane", email_content)
 
-#     try:
-#         password_reset = PasswordResetToken.objects.get(user=user)
-#     except PasswordResetToken.DoesNotExist:
-#         password_reset = PasswordResetToken(user=user)
-#         password_reset.save()
-#     email_content = get_template(
-#         "authorization/templates/reset_password.html",
-#         reset_link="http://gamersplane.com/auth/resetPass/" + password_reset.token,
-#     )
-#     send_email(email, "Password reset for Gamers' Plane", email_content)
-
-#     return response.success()
+    return {}
 
 
 # @authorization.route("/password_reset", methods=["GET"])
