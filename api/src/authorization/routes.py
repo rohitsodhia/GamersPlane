@@ -18,7 +18,7 @@ authorization = APIRouter(prefix="/auth")
 @authorization.post(
     "/login",
     response_model=schemas.AuthResponse,
-    responses={404: {"model": schemas.ErrorResponse(error=schemas.AuthFailed)}},
+    responses={404: {"model": schemas.ErrorResponse(error=schemas.AuthFailed())}},
 )
 def login(user_details: schemas.UserInput):
     email = user_details.email
