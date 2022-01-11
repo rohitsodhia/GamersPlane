@@ -104,7 +104,6 @@ def generate_password_reset(email: EmailStr = Body(..., embed=True)):
         "authorization/templates/reset_password.html",
         reset_link=f"{HOST_NAME}/activate/{password_reset.token}",
     )
-    print(email_content)
     send_email(email, "Password reset for Gamers' Plane", email_content)
 
     return {}
