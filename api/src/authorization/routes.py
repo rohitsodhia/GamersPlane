@@ -109,16 +109,13 @@ def generate_password_reset(email: EmailStr = Body(..., embed=True)):
     return {}
 
 
-# @authorization.route("/password_reset", methods=["GET"])
-# def check_password_reset():
-#     fields_missing = require_values(request.args, ["email", "token"])
-#     if len(fields_missing):
-#         return response.errors({"fields_missing": fields_missing})
-
-#     valid_token = PasswordResetToken.validate_token(
-#         token=request.args.get("token"), email=request.args.get("email")
-#     )
-#     return response.success({"valid_token": valid_token})
+@authorization.get(
+    "/password_reset",
+    response_model=schemas.PasswordResetResponse,
+)
+def check_password_reset(email: EmailStr, token: str):
+    valid_token = PasswordResetToken.validate_token(token=token, email=email)
+    return {"valid_token": valid_token}
 
 
 # @authorization.route("/password_reset", methods=["PATCH"])

@@ -23,3 +23,7 @@ class AuthFailed(BaseModel):
 
 class Register(UserInput):
     username: str = Field(..., regex="^[a-zA-Z]")
+
+
+class PasswordResetResponse(BaseModel):
+    valid_token: str
