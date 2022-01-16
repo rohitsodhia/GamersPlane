@@ -4,6 +4,7 @@ from pydantic import UUID1, EmailStr
 from envs import HOST_NAME
 from helpers.functions import error_response
 from helpers.email import get_template, send_email
+from schemas import ErrorResponse
 
 from authorization import schemas
 from users.models import User
@@ -18,7 +19,7 @@ authorization = APIRouter(prefix="/auth")
 @authorization.post(
     "/login",
     response_model=schemas.AuthResponse,
-    responses={404: {"model": schemas.ErrorResponse(error=schemas.AuthFailed())}},
+    responses={404: {"model": ErrorResponse(error=schemas.AuthFailed())}},
 )
 def login(user_details: schemas.UserInput):
     email = user_details.email

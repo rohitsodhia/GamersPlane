@@ -4,10 +4,6 @@ from pydantic import BaseModel, EmailStr, Field
 from fields import Password
 
 
-class ErrorResponse(BaseModel):
-    error: BaseModel
-
-
 class UserInput(BaseModel):
     email: EmailStr
     password: Password
