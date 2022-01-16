@@ -1,5 +1,5 @@
 from typing import List, Dict
-import datetime
+from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
 
 
