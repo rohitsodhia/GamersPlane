@@ -118,37 +118,29 @@ def check_password_reset(email: EmailStr, token: str):
     return {"valid_token": valid_token}
 
 
-# @authorization.route("/password_reset", methods=["PATCH"])
-# def reset_password():
-#     fields_missing = require_values(
-#         request.json, ["email", "token", "password", "confirm_password"]
-#     )
-#     if len(fields_missing):
-#         return response.errors({"fields_missing": fields_missing})
+@authorization.patch("/password_reset")
+def reset_password(reset_details: schemas.ResetPasswordInput):
+    password_reset = PasswordResetToken.validate_token(
+        token=reset_details.token, email=reset_details.email, get_obj=True
+    )
+    if not password_reset:
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND, content={"invalid_token": True}
+        )
 
-#     password_reset = PasswordResetToken.validate_token(
-#         token=request.json.get("token"), email=request.json.get("email"), get_obj=True
-#     )
-#     if not password_reset:
-#         return response.errors({"invalid_token": True})
+    errors = {}
+    if reset_details.password != reset_details.confirm_password:
+        errors["password_mismatch"] = True
+    pass_invalid = User.validate_password(reset_details.password)
+    if len(pass_invalid):
+        errors["pass_errors"] = pass_invalid
 
-#     errors = {}
-#     password, confirm_password = (
-#         request.json["password"],
-#         request.json["confirm_password"],
-#     )
-#     if password != confirm_password:
-#         errors["password_mismatch"] = True
-#     pass_invalid = User.validate_password(password)
-#     if len(pass_invalid):
-#         errors["pass_errors"] = pass_invalid
+    if errors:
+        return error_response(status_code=status.HTTP_400_BAD_REQUEST, content=errors)
 
-#     if errors:
-#         return response.errors(errors)
+    user = password_reset.user
+    user.set_password(reset_details.password)
+    user.save()
+    password_reset.use()
 
-#     user = password_reset.user
-#     user.set_password(password)
-#     user.save()
-#     password_reset.use()
-
-#     return response.success({})
+    return {}
