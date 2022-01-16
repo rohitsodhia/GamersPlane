@@ -11,8 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # import middleware
 from authorization.routes import authorization
+from users.routes import users
 
-# from users.routes import users
 # from referral_links.routes import referral_links
 # from systems.routes import systems
 # from permissions.roles_routes import roles
@@ -34,7 +34,7 @@ def create_app():
     # app.before_request(middleware.validate_jwt)
 
     app.include_router(authorization)
-    # app.register_blueprint(users)
+    app.include_router(users)
     # app.register_blueprint(referral_links)
     # app.register_blueprint(systems)
     # app.register_blueprint(roles)

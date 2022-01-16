@@ -1,17 +1,23 @@
-from flask import Blueprint, request
+from os import error
+from fastapi import APIRouter, status
 
-from helpers.response import response
-from helpers.endpoint import require_values
+from helpers.functions import error_response
 
+from users import schemas
 from users.models import User
 
-users = Blueprint("users", __name__, url_prefix="/users")
+users = APIRouter(prefix="/users")
 
 
-@users.route("/<id>", methods=["GET"])
-def get_user(id):
+@users.get(
+    "/{id}",
+    response_model=schemas.GetUserResponse,
+)
+def get_user(id: int):
     try:
         user = User.objects.get(id=id)
     except User.DoesNotExist:
-        return response.errors({"noUser": True})
-    return response.success({"user": user.to_dict()})
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND, content={"noUser": True}
+        )
+    return {"user": user.to_dict()}
