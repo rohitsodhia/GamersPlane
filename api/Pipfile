@@ -20,7 +20,7 @@ pytest-django = "*"
 pytest-factoryboy = "*"
 
 [packages]
-bcrypt = "*"
+bcrypt = "~=3.2"
 django = "~=3.0"
 django-mysql = "*"
 django-redis = "*"
