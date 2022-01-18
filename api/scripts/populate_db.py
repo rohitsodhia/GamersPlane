@@ -1,11 +1,14 @@
 #!/usr/local/bin/python
 
-import sys
+import sys, os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 code_path = Path("../")
+sys.path.append(str((code_path / ".").resolve()))
+sys.path.append(str((code_path / "src").resolve()))
+
 load_dotenv(code_path / ".env")
 
 import django
@@ -22,8 +25,15 @@ from permissions.functions import create_permission
 from systems.models import System, Genre, Publisher
 from forums.models import Forum
 
-sys.path.append(str(code_path / "tests"))
-from generators import mimesis, UserFactory
+# sys.path.append(str((code_path / "tests").resolve()))
+# from factories import mimesis, UserFactory
+
+import random
+import math
+from mimesis import Generic
+
+random_seed = math.floor(random.random() * 100000)
+mimesis = Generic(seed=random_seed)
 
 print("\n\n")
 
