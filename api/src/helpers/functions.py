@@ -4,7 +4,9 @@ import inflect
 infe = inflect.engine()
 
 
-def error_response(status_code: int, content: dict) -> JSONResponse:
+def error_response(status_code: int, content: dict = None) -> JSONResponse:
+    if content == None:
+        content = {}
     return JSONResponse(status_code=status_code, content={"errors": content})
 
 
