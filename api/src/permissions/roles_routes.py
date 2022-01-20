@@ -1,26 +1,24 @@
-from flask import Blueprint, request, g
+from fastapi import APIRouter
 from django.db import models
 
+from globals import g
 from helpers.decorators import logged_in
-from helpers.response import response
-from helpers.endpoint import require_values
 
 from users.models import User
 from permissions.models import Role, Permission
 from permissions.models.permission import ValidPermissions
 
-roles = Blueprint("roles", __name__, url_prefix="/roles")
+roles = APIRouter(prefix="/roles")
 
 
-@roles.route("/", methods=["GET"])
+@roles.get("/")
 @logged_in
-def list_roles():
-    args = request.args
+def list_roles(filter: str = None, all: bool = False):
     roles = Role.objects
-    if args.get("filter"):
-        roles = roles.filter(name__icontains=args.get("filter"))
-    if not args.get("all") and not g.user.admin:
-        roles = roles.filter(users__id=g.user.id)
+    if filter:
+        roles = roles.filter(name__icontains=filter)
+    if not all and not g.current_user.admin:
+        roles = roles.filter(users__id=g.current_user.user.id)
     if not issubclass(type(roles), models.QuerySet):
         roles = roles.all()
     roles_list = []
@@ -33,8 +31,8 @@ def list_roles():
                     "id": role.owner.id,
                     "username": role.owner.username,
                 },
-                "member": bool(role.users.filter(id=g.user.id)),
-                "admin": g.user.admin,
+                "member": bool(role.users.filter(id=g.current_user.id)),
+                "admin": g.current_user.admin,
             }
         )
     role_admins = [
@@ -47,12 +45,12 @@ def list_roles():
         if role["id"] in role_admins:
             role["admin"] = True
 
-    return response.success({"roles": roles_list})
+    return {"roles": roles_list}
 
 
-@roles.route("/<user_id>", methods=["GET"])
+@roles.get("/{user_id}")
 @logged_in(permissions="manage_users")
-def list_user_roles(user_id):
+def list_user_roles(user_id: int):
     user = User.objects.get(id=user_id)
     roles_list = []
     for role in user.roles.all():
@@ -64,8 +62,8 @@ def list_user_roles(user_id):
                     "id": role.owner.id,
                     "username": role.owner.username,
                 },
-                "member": bool(role.users.filter(id=g.user.id)),
-                "admin": g.user.admin,
+                "member": bool(role.users.filter(id=g.current_user.id)),
+                "admin": g.current_user.admin,
             }
         )
     role_admins = []
@@ -76,4 +74,4 @@ def list_user_roles(user_id):
         if role["id"] in role_admins:
             role["admin"] = True
 
-    return response.success({"roles": roles_list})
+    return {"roles": roles_list}
