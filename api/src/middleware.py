@@ -1,25 +1,20 @@
 import os
 import jwt
 
-from flask import g, request
+from fastapi import Request
+from asgiref.sync import sync_to_async
 
 import envs
-from helpers.response import response
+from globals import g
 
 from users.models import User
 
 
-def initialize():
-    response.reset()
-
-
-def validate_jwt():
-    g.user = None
+async def validate_jwt(request: Request, call_next):
+    g.current_user = None
 
     token = request.headers.get("Authorization")
-    if token[:7] != "Bearer ":
-        return
-    if token:
+    if token and token[:7] == "Bearer ":
         token = token[7:]
         try:
             jwt_body = jwt.decode(
@@ -28,10 +23,12 @@ def validate_jwt():
                 algorithms=envs.JWT_ALGORITHM,
             )
         except jwt.ExpiredSignatureError:
-            return
+            return call_next(request)
 
-        try:
-            user = User.objects.get(id=jwt_body["user_id"])
-        except User.DoesNotExist:
-            return
-        g.user = user
+    try:
+        g.current_user = await sync_to_async(User.objects.get)(id=jwt_body["user_id"])
+    except User.DoesNotExist:
+        pass
+
+    response = await call_next(request)
+    return response

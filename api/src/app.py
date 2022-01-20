@@ -8,8 +8,9 @@ from random import seed
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
-# import middleware
+import middleware
 from authorization.routes import authorization
 from referral_links.routes import referral_links
 from systems.routes import systems
@@ -30,8 +31,10 @@ def create_app():
         allow_origins=["*"],
     )
 
-    # app.before_request(middleware.initialize)
-    # app.before_request(middleware.validate_jwt)
+    app.add_middleware(
+        BaseHTTPMiddleware,
+        dispatch=middleware.validate_jwt,
+    )
 
     app.include_router(authorization)
     app.include_router(referral_links)
