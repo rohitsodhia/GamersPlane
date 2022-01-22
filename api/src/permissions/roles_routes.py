@@ -7,11 +7,12 @@ from helpers.decorators import logged_in
 from users.models import User
 from permissions.models import Role, Permission
 from permissions.models.permission import ValidPermissions
+from permissions import schemas
 
 roles = APIRouter(prefix="/roles")
 
 
-@roles.get("/")
+@roles.get("/", response_model=schemas.RoleListResponse)
 @logged_in
 def list_roles(filter: str = None, all: bool = False):
     roles = Role.objects
@@ -48,7 +49,7 @@ def list_roles(filter: str = None, all: bool = False):
     return {"roles": roles_list}
 
 
-@roles.get("/{user_id}")
+@roles.get("/{user_id}", response_model=schemas.RoleListResponse)
 @logged_in(permissions="manage_users")
 def list_user_roles(user_id: int):
     user = User.objects.get(id=user_id)
