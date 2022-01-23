@@ -23,7 +23,7 @@ def get_template(template: str, **kwargs) -> str:
 
     template = env.get_template(template)
 
-    output = template.render(**kwargs)
+    output = template.render(site_domain=envs.HOST_NAME, **kwargs)
     return output
 
 

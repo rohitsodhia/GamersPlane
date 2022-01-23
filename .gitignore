@@ -1,19 +1,23 @@
-# See http://help.github.com/ignore-files/ for more about ignoring files.
+# Editor
+.vscode/
+.idea/
 
-# IDEs, editors, and caches
-.idea
-.project
-.classpath
-.pytest_cache
+# File types
+*.ods
+*.csv
+*.txt
+*.psd
+*.ai
+*.doc
+*.pdf
+*.sql
+*.zip
+styles/**/*.css
 
-# IDE - VSCode
-.vscode
-# !.vscode/settings.json
-# !.vscode/tasks.json
-# !.vscode/launch.json
-# !.vscode/extensions.json
-
+# Specific files
 .env
-*/Gamers_Plane.egg-info
-*/.devcontainer
 docker-compose.override.yml
+
+# Folders
+logs/
+.pytest_cache

@@ -1,13 +1,12 @@
-from flask import Blueprint
+from fastapi import APIRouter
 
-from helpers.response import response
-
+from referral_links import schemas
 from referral_links.models import ReferralLink
 
-referral_links = Blueprint("referral_links", __name__, url_prefix="/referral_links")
+referral_links = APIRouter(prefix="/referral_links")
 
 
-@referral_links.route("/", methods=["GET"])
+@referral_links.get("/", response_model=schemas.GetReferralLinksResponse)
 def get_referral_links():
     links = ReferralLink.objects.order_by("order").values()
-    return response.success({"referralLinks": [link for link in links]})
+    return {"referralLinks": [link for link in links]}

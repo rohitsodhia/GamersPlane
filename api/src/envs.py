@@ -2,7 +2,7 @@ import os
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
 
-SERVER_NAME = os.getenv("SERVER_NAME")
+HOST_NAME = os.getenv("HOST_NAME")
 
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")

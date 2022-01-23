@@ -10,17 +10,17 @@ RUN apk update && \
 
 RUN pip install --upgrade pip
 RUN pip install supervisor pipenv
-COPY ./Pipfile /usr/src/app/Pipfile
-RUN pipenv install --skip-lock --system --dev
+COPY ./Pipfile* /usr/src/app/
+RUN pipenv install --deploy --system --dev
 
 # COPY ./entrypoint.sh /usr/src/app/entrypoint.sh
 
 COPY . /usr/src/app/
 WORKDIR /usr/src/app/src
 
-ENV PYTHONPATH="$PYTHONPATH:/usr/src/app/src"
+# ENV PYTHONPATH="$PYTHONPATH:/usr/src/app/src"
 ENV DJANGO_SETTINGS_MODULE='django_conf'
 
 # ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
 
-CMD [ "gunicorn", "app:create_app()", "--bind", "0.0.0.0:8000" ]
+CMD [ "uvicorn", "app:create_app()", "--bind", "0.0.0.0:8000" ]

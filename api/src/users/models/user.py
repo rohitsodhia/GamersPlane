@@ -2,7 +2,6 @@ import bcrypt
 import datetime
 import jwt
 from typing import List
-
 from django.db import models, connection
 
 from envs import JWT_ALGORITHM, JWT_SECRET_KEY

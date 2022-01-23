@@ -1,88 +1,100 @@
-from flask import Blueprint, request
+from fastapi import APIRouter, status, Body
+from pydantic import UUID1, EmailStr
 
-from helpers.response import response
-from helpers.endpoint import require_values
+from envs import HOST_NAME
+from helpers.functions import error_response
 from helpers.email import get_template, send_email
+from schemas import ErrorResponse
 
+from authorization import schemas
 from users.models import User
 from users import functions as users_functions
 from users.exceptions import UserExists
 from tokens.models import AccountActivationToken, PasswordResetToken
 
-authorization = Blueprint("authorization", __name__, url_prefix="/auth")
+
+authorization = APIRouter(prefix="/auth")
 
 
-@authorization.route("/login", methods=["POST"])
-def login():
-    fields_missing = require_values(request.json, ["email", "password"])
-    if len(fields_missing):
-        return response.errors({"fields_missing": fields_missing})
-
-    email = request.json["email"]
+@authorization.post(
+    "/login",
+    response_model=schemas.AuthResponse,
+    responses={404: {"model": ErrorResponse(error=schemas.AuthFailed())}},
+)
+def login(user_details: schemas.UserInput):
+    email = user_details.email
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
         user = None
     if user:
-        password = request.json["password"]
+        password = user_details.password
         if user.check_pass(password):
-            return response.success(
-                {"logged_in": True, "jwt": user.generate_jwt(), "user": user.to_dict()}
-            )
-    return response.errors({"invalid_user": True})
+            return {
+                "logged_in": True,
+                "jwt": user.generate_jwt(),
+                "user": user.to_dict(),
+            }
+    return error_response(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"invalid_user": True},
+    )
 
 
-@authorization.route("/register", methods=["POST"])
-def register():
+@authorization.post(
+    "/register",
+    response_model=schemas.Register,
+)
+def register(user_details: schemas.Register):
     errors = {}
-
-    fields_missing = require_values(request.json, ["email", "username", "password"])
-    if len(fields_missing):
-        errors["fields_missing"] = fields_missing
-
-    email = request.json["email"]
-    username = request.json["username"]
-    password = request.json["password"]
-    if password:
-        pass_invalid = User.validate_password(password)
-        if len(pass_invalid):
-            errors["pass_errors"] = pass_invalid
+    pass_invalid = User.validate_password(user_details.password)
+    if pass_invalid:
+        errors["pass_errors"] = pass_invalid
 
     if len(errors):
-        return response.errors(errors)
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=errors,
+        )
 
     try:
-        users_functions.register_user(email=email, username=username, password=password)
+        users_functions.register_user(
+            email=user_details.email,
+            username=user_details.username,
+            password=user_details.password,
+        )
     except UserExists as e:
-        response.errors(e.errors)
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=e.errors,
+        )
 
-    return response.success()
 
-
-@authorization.route("/activate/<token>", methods=["POST"])
-def activate_user(token):
+@authorization.post("/activate/{token}")
+def activate_user(token: UUID1):
     try:
         account_activation_token = AccountActivationToken.objects.get(token=token)
     except AccountActivationToken.DoesNotExist:
-        return response.errors({"invalid_token": True})
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"invalid_token": True},
+        )
 
     user = account_activation_token.user
     user.activate()
     account_activation_token.use()
-    return response.success()
+    return {}
 
 
-@authorization.route("/password_reset", methods=["POST"])
-def generate_password_reset():
-    fields_missing = require_values(request.json, ["email"])
-    if len(fields_missing):
-        return response.errors({"fields_missing": fields_missing})
-
-    email = request.json["email"]
+@authorization.post("/password_reset")
+def generate_password_reset(email: EmailStr = Body(..., embed=True)):
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
-        return response.errors({"no_account": True})
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"no_account": True},
+        )
 
     try:
         password_reset = PasswordResetToken.objects.get(user=user)
@@ -91,56 +103,45 @@ def generate_password_reset():
         password_reset.save()
     email_content = get_template(
         "authorization/templates/reset_password.html",
-        reset_link="http://gamersplane.com/auth/resetPass/" + password_reset.token,
+        reset_link=f"{HOST_NAME}/activate/{password_reset.token}",
     )
     send_email(email, "Password reset for Gamers' Plane", email_content)
 
-    return response.success()
+    return {}
 
 
-@authorization.route("/password_reset", methods=["GET"])
-def check_password_reset():
-    fields_missing = require_values(request.args, ["email", "token"])
-    if len(fields_missing):
-        return response.errors({"fields_missing": fields_missing})
-
-    valid_token = PasswordResetToken.validate_token(
-        token=request.args.get("token"), email=request.args.get("email")
-    )
-    return response.success({"valid_token": valid_token})
+@authorization.get(
+    "/password_reset",
+    response_model=schemas.PasswordResetResponse,
+)
+def check_password_reset(email: EmailStr, token: str):
+    valid_token = PasswordResetToken.validate_token(token=token, email=email)
+    return {"valid_token": valid_token}
 
 
-@authorization.route("/password_reset", methods=["PATCH"])
-def reset_password():
-    fields_missing = require_values(
-        request.json, ["email", "token", "password", "confirm_password"]
-    )
-    if len(fields_missing):
-        return response.errors({"fields_missing": fields_missing})
-
+@authorization.patch("/password_reset")
+def reset_password(reset_details: schemas.ResetPasswordInput):
     password_reset = PasswordResetToken.validate_token(
-        token=request.json.get("token"), email=request.json.get("email"), get_obj=True
+        token=reset_details.token, email=reset_details.email, get_obj=True
     )
     if not password_reset:
-        return response.errors({"invalid_token": True})
+        return error_response(
+            status_code=status.HTTP_404_NOT_FOUND, content={"invalid_token": True}
+        )
 
     errors = {}
-    password, confirm_password = (
-        request.json["password"],
-        request.json["confirm_password"],
-    )
-    if password != confirm_password:
+    if reset_details.password != reset_details.confirm_password:
         errors["password_mismatch"] = True
-    pass_invalid = User.validate_password(password)
+    pass_invalid = User.validate_password(reset_details.password)
     if len(pass_invalid):
         errors["pass_errors"] = pass_invalid
 
     if errors:
-        return response.errors(errors)
+        return error_response(status_code=status.HTTP_400_BAD_REQUEST, content=errors)
 
     user = password_reset.user
-    user.set_password(password)
+    user.set_password(reset_details.password)
     user.save()
     password_reset.use()
 
-    return response.success({})
+    return {}

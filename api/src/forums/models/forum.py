@@ -14,7 +14,7 @@ class HeritageField(models.CharField):
         super().__init__(*args, **kwargs)
 
     def from_db_value(self, value, expression, connection):
-        if value == "":
+        if not value:
             return []
         return [int(id) for id in value.split("-")]
 
@@ -51,17 +51,19 @@ class Forum(SoftDeleteModel, TimestampedModel):
     @property
     def children(self):
         children_ids = cache.get(
-            generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": id}), []
+            generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": self.id}), []
         )
         if children_ids:
-            cache.touch(generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": id}))
+            cache.touch(
+                generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": self.id})
+            )
             children_objs: List[Forum] = get_objects_by_id(
                 children_ids, Forum, CacheKeys.FORUM_DETAILS.value
             )
         else:
             children_objs = Forum.objects.filter(parent=self.id).order_by("order")
             cache.set(
-                generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": id}),
+                generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": self.id}),
                 [obj.id for obj in children_objs],
             )
         children = [obj for obj in children_objs]
@@ -70,12 +72,12 @@ class Forum(SoftDeleteModel, TimestampedModel):
     def save(self, *args, **kwargs):
         if not self.order:
             children_ids = cache.get(
-                generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": id}), []
+                generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": self.id}), []
             )
             if children_ids:
                 num_children = len(children_ids)
                 cache.touch(
-                    generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": id})
+                    generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": self.id})
                 )
             else:
                 children = Forum.objects.filter(parent=self.parent.id)
@@ -83,7 +85,9 @@ class Forum(SoftDeleteModel, TimestampedModel):
                 if children.count():
                     children_ids = [child["id"] for child in children.values("id")]
                     cache.set(
-                        generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": id}),
+                        generate_cache_id(
+                            CacheKeys.FORUM_CHILDREN.value, {"id": self.id}
+                        ),
                         children_ids,
                     )
                 num_children = len(children_ids)

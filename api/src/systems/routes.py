@@ -1,16 +1,16 @@
-from flask import Blueprint, request
+from fastapi import APIRouter, Body
 
-from helpers.response import response
+from systems import schemas
 from systems.models import System
 
-systems = Blueprint("systems", __name__, url_prefix="/systems")
+systems = APIRouter(prefix="/systems")
 
 
-@systems.route("/", methods=["GET"])
-def get_systems():
+@systems.get("/", response_model=schemas.GetSystemsResponse)
+def get_systems(basic: bool = Body(False, embed=True)):
     systems = System.objects
-    if request.values.get("basic"):
+    if basic:
         systems = systems.basic()
     systems = systems.order_by("sortName").values()
 
-    return response.success({"systems": [system for system in systems]})
+    return {"systems": [system for system in systems]}

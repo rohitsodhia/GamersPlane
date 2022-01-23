@@ -6,34 +6,42 @@ if __name__ == "app":
 
 from random import seed
 
-from flask import Flask
-from flask_cors import CORS
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 import middleware
 from authorization.routes import authorization
-from users.routes import users
+from forums.forums_routes import forums
+from permissions.roles_routes import roles
 from referral_links.routes import referral_links
 from systems.routes import systems
-from permissions.roles_routes import roles
-from permissions.permissions_routes import permissions
-from forums.forums_routes import forums
+from users.routes import users
+
+# from permissions.permissions_routes import permissions
 
 seed()
 
 
 def create_app():
-    app = Flask(__name__)
-    CORS(app, origins="*")
+    app = FastAPI()
 
-    app.before_request(middleware.initialize)
-    app.before_request(middleware.validate_jwt)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+    )
 
-    app.register_blueprint(authorization)
-    app.register_blueprint(users)
-    app.register_blueprint(referral_links)
-    app.register_blueprint(systems)
-    app.register_blueprint(roles)
-    app.register_blueprint(permissions)
-    app.register_blueprint(forums)
+    app.add_middleware(
+        BaseHTTPMiddleware,
+        dispatch=middleware.validate_jwt,
+    )
+
+    app.include_router(authorization)
+    app.include_router(forums)
+    # app.include_router(permissions)
+    app.include_router(referral_links)
+    app.include_router(roles)
+    app.include_router(systems)
+    app.include_router(users)
 
     return app
