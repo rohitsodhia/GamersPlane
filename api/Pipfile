@@ -31,7 +31,7 @@ fastapi = "~=0.70"
 inflect = "~=5.3"
 jinja2 = "~=3.0"
 mysqlclient = "~=2.1"
-pyjwt = "~=2.3"
+pyjwt = "~=2.4"
 python-dotenv = "~=0.19"
 typing-extensions = "~=4.0"
 uvicorn = {extras = ["standard"], version = "~=0.17"}
