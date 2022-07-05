@@ -21,7 +21,7 @@ pytest-factoryboy = "~=2.1"
 
 [packages]
 bcrypt = "~=3.2"
-django = "~=3.0"
+django = "~=3.2"
 django-mysql = "~=4.4"
 django-redis = "~=5.2"
 djangorestframework = "~=3.13"
