@@ -1,14 +1,15 @@
-from flask import Blueprint, request
+from fastapi import APIRouter, status
+
+from helpers.cache import CacheKeys, get_objects_by_id, set_cache
+from helpers.functions import error_response
 
 from helpers.decorators import logged_in
-from helpers.response import response
-from helpers.endpoint import require_values
 
-permissions = Blueprint("permissions", __name__, url_prefix="/permissions")
+permissions = APIRouter(prefix="/permissions")
 
 
-@permissions.route("/", methods=["GET"])
 @logged_in
+@permissions.get("/")
 def list_permissions():
 
     pass

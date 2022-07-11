@@ -74,7 +74,7 @@ test_role_1 = Role(name="Test Role 1", owner=extra_users[0])
 test_role_1.save()
 extra_users[0].roles.add(test_role_1)
 test_role_1_admin_permission = create_permission(
-    ValidPermissions.ROLE_ADMIN, test_role_1.id
+    ValidPermissions.ROLE_ADMIN, role_id=test_role_1.id
 )
 test_role_1.permissions.add(test_role_1_admin_permission)
 
