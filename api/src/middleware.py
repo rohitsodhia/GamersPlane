@@ -23,7 +23,7 @@ async def validate_jwt(request: Request, call_next):
                 algorithms=envs.JWT_ALGORITHM,
             )
         except jwt.ExpiredSignatureError:
-            return call_next(request)
+            return await call_next(request)
 
     try:
         g.current_user = await sync_to_async(User.objects.get)(id=jwt_body["user_id"])
