@@ -4,13 +4,13 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [requires]
-python_version = "3.8"
+python_version = "3.9"
 
 [dev-packages]
-black = "~=22.6"
+black = "~=22.8"
 icecream = "~=2.1"
 ipdb = "~=0.13"
-mimesis = "~=5.5"
+mimesis = "~=6.1"
 pdbpp = "~=0.10"
 pytest = "~=7.1"
 pytest-django = "~=4.5"
@@ -21,14 +21,14 @@ bcrypt = "~=3.2"
 django = "~=4.0"
 django-mysql = "~=4.7"
 django-redis = "~=5.2"
-djangorestframework = "~=3.13"
+djangorestframework = "~=3.14"
 djantic = "~=0.7"
-email-validator = "~=1.2"
-fastapi = "~=0.78"
-inflect = "~=5.6"
+email-validator = "~=1.3"
+fastapi = "~=0.85"
+inflect = "~=6.0"
 jinja2 = "~=3.1"
 mysqlclient = "~=2.1"
-pyjwt = "~=2.4"
-python-dotenv = "~=0.20"
+pyjwt = "~=2.5"
+python-dotenv = "~=0.21"
 typing-extensions = "~=4.3"
-uvicorn = {extras = ["standard"], version = "~=0.18"}
+uvicorn = {extras = ["standard"]}
