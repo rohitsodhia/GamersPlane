@@ -1,4 +1,4 @@
-FROM python:3.8-alpine
+FROM python:3.9-alpine
 
 WORKDIR /usr/src/app
 
@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
 RUN apk update && \
-    apk add gcc build-base libffi-dev mariadb-dev py-bcrypt
+    apk add gcc build-base libffi-dev mariadb-dev
 
 RUN pip install --upgrade pip
 RUN pip install supervisor pipenv
