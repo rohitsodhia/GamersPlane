@@ -1,4 +1,5 @@
 apps = [
+    "django_extensions",
     "authorization",
     "referral_links",
     "systems",
