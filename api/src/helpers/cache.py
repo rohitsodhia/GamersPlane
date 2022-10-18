@@ -10,6 +10,7 @@ class CacheKeys(Enum):
     FORUM_CHILDREN = "forum_children"
     GAME_DETAILS = "game_details"
     SYSTEM_DETAILS = "system_details"
+    USER_PERMISSIONS = "user_permissions"
 
 
 CACHE_KEY_MAP = {
@@ -17,6 +18,7 @@ CACHE_KEY_MAP = {
     "forum_children": "forum:{id}:children",
     "game_details": "game:{id}",
     "system_details": "system:{id}",
+    "user_permissions": "user:{id}:permissions",
 }
 
 

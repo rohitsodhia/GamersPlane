@@ -2,9 +2,11 @@ import bcrypt
 import datetime
 import jwt
 from typing import List
+from django.core.cache import cache
 from django.db import models, connection
 
 from envs import JWT_ALGORITHM, JWT_SECRET_KEY
+from helpers.cache import generate_cache_id, CacheKeys
 
 
 class UserManager(models.Manager):
@@ -44,8 +46,7 @@ class User(models.Model):
 
     MIN_PASSWORD_LENGTH = 8
 
-    @property
-    def permissions(self) -> List[int]:
+    def _get_permissions(self):
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT DISTINCT permission FROM permissions p INNER JOIN role_permissions rp ON rp.permissionId = p.id INNER JOIN roles r ON r.id = rp.roleId INNER JOIN user_roles ur ON ur.roleId = r.id WHERE ur.userId = %s",
@@ -53,6 +54,14 @@ class User(models.Model):
             )
             permissions = cursor.fetchall()
         return list([v[0] for v in permissions])
+
+    @property
+    def permissions(self) -> List[int]:
+        permissions = cache.get_or_set(
+            generate_cache_id(CacheKeys.USER_PERMISSIONS, {"id": self.id}),
+            self._get_permissions,
+        )
+        return permissions
 
     @staticmethod
     def validate_password(password: str) -> list:
