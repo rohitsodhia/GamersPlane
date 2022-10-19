@@ -8,6 +8,7 @@ from django.db import models, connection
 
 from envs import JWT_ALGORITHM, JWT_SECRET_KEY
 from helpers.cache import generate_cache_id, CacheKeys
+from permissions.models.permission import FORUM_PERMISSION_PREFIX
 
 
 class UserManager(models.Manager):
@@ -64,6 +65,13 @@ class User(models.Model):
             self._get_permissions,
         )
         return permissions
+
+    @functools.cache
+    def get_forum_permissions(self):
+        return filter(
+            lambda permission: permission.startswith(FORUM_PERMISSION_PREFIX),
+            self.permissions,
+        )
 
     @staticmethod
     def validate_password(password: str) -> list:
