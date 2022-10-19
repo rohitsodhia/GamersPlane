@@ -1,6 +1,7 @@
 import bcrypt
 import datetime
 import jwt
+import functools
 from typing import List
 from django.core.cache import cache
 from django.db import models, connection
@@ -56,6 +57,7 @@ class User(models.Model):
         return list([v[0] for v in permissions])
 
     @property
+    @functools.cache
     def permissions(self) -> List[int]:
         permissions = cache.get_or_set(
             generate_cache_id(CacheKeys.USER_PERMISSIONS, {"id": self.id}),
