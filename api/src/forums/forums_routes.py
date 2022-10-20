@@ -1,5 +1,6 @@
 from fastapi import APIRouter, status
 
+from globals import g
 from helpers.cache import CacheKeys, get_objects_by_id, set_cache
 from helpers.functions import error_response
 
@@ -15,6 +16,8 @@ forums = APIRouter(prefix="/forums")
 def get_forums(forum_id: int = 0):
     forum = get_objects_by_id(forum_id, Forum, CacheKeys.FORUM_DETAILS.value)
     serialized_forum = ForumSerializer(forum)
+
+    permissions = forum.user_permissions(g.current_user.get_forum_permissions())
 
     return {"forum": serialized_forum.data}
 
