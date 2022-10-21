@@ -6,28 +6,35 @@ from django.db import models
 FORUM_PERMISSION_PREFIX = "forum_"
 
 
-class ValidPermissions(Enum):
-    ROLE_ADMIN = "role_admin_{role_id}"
-    FORUM_ADD_MODERATE = "{FORUM_PERMISSION_PREFIX}{}_moderate_add"
-    FORUM_REVOKE_MODERATE = "{FORUM_PERMISSION_PREFIX}{}_moderate_revoke"
-    FORUM_ADD_READ = "{FORUM_PERMISSION_PREFIX}{}_read_add"
-    FORUM_REVOKE_READ = "{FORUM_PERMISSION_PREFIX}{}_read_revoke"
-    FORUM_ADD_WRITE = "{FORUM_PERMISSION_PREFIX}{}_write_add"
-    FORUM_REVOKE_WRITE = "{FORUM_PERMISSION_PREFIX}{}_write_revoke"
-    FORUM_ADD_EDIT = "{FORUM_PERMISSION_PREFIX}{}_edit_add"
-    FORUM_REVOKE_EDIT = "{FORUM_PERMISSION_PREFIX}{}_edit_revoke"
-    FORUM_ADD_DELETE = "{FORUM_PERMISSION_PREFIX}{}_delete_add"
-    FORUM_REVOKE_DELETE = "{FORUM_PERMISSION_PREFIX}{}_delete_revoke"
-    FORUM_ADD_CREATE_THREAD = "{FORUM_PERMISSION_PREFIX}{}_create_thread_add"
-    FORUM_REVOKE_CREATE_THREAD = "{FORUM_PERMISSION_PREFIX}{}_create_thread_revoke"
-    FORUM_ADD_DELETE_THREAD = "{FORUM_PERMISSION_PREFIX}{}_delete_thread_add"
-    FORUM_REVOKE_DELETE_THREAD = "{FORUM_PERMISSION_PREFIX}{}_delete_thread_revoke"
-    FORUM_ADD_ROLLS = "{FORUM_PERMISSION_PREFIX}{}_rolls_add"
-    FORUM_REVOKE_ROLLS = "{FORUM_PERMISSION_PREFIX}{}_rolls_revoke"
-    FORUM_ADD_POLL = "{FORUM_PERMISSION_PREFIX}{}_poll_add"
-    FORUM_REVOKE_POLL = "{FORUM_PERMISSION_PREFIX}{}_poll_revoke"
-    FORUM_ADD_DRAWS = "{FORUM_PERMISSION_PREFIX}{}_draws_add"
-    FORUM_REVOKE_DRAWS = "{FORUM_PERMISSION_PREFIX}{}_draws_revoke"
+class ForumPermissions(Enum):
+    MODERATE = "moderate"
+    READ = "read"
+    WRITE = "write"
+    EDIT = "edit"
+    DELETE = "delete"
+    CREATE_THREAD = "create_thread"
+    DELETE_THREAD = "delete_thread"
+    ROLLS = "rolls"
+    POLL = "poll"
+    DRAWS = "draws"
+
+
+ValidPermissions = Enum(
+    "ValidPermissions",
+    {"ROLE_ADMIN": "role_admin_{role_id}"}
+    | {
+        f"FORUM_ADD_{permission.name}": FORUM_PERMISSION_PREFIX
+        + "{forum_id}_add_"
+        + permission.value
+        for permission in ForumPermissions
+    }
+    | {
+        f"FORUM_REVOKE_{permission.name}": FORUM_PERMISSION_PREFIX
+        + "{forum_id}_revoke_"
+        + permission.value
+        for permission in ForumPermissions
+    },
+)
 
 
 class Permission(models.Model):
