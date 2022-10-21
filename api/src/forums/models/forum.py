@@ -5,9 +5,7 @@ from django.db import models
 from django.core.cache import cache
 
 from helpers.base_models import SoftDeleteModel, TimestampedModel
-from helpers.cache import CacheKeys, generate_cache_id, get_objects_by_id
-
-from permissions.models.permission import Permission, FORUM_PERMISSION_PREFIX
+from helpers.cache import CACHE_KEY_MAP, CacheKeys, generate_cache_id, get_objects_by_id
 
 
 FORUM_PERMISSIONS = [
@@ -115,37 +113,3 @@ class Forum(SoftDeleteModel, TimestampedModel):
     def generate_heritage(self) -> None:
         if self.id:
             self.heritage = self.parent.heritage + [self.id]
-
-    def user_permissions(self, permissions: list[Permission]):
-        permissions_dict = {key: None for key in FORUM_PERMISSIONS}
-        calculated_permissions = {
-            forum_id: permissions_dict.copy() for forum_id in self.heritage
-        }
-
-        permission_starts = [
-            "{FORUM_PERMISSION_PREFIX}{id}_" for id in self.heritage + self.children
-        ]
-        forum_permissions = filter(
-            lambda permission: permission.startswith(tuple(permission_starts)),
-            permissions,
-        )
-
-        for permission in forum_permissions:
-            _, forum_id, *permission_val, grant = permission.split("_")
-            permission_val = "_".join(permission_val)
-            if grant == "revoke":
-                calculated_permissions[forum_id][permission_val] = False
-            elif (
-                calculated_permissions[forum_id][permission_val] is None
-                and grant == "add"
-            ):
-                calculated_permissions[forum_id][permission_val] = True
-
-        for forum_id in self.heritage:
-            for k, v in calculated_permissions[forum_id].items():
-                if v == False:
-                    permissions_dict[k] = False
-                elif v == True and permissions_dict[k] != False:
-                    permissions_dict[k] = True
-
-        return permissions_dict
