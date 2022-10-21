@@ -7,7 +7,9 @@ from helpers.functions import error_response
 from forums.models import Forum
 from forums.serializers import ForumSerializer
 from forums import schemas
+from forums.functions import has_permission
 from games.models import Game
+from permissions.models.permission import ForumPermissions
 
 forums = APIRouter(prefix="/forums")
 
@@ -15,10 +17,17 @@ forums = APIRouter(prefix="/forums")
 @forums.get("/{forum_id}")
 def get_forums(forum_id: int = 0):
     forum = get_objects_by_id(forum_id, Forum, CacheKeys.FORUM_DETAILS.value)
+
+    read_permission = has_permission(
+        ForumPermissions.READ,
+        g.current_user.id,
+        forum,
+        g.current_user.get_forum_permissions(),
+    )
+    if not read_permission:
+        return error_response(status_code=status.HTTP_403_FORBIDDEN)
+
     serialized_forum = ForumSerializer(forum)
-
-    permissions = forum.user_permissions(g.current_user.get_forum_permissions())
-
     return {"forum": serialized_forum.data}
 
 
