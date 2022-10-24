@@ -53,11 +53,9 @@ def _build_forum_permissions(forum: Forum, permissions: list[Permission]) -> dic
 def forum_permissions(
     user_id: int, forum: Forum, permissions: list[Permission]
 ) -> dict:
-    permissions = cache.get_or_set(
-        generate_cache_id(
-            CacheKeys.USER_FORUM_PERMISSIONS, {"user_id": user_id, "forum_id": forum.id}
-        ),
-        _build_forum_permissions,
+    cache_id = generate_cache_id(
+        CacheKeys.USER_FORUM_PERMISSIONS.value,
+        {"user_id": user_id, "forum_id": forum.id},
     )
 
     return permissions

@@ -61,7 +61,7 @@ class User(models.Model):
     @functools.cache
     def permissions(self) -> List[int]:
         permissions = cache.get_or_set(
-            generate_cache_id(CacheKeys.USER_PERMISSIONS, {"id": self.id}),
+            generate_cache_id(CacheKeys.USER_PERMISSIONS.value, {"id": self.id}),
             self._get_permissions,
         )
         return permissions
