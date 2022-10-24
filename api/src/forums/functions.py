@@ -43,7 +43,7 @@ def _build_forum_permissions(forum: Forum, permissions: list[Permission]) -> dic
                 permissions_dict[k] = True
 
     permissions_dict = {
-        permission: bool(value) for permission, value in permissions_dict
+        permission: bool(value) for permission, value in permissions_dict.items()
     }
 
     return permissions_dict
