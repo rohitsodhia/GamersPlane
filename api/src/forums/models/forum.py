@@ -30,13 +30,15 @@ class HeritageField(models.CharField):
 
     def from_db_value(self, value, expression, connection):
         if not value:
-            return []
-        return [int(id) for id in value.split("-")]
+            return [1]
+        return [1] + [int(id) for id in value.split("-")]
 
     def get_prep_value(self, value):
-        if not value:
+        if not value or value == [1]:
             return None
-        return "-".join([str(forum_id).rjust(4, "0") for forum_id in value])
+        return "-".join(
+            [str(forum_id).rjust(4, "0") for forum_id in value if forum_id != 1]
+        )
 
 
 class Forum(SoftDeleteModel, TimestampedModel):
