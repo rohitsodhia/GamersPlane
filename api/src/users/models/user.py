@@ -68,10 +68,11 @@ class User(models.Model):
 
     @functools.cache
     def get_forum_permissions(self):
-        return filter(
-            lambda permission: permission.startswith(FORUM_PERMISSION_PREFIX),
-            self.permissions,
-        )
+        return [
+            permission
+            for permission in self.permissions
+            if permission.startswith(FORUM_PERMISSION_PREFIX)
+        ]
 
     @staticmethod
     def validate_password(password: str) -> list:

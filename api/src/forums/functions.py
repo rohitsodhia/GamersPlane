@@ -19,10 +19,11 @@ def _build_forum_permissions(forum: Forum, permissions: list[Permission]) -> dic
     permission_starts = [
         "{FORUM_PERMISSION_PREFIX}{id}_" for id in forum.heritage + forum.children
     ]
-    forum_permissions = filter(
-        lambda permission: permission.startswith(tuple(permission_starts)),
-        permissions,
-    )
+    forum_permissions = [
+        permission
+        for permission in permissions
+        if permission.startswith(tuple(permission_starts))
+    ]
 
     for permission in forum_permissions:
         _, forum_id, grant, *permission_val = permission.split("_")
