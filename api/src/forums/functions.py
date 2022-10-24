@@ -8,10 +8,11 @@ from permissions.models.permission import (
     ForumPermissions,
     Permission,
 )
+from forums.schemas import PermissionsDict
 
 
 def _build_forum_permissions(forum: Forum, permissions: list[Permission]) -> dict:
-    permissions_dict = {key: None for key in FORUM_PERMISSIONS}
+    permissions_dict = {permission.value: None for permission in ForumPermissions}
     calculated_permissions = {
         forum_id: permissions_dict.copy() for forum_id in forum.heritage
     }
