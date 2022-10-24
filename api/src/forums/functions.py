@@ -50,7 +50,6 @@ def _build_forum_permissions(forum: Forum, permissions: list[Permission]) -> dic
     return permissions_dict
 
 
-@functools.cache
 def get_forum_permissions(
     user_id: int, forum: Forum, permissions: list[Permission]
 ) -> dict:
