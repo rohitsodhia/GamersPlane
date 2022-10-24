@@ -51,15 +51,20 @@ def _build_forum_permissions(forum: Forum, permissions: list[Permission]) -> dic
 
 
 @functools.cache
-def forum_permissions(
+def get_forum_permissions(
     user_id: int, forum: Forum, permissions: list[Permission]
 ) -> dict:
     cache_id = generate_cache_id(
         CacheKeys.USER_FORUM_PERMISSIONS.value,
         {"user_id": user_id, "forum_id": forum.id},
     )
+    forum_permissions = cache.get(cache_id)
+    if forum_permissions is None:
+        forum_permissions = _build_forum_permissions(forum, permissions)
+        if forum_permissions:
+            cache.set(cache_id, forum_permissions)
 
-    return permissions
+    return forum_permissions
 
 
 def has_permission(
@@ -67,6 +72,6 @@ def has_permission(
     user_id: int,
     forum: Forum,
     permissions: list[Permission],
-) -> Optional(bool):
-    forum_permissions = forum_permissions(user_id, forum, permissions)
-    return forum_permissions[permission]
+) -> Optional[bool]:
+    forum_permissions = get_forum_permissions(user_id, forum, permissions)
+    return forum_permissions[permission.value]
