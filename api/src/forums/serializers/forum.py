@@ -37,7 +37,7 @@ class ForumSerializer(serializers.ModelSerializer):
     heritage = serializers.SerializerMethodField()
 
     def get_heritage(self, obj):
-        forum_ids = [1] + obj.heritage
+        forum_ids = obj.heritage
         forums: List[Forum] = get_objects_by_id(
             forum_ids, Forum, CacheKeys.FORUM_DETAILS.value
         )
