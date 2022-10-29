@@ -66,7 +66,6 @@ class Forum(SoftDeleteModel, TimestampedModel):
     threadCount = models.IntegerField(default=0)
 
     @property
-    @functools.cache
     def children(self):
         children_ids = cache.get(
             generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": self.id}), []
@@ -78,13 +77,14 @@ class Forum(SoftDeleteModel, TimestampedModel):
             children_objs: List[Forum] = get_objects_by_id(
                 children_ids, Forum, CacheKeys.FORUM_DETAILS.value
             )
+            children = [obj for _, obj in children_objs.items()]
         else:
             children_objs = Forum.objects.filter(parent=self.id).order_by("order")
             cache.set(
                 generate_cache_id(CacheKeys.FORUM_CHILDREN.value, {"id": self.id}),
                 [obj.id for obj in children_objs],
             )
-        children = [obj for obj in children_objs]
+            children = [obj for obj in children_objs]
         return children
 
     def save(self, *args, **kwargs):

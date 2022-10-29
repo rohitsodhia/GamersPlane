@@ -1,14 +1,13 @@
-import functools
 from typing import Optional
 from django.core.cache import cache
 
 from forums.models.forum import FORUM_PERMISSIONS, Forum
 from helpers.cache import CacheKeys, generate_cache_id
 from permissions.models.permission import (
+    FORUM_PERMISSION_PREFIX,
     ForumPermissions,
     Permission,
 )
-from forums.schemas import PermissionsDict
 
 
 def _build_forum_permissions(forum: Forum, permissions: list[Permission]) -> dict:
@@ -18,7 +17,7 @@ def _build_forum_permissions(forum: Forum, permissions: list[Permission]) -> dic
     }
 
     permission_starts = [
-        "{FORUM_PERMISSION_PREFIX}{id}_" for id in forum.heritage + forum.children
+        f"{FORUM_PERMISSION_PREFIX}{id}_" for id in forum.heritage + forum.children
     ]
     forum_permissions = [
         permission
@@ -28,6 +27,7 @@ def _build_forum_permissions(forum: Forum, permissions: list[Permission]) -> dic
 
     for permission in forum_permissions:
         _, forum_id, grant, *permission_val = permission.split("_")
+        forum_id = int(forum_id)
         permission_val = "_".join(permission_val)
         if grant == "revoke":
             calculated_permissions[forum_id][permission_val] = False
