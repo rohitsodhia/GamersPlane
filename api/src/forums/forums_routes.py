@@ -41,6 +41,15 @@ def create_forum(new_forum: schemas.CreateForumInput):
     except Forum.DoesNotExist:
         invalid_values["parent"] = f'parent "{new_forum.parent}" does not exist'
 
+    moderate_permission = has_permission(
+        ForumPermissions.MODERATE,
+        g.current_user.id,
+        parent,
+        g.current_user.get_forum_permissions(),
+    )
+    if not moderate_permission:
+        return error_response(status_code=status.HTTP_403_FORBIDDEN)
+
     game = None
     if new_forum.gameId:
         game: Game = get_objects_by_id(
@@ -77,6 +86,15 @@ def update_forum(forum_id: int, forum_updates: schemas.UpdateForumInput):
         forum: Forum = get_objects_by_id(forum_id, Forum, CacheKeys.FORUM_DETAILS.value)
     except Forum.DoesNotExist:
         return error_response(status_code=status.HTTP_404_NOT_FOUND)
+
+    moderate_permission = has_permission(
+        ForumPermissions.MODERATE,
+        g.current_user.id,
+        forum,
+        g.current_user.get_forum_permissions(),
+    )
+    if not moderate_permission:
+        return error_response(status_code=status.HTTP_403_FORBIDDEN)
 
     invalid_values = {}
     if forum_updates.parent:
