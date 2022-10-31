@@ -61,7 +61,7 @@ extra_users = []
 for i in range(2):
     user = register_user(
         email=mimesis.person.email(),
-        username=mimesis.person.username(template="ld"),
+        username=mimesis.person.username(mask="ld"),
         password="test1234",
     )
     user.activate()

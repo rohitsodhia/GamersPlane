@@ -55,6 +55,7 @@ class Permission(models.Model):
             self.permission = permission.value.format(**kwargs)
         else:
             self.permission = permission.value
+        self._valid_permission = True
 
     def save(self, **kwargs) -> None:
         if not self._valid_permission:
