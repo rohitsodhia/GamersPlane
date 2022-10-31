@@ -19,11 +19,15 @@ class Thread(SoftDeleteModel, TimestampedModel):
         on_delete=models.PROTECT,
         db_column="firstPostId",
         related_name="first_post",
+        null=True,
+        blank=True,
     )
     lastPost = models.ForeignKey(
         "forums.Post",
         on_delete=models.PROTECT,
         db_column="lastPostId",
         related_name="last_post",
+        null=True,
+        blank=True,
     )
     postCount = models.IntegerField(default=0)

@@ -132,7 +132,9 @@ class Migration(migrations.Migration):
                 (
                     "firstPost",
                     models.ForeignKey(
+                        blank=True,
                         db_column="firstPostId",
+                        null=True,
                         on_delete=django.db.models.deletion.PROTECT,
                         related_name="first_post",
                         to="forums.post",
@@ -149,7 +151,9 @@ class Migration(migrations.Migration):
                 (
                     "lastPost",
                     models.ForeignKey(
+                        blank=True,
                         db_column="lastPostId",
+                        null=True,
                         on_delete=django.db.models.deletion.PROTECT,
                         related_name="last_post",
                         to="forums.post",
