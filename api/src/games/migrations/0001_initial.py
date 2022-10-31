@@ -48,8 +48,8 @@ class Migration(migrations.Migration):
                     "allowedCharSheets",
                     models.ManyToManyField(
                         limit_choices_to={"hasCharSheet": True},
-                        related_name="_game_allowedCharSheets_+",
-                        to="systems.System",
+                        related_name="+",
+                        to="systems.system",
                     ),
                 ),
                 (
