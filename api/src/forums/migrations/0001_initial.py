@@ -89,6 +89,7 @@ class Migration(migrations.Migration):
                 (
                     "postedAs",
                     models.ForeignKey(
+                        blank=True,
                         null=True,
                         on_delete=django.db.models.deletion.PROTECT,
                         to="characters.character",
@@ -97,6 +98,7 @@ class Migration(migrations.Migration):
                 (
                     "revisionOf",
                     models.ForeignKey(
+                        blank=True,
                         null=True,
                         on_delete=django.db.models.deletion.PROTECT,
                         to="forums.post",

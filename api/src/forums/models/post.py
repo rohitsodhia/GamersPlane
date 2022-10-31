@@ -21,7 +21,9 @@ class Post(SoftDeleteModel, TimestampedModel):
     )
     body = models.TextField()
     state = models.CharField(max_length=1, choices=States.choices, default=States.DRAFT)
-    revisionOf = models.ForeignKey("forums.Post", on_delete=models.PROTECT, null=True)
+    revisionOf = models.ForeignKey(
+        "forums.Post", on_delete=models.PROTECT, null=True, blank=True
+    )
     postedAs = models.ForeignKey(
-        "characters.Character", on_delete=models.PROTECT, null=True
+        "characters.Character", on_delete=models.PROTECT, null=True, blank=True
     )
