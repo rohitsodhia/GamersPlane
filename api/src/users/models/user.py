@@ -50,6 +50,12 @@ class User(models.Model):
 
     MIN_PASSWORD_LENGTH = 8
 
+    @property
+    def avatar(self):
+        if not self.avatar_id:
+            return "default.png"
+        return self.avatar_id + ".png"
+
     def _get_permissions(self):
         with connection.cursor() as cursor:
             cursor.execute(
