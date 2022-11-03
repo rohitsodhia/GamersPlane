@@ -27,6 +27,7 @@ services:
       context: ./api
     volumes:
       - ./api:/usr/src/app
+      - ./assets/avatars:/usr/src/assets/avatars
     ports:
       - 8000:8000
     env_file:
