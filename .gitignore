@@ -21,3 +21,4 @@ docker-compose.override.yml
 # Folders
 logs/
 .pytest_cache
+assets
