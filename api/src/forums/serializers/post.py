@@ -10,6 +10,7 @@ class PostAuthorSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "username",
+            "avatar",
             "lastActivity",
             "suspendedUntil",
             "banned",

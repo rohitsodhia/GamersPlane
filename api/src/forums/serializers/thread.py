@@ -1,6 +1,13 @@
 from rest_framework import serializers
 
 from forums.models import Thread, Post
+from users.models import User
+
+
+class ThreadPostAuthorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        include = ["id", "username"]
 
 
 class ThreadPostSerializer(serializers.ModelSerializer):
