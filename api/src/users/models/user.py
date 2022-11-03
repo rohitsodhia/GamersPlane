@@ -1,8 +1,9 @@
 import bcrypt
 import datetime
-import jwt
 import functools
+import jwt
 from typing import List
+
 from django.core.cache import cache
 from django.db import models, connection
 
@@ -33,6 +34,7 @@ class User(models.Model):
     username = models.CharField(max_length=24, unique=True)
     password = models.CharField(max_length=64)
     email = models.CharField(max_length=50, unique=True)
+    avatar_id = models.UUIDField(null=True, db_column="avatar")
     joinDate = models.DateTimeField(auto_now=True)
     activatedOn = models.DateTimeField(null=True)
     lastActivity = models.DateTimeField(null=True)

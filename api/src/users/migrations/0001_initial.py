@@ -25,6 +25,7 @@ class Migration(migrations.Migration):
                 ("username", models.CharField(max_length=24, unique=True)),
                 ("password", models.CharField(max_length=64)),
                 ("email", models.CharField(max_length=50, unique=True)),
+                ("avatar_id", models.UUIDField(db_column="avatar", null=True)),
                 ("joinDate", models.DateTimeField(auto_now=True)),
                 ("activatedOn", models.DateTimeField(null=True)),
                 ("lastActivity", models.DateTimeField(null=True)),
