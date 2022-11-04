@@ -4,7 +4,7 @@ from globals import g
 from helpers.cache import CacheKeys, get_objects_by_id, set_cache
 from helpers.functions import error_response
 
-from forums.models import Forum
+from forums.models import Forum, Thread
 from forums.serializers import ForumSerializer
 from forums import schemas
 from forums.functions import has_permission
@@ -28,6 +28,9 @@ def get_forums(forum_id: int = 0):
         return error_response(status_code=status.HTTP_403_FORBIDDEN)
 
     serialized_forum = ForumSerializer(forum)
+
+    threads = Thread.objects.filter(forum=self).order_by("createdAt")
+
     return {"forum": serialized_forum.data}
 
 
