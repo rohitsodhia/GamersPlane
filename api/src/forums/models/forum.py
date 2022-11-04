@@ -23,6 +23,8 @@ FORUM_PERMISSIONS = [
 
 
 class HeritageField(models.CharField):
+    HERITAGE_PAD = 4
+
     def __init__(self, *args, **kwargs):
         kwargs["max_length"] = 25
         kwargs["null"] = True
@@ -37,7 +39,11 @@ class HeritageField(models.CharField):
         if not value or value == [1]:
             return None
         return "-".join(
-            [str(forum_id).rjust(4, "0") for forum_id in value if forum_id != 1]
+            [
+                str(forum_id).rjust(self.HERITAGE_PAD, "0")
+                for forum_id in value
+                if forum_id != 1
+            ]
         )
 
 
