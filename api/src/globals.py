@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 
@@ -7,3 +8,5 @@ class globals:
 
 
 g = globals()
+
+PAGINATE_PER_PAGE: int = os.getenv("PAGINATE_PER_PAGE")
