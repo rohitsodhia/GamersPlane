@@ -1,6 +1,6 @@
 from django.db import models
 
-from helpers.base_models import SoftDeleteModel, TimestampedModel
+from common.base_models import SoftDeleteModel, TimestampedModel
 
 
 class Thread(SoftDeleteModel, TimestampedModel):

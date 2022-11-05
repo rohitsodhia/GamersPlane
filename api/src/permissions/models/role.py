@@ -1,6 +1,6 @@
 from django.db import models
-from helpers.functions import pluralize
-from helpers.base_models import TimestampedModel, SoftDeleteModel
+from common.functions import pluralize
+from common.base_models import TimestampedModel, SoftDeleteModel
 
 
 class Role(TimestampedModel, SoftDeleteModel):

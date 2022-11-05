@@ -1,7 +1,7 @@
 from os import error
 from fastapi import APIRouter, status
 
-from helpers.functions import error_response
+from common.functions import error_response
 
 from users import schemas
 from users.models import User

@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from django.db import models
 
 from globals import g
-from helpers.decorators import logged_in
+from common.decorators import logged_in
 
 from users.models import User
 from permissions.models import Role, Permission

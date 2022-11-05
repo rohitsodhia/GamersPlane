@@ -1,5 +1,5 @@
 from envs import HOST_NAME
-from helpers.email import get_template, send_email
+from common.email import get_template, send_email
 from users.models import User
 from tokens.models import AccountActivationToken
 

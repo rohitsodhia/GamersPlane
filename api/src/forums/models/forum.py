@@ -4,8 +4,8 @@ from typing import List
 from django.db import models
 from django.core.cache import cache
 
-from helpers.base_models import SoftDeleteModel, TimestampedModel
-from helpers.cache import CACHE_KEY_MAP, CacheKeys, generate_cache_id, get_objects_by_id
+from common.base_models import SoftDeleteModel, TimestampedModel
+from common.cache import CACHE_KEY_MAP, CacheKeys, generate_cache_id, get_objects_by_id
 
 
 FORUM_PERMISSIONS = [

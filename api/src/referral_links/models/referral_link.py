@@ -1,5 +1,5 @@
 from django.db import models
-from helpers.base_models import SoftDeleteModel, SoftDeleteManager
+from common.base_models import SoftDeleteModel, SoftDeleteManager
 
 
 class EnabledReferralLinksManager(SoftDeleteManager):

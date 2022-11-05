@@ -1,6 +1,6 @@
 from flask import Blueprint, request
 
-from helpers.response import response
+from common.response import response
 
 tools = Blueprint("tools", __name__, url_prefix="/tools")
 

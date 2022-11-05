@@ -1,6 +1,6 @@
 from factories.user_factory import mimesis
 
-from helpers.response import Response
+from common.response import Response
 
 
 class TestResponse:

@@ -8,7 +8,7 @@ from django.core.cache import cache
 from django.db import models, connection
 
 from envs import JWT_ALGORITHM, JWT_SECRET_KEY
-from helpers.cache import generate_cache_id, CacheKeys
+from common.cache import generate_cache_id, CacheKeys
 from permissions.models.permission import FORUM_PERMISSION_PREFIX
 
 

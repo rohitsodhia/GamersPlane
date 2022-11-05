@@ -1,4 +1,4 @@
-from helpers.endpoint import require_values
+from common.endpoint import require_values
 
 
 class TestEndpointHelpers:

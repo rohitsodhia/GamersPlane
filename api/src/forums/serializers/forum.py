@@ -3,7 +3,7 @@ from typing import List
 from rest_framework import serializers
 
 from forums.models import Forum
-from helpers.cache import CacheKeys, get_objects_by_id
+from common.cache import CacheKeys, get_objects_by_id
 
 
 class ParentForumSerializer(serializers.ModelSerializer):

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, status
 
 from globals import g
-from helpers.cache import CacheKeys, get_objects_by_id, set_cache
-from helpers.functions import error_response
+from common.cache import CacheKeys, get_objects_by_id, set_cache
+from common.functions import error_response
 
 from forums.models import Forum, Thread
 from forums.serializers import ForumSerializer, ThreadSerializer

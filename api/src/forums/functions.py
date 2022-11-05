@@ -2,7 +2,7 @@ from typing import Optional
 from django.core.cache import cache
 
 from forums.models.forum import FORUM_PERMISSIONS, Forum
-from helpers.cache import CacheKeys, generate_cache_id
+from common.cache import CacheKeys, generate_cache_id
 from permissions.models.permission import (
     FORUM_PERMISSION_PREFIX,
     ForumPermissions,

@@ -1,6 +1,6 @@
 from django.db import models
 from django.db.models.deletion import PROTECT
-from helpers.base_models import TimestampedModel, SoftDeleteModel
+from common.base_models import TimestampedModel, SoftDeleteModel
 
 
 class Character(TimestampedModel, SoftDeleteModel):

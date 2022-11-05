@@ -2,8 +2,8 @@ from fastapi import APIRouter, status, Body
 from pydantic import UUID1, EmailStr
 
 from envs import HOST_NAME
-from helpers.functions import error_response
-from helpers.email import get_template, send_email
+from common.functions import error_response
+from common.email import get_template, send_email
 from schemas import ErrorResponse
 
 from authorization import schemas

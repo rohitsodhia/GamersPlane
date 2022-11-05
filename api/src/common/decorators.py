@@ -3,7 +3,7 @@ from functools import wraps, partial
 from typing import Callable
 
 from globals import g
-from helpers.functions import error_response
+from common.functions import error_response
 
 
 def logged_in(func=None, *, permissions=None):
