@@ -5,7 +5,7 @@ from helpers.cache import CacheKeys, get_objects_by_id, set_cache
 from helpers.functions import error_response
 
 from forums.models import Forum, Thread
-from forums.serializers import ForumSerializer
+from forums.serializers import ForumSerializer, ThreadSerializer
 from forums import schemas
 from forums.functions import has_permission
 from games.models import Game
@@ -29,9 +29,12 @@ def get_forums(forum_id: int = 0):
 
     serialized_forum = ForumSerializer(forum)
 
-    threads = Thread.objects.filter(forum=self).order_by("createdAt")
+    threads = Thread.objects.filter(forum=forum).order_by("-createdAt")[
+        :PAGINATE_PER_PAGE
+    ]
+    serialized_threads = ThreadSerializer(threads, many=True)
 
-    return {"forum": serialized_forum.data}
+    return {"forum": serialized_forum.data, "threads": serialized_threads.data}
 
 
 @forums.post("")
