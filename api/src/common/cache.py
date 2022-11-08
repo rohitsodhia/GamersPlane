@@ -6,12 +6,12 @@ from django.db import models
 
 
 class CacheKeys(Enum):
+    USER_PERMISSIONS = "user_permissions"
+    USER_FORUM_PERMISSIONS = "user_forum_permissions"
     FORUM_DETAILS = "forum_details"
     FORUM_CHILDREN = "forum_children"
     GAME_DETAILS = "game_details"
     SYSTEM_DETAILS = "system_details"
-    USER_PERMISSIONS = "user_permissions"
-    USER_FORUM_PERMISSIONS = "user_forum_permissions"
 
 
 CACHE_KEY_MAP = {
