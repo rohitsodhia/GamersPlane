@@ -1,3 +1,4 @@
+from django.core.paginator import Page
 from fastapi.responses import JSONResponse
 import inflect
 
@@ -12,3 +13,10 @@ def error_response(status_code: int, content: dict = None) -> JSONResponse:
 
 def pluralize(word: str) -> str:
     return infe.plural(word)
+
+
+def pagination_return(page: Page):
+    return {
+        "currentPage": page.number,
+        "numPages": page.paginator.count,
+    }

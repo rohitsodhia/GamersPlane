@@ -3,7 +3,7 @@ from django.core.paginator import Paginator
 
 from globals import g, PAGINATE_PER_PAGE
 from common.cache import CacheKeys, get_objects_by_id, set_cache
-from common.functions import error_response
+from common.functions import error_response, pagination_return
 
 from forums.models import Forum, Thread
 from forums.serializers import ForumSerializer, ThreadSerializer
@@ -32,9 +32,14 @@ def get_forums(forum_id: int = 0):
 
     all_threads = Thread.objects.filter(forum=forum).order_by("-createdAt")
     paginator = Paginator(all_threads, PAGINATE_PER_PAGE)
-    serialized_threads = ThreadSerializer(paginator.get_page(1).object_list, many=True)
+    paginator_page = paginator.get_page(1)
+    serialized_threads = ThreadSerializer(paginator_page.object_list, many=True)
 
-    return {"forum": serialized_forum.data, "threads": serialized_threads.data}
+    return {
+        "forum": serialized_forum.data,
+        "threads": serialized_threads.data,
+        "pagination": pagination_return(paginator_page),
+    }
 
 
 @forums.post("")
@@ -127,8 +132,7 @@ def get_forum_threads(forum_id: int = 0, page: int = 1):
     forum = get_objects_by_id(forum_id, Forum, CacheKeys.FORUM_DETAILS.value)
     all_threads = Thread.objects.filter(forum=forum).order_by("-createdAt")
     paginator = Paginator(all_threads, PAGINATE_PER_PAGE)
-    serialized_threads = ThreadSerializer(
-        paginator.get_page(page).object_list, many=True
-    )
+    paginator_page = paginator.get_page(page)
+    serialized_threads = ThreadSerializer(paginator_page.object_list, many=True)
 
-    return {"threads": serialized_threads.data}
+    return {"threads": serialized_threads.data, "pagination": pagination_return()}
