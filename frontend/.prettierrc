@@ -1,3 +1,5 @@
 {
-    "tabWidth": 4
+    "tailwindFunctions": ["tw"],
+    "tabWidth": 4,
+    "importOrderSeparation": true
 }
