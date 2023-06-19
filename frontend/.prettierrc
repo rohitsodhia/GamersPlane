@@ -1,5 +1,5 @@
 {
-    "tailwindFunctions": ["tw"],
+    "tailwindFunctions": ["classNames"],
     "tabWidth": 4,
     "importOrderSeparation": true
 }
