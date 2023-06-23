@@ -2,6 +2,7 @@ import Footer from "./footer";
 import "./globals.css";
 import Header from "./header";
 import { Open_Sans } from "next/font/google";
+import { headers } from "next/headers";
 
 const open_sans = Open_Sans({
     subsets: ["latin"],
@@ -17,13 +18,16 @@ export default function RootLayout({
 }: {
     children: React.ReactNode;
 }) {
+    const headersList = headers();
+    const path = headersList.get("next-url");
+    const top_margin = path !== "/" ? "pt-[70px]" : "pt-[120px]";
+
     return (
         <html lang="en">
             <body className={`bg-body-black ${open_sans.className}`}>
                 <Header />
-                <div className="bg-white" style={{ height: "2000px" }}>
-                    {children}
-                </div>
+                <div className={`bg-white ${top_margin}`}>{children}</div>
+                <Footer />
             </body>
         </html>
     );
