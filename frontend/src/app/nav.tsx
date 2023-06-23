@@ -1,29 +1,18 @@
 "use client";
 
+import { siteLinkItems, loggedInLinkItems } from "./util";
 import Link from "next/link";
 import { useEffect } from "react";
 
 export default function Nav() {
     const linkClasses = "p-2";
 
-    const navLinkItems: { [key: string]: string } = {
-        Tools: "/tools",
-        Systems: "/systems",
-        Characters: "/characters",
-        Games: "/games",
-        Forums: "/forums",
-        "The Gamers": "/gamers",
-        Links: "links",
-    };
-    const loggedInLinkItems = ["Characters", "The Gamers"];
-
-    const links = Object.keys(navLinkItems).map((title) => {
-        const extraClasses = title === "Links" ? "mr-2" : "";
+    const links = Object.keys(siteLinkItems).map((title) => {
         return (
             <Link
-                href={navLinkItems[title]}
+                href={siteLinkItems[title]}
                 key={title}
-                className={`${linkClasses} font-semibold ${extraClasses}`}
+                className={`${linkClasses} font-semibold`}
             >
                 {title}
             </Link>
@@ -32,7 +21,7 @@ export default function Nav() {
 
     const accessLinks = (
         <>
-            <div className="border-l border-black mr-2" />
+            <div className="border-l border-black mx-2" />
             <Link href="/register" className={`${linkClasses}`}>
                 Register
             </Link>
@@ -46,7 +35,7 @@ export default function Nav() {
     );
 
     return (
-        <nav className="w-full h-min flex justify-end">
+        <nav className="w-full h-min flex justify-end gap-1">
             {links}
             {accessLinks}
         </nav>

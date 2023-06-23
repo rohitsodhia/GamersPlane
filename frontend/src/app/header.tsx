@@ -44,7 +44,7 @@ export default function Header() {
     return (
         <header
             id="site_header"
-            className="transition-[height] border-b border-b-black fixed top-0 left-0 w-full z-[100] bg-header-gray shadow-[0_1px_20px_1px_#777] px-4 py-2"
+            className="transition-[height] fixed top-0 left-0 w-full z-[100] bg-header-gray shadow-[0_1px_20px_1px_#777] px-4 py-2"
             style={{ height: `${headerHeight}px` }}
         >
             <div className="flex justify-center items-center w-full max-w-screen-xl mx-auto">
