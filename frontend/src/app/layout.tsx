@@ -20,15 +20,21 @@ export default function RootLayout({
 }) {
     const headersList = headers();
     const path = headersList.get("next-url");
-    const top_margin = path && path !== "/" ? "" : "lg:mt-[120px]";
-    const max_width = path && path !== "/" ? "max-w-screen-xl" : "w-full";
+    let top_margin = "",
+        max_width = "max-w-screen-xl",
+        content_padding = "p-2 pt-3";
+    if (!path || path === "/") {
+        top_margin = "lg:mt-[120px]";
+        max_width = "w-full";
+        content_padding = "";
+    }
 
     return (
         <html lang="en">
             <body className={`bg-body-black ${open_sans.className}`}>
                 <Header />
                 <main
-                    className={`bg-white mt-[70px] ${top_margin} p-2 pt-3 ${max_width}`}
+                    className={`bg-white mt-[70px] ${top_margin} ${content_padding} ${max_width}`}
                 >
                     {children}
                 </main>
