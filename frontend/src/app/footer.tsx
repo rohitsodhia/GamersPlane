@@ -64,19 +64,25 @@ export default function Footer() {
         return (
             <div key={title} className={linkDivClasses}>
                 <Link href={referralLinkItems[title]} className={linkClasses}>
-                    {title} Referral Link
+                    {title}{" "}
+                    <span className="hidden sm:block">Referral Link</span>
                 </Link>
             </div>
         );
     });
 
     return (
-        <footer className="w-full py-2 border-t-[6px] border-[#aaa]">
-            <div className="flex w-full max-w-screen-xl mx-auto text-white gap-12">
-                <div>{siteLinks}</div>
+        <footer className="w-full p-2 xl:px-0 border-t-[6px] border-[#aaa]">
+            <div className="flex w-full max-w-screen-xl mx-auto text-white gap-12 text-sm sm:text-base">
+                <div className="hidden sm:block">{siteLinks}</div>
                 <div>{aboutLinks}</div>
                 {/* <div>{socialLinks}</div> */}
                 <div className="grow text-right">
+                    <h4
+                        className={`${linkClasses} ${linkDivClasses} underline`}
+                    >
+                        Referral Links
+                    </h4>
                     {referralLinks}
                     <form
                         action="https://www.paypal.com/donate"

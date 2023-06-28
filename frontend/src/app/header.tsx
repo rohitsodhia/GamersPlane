@@ -14,20 +14,24 @@ export default function Header() {
         fullImageHeight = 100;
 
     const pathname = usePathname();
+
+    const useStdSize = (): boolean =>
+        pathname !== "/" || window.scrollY > 50 || window.innerWidth <= 1024;
+
     const [headerHeight, setHeaderHeight] = useState<number>(
-        pathname !== "/" ? stdHeaderHeight : fullHeaderHeight
+        useStdSize() ? stdHeaderHeight : fullHeaderHeight
     );
     const [imgHeight, setImgHeight] = useState<number>(
-        pathname !== "/" ? stdImageHeight : fullImageHeight
+        useStdSize() ? stdImageHeight : fullImageHeight
     );
 
     const updateClasses = () => {
-        if (window.scrollY <= 50) {
-            setHeaderHeight(fullHeaderHeight);
-            setImgHeight(fullImageHeight);
-        } else {
+        if (useStdSize()) {
             setHeaderHeight(stdHeaderHeight);
             setImgHeight(stdImageHeight);
+        } else {
+            setHeaderHeight(fullHeaderHeight);
+            setImgHeight(fullImageHeight);
         }
     };
 
@@ -35,9 +39,11 @@ export default function Header() {
         if (pathname === "/") {
             updateClasses();
             document.addEventListener("scroll", updateClasses);
+            window.addEventListener("resize", updateClasses);
         } else {
             setHeaderHeight(stdHeaderHeight);
             document.removeEventListener("scroll", updateClasses);
+            window.removeEventListener("resize", updateClasses);
         }
     }, [pathname]);
 
