@@ -1,6 +1,6 @@
 "use client";
 
-import Nav from "./nav";
+import Nav from "./Nav";
 import gp_logo from "/src/images/logo.svg";
 import Image from "next/image";
 import Link from "next/link";

@@ -1,6 +1,6 @@
-import Footer from "./footer";
+import Footer from "./Footer";
+import Header from "./Header";
 import "./globals.css";
-import Header from "./header";
 import { Open_Sans } from "next/font/google";
 import { headers } from "next/headers";
 

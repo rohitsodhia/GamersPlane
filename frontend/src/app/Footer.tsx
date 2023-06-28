@@ -65,7 +65,7 @@ export default function Footer() {
             <div key={title} className={linkDivClasses}>
                 <Link href={referralLinkItems[title]} className={linkClasses}>
                     {title}{" "}
-                    <span className="hidden sm:block">Referral Link</span>
+                    {/* <span className="hidden md:inline">Referral Link</span> */}
                 </Link>
             </div>
         );
