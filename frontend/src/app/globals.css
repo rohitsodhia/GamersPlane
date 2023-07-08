@@ -4,3 +4,47 @@
 
 @media (prefers-color-scheme: dark) {
 }
+
+.headerbar {
+    font-family: var(--font-agency-fb);
+    background-color: theme(colors.gp-orange);
+
+    &::before,
+    &::after {
+        background-color: theme(colors.gp-orange);
+    }
+}
+
+:root {
+    --hb-h1-sides: 16px;
+}
+
+h1.headerbar {
+    position: relative;
+    font-size: 30px;
+    line-height: 48px;
+    padding: 0px 5px;
+    margin: 0 16px;
+
+    &::before,
+    &::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        height: 48px;
+        width: var(--hb-h1-sides);
+    }
+
+    &::before {
+        left: -16px;
+        clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    }
+    &::after {
+        right: -16px;
+        clip-path: polygon(0 0, 100% 0, 0 100%);
+    }
+
+    & + .hb-container {
+        margin: 0 var(--hb-h1-sides);
+    }
+}

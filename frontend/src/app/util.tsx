@@ -1,4 +1,16 @@
-const siteLinkItems: { [key: string]: string } = {
+import { Open_Sans } from "next/font/google";
+import localFont from "next/font/local";
+
+export const open_sans = Open_Sans({
+    subsets: ["latin"],
+    variable: "--font-open-sans",
+});
+export const agency_fb = localFont({
+    src: "./AgencyFB.woff",
+    variable: "--font-agency-fb",
+});
+
+export const siteLinkItems: { [key: string]: string } = {
     Tools: "/tools",
     Systems: "/systems",
     Characters: "/characters",
@@ -7,6 +19,4 @@ const siteLinkItems: { [key: string]: string } = {
     "The Gamers": "/gamers",
     Links: "links",
 };
-const loggedInLinkItems = ["Characters", "The Gamers"];
-
-export { siteLinkItems, loggedInLinkItems };
+export const loggedInLinkItems = ["Characters", "The Gamers"];

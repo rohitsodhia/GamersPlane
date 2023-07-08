@@ -1,12 +1,8 @@
 import Footer from "./Footer";
 import Header from "./Header";
 import "./globals.css";
-import { Open_Sans } from "next/font/google";
+import { agency_fb, open_sans } from "./util";
 import { headers } from "next/headers";
-
-const open_sans = Open_Sans({
-    subsets: ["latin"],
-});
 
 export const metadata = {
     title: "Next.js",
@@ -31,7 +27,9 @@ export default function RootLayout({
 
     return (
         <html lang="en">
-            <body className={`bg-body-black ${open_sans.className}`}>
+            <body
+                className={`bg-body-black ${open_sans.className} ${agency_fb.variable}`}
+            >
                 <Header />
                 <main
                     className={`bg-white mt-[70px] ${top_margin} ${content_padding} ${max_width}`}
