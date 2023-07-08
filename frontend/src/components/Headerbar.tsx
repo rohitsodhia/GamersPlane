@@ -1,5 +1,5 @@
 import { agency_fb } from "@/app/util";
-import classNames from "classnames";
+import clsx from "clsx";
 import { ReactNode, createElement } from "react";
 
 type Props = {
@@ -13,7 +13,7 @@ export default function Headerbar({
     className = "",
     level = "h1",
 }: Props) {
-    const classes = classNames(
+    const classes = clsx(
         `headerbar text-white ${agency_fb.className}`,
         className
     );
