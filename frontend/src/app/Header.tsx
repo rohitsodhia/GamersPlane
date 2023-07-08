@@ -16,7 +16,9 @@ export default function Header() {
     const pathname = usePathname();
 
     const useStdSize = (): boolean =>
-        pathname !== "/" || window.scrollY > 50 || window.innerWidth <= 1024;
+        pathname !== "/" ||
+        (typeof window !== undefined &&
+            (window.scrollY > 50 || window.innerWidth <= 1024));
 
     const [headerHeight, setHeaderHeight] = useState<number>(
         useStdSize() ? stdHeaderHeight : fullHeaderHeight

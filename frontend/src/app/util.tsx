@@ -6,7 +6,7 @@ export const open_sans = Open_Sans({
     variable: "--font-open-sans",
 });
 export const agency_fb = localFont({
-    src: "./AgencyFB.woff",
+    src: "../fonts/AgencyFB.woff",
     variable: "--font-agency-fb",
 });
 

@@ -21,7 +21,7 @@ export default function Landing() {
                             <Headerbar className="text-center">
                                 Latest Games
                             </Headerbar>
-                            <div className="hb-container box-border border-x-2 border-b-2 border-slate-500 p-2">
+                            <div className="hb-container box-border border-x-2 border-b-2 border-slate-400 p-2">
                                 content
                             </div>
                         </div>
