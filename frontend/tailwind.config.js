@@ -12,6 +12,8 @@ module.exports = {
                 "gp-red": "#bd2126",
                 "gp-orange": "#c60",
 
+                "neutral-350": "#bbb",
+
                 border: "hsl(var(--border))",
                 input: "hsl(var(--input))",
                 ring: "hsl(var(--ring))",
