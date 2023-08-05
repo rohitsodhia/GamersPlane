@@ -16,16 +16,11 @@ export default function Header() {
     const pathname = usePathname();
 
     const useStdSize = (): boolean =>
-        pathname !== "/" ||
-        (typeof window !== undefined &&
-            (window.scrollY > 50 || window.innerWidth <= 1024));
+        typeof window !== "undefined" &&
+        (window.scrollY > 50 || window.innerWidth <= 1024);
 
-    const [headerHeight, setHeaderHeight] = useState<number>(
-        useStdSize() ? stdHeaderHeight : fullHeaderHeight
-    );
-    const [imgHeight, setImgHeight] = useState<number>(
-        useStdSize() ? stdImageHeight : fullImageHeight
-    );
+    const [headerHeight, setHeaderHeight] = useState<number>(stdHeaderHeight);
+    const [imgHeight, setImgHeight] = useState<number>(stdImageHeight);
 
     const updateClasses = () => {
         if (useStdSize()) {
@@ -39,14 +34,13 @@ export default function Header() {
 
     useEffect(() => {
         if (pathname === "/") {
-            updateClasses();
             document.addEventListener("scroll", updateClasses);
             window.addEventListener("resize", updateClasses);
         } else {
-            setHeaderHeight(stdHeaderHeight);
             document.removeEventListener("scroll", updateClasses);
             window.removeEventListener("resize", updateClasses);
         }
+        updateClasses();
     }, [pathname]);
 
     return (
