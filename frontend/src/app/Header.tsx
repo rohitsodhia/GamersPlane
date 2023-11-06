@@ -15,15 +15,19 @@ export default function Header() {
 
     const pathname = usePathname();
 
-    const useStdSize = (): boolean =>
+    const stdSize = (): boolean =>
         typeof window !== "undefined" &&
         (window.scrollY > 50 || window.innerWidth <= 1024);
 
-    const [headerHeight, setHeaderHeight] = useState<number>(stdHeaderHeight);
-    const [imgHeight, setImgHeight] = useState<number>(stdImageHeight);
+    const [headerHeight, setHeaderHeight] = useState<number>(
+        stdSize() ? stdHeaderHeight : fullHeaderHeight
+    );
+    const [imgHeight, setImgHeight] = useState<number>(
+        stdSize() ? stdImageHeight : fullImageHeight
+    );
 
     const updateClasses = () => {
-        if (useStdSize()) {
+        if (stdSize()) {
             setHeaderHeight(stdHeaderHeight);
             setImgHeight(stdImageHeight);
         } else {
