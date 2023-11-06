@@ -85,23 +85,25 @@
 .headerbar {
     font-family: var(--font-agency-fb);
     background-color: theme(colors.gp-orange);
+    font-size: var(--hb-font-size);
+    line-height: calc(var(--hb-font-size) * 1.6);
+    padding: 0px 5px;
+    clip-path: polygon(
+        0 100%,
+        var(--hb-sides) 0,
+        100% 0,
+        calc(100% - var(--hb-sides)) 100%
+    );
 }
 
 :root {
     --hb-h1-sides: 17px;
+    --hb-h1-font-size: 30px;
 }
 
 h1.headerbar {
-    position: relative;
-    font-size: 30px;
-    line-height: 48px;
-    padding: 0px 5px;
-    clip-path: polygon(
-        0 100%,
-        var(--hb-h1-sides) 0,
-        100% 0,
-        calc(100% - var(--hb-h1-sides)) 100%
-    );
+    --hb-sides: var(--hb-h1-sides);
+    --hb-font-size: var(--hb-h1-font-size);
 
     & + .hb-container {
         margin: 0 var(--hb-h1-sides);
