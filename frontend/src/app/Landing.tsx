@@ -1,4 +1,4 @@
-import Headerbar from "@/components/Headerbar";
+import LandingGamesList from "./Landing/LandingGamesList";
 
 export default function Landing() {
     return (
@@ -16,16 +16,7 @@ export default function Landing() {
                         </span>
                         !
                     </h2>
-                    <div className="flex flex-col bg-white max-w-[960px] mx-3 md:mx-auto p-2">
-                        <div className="box-border">
-                            <Headerbar className="text-center">
-                                Latest Games
-                            </Headerbar>
-                            <div className="hb-container box-border border-x-2 border-b-2 border-slate-400 p-2">
-                                content
-                            </div>
-                        </div>
-                    </div>
+                    <LandingGamesList />
                 </div>
             </div>
         </>
