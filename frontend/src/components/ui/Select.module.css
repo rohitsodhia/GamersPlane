@@ -81,6 +81,10 @@
         border-top-right-radius: 0;
         border-top-left-radius: 0;
         border-top: none;
+
+        & :hover {
+            background-color: theme('colors.red.100');
+        }
     }
 
     &.open .options {

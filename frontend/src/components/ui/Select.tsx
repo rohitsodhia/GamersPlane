@@ -1,5 +1,5 @@
 import styles from "./Select.module.css";
-import { useState } from "react";
+import { KeyboardEvent, useState } from "react";
 
 interface SelectProps {
     combobox?: boolean;
@@ -14,14 +14,16 @@ export default function Select({
     values,
     onChange,
 }: SelectProps) {
+    const valuesArray = Array.isArray(values);
     const [isOpen, setIsOpen] = useState(false);
     const [value, setValue] = useState<string | number>("");
+    const [inputValue, setInputValue] = useState<string>("");
+    const [filteredValues, setFilteredValue] = useState<typeof values>(values);
 
     const toggleOpen = () => {
         setIsOpen(!isOpen);
     };
 
-    const valuesArray = Array.isArray(values);
     let options = (valuesArray ? values : Object.entries(values)).map(
         (value, i) => {
             let key: string | number = i;
@@ -36,6 +38,7 @@ export default function Select({
                     ? (dispValue as string | number)
                     : key;
                 setValue(newValue);
+                setInputValue(dispValue.toString());
                 onChange(newValue);
             };
             return (
@@ -46,25 +49,32 @@ export default function Select({
         }
     );
 
-    const onValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const onInputValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newValue = e.target.value;
-        setValue(newValue);
-        onChange(newValue);
+        setInputValue(newValue);
+    };
+    const onInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        console.log(e.key);
+        if (e.key === "ArrowDown") {
+        } else if (e.key === "ArrowUp") {
+        } else if (e.key === "Enter") {
+        }
     };
 
     return (
         <div
             className={`${styles.select} ${isOpen && styles.open}`}
             onClick={toggleOpen}
+            onKeyDown={onInputKeyDown}
+            tabIndex={combobox ? -1 : 0}
         >
             <div className={styles.display}>&nbsp;</div>
             <input
                 type="text"
-                disabled
-                value={
-                    valuesArray ? value : value in values ? values[value] : ""
-                }
-                onChange={onValueChange}
+                disabled={!combobox}
+                value={inputValue}
+                onFocus={() => setIsOpen(true)}
+                onChange={onInputValueChange}
             />
             <div className={`${styles.options}`}>{options}</div>
         </div>
