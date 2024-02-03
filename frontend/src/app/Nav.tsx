@@ -67,7 +67,7 @@ export default function Nav() {
                 <div
                     className={`${
                         !openMenu ? "hidden" : ""
-                    } absolute top-full right-0 bg-white lg:bg-transparent border border-black lg:border-0 lg:relative flex flex-col lg:flex-row justify-end lg:gap-1`}
+                    } absolute top-full right-0 bg-white lg:bg-transparent border border-black lg:border-0 lg:relative lg:flex flex flex-col lg:flex-row justify-end lg:gap-1`}
                     ref={menuRef}
                 >
                     {links}
