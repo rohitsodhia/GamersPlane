@@ -1,3 +1,5 @@
+@import "rpg-awesome/css/rpg-awesome.min.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -82,30 +84,42 @@
 @media (prefers-color-scheme: dark) {
 }
 
-.headerbar {
-    font-family: var(--font-agency-fb);
-    background-color: theme(colors.gp-orange);
-    font-size: var(--hb-font-size);
-    line-height: calc(var(--hb-font-size) * 1.6);
-    padding: 0px 5px;
+p {
+    @apply my-4;
+}
+
+.trapezoid {
+    padding: 0px var(--trap-sides);
     clip-path: polygon(
         0 100%,
-        var(--hb-sides) 0,
+        var(--trap-sides) 0,
         100% 0,
-        calc(100% - var(--hb-sides)) 100%
+        calc(100% - var(--trap-sides)) 100%
     );
 }
 
+.headerbar {
+    @apply trapezoid;
+    font-family: var(--font-agency-fb);
+    background-color: theme(colors.gp-orange);
+    font-size: var(--hb-font-size);
+    line-height: 1.6em;
+}
+
 :root {
-    --hb-h1-sides: 17px;
+    --trap-ratio: 0.6;
+    --trap-sides: calc(var(--trap-ratio) * 1em);
     --hb-h1-font-size: 30px;
 }
 
 h1.headerbar {
-    --hb-sides: var(--hb-h1-sides);
     --hb-font-size: var(--hb-h1-font-size);
 
     & + .hb-container {
-        margin: 0 var(--hb-h1-sides);
+        margin: 0 calc(var(--trap-ratio) * var(--hb-h1-font-size));
     }
+}
+
+main a {
+    @apply text-gp-red no-underline;
 }

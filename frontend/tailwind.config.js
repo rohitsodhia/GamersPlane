@@ -6,6 +6,9 @@ module.exports = {
     ],
     theme: {
         extend: {
+            fontFamily: {
+                "title": ["var(--font-agency-fb)"]
+            },
             colors: {
                 "header-gray": "rgba(221, 221, 221, .95)",
                 "body-black": "#333",
