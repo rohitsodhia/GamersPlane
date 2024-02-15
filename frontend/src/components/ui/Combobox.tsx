@@ -1,5 +1,6 @@
+import { classMerge } from "@/lib/utils";
 import { Combobox as HeadlessCombobox, Transition } from "@headlessui/react";
-import { ReactNode, useState } from "react";
+import { ReactNode } from "react";
 import { HiChevronUpDown } from "react-icons/hi2";
 
 export function ComboboxOption({
@@ -25,6 +26,7 @@ export function ComboboxOption({
 }
 
 export function Combobox<T>({
+    className = "",
     value,
     onChange,
     displayValue,
@@ -33,6 +35,7 @@ export function Combobox<T>({
     customValueFormat,
     children,
 }: {
+    className: string;
     value: T;
     onChange: (value: T) => void;
     displayValue: (item: T) => string;
@@ -41,9 +44,10 @@ export function Combobox<T>({
     customValueFormat?: T;
     children: ReactNode;
 }) {
+    let classes = classMerge("relative w-72", className);
     return (
         <HeadlessCombobox value={value} onChange={onChange} nullable immediate>
-            <div className="relative w-72">
+            <div className={classes}>
                 <div className="relative">
                     <HeadlessCombobox.Input
                         onChange={(event) => onQueryChange(event.target.value)}
