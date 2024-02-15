@@ -2,6 +2,7 @@
 
 import Headerbar from "@/components/Headerbar";
 import { Combobox, ComboboxOption } from "@/components/ui/Combobox";
+import TrapezoidButton from "@/components/ui/TrapezoidButton";
 import { useState } from "react";
 
 export default function LandingGamesList() {
@@ -21,16 +22,17 @@ export default function LandingGamesList() {
     const getGames = () => {};
 
     return (
-        <div className="flex flex-col bg-white max-w-[960px] mx-3 md:mx-auto p-2">
-            <div className="box-border">
+        <div className="flex bg-white max-w-[960px] mx-3 md:mx-auto p-4">
+            <div className="w-1/2">
                 <Headerbar className="text-center">Latest Games</Headerbar>
-                <div className="hb-container box-border border-x-2 border-b-2 border-neutral-350 p-4">
+                <div className="hb-container py-4">
                     <Combobox
                         value={selectedSystem}
                         onChange={(system) => setSelectedSystem(system)}
                         displayValue={(system: string) => system}
                         query={query}
                         onQueryChange={setQuery}
+                        className="w-auto"
                     >
                         {(query.length === 0
                             ? systems
@@ -46,6 +48,9 @@ export default function LandingGamesList() {
                         ))}
                     </Combobox>
                 </div>
+            </div>
+            <div className="w-1/2 mt-10 text-center">
+                <TrapezoidButton className="bg-gp-red">Sign up</TrapezoidButton>
             </div>
         </div>
     );
