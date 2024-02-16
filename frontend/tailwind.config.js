@@ -6,6 +6,9 @@ module.exports = {
     ],
     theme: {
         extend: {
+            screens: {
+                "ti": "320px",
+            },
             fontFamily: {
                 "title": ["var(--font-agency-fb)"]
             },

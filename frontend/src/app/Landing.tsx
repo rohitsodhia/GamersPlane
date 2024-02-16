@@ -100,13 +100,13 @@ export default function Landing() {
     return (
         <div>
             <div className="bg-[url('/images/landing_top_bg.jpg')] bg-bottom bg-cover">
-                <div className="max-w-screen-xl mx-auto flex flex-col md:flex-row py-6">
-                    <div className="backdrop-brightness-50 py-4 w-1/2 flex items-center">
-                        <div>
-                            <h1 className="text-white text-3xl font-bold text-center md:text-left mb-2 md:indent-16">
+                <div className="max-w-screen-xl mx-auto flex flex-col lg:flex-row py-8">
+                    <div className="backdrop-brightness-[.2] lg:w-1/2 lg:flex pb-4 lg:p-0 items-center justify-center">
+                        <div className="w-fit inline">
+                            <h1 className="text-white text-3xl font-bold text-center lg:text-left mb-2">
                                 Scratch that RPG itch
                             </h1>
-                            <h2 className="text-white text-lg mx-3 text-center md:text-left md:indent-24">
+                            <h2 className="text-white text-lg mx-3 text-center lg:text-left lg:indent-4">
                                 Talk and play{" "}
                                 <span className="font-semibold">RPGs</span> with{" "}
                                 <span className="font-semibold">
@@ -116,7 +116,7 @@ export default function Landing() {
                             </h2>
                         </div>
                     </div>
-                    <div className="w-1/2 p-4 bg-white [&>*]:py-2">
+                    <div className="lg:w-1/2 px-4 bg-white">
                         <p>
                             <span className="font-bold">{numGames}</span> active
                             games in the last month, in over{" "}
@@ -143,11 +143,14 @@ export default function Landing() {
                     </div>
                 </div>
             </div>
-            <div className="max-w-screen-xl mx-auto flex flex-col md:flex-row">
-                <div className="relative h-[410px] w-[540px] box-content p-6 flex-none">
+            <div className="max-w-screen-xl mx-auto flex flex-col lg:flex-row">
+                <div className="hidden lg:flex relative mx-4 text-center lg:h-[410px] lg:w-[560px] box-content lg:mx-auto m-6 flex-none">
                     {Object.keys(whatIsLogos).map((system_short) => {
                         let system = whatIsLogos[system_short],
-                            classes = classMerge("absolute", system.twClasses);
+                            classes = classMerge(
+                                "relative inline-block lg:absolute",
+                                system.twClasses
+                            );
                         return (
                             <Image
                                 key={system_short}
@@ -155,13 +158,11 @@ export default function Landing() {
                                 alt={system.alt}
                                 width={system.width}
                                 className={classes}
-                                // className="absolute"
-                                // style={{ top: system.top, left: system.left }}
                             />
                         );
                     })}
                 </div>
-                <div className="ml-8 self-center">
+                <div className="mt-4 lg:mt-0 mx-4 md:mx-8 self-center">
                     <h2 className="font-title text-5xl">
                         What is Play-by-Post?
                     </h2>
@@ -182,7 +183,7 @@ export default function Landing() {
                 </div>
             </div>
             <div className="bg-gray-200">
-                <div className="max-w-screen-xl mx-auto pt-16 pb-10 grid grid-cols-3 gap-4">
+                <div className="max-w-screen-xl mx-4 lg:mx-auto pt-16 pb-10 grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-4">
                     {features.map((feature) => {
                         let iconClasses = classMerge(
                             "ra text-4xl text-white mb-0.5",
