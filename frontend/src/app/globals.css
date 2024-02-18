@@ -123,3 +123,26 @@ h1.headerbar {
 main a {
     @apply text-gp-red no-underline;
 }
+
+@keyframes loading-spinner-changes {
+    from {
+        background-color: #fff;
+    }
+
+    to {
+        background-color: #f47521;
+    }
+}
+
+#loading-spinner {
+    position: relative;
+    background-color: #4c4c4c;
+    clip-path: polygon(50% 0%, 100% 20%, 100% 80%, 50% 100%, 0% 80%, 0% 20%);
+}
+
+#loading-spinner::after {
+    content: "";
+    position: absolute;
+    clip-path: polygon(50% 0%, 100% 20%, 100% 80%, 50% 100%, 0% 80%, 0% 20%);
+    animation: 2s ease-in-out infinite alternate loading-spinner-changes;
+}

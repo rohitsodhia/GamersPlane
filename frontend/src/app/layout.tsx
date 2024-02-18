@@ -18,7 +18,7 @@ export default function RootLayout({
     let top_margin = "mt-[70px]",
         max_width = "max-w-screen-xl",
         content_padding = "p-2 pt-3";
-    if (!path || path === "/") {
+    if (path === "/") {
         top_margin = "mt-[120px]";
         max_width = "w-full";
         content_padding = "";
