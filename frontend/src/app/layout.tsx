@@ -14,13 +14,12 @@ export default function RootLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const headersList = headers();
-    const path = headersList.get("next-url");
-    let top_margin = "",
+    const path = headers().get("next-url");
+    let top_margin = "mt-[70px]",
         max_width = "max-w-screen-xl",
         content_padding = "p-2 pt-3";
     if (!path || path === "/") {
-        top_margin = "lg:mt-[120px]";
+        top_margin = "mt-[120px]";
         max_width = "w-full";
         content_padding = "";
     }
@@ -32,7 +31,7 @@ export default function RootLayout({
             >
                 <Header />
                 <main
-                    className={`bg-white mt-[70px] ${top_margin} ${content_padding} ${max_width}`}
+                    className={`bg-white ${top_margin} ${content_padding} ${max_width}`}
                 >
                     {children}
                 </main>
