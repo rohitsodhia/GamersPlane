@@ -12,7 +12,7 @@ export default function Footer() {
 
     const aboutLinkItems: { [key: string]: string } = {
         FAQs: "/faqs",
-        // "About GP": "/about",
+        "About GP": "/about",
         "Contact Us": "/contact",
     };
     const socialLinkItems: { [key: string]: any[] } = {
