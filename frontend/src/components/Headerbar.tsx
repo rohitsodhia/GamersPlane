@@ -22,7 +22,7 @@ export default function Headerbar({
         {
             className: classes,
         },
-        children
+        <div className="px-2">{children}</div>
     );
     return el;
 }
