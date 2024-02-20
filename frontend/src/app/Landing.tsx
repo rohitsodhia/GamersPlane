@@ -183,7 +183,7 @@ export default function Landing() {
                 </div>
             </div>
             <div className="bg-gray-200">
-                <div className="max-w-screen-xl mx-4 lg:mx-auto pt-16 pb-10 grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-4">
+                <div className="max-w-screen-xl px-4 lg:mx-auto pt-16 pb-10 grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-4">
                     {features.map((feature) => {
                         let iconClasses = classMerge(
                             "ra text-4xl text-white mb-0.5",

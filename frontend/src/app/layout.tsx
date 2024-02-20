@@ -14,14 +14,15 @@ export default function RootLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const path = headers().get("next-url");
+    const url = new URL(headers().get("referer") ?? ""),
+        path = url.pathname;
     let top_margin = "mt-[70px]",
-        max_width = "max-w-screen-xl",
-        content_padding = "p-2 pt-3";
-    if (path === "/") {
+        content_padding = "p-2 pt-3",
+        tallHeader = false;
+    if (["", "/"].includes(path)) {
         top_margin = "mt-[120px]";
-        max_width = "w-full";
         content_padding = "";
+        tallHeader = true;
     }
 
     return (
@@ -29,10 +30,8 @@ export default function RootLayout({
             <body
                 className={`bg-body-black ${open_sans.className} ${agency_fb.variable}`}
             >
-                <Header />
-                <main
-                    className={`bg-white ${top_margin} ${content_padding} ${max_width}`}
-                >
+                <Header tallHeader={tallHeader} />
+                <main className={`bg-white ${top_margin} ${content_padding}`}>
                     {children}
                 </main>
                 <Footer />

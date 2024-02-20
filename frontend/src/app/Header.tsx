@@ -5,17 +5,18 @@ import gp_logo from "/src/images/logo.svg";
 import { classMerge } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
-export default function Header() {
-    const pathname = usePathname();
-
+export default function Header({
+    tallHeader = false,
+}: {
+    tallHeader: boolean;
+}) {
     return (
         <header
             id="site_header"
             className={classMerge(
                 "fixed top-0 left-0 w-full z-[100] bg-header-gray shadow-[0_1px_20px_1px_#777] px-4 py-2 h-[70px]",
-                pathname === "/" && "lg:h-[120px]"
+                tallHeader && "lg:h-[120px]"
             )}
         >
             <div className="flex justify-center items-center w-full max-w-screen-xl mx-auto">
@@ -23,7 +24,7 @@ export default function Header() {
                     href="/"
                     className={classMerge(
                         "relative w-[250px] h-[53px]",
-                        pathname === "/" && "lg:h-[100px]"
+                        tallHeader && "lg:h-[100px]"
                     )}
                 >
                     <Image
