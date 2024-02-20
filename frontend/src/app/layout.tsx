@@ -17,7 +17,7 @@ export default function RootLayout({
     const url = new URL(headers().get("referer") ?? ""),
         path = url.pathname;
     let top_margin = "mt-[70px]",
-        content_padding = "p-2 pt-3",
+        content_padding = "p-3 pt-5",
         tallHeader = false;
     if (["", "/"].includes(path)) {
         top_margin = "mt-[120px]";
