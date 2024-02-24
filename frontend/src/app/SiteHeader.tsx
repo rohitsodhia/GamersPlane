@@ -6,7 +6,7 @@ import { classMerge } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function Header({
+export default function SiteHeader({
     tallHeader = false,
 }: {
     tallHeader: boolean;

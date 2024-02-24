@@ -1,9 +1,9 @@
-import Headerbar from "@/components/Headerbar";
+import H from "@/components/H";
 
 export default function About() {
     return (
         <div className="max-w-screen-xl mx-auto">
-            <Headerbar>About Gamers&apos; Plane</Headerbar>
+            <H>About Gamers&apos; Plane</H>
             <div className="hb-container">
                 <p>
                     I played my first RPG back in high school (2000 or 2001, not

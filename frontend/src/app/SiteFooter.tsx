@@ -2,11 +2,10 @@ import { siteLinkItems, loggedInLinkItems } from "./util";
 import facebook from "/src/images/bodyComponents/facebook.svg";
 import twitch from "/src/images/bodyComponents/twitch.svg";
 import twitter from "/src/images/bodyComponents/twitter.svg";
-import support_us from "/src/images/support_us.png";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function Footer() {
+export default function SiteFooter() {
     const linkDivClasses = "mb-2",
         linkClasses = "uppercase font-semibold";
 

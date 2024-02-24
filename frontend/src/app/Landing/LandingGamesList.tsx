@@ -1,6 +1,6 @@
 "use client";
 
-import Headerbar from "@/components/Headerbar";
+import H from "@/components/H";
 import { Combobox, ComboboxOption } from "@/components/ui/Combobox";
 import TrapezoidButton from "@/components/ui/TrapezoidButton";
 import { useState } from "react";
@@ -24,7 +24,7 @@ export default function LandingGamesList() {
     return (
         <div className="flex bg-white max-w-[960px] mx-3 md:mx-auto p-4">
             <div className="w-1/2">
-                <Headerbar className="text-center">Latest Games</Headerbar>
+                <H className="text-center">Latest Games</H>
                 <div className="hb-container py-4">
                     <Combobox
                         value={selectedSystem}

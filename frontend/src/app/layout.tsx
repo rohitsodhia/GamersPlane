@@ -1,5 +1,5 @@
-import Footer from "./Footer";
-import Header from "./Header";
+import SiteFooter from "./SiteFooter";
+import SiteHeader from "./SiteHeader";
 import "./globals.css";
 import { agency_fb, open_sans } from "./util";
 import { headers } from "next/headers";
@@ -30,11 +30,11 @@ export default function RootLayout({
             <body
                 className={`bg-body-black ${open_sans.className} ${agency_fb.variable}`}
             >
-                <Header tallHeader={tallHeader} />
+                <SiteHeader tallHeader={tallHeader} />
                 <main className={`bg-white ${top_margin} ${content_padding}`}>
                     {children}
                 </main>
-                <Footer />
+                <SiteFooter />
             </body>
         </html>
     );
