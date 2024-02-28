@@ -47,3 +47,12 @@ services:
   cache:
     container_name: gamersplane-cache
     image: redis:6.2-alpine
+
+  postfix:
+    build:
+      context: ./docker/postfix
+    container_name: gamersplane-postfix
+    ports:
+      - "8025:25"
+    # volumes:
+      # - ./logs/postfix:/var/log
