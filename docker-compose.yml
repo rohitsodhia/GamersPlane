@@ -51,8 +51,22 @@ services:
   postfix:
     build:
       context: ./docker/postfix
-    container_name: gamersplane-postfix
+    container_name: gp-postfix
     ports:
       - "8025:25"
-    # volumes:
-      # - ./logs/postfix:/var/log
+    environment:
+      - POSTFIX_MYHOSTNAME
+    volumes:
+      - ./logs/postfix:/var/log
+
+  opendkim:
+    build:
+      context: ./docker/opendkim
+      args:
+        - OPENDKIM_KEY
+    container_name: gpv1-opendkim
+    environment:
+      - OPENDKIM_SELECTOR
+      - POSTFIX_MYHOSTNAME
+    volumes:
+      - ./logs/opendkim:/var/log

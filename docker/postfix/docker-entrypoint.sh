@@ -1,5 +1,10 @@
-#/bin/bash
+#!/bin/sh
 
-# Run dockerize and template file main.cf.tmpl into main.cf
-# then start postfix as child process
-dockerize -template /etc/postfix/main.cf.tmpl:/etc/postfix/main.cf postfix start-fg
+set -x
+
+CONF_FILE="/etc/postfix/main.cf"
+sed -i -r -e "s/^(myhostname =) gamersplane.com$/\1 $POSTFIX_MYHOSTNAME/" $CONF_FILE
+chmod 600 $CONF_FILE
+
+postalias /etc/postfix/aliases
+postfix start-fg
