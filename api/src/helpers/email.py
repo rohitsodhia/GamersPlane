@@ -1,5 +1,4 @@
 import smtplib
-import ssl
 
 from jinja2 import FileSystemLoader, Environment
 
@@ -10,11 +9,6 @@ from email.headerregistry import Address
 
 
 uri = envs.EMAIL_URI
-port = envs.EMAIL_PORT
-login = envs.EMAIL_LOGIN
-password = envs.EMAIL_PASSWORD
-
-context = ssl.create_default_context()
 
 
 def get_template(template: str, **kwargs) -> str:
@@ -27,9 +21,14 @@ def get_template(template: str, **kwargs) -> str:
     return output
 
 
-def send_email(to: str, subject: str, content: str) -> None:
+def send_email(to: str, subject: str, content: str, html: bool = True) -> None:
     if envs.ENVIRONMENT == "dev":
         return
+
+    if html:
+        subtype = "html"
+    else:
+        subtype = "plain"
 
     email = EmailMessage()
     email["From"] = Address(
@@ -39,8 +38,7 @@ def send_email(to: str, subject: str, content: str) -> None:
     )
     email["To"] = to
     email["Subject"] = subject
-    email.set_content(content, subtype="html")
+    email.set_content(content, subtype=subtype)
 
-    with smtplib.SMTP_SSL(uri, port, context=context) as server:
-        server.login(login, password)
+    with smtplib.SMTP(uri) as server:
         server.send_message(email)
