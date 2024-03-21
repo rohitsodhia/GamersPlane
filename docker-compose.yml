@@ -7,7 +7,7 @@ volumes:
 
 services:
   proxy:
-    container_name: gamersplane-proxy
+    container_name: gp-proxy
     build:
       context: ./
       dockerfile: ./docker/Dockerfile-nginx
@@ -22,7 +22,7 @@ services:
       - api
 
   api:
-    container_name: gamersplane-api
+    container_name: gp-api
     build:
       context: ./api
     volumes:
@@ -36,7 +36,7 @@ services:
     restart: always
 
   mysql:
-    container_name: gamersplane-mysql
+    container_name: gp-mysql
     image: mysql:5.7
     env_file:
       - ./.env
@@ -45,7 +45,7 @@ services:
       - mysql_db:/var/lib/mysql
 
   cache:
-    container_name: gamersplane-cache
+    container_name: gp-cache
     image: redis:6.2-alpine
 
   postfix:
