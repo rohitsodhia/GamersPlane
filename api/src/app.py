@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 import middleware
+from top_level.routes import top_level
 from authorization.routes import authorization
 from forums.forums_routes import forums
 from permissions.roles_routes import roles
@@ -36,6 +37,7 @@ def create_app():
         dispatch=middleware.validate_jwt,
     )
 
+    app.include_router(top_level)
     app.include_router(authorization)
     app.include_router(forums)
     # app.include_router(permissions)
