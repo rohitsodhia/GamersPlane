@@ -10,14 +10,12 @@ services:
     container_name: gp-proxy
     build:
       context: ./
-      dockerfile: ./docker/Dockerfile-nginx
+      dockerfile: ./docker/nginx/Dockerfile
     ports:
       - 80:80
       - 443:443
     volumes:
       - ./docker/nginx/nginx.${ENVIRONMENT}.conf:/etc/nginx/conf.d/site.conf
-      - ./frontend/dist:/var/www/ng
-      - ./api:/var/www/api
     depends_on:
       - api
 
@@ -27,8 +25,6 @@ services:
       context: ./api
     volumes:
       - ./api:/usr/src/app
-    ports:
-      - 8000:8000
     env_file:
       - ./.env
     depends_on:
@@ -52,8 +48,6 @@ services:
     build:
       context: ./docker/postfix
     container_name: gp-postfix
-    ports:
-      - "8025:25"
     environment:
       - POSTFIX_MYHOSTNAME
     volumes:
