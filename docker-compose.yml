@@ -44,6 +44,16 @@ services:
     container_name: gp-cache
     image: redis:6.2-alpine
 
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+      dockerfile: ./docker/Dockerfile-nextjs
+    volumes:
+        - ./frontend:/app
+        # - /app/node_modules
+        # - /app/.next
+
   postfix:
     build:
       context: ./docker/postfix
