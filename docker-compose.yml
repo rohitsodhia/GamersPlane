@@ -1,13 +1,12 @@
-version: '3.6'
+name: gpv2
 
 volumes:
-  mysql_db:
+  postgres_db:
     driver: local
-    name: gp_mysql_db
+    name: gp_postgres_db
 
 services:
   proxy:
-    container_name: gp-proxy
     build:
       context: ./
       dockerfile: ./docker/nginx/Dockerfile
@@ -20,7 +19,6 @@ services:
       - api
 
   api:
-    container_name: gp-api
     build:
       context: ./api
     volumes:
@@ -28,27 +26,25 @@ services:
     env_file:
       - ./.env
     depends_on:
-      - mysql
+      - postgres
     restart: always
 
-  mysql:
-    container_name: gp-mysql
-    image: mysql:5.7
+  postgres:
+    image: postgres:16.4
     env_file:
       - ./.env
     volumes:
-      # - ./docker/mysql:/docker-entrypoint-initdb.d
-      - mysql_db:/var/lib/mysql
+      # - ./docker/postgres:/docker-entrypoint-initdb.d
+      - postgres_db:/var/lib/postgres
 
   cache:
-    container_name: gp-cache
-    image: redis:6.2-alpine
+    image: redis:7.4-alpine
 
   frontend:
     build:
       context: ./frontend
       target: dev
-      dockerfile: ./docker/Dockerfile-nextjs
+      dockerfile: ../docker/Dockerfile-nextjs
     volumes:
         - ./frontend:/app
         # - /app/node_modules
@@ -57,7 +53,6 @@ services:
   postfix:
     build:
       context: ./docker/postfix
-    container_name: gp-postfix
     environment:
       - POSTFIX_MYHOSTNAME
     volumes:
@@ -68,7 +63,6 @@ services:
       context: ./docker/opendkim
       args:
         - OPENDKIM_KEY
-    container_name: gpv1-opendkim
     environment:
       - OPENDKIM_SELECTOR
       - POSTFIX_MYHOSTNAME

@@ -6,7 +6,7 @@ class Game(SoftDeleteModel, TimestampedModel):
     class Meta:
         db_table = "games"
 
-    class Statuses(models.TextChoices):
+    class Statuses(models.Choices):
         OPEN = True, "Open"
         CLOSED = False, "Closed"
 

@@ -1,8 +1,8 @@
 #!/bin/sh
 
-echo "Waiting for MySQL..."
+echo "Waiting for PostgreSQL..."
 
-while nc -z $MYSQL_HOST $MYSQL_PORT; do
+while nc -z $POSTGRES_HOST $POSTGRES_PORT; do
     sleep 1
     echo "Waiting"
 done

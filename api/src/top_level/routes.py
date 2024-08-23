@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from helpers.email import send_email
 
-import schemas
+from top_level import schemas
 
 top_level = APIRouter()
 

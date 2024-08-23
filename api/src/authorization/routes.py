@@ -5,7 +5,8 @@ from envs import HOST_NAME
 from helpers.functions import error_response
 from helpers.email import get_template, send_email
 
-from authorization import schemas
+import schemas
+from authorization import schemas as auth_schemas
 from users.models import User
 from users import functions as users_functions
 from users.exceptions import UserExists
@@ -17,10 +18,10 @@ authorization = APIRouter(prefix="/auth")
 
 @authorization.post(
     "/login",
-    response_model=schemas.AuthResponse,
-    responses={404: {"model": schemas.ErrorResponse(error=schemas.AuthFailed())}},
+    response_model=auth_schemas.AuthResponse,
+    responses={404: {"model": schemas.ErrorResponse(error=auth_schemas.AuthFailed())}},
 )
-def login(user_details: schemas.UserInput):
+def login(user_details: auth_schemas.UserInput):
     email = user_details.email
     try:
         user = User.objects.get(email=email)
@@ -42,9 +43,9 @@ def login(user_details: schemas.UserInput):
 
 @authorization.post(
     "/register",
-    response_model=schemas.Register,
+    response_model=auth_schemas.Register,
 )
-def register(user_details: schemas.Register):
+def register(user_details: auth_schemas.Register):
     errors = {}
     pass_invalid = User.validate_password(user_details.password)
     if pass_invalid:
@@ -111,7 +112,7 @@ def generate_password_reset(email: EmailStr = Body(..., embed=True)):
 
 @authorization.get(
     "/password_reset",
-    response_model=schemas.PasswordResetResponse,
+    response_model=auth_schemas.PasswordResetResponse,
 )
 def check_password_reset(email: EmailStr, token: str):
     valid_token = PasswordResetToken.validate_token(token=token, email=email)
@@ -119,7 +120,7 @@ def check_password_reset(email: EmailStr, token: str):
 
 
 @authorization.patch("/password_reset")
-def reset_password(reset_details: schemas.ResetPasswordInput):
+def reset_password(reset_details: auth_schemas.ResetPasswordInput):
     password_reset = PasswordResetToken.validate_token(
         token=reset_details.token, email=reset_details.email, get_obj=True
     )

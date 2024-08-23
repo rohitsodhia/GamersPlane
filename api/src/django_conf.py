@@ -9,12 +9,12 @@ def make_key(key, key_prefix, version):
 SECRET_KEY = envs.DJANGO_SECRET_KEY
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": envs.MYSQL_DATABASE,
-        "USER": envs.MYSQL_USER,
-        "PASSWORD": envs.MYSQL_PASSWORD,
-        "HOST": envs.MYSQL_HOST,
-        "PORT": "3306",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": envs.POSTGRES_DATABASE,
+        "USER": envs.POSTGRES_USER,
+        "PASSWORD": envs.POSTGRES_PASSWORD,
+        "HOST": "postgres",
+        "PORT": "5432",
     }
 }
 CACHES = {

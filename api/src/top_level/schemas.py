@@ -16,5 +16,5 @@ class AuthResponse(BaseModel):
     user: Dict
 
 
-class AuthFailed(BaseModel):
-    invalid_user = True
+# class AuthFailed(BaseModel):
+#     invalid_user = True

@@ -8,6 +8,6 @@ services:
     stdin_open: true
     tty: true
 
-  mysql:
+  postgres:
     ports:
-      - 3306:3306
+      - 5432:5432

@@ -16,11 +16,11 @@ class AuthResponse(BaseModel):
 
 
 class AuthFailed(BaseModel):
-    invalid_user = True
+    invalid_user: bool = True
 
 
 class Register(UserInput):
-    username: str = Field(..., regex="^[a-zA-Z]")
+    username: str = Field(..., pattern="^[a-zA-Z]")
 
 
 class PasswordResetResponse(BaseModel):
