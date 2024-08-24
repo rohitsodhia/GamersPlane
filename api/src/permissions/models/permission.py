@@ -26,6 +26,8 @@ class Permission(models.Model):
         else:
             self.permission = permission.value
 
+        self._valid_permission = True
+
     def save(self, **kwargs) -> None:
         if not self._valid_permission:
             raise ValueError(f"Permission not set through set_permission")

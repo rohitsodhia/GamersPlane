@@ -29,5 +29,6 @@ CACHES = {
         "KEY_FUNCTION": make_key,
     }
 }
-INSTALLED_APPS = apps
+INSTALLED_APPS = apps + ["django_extensions"]
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+USE_TZ = False

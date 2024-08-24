@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "662ba39da6e9576e1fc2962a25f48f303e85683ef630e459b7d0b8d1367e90bf"
+            "sha256": "4c084c8175802bba65b0f553a85c9fd89e10da540c11875ba9cd4d445877e50d"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -90,6 +90,15 @@
             "index": "pypi",
             "markers": "python_version >= '3.10'",
             "version": "==5.1"
+        },
+        "django-extensions": {
+            "hashes": [
+                "sha256:44d27919d04e23b3f40231c4ab7af4e61ce832ef46d610cc650d53e68328410a",
+                "sha256:9600b7562f79a92cbf1fde6403c04fee314608fefbb595502e34383ae8203401"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.6'",
+            "version": "==3.2.3"
         },
         "django-redis": {
             "hashes": [
@@ -195,11 +204,11 @@
         },
         "idna": {
             "hashes": [
-                "sha256:028ff3aadf0609c1fd278d8ea3089299412a7a8b9bd005dd08b9f8285bcb5cfc",
-                "sha256:82fee1fc78add43492d3a1898bfa6d8a904cc97d8427f683ed8e798d07761aa0"
+                "sha256:050b4e5baadcd44d760cedbd2b8e639f2ff89bbc7a5730fcc662954303377aac",
+                "sha256:d838c2c0ed6fced7693d5e8ab8e734d5f8fda53a039c0164afb0b82e771e3603"
             ],
-            "markers": "python_version >= '3.5'",
-            "version": "==3.7"
+            "markers": "python_version >= '3.6'",
+            "version": "==3.8"
         },
         "inflect": {
             "hashes": [
@@ -918,11 +927,11 @@
         },
         "faker": {
             "hashes": [
-                "sha256:1c44d4bdcad7237516c9a829b6a0bcb031c6a4cb0506207c480c79f74d8922bf",
-                "sha256:4ce108fc96053bbba3abf848e3a2885f05faa938deb987f97e4420deaec541c4"
+                "sha256:0d3c0399204aaf8205cc1750db443474ca0436f177126b2c27b798e8336cc74f",
+                "sha256:6a3a08be54c37e05f7943d7ba5211d252c1de737687a46ad6f29209d8d5db11f"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==27.4.0"
+            "version": "==28.0.0"
         },
         "fancycompleter": {
             "hashes": [

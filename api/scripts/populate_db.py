@@ -32,6 +32,8 @@ import random
 import math
 from mimesis import Generic
 
+CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
+
 random_seed = math.floor(random.random() * 100000)
 mimesis = Generic(seed=random_seed)
 
@@ -61,7 +63,7 @@ extra_users = []
 for i in range(2):
     user = register_user(
         email=mimesis.person.email(),
-        username=mimesis.person.username(template="ld"),
+        username=mimesis.person.username(mask="ld"),
         password="test1234",
     )
     user.activate()
@@ -79,7 +81,7 @@ test_role_1_admin_permission = create_permission(
 test_role_1.permissions.add(test_role_1_admin_permission)
 
 
-with open("data/systems.json") as f:
+with open(f"{CURRENT_DIR}/data/systems.json") as f:
     systems_data = json.load(f)
 
 for system_data in systems_data:
@@ -103,7 +105,7 @@ for system_data in systems_data:
 print("\n")
 
 
-with open("data/forums.json") as f:
+with open(f"{CURRENT_DIR}/data/forums.json") as f:
     forums_data = json.load(f)
 
 forums = {}

@@ -32,6 +32,6 @@ class Game(SoftDeleteModel, TimestampedModel):
     group = models.ForeignKey(
         "permissions.Role", on_delete=models.PROTECT, db_column="groupId"
     )
-    status = models.BooleanField(default=Statuses.OPEN, choices=Statuses.choices)
+    status = models.BooleanField(default=Statuses.OPEN)
     public = models.BooleanField()
     retired = models.DateTimeField(null=True)
