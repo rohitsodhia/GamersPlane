@@ -16,7 +16,7 @@ styles/**/*.css
 
 # Specific files
 .env
-docker-compose.override.yml
+compose.override.yml
 
 # Folders
 logs/

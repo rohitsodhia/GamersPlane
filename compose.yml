@@ -1,7 +1,7 @@
 volumes:
-  mysql_db:
+  postgres_db:
     driver: local
-    name: gp_mysql_db
+    name: gp_postgres_db
 
 services:
   proxy:
@@ -30,7 +30,7 @@ services:
     env_file:
       - ./.env
     depends_on:
-      - mysql
+      - postgres
     restart: always
 
   postgres:
