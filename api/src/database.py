@@ -1,11 +1,9 @@
-import pymysql
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-from envs import MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
+from envs import DATABASE_DATABASE, DATABASE_HOST, DATABASE_PASSWORD, DATABASE_USER
 
-db = pymysql.connect(
-    host=MYSQL_HOST,
-    user=MYSQL_USER,
-    password=MYSQL_PASSWORD,
-    db=MYSQL_DATABASE,
-    cursorclass=pymysql.cursors.DictCursor,
+engine = create_engine(
+    f"postgresql+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}/{DATABASE_DATABASE}"
 )
+session = sessionmaker(bind=engine)

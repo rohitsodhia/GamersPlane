@@ -1,9 +1,3 @@
-if __name__ == "app":
-    import django
-
-    django.setup()
-
-
 from random import seed
 
 from fastapi import FastAPI
