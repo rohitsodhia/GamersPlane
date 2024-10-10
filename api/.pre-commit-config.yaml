@@ -1,13 +1,36 @@
 repos:
-- repo: https://github.com/psf/black
-  rev: stable
-  hooks:
-  - id: black
-# - repo: https://github.com/asottile/seed-isort-config
-#   rev: v1.9.2
+# - repo: https://github.com/psf/black-pre-commit-mirror
+#   rev: 24.8.0
 #   hooks:
-#   - id: seed-isort-config
-# - repo: https://github.com/pre-commit/mirrors-isort
-#   rev: v4.3.20
+#   - id: black
+# - repo: https://github.com/pycqa/isort
+#   rev: 5.13.0
 #   hooks:
 #   - id: isort
+# - repo: local
+#   hooks:
+#   - id: black
+#     name: black
+#     entry: pipenv run black
+#     language: system
+#     types: [python]
+#   - id: isort
+#     name: isort
+#     entry: pipenv run isort
+#     language: system
+#     types: [python]
+  - repo: https://github.com/egormkn/run-in-subdirectory
+    rev: 1.0.1
+    hooks:
+      - id: run-in-subdirectory
+        alias: black
+        name: Format server code with Black
+        args: ["api", "pipenv run black"]
+        types: [ python ]
+        files: ^api/
+      - id: run-in-subdirectory
+        alias: isort
+        name: Format server code with isort
+        args: ["api", "pipenv run isort"]
+        types: [ text ]
+        files: ^api/
