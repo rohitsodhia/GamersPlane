@@ -1,48 +1,37 @@
-import bcrypt
 import datetime
+from typing import TYPE_CHECKING, List, Optional
+
+import bcrypt
 import jwt
-from typing import List
-from django.db import models, connection
+from sqlalchemy import String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from envs import JWT_ALGORITHM, JWT_SECRET_KEY
+from models.base import Base
+
+if TYPE_CHECKING:
+    from models import Role, UserMeta
 
 
-class UserManager(models.Manager):
-    def __init__(self, *args, **kwargs):
-        self.inactive = kwargs.pop("inactive", False)
-        self.banned = kwargs.pop("banned", False)
-        super().__init__(*args, **kwargs)
+class User(Base):
+    __tablename__ = "users"
 
-    def get_queryset(self):
-        queryset = models.QuerySet(self.model)
-        if not self.inactive:
-            queryset = queryset.filter(activatedOn__isnull=False)
-        if not self.banned:
-            queryset = queryset.filter(banned__isnull=True)
-        return queryset
-
-
-class User(models.Model):
-    class Meta:
-        db_table = "users"
-
-    username = models.CharField(max_length=24, unique=True)
-    password = models.CharField(max_length=64)
-    email = models.CharField(max_length=50, unique=True)
-    joinDate = models.DateTimeField(auto_now=True)
-    activatedOn = models.DateTimeField(null=True)
-    lastActivity = models.DateTimeField(null=True)
-    suspendedUntil = models.DateTimeField(null=True)
-    banned = models.DateTimeField(null=True)
-    roles = models.ManyToManyField(
-        "permissions.Role", related_name="users", through="users.UserRoles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(24), unique=True)
+    password: Mapped[str] = mapped_column(String(64))
+    email: Mapped[str] = mapped_column(String(50), unique=True)
+    joinDate: Mapped[datetime.datetime] = mapped_column(default=func.now())
+    activatedOn: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    lastActivity: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    suspendedUntil: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    banned: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    roles: Mapped[List["Role"]] = relationship(
+        secondary="user_roles", back_populates="users"
     )
-    admin = models.BooleanField(default=False)
+    admin: Mapped[bool] = mapped_column(default=False)
+    meta: Mapped[List["UserMeta"]] = relationship()
 
-    objects = UserManager()
-    all_objects = UserManager(inactive=True, banned=True)
-
-    MIN_PASSWORD_LENGTH = 8
+    MIN_PASSWORD_LENGTH: int = 8
 
     @property
     def permissions(self) -> List[int]:
@@ -62,32 +51,31 @@ class User(models.Model):
         return invalid
 
     @staticmethod
-    def hash_pass(password: str) -> str:
+    def hash_password(password: str) -> str:
         hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
         return hashed.decode("utf-8")
 
     def set_password(self, password: str) -> bool:
         pass_valid = User.validate_password(password)
         if pass_valid == []:
-            self.password = self.hash_pass(password)
+            self.password = self.hash_password(password)
             return True
         return False
 
-    def activate(self):
-        self.activatedOn = datetime.datetime.utcnow()
-        self.save()
-        return self
+    def activate(self) -> None:
+        self.activatedOn = datetime.datetime.now(datetime.timezone.utc)
 
     def check_pass(self, password: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), self.password.encode("utf-8"))
 
-    def generate_jwt(self, exp_len: int = None) -> str:
+    def generate_jwt(self, exp_len: Optional[dict] = None) -> str:
         if not exp_len:
             exp_len = {"weeks": 2}
         return jwt.encode(
             {
                 "user_id": self.id,
-                "exp": datetime.datetime.utcnow() + datetime.timedelta(**exp_len),
+                "exp": datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(**exp_len),
             },
             JWT_SECRET_KEY,
             algorithm=JWT_ALGORITHM,

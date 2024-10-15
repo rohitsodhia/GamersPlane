@@ -4,7 +4,7 @@ from fastapi import Request
 
 import envs
 from globals import g
-from users.models import User
+from models import User
 
 
 async def validate_jwt(request: Request, call_next):

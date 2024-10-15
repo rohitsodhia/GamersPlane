@@ -1,8 +1,9 @@
-from fastapi import status
-from functools import wraps, partial
+from functools import partial, wraps
 from typing import Callable
 
-from globals import g
+from fastapi import status
+
+import globals as g
 from helpers.functions import error_response
 
 

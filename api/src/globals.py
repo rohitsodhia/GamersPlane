@@ -1,9 +1,5 @@
-from typing import Any
+from typing import Optional
 
+from models.user import User
 
-class globals:
-    def __setattr__(self, __name: str, __value: Any) -> None:
-        object.__setattr__(self, __name, __value)
-
-
-g = globals()
+current_user: Optional[User] = None
