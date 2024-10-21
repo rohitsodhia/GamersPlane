@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import event, func
@@ -12,7 +12,7 @@ class Base(DeclarativeBase):
 
 
 class SoftDeleteMixin:
-    deleted: Optional[Mapped[datetime.datetime]] = mapped_column(default=None)
+    deleted: Mapped[Optional[datetime]] = mapped_column(default=None)
 
 
 @event.listens_for(session, "do_orm_execute")
@@ -29,7 +29,7 @@ def _add_filtering_criteria(execute_state):
 
 
 class TimestampMixin:
-    created_at: Mapped[datetime.datetime] = mapped_column(default=func.now())
-    updated_at: Mapped[datetime.datetime] = mapped_column(
-        default=func.now(), onupdate=func.current_timestamp()
+    created_at: Mapped[datetime] = mapped_column(insert_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        insert_default=func.now(), onupdate=func.current_timestamp()
     )

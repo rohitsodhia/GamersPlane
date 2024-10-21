@@ -20,7 +20,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(24), unique=True)
     password: Mapped[str] = mapped_column(String(64))
     email: Mapped[str] = mapped_column(String(50), unique=True)
-    joinDate: Mapped[datetime.datetime] = mapped_column(default=func.now())
+    joinDate: Mapped[datetime.datetime] = mapped_column(insert_default=func.now())
     activatedOn: Mapped[datetime.datetime] = mapped_column(nullable=True)
     lastActivity: Mapped[datetime.datetime] = mapped_column(nullable=True)
     suspendedUntil: Mapped[datetime.datetime] = mapped_column(nullable=True)
