@@ -35,8 +35,10 @@ services:
 
   postgres:
     image: postgres:16.4
-    env_file:
-      - ./.env
+    environment:
+      - POSTGRES_USER=${DATABASE_USER}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=${DATABASE_DATABASE}
     volumes:
       # - ./docker/postgres:/docker-entrypoint-initdb.d
       - postgres_db:/var/lib/postgres

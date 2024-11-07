@@ -21,3 +21,4 @@ compose.override.yml
 # Folders
 logs/
 .pytest_cache
+__pycache__
