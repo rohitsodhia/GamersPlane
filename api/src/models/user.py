@@ -20,10 +20,10 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(24), unique=True)
     password: Mapped[str] = mapped_column(String(64))
     email: Mapped[str] = mapped_column(String(50), unique=True)
-    joinDate: Mapped[datetime.datetime] = mapped_column(insert_default=func.now())
-    activatedOn: Mapped[datetime.datetime] = mapped_column(nullable=True)
-    lastActivity: Mapped[datetime.datetime] = mapped_column(nullable=True)
-    suspendedUntil: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    join_date: Mapped[datetime.datetime] = mapped_column(insert_default=func.now())
+    activated_on: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    last_activity: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    suspended_until: Mapped[datetime.datetime] = mapped_column(nullable=True)
     banned: Mapped[datetime.datetime] = mapped_column(nullable=True)
     roles: Mapped[List["Role"]] = relationship(
         secondary="user_roles", back_populates="users"
@@ -33,15 +33,15 @@ class User(Base):
 
     MIN_PASSWORD_LENGTH: int = 8
 
-    @property
-    def permissions(self) -> List[int]:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT DISTINCT permission FROM permissions p INNER JOIN role_permissions rp ON rp.permissionId = p.id INNER JOIN roles r ON r.id = rp.roleId INNER JOIN user_roles ur ON ur.roleId = r.id WHERE ur.userId = %s",
-                [self.id],
-            )
-            permissions = cursor.fetchall()
-        return list([v[0] for v in permissions])
+    # @property
+    # def permissions(self) -> List[int]:
+    #     with connection.cursor() as cursor:
+    #         cursor.execute(
+    #             "SELECT DISTINCT permission FROM permissions p INNER JOIN role_permissions rp ON rp.permissionId = p.id INNER JOIN roles r ON r.id = rp.roleId INNER JOIN user_roles ur ON ur.roleId = r.id WHERE ur.userId = %s",
+    #             [self.id],
+    #         )
+    #         permissions = cursor.fetchall()
+    #     return list([v[0] for v in permissions])
 
     @staticmethod
     def validate_password(password: str) -> list:
@@ -80,17 +80,3 @@ class User(Base):
             JWT_SECRET_KEY,
             algorithm=JWT_ALGORITHM,
         )
-
-    def to_dict(self):
-        dict_val = {
-            "username": self.username,
-            "email": self.email,
-            "joinDate": self.joinDate,
-            "lastActivity": self.lastActivity,
-            "suspendedUntil": self.suspendedUntil,
-            "banned": self.banned,
-            "roles": [v.name for v in self.roles.all()],
-            "permissions": self.permissions,
-            "admin": self.admin,
-        }
-        return dict_val

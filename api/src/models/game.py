@@ -1,4 +1,5 @@
 from django.db import models
+
 from helpers.base_models import SoftDeleteModel, TimestampedModel
 
 

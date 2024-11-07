@@ -17,7 +17,7 @@ class ValidPermissions(Enum):
 class Permission(Base):
     __tablename__ = "permissions"
 
-    permission: Mapped[str] = mapped_column(String(64), unique=True)
+    permission: Mapped[str] = mapped_column(String(64), primary_key=True)
 
     roles: Mapped[List["Role"]] = relationship(
         secondary="role_permissions", back_populates="permissions"

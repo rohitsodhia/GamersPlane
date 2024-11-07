@@ -1,7 +1,7 @@
 from typing import List
 
-from django.db import models
 from django.core.cache import cache
+from django.db import models
 
 from helpers.base_models import SoftDeleteModel, TimestampedModel
 from helpers.cache import CacheKeys, generate_cache_id, get_objects_by_id
