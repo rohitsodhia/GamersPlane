@@ -1,7 +1,8 @@
+from tokens.models import AccountActivationToken
+
 from envs import HOST_NAME
 from helpers.email import get_template, send_email
 from users.models import User
-from tokens.models import AccountActivationToken
 
 
 def get_activation_link(user: User) -> str:

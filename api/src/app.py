@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 import middleware
-from authorization.routes import authorization
+from auth.routes import auth
 from forums.forums_routes import forums
 from permissions.roles_routes import roles
 from referral_links.routes import referral_links
@@ -30,7 +30,7 @@ def create_app():
         dispatch=middleware.validate_jwt,
     )
 
-    app.include_router(authorization)
+    app.include_router(auth)
     app.include_router(forums)
     # app.include_router(permissions)
     app.include_router(referral_links)

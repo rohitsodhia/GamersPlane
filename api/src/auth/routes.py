@@ -1,17 +1,15 @@
-from fastapi import APIRouter, status, Body
-from pydantic import UUID1, EmailStr
-
-from envs import HOST_NAME
-from helpers.functions import error_response
-from helpers.email import get_template, send_email
-from schemas import ErrorResponse
-
 from authorization import schemas
-from users.models import User
-from users import functions as users_functions
-from users.exceptions import UserExists
+from fastapi import APIRouter, Body, status
+from pydantic import UUID1, EmailStr
 from tokens.models import AccountActivationToken, PasswordResetToken
 
+from envs import HOST_NAME
+from helpers.email import get_template, send_email
+from helpers.functions import error_response
+from schemas import ErrorResponse
+from users import functions as users_functions
+from users.exceptions import UserExists
+from users.models import User
 
 authorization = APIRouter(prefix="/auth")
 
