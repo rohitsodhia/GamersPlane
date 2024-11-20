@@ -3,9 +3,10 @@ from typing import TYPE_CHECKING, List, Optional
 
 import bcrypt
 import jwt
-from sqlalchemy import String, func
+from sqlalchemy import String, func, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from database import Session
 from envs import JWT_ALGORITHM, JWT_SECRET_KEY
 from models.base import Base
 
@@ -32,6 +33,14 @@ class User(Base):
     meta: Mapped[List["UserMeta"]] = relationship()
 
     MIN_PASSWORD_LENGTH: int = 8
+
+    @staticmethod
+    def get(user_id: Optional[int] = None) -> Optional["User"]:
+        with Session() as session:
+            getUserQuery = session.scalars(
+                select(User).where(User.id == user_id).limit(1)
+            ).first()
+            return getUserQuery
 
     # @property
     # def permissions(self) -> List[int]:
@@ -63,7 +72,7 @@ class User(Base):
         return False
 
     def activate(self) -> None:
-        self.activatedOn = datetime.datetime.now(datetime.timezone.utc)
+        self.activated_on = datetime.datetime.now(datetime.timezone.utc)
 
     def check_pass(self, password: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), self.password.encode("utf-8"))

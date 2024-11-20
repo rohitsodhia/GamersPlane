@@ -6,4 +6,4 @@ from envs import DATABASE_DATABASE, DATABASE_HOST, DATABASE_PASSWORD, DATABASE_U
 engine = create_engine(
     f"postgresql+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}/{DATABASE_DATABASE}"
 )
-session = sessionmaker(bind=engine)
+Session = sessionmaker(bind=engine)
