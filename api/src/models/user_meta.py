@@ -1,40 +1,52 @@
-from enum import Enum
+from typing import Literal, cast
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from exceptions import ValidationError
+from helpers.enums import LabelEnum
 from models.base import Base
 
 
 class UserMeta(Base):
-    class MetaKeys(Enum):
-        AVATAR_EXT = "avatarExt", "Avatar Extension"
-        LOCATION = "location", "Location"
-        NEW_GAME_MAIL = "newGameMail", "New Game Mail"
-        POST_SIDE = "postSide", "Post Side"
-        REFERENCE = "reference", "Reference"
-        SHOW_AVATARS = "showAvatars", "Show Avatars"
-        SHOW_TZ = "showTZ", "Show Timezone"
-        TIMEZONE = "timezone", "Timezone"
+    class MetaKeys(LabelEnum):
+        AVATAR_EXT = "avatarExt", "Avatar Extension", bool
+        LOCATION = "location", "Location", str
+        NEW_GAME_MAIL = "newGameMail", "New Game Mail", bool
+        POST_SIDE = "postSide", "Post Side", str
+        REFERENCE = "reference", "Reference", str
+        SHOW_AVATARS = "showAvatars", "Show Avatars", bool
+        SHOW_TZ = "showTZ", "Show Timezone", bool
+        TIMEZONE = "timezone", "Timezone", str
 
     __tablename__ = "user_meta"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     key: Mapped[MetaKeys] = mapped_column(String(32))
-    value: Mapped[str]
+    _value: Mapped[str] = mapped_column("value", String())
 
-    def validate(self):
-        match self.key:
-            case self.MetaKeys.POST_SIDE:
-                if self.value.lower() not in ["l", "r"]:
-                    raise ValidationError("Post Side must either be 'l' or 'r'")
-                self.value = self.value.lower()
-            case (
-                self.MetaKeys.NEW_GAME_MAIL
-                | self.MetaKeys.SHOW_AVATARS
-                | self.MetaKeys.SHOW_TZ
-            ):
-                if type(self.value) is not bool:
-                    raise ValidationError(f"{self.key} must be a boolean")
+    @property
+    def value(self):
+        if self.key not in [e.value for e in self.MetaKeys]:
+            return None
+
+        cast_type: type[int | bool | str] = self.MetaKeys(self.key).full_value[2]
+        return cast_type(self._value)
+
+    @value.setter
+    def value(self, value):
+        if self.key not in [e.value for e in self.MetaKeys]:
+            raise ValueError("No key set")
+
+        cast_type: type[int | bool | str] = self.MetaKeys(self.key).full_value[2]
+        if type(value) is not cast_type:
+            raise ValidationError(f"{self.key} must be a {str(cast_type)[8:-2]}")
+        if self.key == self.MetaKeys.POST_SIDE.value:
+            value = value.lower()
+            if value not in ["l", "r"]:
+                raise ValidationError("Post Side must either be 'l' or 'r'")
+        elif cast_type is bool:
+            value = 1 if value else 0
+
+        self._value = str(value)

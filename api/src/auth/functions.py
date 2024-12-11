@@ -1,26 +1,29 @@
-from tokens.models import AccountActivationToken
+from sqlalchemy import select
 
+from database import session_manager
 from envs import HOST_NAME
 from helpers.email import get_template, send_email
-from users.models import User
+from models import AccountActivationToken, User
 
 
-def get_activation_link(user: User) -> str:
-    try:
-        account_activation_token = AccountActivationToken.objects.get(user=user)
-    except AccountActivationToken.DoesNotExist:
-        account_activation_token = AccountActivationToken(user=user)
-        account_activation_token.save()
-
-    if not user.username:
-        raise ValueError
+async def get_activation_link(user: User) -> str:
+    async with session_manager.session() as db_session:
+        account_activation_token = await db_session.scalar(
+            select(AccountActivationToken)
+            .where(AccountActivationToken.user == user)
+            .limit(1)
+        )
+        if not account_activation_token:
+            account_activation_token = AccountActivationToken(user=user)
+            db_session.add(account_activation_token)
+            await db_session.commit()
 
     return f"{HOST_NAME}/activate/{account_activation_token.token}"
 
 
 def send_activation_email(user: User) -> None:
     email_content = get_template(
-        "authorization/templates/activation.html",
+        "auth/templates/activation.html",
         activation_link=get_activation_link(user),
     )
     send_email(user.email, "Activate your Gamers' Plane account!", email_content)

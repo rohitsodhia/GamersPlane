@@ -1,14 +1,15 @@
 import jwt
-from asgiref.sync import sync_to_async
-from fastapi import Request
+from fastapi import HTTPException, Request, status
 
 import envs
-from globals import g
+import globals
+from database import get_db_session
 from models import User
 
 
 async def validate_jwt(request: Request, call_next):
-    g.current_user = None
+    db_session = get_db_session()
+    globals.current_user = None
 
     token = request.headers.get("Authorization")
     if token and token[:7] == "Bearer ":
@@ -19,13 +20,16 @@ async def validate_jwt(request: Request, call_next):
                 envs.JWT_SECRET_KEY,
                 algorithms=[envs.JWT_ALGORITHM],
             )
-        except jwt.ExpiredSignatureError:
-            return await call_next(request)
-
-    try:
-        g.current_user = await sync_to_async(User.objects.get)(id=jwt_body["user_id"])
-    except:
-        pass
+            globals.current_user = await User.get(jwt_body["user_id"])
+        except:
+            pass
 
     response = await call_next(request)
     return response
+
+
+async def check_authorization(request: Request):
+    public = getattr(request.scope["route"].endpoint, "is_public", False)
+
+    if not public:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")

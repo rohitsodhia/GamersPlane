@@ -1,37 +1,42 @@
-from authorization import schemas
 from fastapi import APIRouter, Body, status
 from pydantic import UUID1, EmailStr
-from tokens.models import AccountActivationToken, PasswordResetToken
+from sqlalchemy import select
 
+from auth import schemas
+from database import DBSessionDependency
 from envs import HOST_NAME
+from helpers.decorators import public
 from helpers.email import get_template, send_email
 from helpers.functions import error_response
+from models import AccountActivationToken, PasswordResetToken, User
 from schemas import ErrorResponse
 from users import functions as users_functions
 from users.exceptions import UserExists
-from users.models import User
 
-authorization = APIRouter(prefix="/auth")
+auth = APIRouter(prefix="/auth")
 
 
-@authorization.post(
+@auth.post(
     "/login",
     response_model=schemas.AuthResponse,
     responses={404: {"model": ErrorResponse(error=schemas.AuthFailed())}},
 )
-def login(user_details: schemas.UserInput):
+@public
+async def login(user_details: schemas.UserInput, db_session: DBSessionDependency):
     email = user_details.email
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        user = None
+    user = await db_session.scalar(
+        select(User).where(User.email == user_details.email).limit(1)
+    )
     if user:
         password = user_details.password
         if user.check_pass(password):
             return {
                 "logged_in": True,
                 "jwt": user.generate_jwt(),
-                "user": user.to_dict(),
+                "user": {
+                    "username": user.username,
+                    "email": user.email,
+                },
             }
     return error_response(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -39,11 +44,12 @@ def login(user_details: schemas.UserInput):
     )
 
 
-@authorization.post(
+@auth.post(
     "/register",
-    response_model=schemas.Register,
+    response_model=schemas.RegistrationResponse,
 )
-def register(user_details: schemas.Register):
+@public
+async def register(user_details: schemas.Register):
     errors = {}
     pass_invalid = User.validate_password(user_details.password)
     if pass_invalid:
@@ -56,20 +62,21 @@ def register(user_details: schemas.Register):
         )
 
     try:
-        users_functions.register_user(
+        await users_functions.register_user(
             email=user_details.email,
             username=user_details.username,
             password=user_details.password,
         )
+        return {"registered": True}
     except UserExists as e:
         return error_response(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
             content=e.errors,
         )
 
 
-@authorization.post("/activate/{token}")
-def activate_user(token: UUID1):
+@auth.post("/activate/{token}")
+async def activate_user(token: UUID1):
     try:
         account_activation_token = AccountActivationToken.objects.get(token=token)
     except AccountActivationToken.DoesNotExist:
@@ -84,8 +91,8 @@ def activate_user(token: UUID1):
     return {}
 
 
-@authorization.post("/password_reset")
-def generate_password_reset(email: EmailStr = Body(..., embed=True)):
+@auth.post("/password_reset")
+async def generate_password_reset(email: EmailStr = Body(..., embed=True)):
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
@@ -100,7 +107,7 @@ def generate_password_reset(email: EmailStr = Body(..., embed=True)):
         password_reset = PasswordResetToken(user=user)
         password_reset.save()
     email_content = get_template(
-        "authorization/templates/reset_password.html",
+        "auth/templates/reset_password.html",
         reset_link=f"{HOST_NAME}/activate/{password_reset.token}",
     )
     send_email(email, "Password reset for Gamers' Plane", email_content)
@@ -108,17 +115,17 @@ def generate_password_reset(email: EmailStr = Body(..., embed=True)):
     return {}
 
 
-@authorization.get(
+@auth.get(
     "/password_reset",
     response_model=schemas.PasswordResetResponse,
 )
-def check_password_reset(email: EmailStr, token: str):
+async def check_password_reset(email: EmailStr, token: str):
     valid_token = PasswordResetToken.validate_token(token=token, email=email)
     return {"valid_token": valid_token}
 
 
-@authorization.patch("/password_reset")
-def reset_password(reset_details: schemas.ResetPasswordInput):
+@auth.patch("/password_reset")
+async def reset_password(reset_details: schemas.ResetPasswordInput):
     password_reset = PasswordResetToken.validate_token(
         token=reset_details.token, email=reset_details.email, get_obj=True
     )

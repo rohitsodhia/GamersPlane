@@ -6,7 +6,7 @@ import jwt
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database import Session
+from database import session_manager
 from envs import JWT_ALGORITHM, JWT_SECRET_KEY
 from models.base import Base
 
@@ -35,12 +35,12 @@ class User(Base):
     MIN_PASSWORD_LENGTH: int = 8
 
     @staticmethod
-    def get(user_id: Optional[int] = None) -> Optional["User"]:
-        with Session() as session:
-            getUserQuery = session.scalars(
+    async def get(user_id: Optional[int] = None) -> Optional["User"]:
+        async with session_manager.session() as db_session:
+            user = await db_session.scalar(
                 select(User).where(User.id == user_id).limit(1)
-            ).first()
-            return getUserQuery
+            )
+            return user
 
     # @property
     # def permissions(self) -> List[int]:

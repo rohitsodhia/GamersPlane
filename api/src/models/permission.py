@@ -10,14 +10,14 @@ if TYPE_CHECKING:
     from models import Role
 
 
-class ValidPermissions(Enum):
-    ROLE_ADMIN = "role_admin_{role_id}"
-
-
 class Permission(Base):
+    class ValidPermissions(Enum):
+        ROLE_ADMIN = "role_admin_{role_id}"
+
     __tablename__ = "permissions"
 
-    permission: Mapped[str] = mapped_column(String(64), primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    permission: Mapped[str] = mapped_column(String(64))
 
     roles: Mapped[List["Role"]] = relationship(
         secondary="role_permissions", back_populates="permissions"

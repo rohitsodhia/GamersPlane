@@ -2,9 +2,15 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import event, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, with_loader_criteria
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+    with_loader_criteria,
+)
 
-from database import session
+from database import session_manager
 
 
 class Base(DeclarativeBase):
@@ -15,7 +21,7 @@ class SoftDeleteMixin:
     deleted: Mapped[Optional[datetime]] = mapped_column(default=None)
 
 
-@event.listens_for(session, "do_orm_execute")
+@event.listens_for(Session, "do_orm_execute")
 def _add_filtering_criteria(execute_state):
     skip_filter = execute_state.execution_options.get("skip_filter", False)
     if execute_state.is_select and not skip_filter:

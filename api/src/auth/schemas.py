@@ -1,13 +1,26 @@
-from typing import Dict
+from typing import Annotated, Dict
 
-from pydantic import BaseModel, EmailStr, Field
+from annotated_types import Len
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from fields import Password
+from models import User
+
+Password = Annotated[str, Len(min_length=User.MIN_PASSWORD_LENGTH)]
 
 
 class UserInput(BaseModel):
     email: EmailStr
     password: Password
+
+    @field_validator("password")
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        return v
+
+
+class RegistrationResponse(BaseModel):
+    registered: bool = True
 
 
 class AuthResponse(BaseModel):
@@ -17,11 +30,11 @@ class AuthResponse(BaseModel):
 
 
 class AuthFailed(BaseModel):
-    invalid_user = True
+    invalid_user: bool = True
 
 
 class Register(UserInput):
-    username: str = Field(..., regex="^[a-zA-Z]")
+    username: str = Field(..., pattern=r"^[a-zA-Z]+$")
 
 
 class PasswordResetResponse(BaseModel):

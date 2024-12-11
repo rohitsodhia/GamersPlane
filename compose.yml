@@ -41,7 +41,8 @@ services:
       - POSTGRES_DB=${DATABASE_DATABASE}
     volumes:
       # - ./docker/postgres:/docker-entrypoint-initdb.d
-      - postgres_db:/var/lib/postgres
+      - postgres_db:/var/lib/postgresql/data
+
   cache:
     container_name: gamersplane-cache
     image: redis:6.2-alpine

@@ -20,6 +20,7 @@ run-in-subdirectory = "~=1.0"
 
 [packages]
 alembic = "~=1.13"
+asyncpg = "~=0.30"
 bcrypt = "~=4.2"
 djantic = "~=0.7"
 email-validator = "~=2.2"
