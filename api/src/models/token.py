@@ -1,25 +1,29 @@
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Union
-from uuid import uuid1 as uuid
+from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, String, Uuid, func, select
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from database import session_manager
+from helpers.enums import LabelEnum
 from models.base import Base, TimestampMixin
+from models.user import User
 
 
 class Token(Base, TimestampMixin):
-    class TokenTypes(Enum):
+    class TokenTypes(LabelEnum):
         ACCOUNT_ACTIVATION = "aa", "Account Activation"
         PASSWORD_RESET = "pr", "Password Reset"
 
     __tablename__ = "tokens"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user: Mapped[User] = relationship()
     token_type: Mapped[TokenTypes] = mapped_column(String(2))
-    token: Mapped[str] = mapped_column(String(36), default=uuid)
+    token: Mapped[UUID] = mapped_column(Uuid(), default=uuid4)
     requestedOn: Mapped[datetime] = mapped_column(insert_default=func.now())
     used: Mapped[Optional[datetime]]
 
@@ -28,27 +32,21 @@ class Token(Base, TimestampMixin):
         "polymorphic_abstract": True,
     }
 
-    def save(self, *args, **kwargs):
-        if self.model_token_type:
-            self.token_type = self.model_token_type
-        super().save(*args, **kwargs)
-
     @staticmethod
-    def validate_token(
-        token: str, email: str = None, get_obj: bool = False
-    ) -> Union[bool, object]:
-        token = Token.objects.filter(token=token)
-        if email:
-            token = token.filter(user__email=email)
+    async def validate_token(token: str, email: Optional[str] = None) -> "Token | None":
+        async with session_manager.session() as db_session:
+            get_token = select(Token).where(Token.token == token).limit(1)
+            if email:
+                get_token = get_token.join(Token.user).where(User.email == email)
+            token_obj = await db_session.scalar(get_token)
 
-        if get_obj:
-            return token[0] if token else None
-        return True if token else False
+        return token_obj if token_obj else None
 
-    def use(self):
+    async def use(self):
         self.used = datetime.now(timezone.utc)
-        self.save()
-        return self
+        async with session_manager.session() as db_session:
+            db_session.add(self)
+            await db_session.commit()
 
 
 class PasswordResetToken(Token):

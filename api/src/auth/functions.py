@@ -10,7 +10,7 @@ async def get_activation_link(user: User) -> str:
     async with session_manager.session() as db_session:
         account_activation_token = await db_session.scalar(
             select(AccountActivationToken)
-            .where(AccountActivationToken.user == user)
+            .where(AccountActivationToken.user_id == user.id)
             .limit(1)
         )
         if not account_activation_token:
@@ -21,9 +21,9 @@ async def get_activation_link(user: User) -> str:
     return f"{HOST_NAME}/activate/{account_activation_token.token}"
 
 
-def send_activation_email(user: User) -> None:
+async def send_activation_email(user: User) -> None:
     email_content = get_template(
         "auth/templates/activation.html",
-        activation_link=get_activation_link(user),
+        activation_link=await get_activation_link(user),
     )
     send_email(user.email, "Activate your Gamers' Plane account!", email_content)

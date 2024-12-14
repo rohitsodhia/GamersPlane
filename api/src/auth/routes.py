@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Body, status
-from pydantic import UUID1, EmailStr
-from sqlalchemy import select
+from pydantic import UUID4, EmailStr
+from sqlalchemy import and_, select
 
 from auth import schemas
+from auth.functions import send_activation_email
 from database import DBSessionDependency
 from envs import HOST_NAME
 from helpers.decorators import public
 from helpers.email import get_template, send_email
 from helpers.functions import error_response
-from models import AccountActivationToken, PasswordResetToken, User
+from models import AccountActivationToken, PasswordResetToken, Token, User
 from schemas import ErrorResponse
 from users import functions as users_functions
 from users.exceptions import UserExists
@@ -25,7 +26,9 @@ auth = APIRouter(prefix="/auth")
 async def login(user_details: schemas.UserInput, db_session: DBSessionDependency):
     email = user_details.email
     user = await db_session.scalar(
-        select(User).where(User.email == user_details.email).limit(1)
+        select(User)
+        .where(and_(User.email == user_details.email, User.activated_on != None))
+        .limit(1)
     )
     if user:
         password = user_details.password
@@ -62,11 +65,13 @@ async def register(user_details: schemas.Register):
         )
 
     try:
-        await users_functions.register_user(
+        new_user = await users_functions.register_user(
             email=user_details.email,
             username=user_details.username,
             password=user_details.password,
         )
+        await send_activation_email(new_user)
+
         return {"registered": True}
     except UserExists as e:
         return error_response(
@@ -76,18 +81,18 @@ async def register(user_details: schemas.Register):
 
 
 @auth.post("/activate/{token}")
-async def activate_user(token: UUID1):
-    try:
-        account_activation_token = AccountActivationToken.objects.get(token=token)
-    except AccountActivationToken.DoesNotExist:
+@public
+async def activate_user(token: str, db_session: DBSessionDependency):
+    account_activation_token = await AccountActivationToken.validate_token(token)
+    if not account_activation_token:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,
             content={"invalid_token": True},
         )
 
-    user = account_activation_token.user
-    user.activate()
-    account_activation_token.use()
+    account_activation_token.user.activate()
+    db_session.add(account_activation_token.user)
+    await account_activation_token.use()
     return {}
 
 

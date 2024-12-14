@@ -1,8 +1,8 @@
 """Initial tables
 
-Revision ID: 10e635c60218
+Revision ID: 7b73b809a63b
 Revises:
-Create Date: 2024-12-01 21:49:06.056816
+Create Date: 2024-12-13 15:20:34.067827
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "10e635c60218"
+revision: str = "7b73b809a63b"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -100,15 +100,15 @@ def upgrade() -> None:
     op.create_table(
         "tokens",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("user", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("token_type", sa.String(length=2), nullable=False),
-        sa.Column("token", sa.String(length=36), nullable=False),
+        sa.Column("token", sa.Uuid(), nullable=False),
         sa.Column("requestedOn", sa.DateTime(), nullable=False),
         sa.Column("used", sa.DateTime(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(
-            ["user"],
+            ["user_id"],
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
