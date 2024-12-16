@@ -2,7 +2,6 @@ from typing import Union
 
 from sqlalchemy import or_, select
 
-from auth.functions import send_activation_email
 from database import session_manager
 from models import User, UserMeta
 from users.exceptions import UserExists
