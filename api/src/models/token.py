@@ -24,7 +24,7 @@ class Token(Base, TimestampMixin):
     user: Mapped[User] = relationship()
     token_type: Mapped[TokenTypes] = mapped_column(String(2))
     token: Mapped[UUID] = mapped_column(Uuid(), default=uuid4)
-    requestedOn: Mapped[datetime] = mapped_column(
+    requested_on: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), insert_default=func.now()
     )
     used: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

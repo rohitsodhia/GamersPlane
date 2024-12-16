@@ -20,5 +20,5 @@ class System(Base, SoftDeleteMixin, TimestampMixin):
     publisher: Mapped["Publisher"] = relationship()
     genres: Mapped[List["Genre"]] = relationship(secondary="system_genres")
     basics: Mapped[Optional[JSON]]
-    hasCharSheet: Mapped[bool]
+    has_char_sheet: Mapped[bool]
     enabled: Mapped[bool]

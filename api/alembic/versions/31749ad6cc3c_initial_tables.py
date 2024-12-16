@@ -1,8 +1,8 @@
 """Initial tables
 
-Revision ID: d8c937b61f95
+Revision ID: 31749ad6cc3c
 Revises:
-Create Date: 2024-12-16 00:39:23.381339
+Create Date: 2024-12-16 02:30:55.526163
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "d8c937b61f95"
+revision: str = "31749ad6cc3c"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,7 +25,7 @@ def upgrade() -> None:
         "genres",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("genre", sa.String(length=40), nullable=False),
-        sa.Column("deleted", sa.DateTime(), nullable=True),
+        sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
@@ -41,7 +41,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=40), nullable=False),
         sa.Column("website", sa.String(length=200), nullable=True),
-        sa.Column("deleted", sa.DateTime(), nullable=True),
+        sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
@@ -70,7 +70,7 @@ def upgrade() -> None:
         sa.Column("owner_id", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("deleted", sa.DateTime(), nullable=True),
+        sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
             ["owner_id"],
             ["users.id"],
@@ -86,9 +86,9 @@ def upgrade() -> None:
         sa.Column("sort_name", sa.String(length=40), nullable=False),
         sa.Column("publisher_id", sa.Integer(), nullable=False),
         sa.Column("basics", sa.JSON(), nullable=True),
-        sa.Column("hasCharSheet", sa.Boolean(), nullable=False),
+        sa.Column("has_char_sheet", sa.Boolean(), nullable=False),
         sa.Column("enabled", sa.Boolean(), nullable=False),
-        sa.Column("deleted", sa.DateTime(), nullable=True),
+        sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
@@ -103,7 +103,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("token_type", sa.String(length=2), nullable=False),
         sa.Column("token", sa.Uuid(), nullable=False),
-        sa.Column("requestedOn", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("requested_on", sa.DateTime(timezone=True), nullable=False),
         sa.Column("used", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -131,7 +131,7 @@ def upgrade() -> None:
         sa.Column("permission_id", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("deleted", sa.DateTime(), nullable=True),
+        sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
             ["permission_id"],
             ["permissions.id"],
@@ -146,7 +146,7 @@ def upgrade() -> None:
         "system_genres",
         sa.Column("system_id", sa.String(length=20), nullable=False),
         sa.Column("genre_id", sa.Integer(), nullable=False),
-        sa.Column("deleted", sa.DateTime(), nullable=True),
+        sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
@@ -165,7 +165,7 @@ def upgrade() -> None:
         sa.Column("role_id", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("deleted", sa.DateTime(), nullable=True),
+        sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
             ["role_id"],
             ["roles.id"],

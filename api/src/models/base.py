@@ -18,7 +18,9 @@ class Base(DeclarativeBase):
 
 
 class SoftDeleteMixin:
-    deleted: Mapped[Optional[datetime]] = mapped_column(default=None)
+    deleted: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
 
 
 @event.listens_for(Session, "do_orm_execute")
