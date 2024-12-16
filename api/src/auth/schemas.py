@@ -38,7 +38,7 @@ class Register(UserInput):
 
 
 class PasswordResetResponse(BaseModel):
-    valid_token: str
+    valid_token: bool
 
 
 class ResetPasswordInput(BaseModel):

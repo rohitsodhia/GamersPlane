@@ -63,8 +63,8 @@ class User(Base):
     #     return list([v[0] for v in permissions])
 
     @staticmethod
-    def validate_password(password: str) -> list:
-        invalid = []
+    def validate_password(password: str) -> list[str]:
+        invalid: list[str] = []
         if len(password) < User.MIN_PASSWORD_LENGTH:
             invalid.append("pass_too_short")
         return invalid

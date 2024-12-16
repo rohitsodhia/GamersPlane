@@ -100,6 +100,7 @@ async def activate_user(token: str, db_session: DBSessionDependency):
 
 
 @auth.post("/password_reset")
+@public
 async def generate_password_reset(
     db_session: DBSessionDependency, email: EmailStr = Body(..., embed=True)
 ):
@@ -121,7 +122,6 @@ async def generate_password_reset(
         "auth/templates/reset_password.html",
         reset_link=f"{HOST_NAME}/activate/{password_reset_token.token}",
     )
-    icecream.ic(password_reset_token.token)
     send_email(email, "Password reset for Gamers' Plane", email_content)
 
     return {"success": True}
@@ -131,15 +131,19 @@ async def generate_password_reset(
     "/password_reset",
     response_model=schemas.PasswordResetResponse,
 )
+@public
 async def check_password_reset(email: EmailStr, token: str):
-    valid_token = PasswordResetToken.validate_token(token=token, email=email)
-    return {"valid_token": valid_token}
+    valid_token = await PasswordResetToken.validate_token(token=token, email=email)
+    return {"valid_token": bool(valid_token)}
 
 
 @auth.patch("/password_reset")
-async def reset_password(reset_details: schemas.ResetPasswordInput):
-    password_reset = PasswordResetToken.validate_token(
-        token=reset_details.token, email=reset_details.email, get_obj=True
+@public
+async def reset_password(
+    reset_details: schemas.ResetPasswordInput, db_session: DBSessionDependency
+):
+    password_reset = await PasswordResetToken.validate_token(
+        token=reset_details.token, email=reset_details.email
     )
     if not password_reset:
         return error_response(
@@ -158,7 +162,9 @@ async def reset_password(reset_details: schemas.ResetPasswordInput):
 
     user = password_reset.user
     user.set_password(reset_details.password)
-    user.save()
+    db_session.add(user)
     password_reset.use()
+    db_session.add(password_reset)
+    await db_session.commit()
 
-    return {}
+    return {"success": True}
