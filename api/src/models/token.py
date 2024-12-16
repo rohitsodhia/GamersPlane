@@ -3,8 +3,8 @@ from enum import Enum
 from typing import Optional, Union
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, String, Uuid, func, select
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DateTime, ForeignKey, String, Uuid, func, select
+from sqlalchemy.orm import Mapped, joinedload, mapped_column, relationship
 
 from database import session_manager
 from helpers.enums import LabelEnum
@@ -24,8 +24,10 @@ class Token(Base, TimestampMixin):
     user: Mapped[User] = relationship()
     token_type: Mapped[TokenTypes] = mapped_column(String(2))
     token: Mapped[UUID] = mapped_column(Uuid(), default=uuid4)
-    requestedOn: Mapped[datetime] = mapped_column(insert_default=func.now())
-    used: Mapped[Optional[datetime]]
+    requestedOn: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), insert_default=func.now()
+    )
+    used: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     __mapper_args__ = {
         "polymorphic_on": "token_type",
@@ -35,18 +37,22 @@ class Token(Base, TimestampMixin):
     @staticmethod
     async def validate_token(token: str, email: Optional[str] = None) -> "Token | None":
         async with session_manager.session() as db_session:
-            get_token = select(Token).where(Token.token == token).limit(1)
+            get_token_query = (
+                select(Token)
+                .options(joinedload(Token.user))
+                .where(Token.token == token)
+                .limit(1)
+            )
             if email:
-                get_token = get_token.join(Token.user).where(User.email == email)
-            token_obj = await db_session.scalar(get_token)
+                get_token_query = get_token_query.join(Token.user).where(
+                    User.email == email
+                )
+            token_obj = await db_session.scalar(get_token_query)
 
         return token_obj if token_obj else None
 
-    async def use(self):
+    def use(self):
         self.used = datetime.now(timezone.utc)
-        async with session_manager.session() as db_session:
-            db_session.add(self)
-            await db_session.commit()
 
 
 class PasswordResetToken(Token):

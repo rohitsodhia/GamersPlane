@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 import bcrypt
 import jwt
-from sqlalchemy import String, func, select
+from sqlalchemy import DateTime, String, func, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import session_manager
@@ -21,11 +21,21 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(24), unique=True)
     password: Mapped[str] = mapped_column(String(64))
     email: Mapped[str] = mapped_column(String(50), unique=True)
-    join_date: Mapped[datetime.datetime] = mapped_column(insert_default=func.now())
-    activated_on: Mapped[datetime.datetime] = mapped_column(nullable=True)
-    last_activity: Mapped[datetime.datetime] = mapped_column(nullable=True)
-    suspended_until: Mapped[datetime.datetime] = mapped_column(nullable=True)
-    banned: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    join_date: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), insert_default=func.now()
+    )
+    activated_on: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_activity: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    suspended_until: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    banned: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     roles: Mapped[List["Role"]] = relationship(
         secondary="user_roles", back_populates="users"
     )

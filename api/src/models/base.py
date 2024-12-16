@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import event, func
+from sqlalchemy import DateTime, event, func
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -35,7 +35,11 @@ def _add_filtering_criteria(execute_state):
 
 
 class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(insert_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), insert_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        insert_default=func.now(), onupdate=func.current_timestamp()
+        DateTime(timezone=True),
+        insert_default=func.now(),
+        onupdate=func.current_timestamp(),
     )

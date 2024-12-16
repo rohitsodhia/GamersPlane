@@ -1,10 +1,10 @@
 from os import error
+
 from fastapi import APIRouter, status
 
 from helpers.functions import error_response
-
+from models import User
 from users import schemas
-from users.models import User
 
 users = APIRouter(prefix="/users")
 

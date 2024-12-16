@@ -92,32 +92,39 @@ async def activate_user(token: str, db_session: DBSessionDependency):
 
     account_activation_token.user.activate()
     db_session.add(account_activation_token.user)
-    await account_activation_token.use()
-    return {}
+    account_activation_token.use()
+    db_session.add(account_activation_token)
+    await db_session.commit()
+
+    return {"success": True}
 
 
 @auth.post("/password_reset")
-async def generate_password_reset(email: EmailStr = Body(..., embed=True)):
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
+async def generate_password_reset(
+    db_session: DBSessionDependency, email: EmailStr = Body(..., embed=True)
+):
+    user = await db_session.scalar(select(User).where(User.email == email).limit(1))
+    if not user:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,
             content={"no_account": True},
         )
 
-    try:
-        password_reset = PasswordResetToken.objects.get(user=user)
-    except PasswordResetToken.DoesNotExist:
-        password_reset = PasswordResetToken(user=user)
-        password_reset.save()
+    password_reset_token = await db_session.scalar(
+        select(PasswordResetToken).where(PasswordResetToken.user_id == user.id).limit(1)
+    )
+    if not password_reset_token:
+        password_reset_token = PasswordResetToken(user=user)
+        db_session.add(password_reset_token)
+        await db_session.commit()
     email_content = get_template(
         "auth/templates/reset_password.html",
-        reset_link=f"{HOST_NAME}/activate/{password_reset.token}",
+        reset_link=f"{HOST_NAME}/activate/{password_reset_token.token}",
     )
+    icecream.ic(password_reset_token.token)
     send_email(email, "Password reset for Gamers' Plane", email_content)
 
-    return {}
+    return {"success": True}
 
 
 @auth.get(

@@ -1,8 +1,8 @@
 """Initial tables
 
-Revision ID: 7b73b809a63b
+Revision ID: d8c937b61f95
 Revises:
-Create Date: 2024-12-13 15:20:34.067827
+Create Date: 2024-12-16 00:39:23.381339
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "7b73b809a63b"
+revision: str = "d8c937b61f95"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -26,8 +26,8 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("genre", sa.String(length=40), nullable=False),
         sa.Column("deleted", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
@@ -42,8 +42,8 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=40), nullable=False),
         sa.Column("website", sa.String(length=200), nullable=True),
         sa.Column("deleted", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
@@ -52,11 +52,11 @@ def upgrade() -> None:
         sa.Column("username", sa.String(length=24), nullable=False),
         sa.Column("password", sa.String(length=64), nullable=False),
         sa.Column("email", sa.String(length=50), nullable=False),
-        sa.Column("join_date", sa.DateTime(), nullable=False),
-        sa.Column("activated_on", sa.DateTime(), nullable=True),
-        sa.Column("last_activity", sa.DateTime(), nullable=True),
-        sa.Column("suspended_until", sa.DateTime(), nullable=True),
-        sa.Column("banned", sa.DateTime(), nullable=True),
+        sa.Column("join_date", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("activated_on", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("last_activity", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("suspended_until", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("banned", sa.DateTime(timezone=True), nullable=True),
         sa.Column("admin", sa.Boolean(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email"),
@@ -68,8 +68,8 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=64), nullable=False),
         sa.Column("plural", sa.String(length=64), nullable=False),
         sa.Column("owner_id", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("deleted", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(
             ["owner_id"],
@@ -89,8 +89,8 @@ def upgrade() -> None:
         sa.Column("hasCharSheet", sa.Boolean(), nullable=False),
         sa.Column("enabled", sa.Boolean(), nullable=False),
         sa.Column("deleted", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["publisher_id"],
             ["publishers.id"],
@@ -103,10 +103,10 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("token_type", sa.String(length=2), nullable=False),
         sa.Column("token", sa.Uuid(), nullable=False),
-        sa.Column("requestedOn", sa.DateTime(), nullable=False),
-        sa.Column("used", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("requestedOn", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("used", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
@@ -129,8 +129,8 @@ def upgrade() -> None:
         "role_permissions",
         sa.Column("role_id", sa.Integer(), nullable=False),
         sa.Column("permission_id", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("deleted", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(
             ["permission_id"],
@@ -147,8 +147,8 @@ def upgrade() -> None:
         sa.Column("system_id", sa.String(length=20), nullable=False),
         sa.Column("genre_id", sa.Integer(), nullable=False),
         sa.Column("deleted", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["genre_id"],
             ["genres.id"],
@@ -163,8 +163,8 @@ def upgrade() -> None:
         "user_roles",
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("role_id", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("deleted", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(
             ["role_id"],
