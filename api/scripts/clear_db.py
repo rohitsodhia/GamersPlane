@@ -1,25 +1,38 @@
 #!/usr/local/bin/python
 
+import asyncio
 import os
 from pathlib import Path
 
+import asyncpg
 from dotenv import load_dotenv
-from MySQLdb import _mysql as mysql
 
 root_path = Path("../")
 load_dotenv(dotenv_path=root_path / ".env")
 
-MYSQL_HOST = os.getenv("MYSQL_HOST")
-MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
-MYSQL_USER = os.getenv("MYSQL_USER")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+DATABASE_HOST = os.getenv("DATABASE_HOST")
+DATABASE_DATABASE = os.getenv("DATABASE_DATABASE")
+DATABASE_USER = os.getenv("DATABASE_USER")
+DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
 
-db = mysql.connect(MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE)
 
-db.query("DROP DATABASE gamersplane;")
-db.query("CREATE DATABASE gamersplane;")
+async def main():
+    conn = await asyncpg.connect(
+        host=DATABASE_HOST,
+        user=DATABASE_USER,
+        password=DATABASE_PASSWORD,
+    )
 
-db.query("DROP DATABASE test_gamersplane;")
-db.query("CREATE DATABASE test_gamersplane;")
+    await conn.execute(f"DROP OWNED BY {DATABASE_USER}")
+    # await conn.execute("DROP DATABASE gamersplane;")
+    # await conn.execute("CREATE DATABASE gamersplane;")
 
-print("Dropped and recreated database\n")
+    # await conn.execute("DROP DATABASE test_gamersplane;")
+    # await conn.execute("CREATE DATABASE test_gamersplane;")
+
+    print("Dropped and recreated database\n")
+
+    await conn.close()
+
+
+asyncio.run(main())
