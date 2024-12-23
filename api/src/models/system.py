@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,6 +19,6 @@ class System(Base, SoftDeleteMixin, TimestampMixin):
     publisher_id: Mapped[int] = mapped_column(ForeignKey("publishers.id"))
     publisher: Mapped["Publisher"] = relationship()
     genres: Mapped[List["Genre"]] = relationship(secondary="system_genres")
-    basics: Mapped[Optional[JSON]]
+    basics: Mapped[dict | None] = mapped_column(JSON())
     has_char_sheet: Mapped[bool]
     enabled: Mapped[bool]

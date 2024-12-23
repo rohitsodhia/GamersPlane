@@ -1,5 +1,5 @@
 import contextlib
-from typing import Annotated, AsyncIterator, Optional
+from typing import Annotated, AsyncIterator
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import (
@@ -20,10 +20,10 @@ from envs import DATABASE_DATABASE, DATABASE_HOST, DATABASE_PASSWORD, DATABASE_U
 
 class DatabaseSessionManager:
     def __init__(self):
-        self._engine: Optional[AsyncEngine] = create_async_engine(
+        self._engine: AsyncEngine | None = create_async_engine(
             f"postgresql+asyncpg://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}/{DATABASE_DATABASE}"
         )
-        self._sessionmaker: Optional[async_sessionmaker] = async_sessionmaker(
+        self._sessionmaker: async_sessionmaker | None = async_sessionmaker(
             autocommit=False, bind=self._engine, expire_on_commit=False
         )
 

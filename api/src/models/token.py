@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional, Union
+from typing import Union
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, String, Uuid, func, select
@@ -27,7 +27,7 @@ class Token(Base, TimestampMixin):
     requested_on: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), insert_default=func.now()
     )
-    used: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    used: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __mapper_args__ = {
         "polymorphic_on": "token_type",
@@ -35,7 +35,7 @@ class Token(Base, TimestampMixin):
     }
 
     @staticmethod
-    async def validate_token(token: str, email: Optional[str] = None) -> "Token | None":
+    async def validate_token(token: str, email: str | None = None) -> "Token | None":
         async with session_manager.session() as db_session:
             get_token_query = (
                 select(Token)

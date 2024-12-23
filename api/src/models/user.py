@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import datetime
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List
 
 import bcrypt
 import jwt
@@ -44,7 +46,7 @@ class User(Base):
     MIN_PASSWORD_LENGTH: int = 8
 
     @staticmethod
-    async def get(user_id: Optional[int] = None) -> Optional["User"]:
+    async def get(user_id: int | None = None) -> User | None:
         async with session_manager.session() as db_session:
             user = await db_session.scalar(
                 select(User).where(User.id == user_id).limit(1)
@@ -86,7 +88,7 @@ class User(Base):
     def check_pass(self, password: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), self.password.encode("utf-8"))
 
-    def generate_jwt(self, exp_len: Optional[dict] = None) -> str:
+    def generate_jwt(self, exp_len: dict | None = None) -> str:
         if not exp_len:
             exp_len = {"weeks": 2}
         return jwt.encode(

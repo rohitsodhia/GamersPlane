@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import DateTime, event, func
 from sqlalchemy.orm import (
@@ -18,7 +17,7 @@ class Base(DeclarativeBase):
 
 
 class SoftDeleteMixin:
-    deleted: Mapped[Optional[datetime]] = mapped_column(
+    deleted: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), default=None
     )
 
