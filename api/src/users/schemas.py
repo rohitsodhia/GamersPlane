@@ -1,5 +1,6 @@
-from typing import List, Dict
 from datetime import datetime
+from typing import Dict, List
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -12,7 +13,6 @@ class UserDict(BaseModel):
     banned: bool
     roles: List[str]
     permissions: Dict
-    admin: bool
 
 
 class GetUserResponse(BaseModel):

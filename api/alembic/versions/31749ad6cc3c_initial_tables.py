@@ -57,7 +57,6 @@ def upgrade() -> None:
         sa.Column("last_activity", sa.DateTime(timezone=True), nullable=True),
         sa.Column("suspended_until", sa.DateTime(timezone=True), nullable=True),
         sa.Column("banned", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("admin", sa.Boolean(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email"),
         sa.UniqueConstraint("username"),

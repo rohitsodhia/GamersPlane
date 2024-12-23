@@ -39,7 +39,6 @@ class User(Base):
     roles: Mapped[List["Role"]] = relationship(
         secondary="user_roles", back_populates="users"
     )
-    admin: Mapped[bool] = mapped_column(default=False)
     meta: Mapped[List["UserMeta"]] = relationship()
 
     MIN_PASSWORD_LENGTH: int = 8
