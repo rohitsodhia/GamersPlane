@@ -44,23 +44,25 @@ async def main():
             email="contact@gamersplane.com", username="Keleth", password="test1234"
         )
         user.activate()
-        user.admin = True
         db_session.add(user)
 
         print("Create first user\n")
 
-        # guest_role = Role(name="Guest", owner=user)
-        # db_session.add(guest_role)
-        # member_role = Role(name="Member", owner=user)
-        # db_session.add(member_role)
-        # moderator_role = Role(name="Moderator", owner=user)
-        # db_session.add(moderator_role)
+        admin_role = Role(name="Admin", owner_id=user.id)
+        db_session.add(admin_role)
+        guest_role = Role(name="Guest", owner_id=user.id)
+        db_session.add(guest_role)
+        member_role = Role(name="Member", owner_id=user.id)
+        db_session.add(member_role)
+        moderator_role = Role(name="Moderator", owner_id=user.id)
+        db_session.add(moderator_role)
 
-        # print("Add Guest, Member, and Moderator roles\n")
+        print("Add Guest, Member, and Moderator roles\n")
 
-        # user.roles.add(member_role)
-        # user.save()
-        # print("Add Member role to first user\n")
+        user.roles.append(admin_role)
+        user.roles.append(member_role)
+        db_session.add(user)
+        print("Add Admin and Member role to first user\n")
 
         # extra_users = []
         # for i in range(2):

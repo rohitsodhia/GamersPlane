@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, List
 import bcrypt
 import jwt
 from sqlalchemy import DateTime, String, func, select
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
 from database import session_manager
 from envs import JWT_ALGORITHM, JWT_SECRET_KEY
@@ -16,32 +16,32 @@ if TYPE_CHECKING:
     from models import Role, UserMeta
 
 
-class User(Base):
+class User(MappedAsDataclass, Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True, init=False)
     username: Mapped[str] = mapped_column(String(24), unique=True)
-    password: Mapped[str] = mapped_column(String(64))
+    password: Mapped[str] = mapped_column(String(64), init=False)
     email: Mapped[str] = mapped_column(String(50), unique=True)
     join_date: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), insert_default=func.now()
+        DateTime(timezone=True), insert_default=func.now(), init=False
     )
     activated_on: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        DateTime(timezone=True), nullable=True, init=False
     )
     last_activity: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        DateTime(timezone=True), nullable=True, init=False
     )
     suspended_until: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        DateTime(timezone=True), nullable=True, init=False
     )
     banned: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        DateTime(timezone=True), nullable=True, init=False
     )
     roles: Mapped[List["Role"]] = relationship(
-        secondary="user_roles", back_populates="users"
+        secondary="user_roles", back_populates="users", default_factory=list
     )
-    meta: Mapped[List["UserMeta"]] = relationship()
+    meta: Mapped[List["UserMeta"]] = relationship(default_factory=list)
 
     MIN_PASSWORD_LENGTH: int = 8
 
