@@ -29,7 +29,7 @@ class Role(Base, TimestampMixin, SoftDeleteMixin):
     def name(self):
         return self._name
 
-    @name.setter
+    @name.inplace.setter
     def set_name(self, value):
         self._name = value
         self._plural = pluralize(self._name)
