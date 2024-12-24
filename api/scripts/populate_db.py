@@ -64,17 +64,18 @@ async def main():
         db_session.add(user)
         print("Add Admin and Member role to first user\n")
 
-        # extra_users = []
-        # for i in range(2):
-        #     user = register_user(
-        #         email=mimesis.person.email(),
-        #         username=mimesis.person.username(template="ld"),
-        #         password="test1234",
-        #     )
-        #     user.activate()
-        #     user.roles.add(member_role)
-        #     extra_users.append(user)
-        # print("Created two member users\n")
+        extra_users = []
+        for i in range(2):
+            user = await register_user(
+                email=mimesis.person.email(),
+                username=mimesis.person.username("ld"),
+                password="test1234",
+            )
+            user.activate()
+            user.roles.append(member_role)
+            db_session.add(user)
+            extra_users.append(user)
+        print("Created two member users\n")
 
         # test_role_1 = Role(name="Test Role 1", owner=extra_users[0])
         # test_role_1.save()
