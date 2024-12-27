@@ -1,16 +1,17 @@
 #!/bin/bash
 
-composeFiles=("-f compose.yml")
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+composeFiles=("-f $SCRIPT_DIR/compose.yml")
 remainingArgs=()
 
 while [ $# -gt 0 ]; do
     case $1 in
     -e | --env)
-        composeFiles+=("-f compose.$2.yml")
+        composeFiles+=("-f $SCRIPT_DIR/compose.$2.yml")
         shift
         ;;
     --email)
-        composeFiles+=("-f compose.email.yml")
+        composeFiles+=("-f $SCRIPT_DIR/compose.email.yml")
         ;;
     -h | --help)
         # Display script help information# Display script help information
