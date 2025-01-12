@@ -1,38 +1,50 @@
-from django.db import models
+import datetime
+from enum import Enum
+from typing import TYPE_CHECKING, List
 
-from helpers.base_models import SoftDeleteModel, TimestampedModel
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from models.base import Base, SoftDeleteMixin, TimestampMixin
+
+if TYPE_CHECKING:
+    from models import Forum, ForumGroup, System, User
 
 
-class Game(SoftDeleteModel, TimestampedModel):
-    class Meta:
-        db_table = "games"
+class Game(Base, SoftDeleteMixin, TimestampMixin):
+    __tablename__ = "games"
 
-    class Statuses(models.TextChoices):
+    class Statuses(Enum):
         OPEN = True, "Open"
         CLOSED = False, "Closed"
 
-    title = models.CharField(max_length=50)
-    system = models.ForeignKey(
-        "systems.System", on_delete=models.PROTECT, db_column="systemId"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(50))
+    system_id: Mapped[int] = mapped_column(ForeignKey("publishers.id"))
+    system: Mapped["System"] = relationship()
+    allowed_char_sheets: Mapped[List["System"]] = relationship(
+        secondary="game_allowed_systems"
     )
-    allowedCharSheets = models.ManyToManyField(
-        "systems.System", limit_choices_to={"hasCharSheet": True}, related_name="+"
+    gm_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    gm: Mapped["User"] = relationship()
+    created: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), insert_default=func.now()
     )
-    gm = models.ForeignKey("users.User", on_delete=models.PROTECT, db_column="gmId")
-    created = models.DateTimeField(auto_now=True)
-    start = models.DateTimeField(auto_now=True)
-    end = (models.DateTimeField(null=True),)
-    postFrequency = models.CharField(max_length=4)
-    numPlayers = models.SmallIntegerField()
-    charsPerPlayer = models.SmallIntegerField(default=1)
-    description = models.TextField(null=True)
-    charGenInfo = models.TextField(null=True)
-    rootForum = models.ForeignKey(
-        "forums.Forum", on_delete=models.PROTECT, db_column="forumId", related_name="+"
+    start: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), insert_default=func.now()
     )
-    group = models.ForeignKey(
-        "permissions.Role", on_delete=models.PROTECT, db_column="groupId"
+    end: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
-    status = models.BooleanField(default=Statuses.OPEN, choices=Statuses.choices)
-    public = models.BooleanField()
-    retired = models.DateTimeField(null=True)
+    post_frequency: Mapped[str] = mapped_column(String(4))
+    num_players: Mapped[int] = mapped_column()
+    chars_per_player: Mapped[int] = mapped_column(default=1)
+    description: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    char_gen_info: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    root_forum_id: Mapped[int] = mapped_column(ForeignKey("forums.id"))
+    root_forum: Mapped["Forum"] = relationship()
+    group_id: Mapped[int] = mapped_column(ForeignKey("forum_groups.id"))
+    group: Mapped["ForumGroup"] = relationship()
+    status: Mapped[Statuses] = mapped_column(default=Statuses.OPEN)
+    public: Mapped[bool] = mapped_column()
+    retired: Mapped[datetime.datetime | None] = mapped_column(nullable=True)

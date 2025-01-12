@@ -1,52 +1,38 @@
-from typing import List
+from enum import Enum
+from typing import TYPE_CHECKING, List
 
-from django.core.cache import cache
-from django.db import models
+from sqlalchemy import ARRAY, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from helpers.base_models import SoftDeleteModel, TimestampedModel
-from helpers.cache import CacheKeys, generate_cache_id, get_objects_by_id
+from models.base import Base, SoftDeleteMixin, TimestampMixin
 
-
-class HeritageField(models.CharField):
-    def __init__(self, *args, **kwargs):
-        kwargs["max_length"] = 25
-        kwargs["null"] = True
-        super().__init__(*args, **kwargs)
-
-    def from_db_value(self, value, expression, connection):
-        if not value:
-            return []
-        return [int(id) for id in value.split("-")]
-
-    def get_prep_value(self, value):
-        if not value:
-            return None
-        return "-".join([str(forum_id).rjust(4, "0") for forum_id in value])
+if TYPE_CHECKING:
+    from models import Forum, Game
 
 
-class Forum(SoftDeleteModel, TimestampedModel):
-    class Meta:
-        db_table = "forums"
-        indexes = [models.Index(fields=["parent"]), models.Index(fields=["heritage"])]
-
-    class ForumTypes(models.TextChoices):
+class Forum(Base, SoftDeleteMixin, TimestampMixin):
+    class ForumTypes(Enum):
         FORUM = "f", "Forum"
         CATEGORY = "c", "Category"
 
-    title = models.CharField(max_length=200)
-    description = models.TextField(null=True)
-    forumType = models.CharField(
-        max_length=1, choices=ForumTypes.choices, default=ForumTypes.FORUM, null=True
+    __tablename__ = "forums"
+    # indexes = [models.Index(fields=["parent"]), models.Index(fields=["heritage"])]
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text(), nullable=True)
+    forum_type: Mapped[ForumTypes] = mapped_column(
+        String(1),
+        default=ForumTypes.FORUM,
+        nullable=True,
     )
-    parent = models.ForeignKey(
-        "forums.Forum", on_delete=models.PROTECT, db_column="parentId", null=True
-    )
-    heritage = HeritageField()
-    order = models.IntegerField()
-    game = models.ForeignKey(
-        "games.Game", on_delete=models.PROTECT, db_column="gameId", null=True
-    )
-    threadCount = models.IntegerField(default=0)
+    parent_id: Mapped[int] = mapped_column(ForeignKey("forums.id"))
+    parent: Mapped["Forum"] = relationship()
+    heritage: Mapped[List[int]] = mapped_column(ARRAY(Integer()))
+    order: Mapped[int]
+    game_id: Mapped[int] = mapped_column(ForeignKey("games.id"))
+    game: Mapped["Game"] = relationship()
+    thread_count: Mapped[int] = mapped_column(default=0)
 
     @property
     def children(self):
