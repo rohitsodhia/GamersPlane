@@ -1,7 +1,8 @@
-from os import error
+from fastapi import APIRouter, Request, status
+from sqlalchemy import select
 
-from fastapi import APIRouter, status
-
+from database import DBSessionDependency
+from helpers.decorators import public
 from helpers.functions import error_response
 from models import User
 from users import schemas
@@ -13,11 +14,20 @@ users = APIRouter(prefix="/users")
     "/{id}",
     response_model=schemas.GetUserResponse,
 )
-def get_user(id: int):
-    try:
-        user = User.objects.get(id=id)
-    except User.DoesNotExist:
+@public
+async def get_user(id: int, db_session: DBSessionDependency):
+    user = await db_session.scalar(select(User).where(User.id == id).limit(1))
+    if not user:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND, content={"noUser": True}
         )
-    return {"user": user.to_dict()}
+    response = {
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "joinDate": user.join_date,
+            "lastActivity": user.last_activity,
+        }
+    }
+    return response
