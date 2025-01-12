@@ -5,6 +5,7 @@ import envs
 import globals
 from database import get_db_session
 from models import User
+from repositories.user_repository import UserRepository
 
 
 async def validate_jwt(request: Request, call_next):

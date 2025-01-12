@@ -1,14 +1,11 @@
-from __future__ import annotations
-
 import datetime
 from typing import TYPE_CHECKING, List
 
 import bcrypt
 import jwt
-from sqlalchemy import DateTime, String, func, select
+from sqlalchemy import DateTime, String, func
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
-from database import session_manager
 from envs import JWT_ALGORITHM, JWT_SECRET_KEY
 from models.base import Base
 
@@ -44,14 +41,6 @@ class User(MappedAsDataclass, Base):
     meta: Mapped[List["UserMeta"]] = relationship(default_factory=list)
 
     MIN_PASSWORD_LENGTH: int = 8
-
-    @staticmethod
-    async def get(user_id: int | None = None) -> User | None:
-        async with session_manager.session() as db_session:
-            user = await db_session.scalar(
-                select(User).where(User.id == user_id).limit(1)
-            )
-            return user
 
     # @property
     # def permissions(self) -> List[int]:
