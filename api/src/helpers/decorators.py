@@ -3,7 +3,6 @@ from typing import Callable
 
 from fastapi import status
 
-import globals
 from helpers.functions import error_response
 
 
