@@ -1,4 +1,4 @@
-from typing import Annotated, Dict
+from typing import Annotated
 
 from annotated_types import Len
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -26,7 +26,7 @@ class RegistrationResponse(BaseModel):
 class AuthResponse(BaseModel):
     logged_in: bool
     jwt: str
-    user: Dict
+    user: dict
 
 
 class AuthFailed(BaseModel):

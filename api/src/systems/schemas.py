@@ -1,5 +1,3 @@
-from typing import List, Dict
-
 from pydantic import BaseModel
 
 
@@ -12,12 +10,12 @@ class SystemSchema(BaseModel):
     id: str
     name: str
     sortName: str
-    publisher: PublisherSchema = None
-    genres: List[str] = []
-    basics: Dict = None
+    publisher: PublisherSchema | None = None
+    genres: list[str] = []
+    basics: dict | None = None
     hasCharSheet: bool
     enabled: bool
 
 
 class GetSystemsResponse(BaseModel):
-    systems: List[SystemSchema]
+    systems: list[SystemSchema]

@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import Dict
 
 from django.core.cache import cache
 from django.db import models
@@ -20,7 +19,7 @@ CACHE_KEY_MAP = {
 }
 
 
-def generate_cache_id(cache_key: str, format_vars: Dict) -> str:
+def generate_cache_id(cache_key: str, format_vars: dict) -> str:
     key = CACHE_KEY_MAP[cache_key].format(**format_vars)
     return key
 
@@ -51,5 +50,5 @@ def get_objects_by_id(ids, model: models.Model, cache_key: str) -> models.Model:
     return objs
 
 
-def set_cache(key: str, format_vals: Dict, value) -> None:
+def set_cache(key: str, format_vals: dict, value) -> None:
     cache.set(generate_cache_id(key, format_vals), value)

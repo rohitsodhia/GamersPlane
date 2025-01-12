@@ -1,5 +1,3 @@
-from typing import List, Dict
-
 from pydantic import BaseModel, HttpUrl
 
 
@@ -12,4 +10,4 @@ class ReferralLinkSchema(BaseModel):
 
 
 class GetReferralLinksResponse(BaseModel):
-    referralLinks: List[ReferralLinkSchema]
+    referralLinks: list[ReferralLinkSchema]
