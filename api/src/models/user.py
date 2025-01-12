@@ -90,3 +90,10 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
             JWT_SECRET_KEY,
             algorithm=JWT_ALGORITHM,
         )
+
+    @property
+    def permissions(self) -> list[str]:
+        permissions: list[str] = []
+        for role in self.roles:
+            permissions.extend([p.permission for p in role.permissions])
+        return list(set(permissions))
