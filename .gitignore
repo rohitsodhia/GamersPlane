@@ -16,8 +16,9 @@ styles/**/*.css
 
 # Specific files
 .env
-docker-compose.override.yml
+compose.override.yml
 
 # Folders
 logs/
 .pytest_cache
+__pycache__

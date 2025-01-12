@@ -1,0 +1,19 @@
+services:
+  postfix:
+    build:
+      context: ./docker/postfix
+    environment:
+      - POSTFIX_MYHOSTNAME
+    volumes:
+      - ./logs/postfix:/var/log
+
+  opendkim:
+    build:
+      context: ./docker/opendkim
+      args:
+        - OPENDKIM_KEY
+    environment:
+      - OPENDKIM_SELECTOR
+      - POSTFIX_MYHOSTNAME
+    volumes:
+      - ./logs/opendkim:/var/log

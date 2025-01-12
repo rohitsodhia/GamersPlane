@@ -1,34 +1,35 @@
-import os
 import jwt
-
-from fastapi import Request
-from asgiref.sync import sync_to_async
+from fastapi import HTTPException, Request, status
 
 import envs
-from globals import g
+from database import DBSessionDependency
+from models import User
+from repositories.user_repository import UserRepository
 
-from users.models import User
 
-
-async def validate_jwt(request: Request, call_next):
-    g.current_user = None
-
+async def validate_jwt(request: Request, db_session: DBSessionDependency):
     token = request.headers.get("Authorization")
+    request.scope["auth"] = None
+    request.scope["user"] = None
     if token and token[:7] == "Bearer ":
         token = token[7:]
         try:
             jwt_body = jwt.decode(
                 token,
                 envs.JWT_SECRET_KEY,
-                algorithms=envs.JWT_ALGORITHM,
+                algorithms=[envs.JWT_ALGORITHM],
             )
-        except jwt.ExpiredSignatureError:
-            return await call_next(request)
+            user_repo = UserRepository(db_session)
+            user = await user_repo.get_user(jwt_body["user_id"])
+            if user:
+                request.scope["auth"] = await user.awaitable_attrs.permissions
+                request.scope["user"] = user
+        except:
+            pass
 
-    try:
-        g.current_user = await sync_to_async(User.objects.get)(id=jwt_body["user_id"])
-    except User.DoesNotExist:
-        pass
 
-    response = await call_next(request)
-    return response
+async def check_authorization(request: Request):
+    public = getattr(request.scope["route"].endpoint, "is_public", False)
+
+    if not public:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")

@@ -1,18 +1,15 @@
-from typing import List, Dict
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
+
+from pydantic import BaseModel, EmailStr
 
 
 class UserDict(BaseModel):
+    id: int
     username: str
     email: EmailStr
     joinDate: datetime
-    lastActivity: datetime
-    suspendedUntil: datetime
-    banned: bool
-    roles: List[str]
-    permissions: Dict
-    admin: bool
+    lastActivity: Optional[datetime] = None
 
 
 class GetUserResponse(BaseModel):

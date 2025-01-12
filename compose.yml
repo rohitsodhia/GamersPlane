@@ -1,0 +1,48 @@
+volumes:
+  postgres_db:
+    driver: local
+    name: gp_postgres_db
+
+services:
+  proxy:
+    container_name: gamersplane-proxy
+    build:
+      context: ./
+      dockerfile: ./docker/Dockerfile-nginx
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./docker/nginx/nginx.${ENVIRONMENT}.conf:/etc/nginx/conf.d/site.conf
+      - ./frontend/dist:/var/www/ng
+      - ./api:/var/www/api
+    depends_on:
+      - api
+
+  api:
+    container_name: gamersplane-api
+    build:
+      context: ./api
+    volumes:
+      - ./api:/usr/src/app
+    ports:
+      - 8000:8000
+    env_file:
+      - ./.env
+    depends_on:
+      - postgres
+    restart: always
+
+  postgres:
+    image: postgres:16.4
+    environment:
+      - POSTGRES_USER=${DATABASE_USER}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=${DATABASE_DATABASE}
+    volumes:
+      # - ./docker/postgres:/docker-entrypoint-initdb.d
+      - postgres_db:/var/lib/postgresql/data
+
+  cache:
+    container_name: gamersplane-cache
+    image: redis:6.2-alpine

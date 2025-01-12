@@ -1,23 +1,20 @@
-from lib2to3.pgen2.token import OP
-from typing import Optional
-
 from pydantic import BaseModel
 
-from forums.models.forum import Forum
+from models import Forum
 
 
 class CreateForumInput(BaseModel):
     title: str
     forumType: Forum.ForumTypes
     parent: int
-    gameId: Optional[int] = None
-    description: Optional[str] = None
+    gameId: int | None = None
+    description: str | None = None
 
 
 class UpdateForumInput(BaseModel):
-    title: Optional[str] = None
-    forumType: Optional[Forum.ForumTypes] = None
-    parent: Optional[int] = None
-    gameId: Optional[int] = None
-    description: Optional[str] = None
-    order: Optional[int] = None
+    title: str | None = None
+    forumType: Forum.ForumTypes | None = None
+    parent: int | None = None
+    gameId: int | None = None
+    description: str | None = None
+    order: int | None = None
