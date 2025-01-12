@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 class Permission(Base):
     class ValidPermissions(Enum):
+        ADMIN = "admin"
         ROLE_ADMIN = "role_admin_{role_id}"
 
     __tablename__ = "permissions"
