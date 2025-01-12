@@ -1,0 +1,35 @@
+[project]
+name = "api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = "~=3.12.0"
+dependencies = [
+    "alembic~=1.14.0",
+    "asyncpg~=0.30",
+    "bcrypt~=4.2",
+    "email-validator~=2.2",
+    "fastapi~=0.112",
+    "inflect~=7.3",
+    "jinja2~=3.1",
+    "psycopg2-binary~=2.9",
+    "pyjwt~=2.9",
+    "python-dotenv~=1.0",
+    "sqlalchemy~=2.0",
+    "typing-extensions~=4.12",
+    "uvicorn[standard]~=0.34"
+]
+
+[tool.uv]
+dev-dependencies = [
+    "black~=24.8",
+    "icecream~=2.1",
+    "ipdb~=0.13",
+    "isort~=5.13",
+    "mimesis~=17.0",
+    "pdbpp~=0.10",
+    "pytest~=8.3",
+    "pytest-factoryboy~=2.7",
+    "pre-commit~=4.0",
+    "run-in-subdirectory~=1.0"
+]
