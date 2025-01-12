@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, List
 import bcrypt
 import jwt
 from sqlalchemy import DateTime, String, func
+from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
 from envs import JWT_ALGORITHM, JWT_SECRET_KEY
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
     from models import Role, UserMeta
 
 
-class User(MappedAsDataclass, Base):
+class User(MappedAsDataclass, AsyncAttrs, Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, init=False)
