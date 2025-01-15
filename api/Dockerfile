@@ -1,25 +1,30 @@
 FROM python:3.12-alpine
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
 RUN apk update && \
-    apk add gcc build-base libffi-dev mariadb-dev
+    apk add gcc build-base libffi-dev mariadb-dev curl ca-certificates
 
-RUN pip install --upgrade pip
-RUN pip install supervisor pipenv
-COPY ./Pipfile* /usr/src/app/
-RUN pipenv install --deploy --system --dev
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+ENV PATH="/root/.local/bin/:$PATH"
 
-# COPY ./entrypoint.sh /usr/src/app/entrypoint.sh
+RUN pip install supervisor uv
 
-COPY . /usr/src/app/
-WORKDIR /usr/src/app/src
+COPY . /app/
+RUN uv sync --frozen
+WORKDIR /app/src/app
+# --no-dev
 
-# ENV PYTHONPATH="$PYTHONPATH:/usr/src/app/src"
+# COPY ./entrypoint.sh /app/entrypoint.sh
 
-# ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
+# ENV PYTHONPATH="$PYTHONPATH:/app/src"
+ENV PATH="/app/.venv/bin:$PATH"
+
+# ENTRYPOINT ["/app/entrypoint.sh"]
 
 CMD [ "uvicorn", "app:create_app()", "--bind", "0.0.0.0:8000" ]
+# CMD ["sleep","infinity"]
