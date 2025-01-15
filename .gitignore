@@ -19,6 +19,7 @@ styles/**/*.css
 compose.override.yml
 
 # Folders
+.venv
 logs/
 .pytest_cache
 __pycache__
