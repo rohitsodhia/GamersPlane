@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 code_path = Path("../")
 sys.path.append(str((code_path / ".").resolve()))
-sys.path.append(str((code_path / "src").resolve()))
+sys.path.append(str((code_path / "app").resolve()))
 
 load_dotenv(code_path / ".env")
 
