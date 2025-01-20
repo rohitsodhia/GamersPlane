@@ -1,12 +1,13 @@
 from typing import TYPE_CHECKING
 
-from models.base import Base, SoftDeleteMixin, TimestampMixin
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import String
 
+from app.models.base import Base, SoftDeleteMixin, TimestampMixin
+
 if TYPE_CHECKING:
-    from models import Game, User
+    from app.models import Game, User
 
 
 class ForumGroup(Base, SoftDeleteMixin, TimestampMixin):

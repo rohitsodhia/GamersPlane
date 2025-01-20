@@ -1,12 +1,13 @@
 from enum import Enum
 from typing import TYPE_CHECKING, List
 
-from models.base import Base
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.models.base import Base
+
 if TYPE_CHECKING:
-    from models import Role
+    from app.models import Role
 
 
 class Permission(Base):

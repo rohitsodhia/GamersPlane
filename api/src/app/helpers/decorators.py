@@ -2,7 +2,8 @@ from functools import partial, wraps
 from typing import Callable
 
 from fastapi import status
-from helpers.functions import error_response
+
+from app.helpers.functions import error_response
 
 
 def public(route_handler):

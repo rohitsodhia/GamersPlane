@@ -1,10 +1,11 @@
-from database import DBSessionDependency
 from fastapi import APIRouter, Request, status
-from helpers.decorators import public
-from helpers.functions import error_response
-from models import User
 from sqlalchemy import select
-from users import schemas
+
+from app.database import DBSessionDependency
+from app.helpers.decorators import public
+from app.helpers.functions import error_response
+from app.models import User
+from app.users import schemas
 
 users = APIRouter(prefix="/users")
 

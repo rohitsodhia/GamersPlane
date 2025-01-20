@@ -1,8 +1,9 @@
-from database import session_manager
-from envs import HOST_NAME
-from helpers.email import get_template, send_email
-from models import AccountActivationToken, User
 from sqlalchemy import select
+
+from app.database import session_manager
+from app.envs import HOST_NAME
+from app.helpers.email import get_template, send_email
+from app.models import AccountActivationToken, User
 
 
 async def get_activation_link(user: User) -> str:

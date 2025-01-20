@@ -3,12 +3,13 @@ from enum import Enum
 from typing import Union
 from uuid import UUID, uuid4
 
-from database import session_manager
-from helpers.enums import LabelEnum
-from models.base import Base, TimestampMixin
-from models.user import User
 from sqlalchemy import DateTime, ForeignKey, String, Uuid, func, select
 from sqlalchemy.orm import Mapped, joinedload, mapped_column, relationship
+
+from app.database import session_manager
+from app.helpers.enums import LabelEnum
+from app.models.base import Base, TimestampMixin
+from app.models.user import User
 
 
 class Token(Base, TimestampMixin):

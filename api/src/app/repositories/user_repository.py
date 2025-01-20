@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from models import User
 from sqlalchemy import select
+
+from app.models import User
 
 
 class UserRepository:

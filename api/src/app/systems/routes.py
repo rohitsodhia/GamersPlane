@@ -1,7 +1,8 @@
-from database import DBSessionDependency
 from fastapi import APIRouter, Body
-from models import System
-from systems import schemas
+
+from app.database import DBSessionDependency
+from app.models import System
+from app.systems import schemas
 
 systems = APIRouter(prefix="/systems")
 

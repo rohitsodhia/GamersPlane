@@ -3,14 +3,15 @@ from typing import TYPE_CHECKING, List
 
 import bcrypt
 import jwt
-from envs import JWT_ALGORITHM, JWT_SECRET_KEY
-from models.base import Base
 from sqlalchemy import DateTime, String, func
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
+from app.envs import JWT_ALGORITHM, JWT_SECRET_KEY
+from app.models.base import Base
+
 if TYPE_CHECKING:
-    from models import Role, UserMeta
+    from app.models import Role, UserMeta
 
 
 class User(MappedAsDataclass, AsyncAttrs, Base):

@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from database import session_manager
 from sqlalchemy import DateTime, event, func
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -9,6 +8,8 @@ from sqlalchemy.orm import (
     mapped_column,
     with_loader_criteria,
 )
+
+from app.database import session_manager
 
 
 class Base(DeclarativeBase):

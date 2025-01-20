@@ -3,8 +3,9 @@ import ssl
 from email.headerregistry import Address
 from email.message import EmailMessage
 
-import envs
 from jinja2 import Environment, FileSystemLoader
+
+from app import envs
 
 uri = envs.EMAIL_URI
 port = envs.EMAIL_PORT

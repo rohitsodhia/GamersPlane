@@ -1,9 +1,10 @@
 from typing import Union
 
-from database import session_manager
-from models import User, UserMeta
 from sqlalchemy import or_, select
-from users.exceptions import UserExists
+
+from app.database import session_manager
+from app.models import User, UserMeta
+from app.users.exceptions import UserExists
 
 
 async def check_for_existing_user(user: User) -> Union[object, None]:

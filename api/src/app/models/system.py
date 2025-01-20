@@ -1,13 +1,14 @@
 from typing import TYPE_CHECKING, List
 
-from database import session_manager
-from models.base import Base, SoftDeleteMixin, TimestampMixin
 from sqlalchemy import ForeignKey, String, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
+from app.database import session_manager
+from app.models.base import Base, SoftDeleteMixin, TimestampMixin
+
 if TYPE_CHECKING:
-    from models import Genre, Publisher
+    from app.models import Genre, Publisher
 
 
 class System(Base, SoftDeleteMixin, TimestampMixin):

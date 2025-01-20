@@ -1,7 +1,6 @@
 import contextlib
 from typing import Annotated, AsyncIterator
 
-from envs import DATABASE_DATABASE, DATABASE_HOST, DATABASE_PASSWORD, DATABASE_USER
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -10,6 +9,8 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+
+from app.envs import DATABASE_DATABASE, DATABASE_HOST, DATABASE_PASSWORD, DATABASE_USER
 
 # engine = create_engine(
 #     f"postgresql+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}/{DATABASE_DATABASE}"
