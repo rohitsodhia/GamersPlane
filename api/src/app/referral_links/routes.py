@@ -1,6 +1,7 @@
 from fastapi import APIRouter
-from referral_links import schemas
-from referral_links.models import ReferralLink
+
+from app.models import ReferralLink
+from app.referral_links import schemas
 
 referral_links = APIRouter(prefix="/referral_links")
 

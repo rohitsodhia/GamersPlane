@@ -1,34 +1,20 @@
 #!/usr/local/bin/python
 
-import os
-import sys
-from pathlib import Path
-
-from dotenv import load_dotenv
-
-code_path = Path("../")
-sys.path.append(str((code_path / ".").resolve()))
-sys.path.append(str((code_path / "app").resolve()))
-
-load_dotenv(code_path / ".env")
-
 import asyncio
 import json
 import math
 import random
 from datetime import datetime
 
-from database import session_manager
 from mimesis import Generic
-from models import Genre, Permission, Publisher, Role, System
 
-# from permissions.functions import create_permission
-from users.functions import register_user
+from app.database import session_manager
+from app.models import Genre, Permission, Publisher, Role, System
 
-# from models import Forum
+# from app.permissions.functions import create_permission
+from app.users.functions import register_user
 
-# sys.path.append(str((code_path / "tests").resolve()))
-# from factories import mimesis, UserFactory
+# from app.models import Forum
 
 
 random_seed = math.floor(random.random() * 100000)

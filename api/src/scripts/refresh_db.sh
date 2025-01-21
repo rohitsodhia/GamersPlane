@@ -14,4 +14,4 @@ done
 until [ "$(docker inspect -f {{.State.Running}} gamersplane-api)"=="true" ]; do
     sleep 0.1
 done
-docker compose exec api python ../scripts/populate_db.py
+docker compose exec api uv run ../scripts/populate_db.py

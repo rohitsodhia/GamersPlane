@@ -1,9 +1,10 @@
-import envs
 import jwt
-from database import DBSessionDependency
 from fastapi import HTTPException, Request, status
-from models import User
-from repositories.user_repository import UserRepository
+
+from app import envs
+from app.database import DBSessionDependency
+from app.models import User
+from app.repositories.user_repository import UserRepository
 
 
 async def validate_jwt(request: Request, db_session: DBSessionDependency):

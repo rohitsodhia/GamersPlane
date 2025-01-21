@@ -1,13 +1,14 @@
 from typing import TYPE_CHECKING, List
 
-from helpers.functions import pluralize
-from models.base import Base, SoftDeleteMixin, TimestampMixin
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.helpers.functions import pluralize
+from app.models.base import Base, SoftDeleteMixin, TimestampMixin
+
 if TYPE_CHECKING:
-    from models import Permission, User
+    from app.models import Permission, User
 
 
 class Role(Base, TimestampMixin, SoftDeleteMixin):

@@ -1,6 +1,7 @@
-from models.base import Base, SoftDeleteMixin, TimestampMixin
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 
 class SystemGenre(Base, SoftDeleteMixin, TimestampMixin):

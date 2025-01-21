@@ -1,17 +1,18 @@
-from auth import schemas
-from auth.functions import send_activation_email
-from database import DBSessionDependency
-from envs import HOST_NAME
 from fastapi import APIRouter, Body, status
-from helpers.decorators import public
-from helpers.email import get_template, send_email
-from helpers.functions import error_response
-from models import AccountActivationToken, PasswordResetToken, Token, User
 from pydantic import UUID4, EmailStr
-from schemas import ErrorResponse
 from sqlalchemy import and_, select
-from users import functions as users_functions
-from users.exceptions import UserExists
+
+from app.auth import schemas
+from app.auth.functions import send_activation_email
+from app.database import DBSessionDependency
+from app.envs import HOST_NAME
+from app.helpers.decorators import public
+from app.helpers.email import get_template, send_email
+from app.helpers.functions import error_response
+from app.models import AccountActivationToken, PasswordResetToken, Token, User
+from app.schemas import ErrorResponse
+from app.users import functions as users_functions
+from app.users.exceptions import UserExists
 
 auth = APIRouter(prefix="/auth")
 

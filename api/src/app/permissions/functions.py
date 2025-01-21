@@ -1,5 +1,5 @@
-from permissions.models import Permission
-from permissions.models.permission import ValidPermissions
+from app.permissions.models import Permission
+from app.permissions.models.permission import ValidPermissions
 
 
 def create_permission(permission: ValidPermissions, **kwargs) -> Permission:

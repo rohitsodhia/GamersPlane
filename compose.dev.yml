@@ -1,6 +1,6 @@
 services:
   api:
-    command: uvicorn --factory app:create_app --host 0.0.0.0 --reload --timeout-keep-alive 600
+    command: uv run uvicorn --factory main:create_app --host 0.0.0.0 --reload --timeout-keep-alive 600
     volumes:
       - ./api/src:/app/src
       - ./docker/python:/app/scripts

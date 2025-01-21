@@ -1,10 +1,11 @@
 from typing import Literal, cast
 
-from exceptions import ValidationError
-from helpers.enums import LabelEnum
-from models.base import Base
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
+
+from app.exceptions import ValidationError
+from app.helpers.enums import LabelEnum
+from app.models.base import Base
 
 
 class UserMeta(Base):

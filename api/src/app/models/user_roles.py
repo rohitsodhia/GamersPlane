@@ -1,8 +1,9 @@
 from typing import TYPE_CHECKING
 
-from models.base import Base, SoftDeleteMixin, TimestampMixin
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 
 class UserRoles(Base, TimestampMixin, SoftDeleteMixin):
