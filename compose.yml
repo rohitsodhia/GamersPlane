@@ -47,7 +47,7 @@ services:
     frontend:
         build:
             context: ./frontend
-            target: dev
+            target: ${ENVIRONMENT}
             dockerfile: ../docker/Dockerfile-nextjs
         environment:
             - WATCHPACK_POLLING=true
