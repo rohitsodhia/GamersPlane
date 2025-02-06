@@ -6,12 +6,7 @@ volumes:
 services:
     proxy:
         container_name: gamersplane-proxy
-        build:
-            context: ./
-            dockerfile: ./docker/nginx/Dockerfile
-        ports:
-            - 80:80
-            - 443:443
+        image: nginx:1.15-alpine
         volumes:
             - ./docker/nginx/nginx.${ENVIRONMENT}.conf:/etc/nginx/conf.d/site.conf
         depends_on:

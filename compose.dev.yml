@@ -1,4 +1,8 @@
 services:
+    proxy:
+        ports:
+            - 80:80
+
     api:
         command: uv run uvicorn --factory main:create_app --host 0.0.0.0 --reload --timeout-keep-alive 600
         volumes:
