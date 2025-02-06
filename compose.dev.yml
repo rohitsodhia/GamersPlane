@@ -1,14 +1,22 @@
 services:
-  api:
-    command: uv run uvicorn --factory main:create_app --host 0.0.0.0 --reload --timeout-keep-alive 600
-    volumes:
-      - ./api/src:/app/src
-      - ./docker/python:/app/scripts
-    stdin_open: true
-    tty: true
+    proxy:
+        ports:
+            - 80:80
 
-  postgres:
-    ports:
-      - 5432:5432
-    environment:
-      - POSTGRES_PASSWORD=test123
+    api:
+        command: uv run uvicorn --factory main:create_app --host 0.0.0.0 --reload --timeout-keep-alive 600
+        volumes:
+            - ./api/src:/app/src
+            - ./docker/python:/app/scripts
+        stdin_open: true
+        tty: true
+
+    postgres:
+        ports:
+            - 5432:5432
+        environment:
+            - POSTGRES_PASSWORD=test123
+
+    frontend:
+        build:
+            target: dev
