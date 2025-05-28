@@ -1,4 +1,4 @@
-FROM nginx:1.15-alpine
+FROM nginx:1.26-alpine
 
 EXPOSE 80
 EXPOSE 443
