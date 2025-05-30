@@ -1,5 +1,4 @@
-from flask import Blueprint, request
-from helpers.response import response
+from flask import Blueprint
 
 characters = Blueprint("characters", __name__)
 

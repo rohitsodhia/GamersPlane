@@ -3,7 +3,6 @@ from fastapi import HTTPException, Request, status
 
 from app import envs
 from app.database import DBSessionDependency
-from app.models import User
 from app.repositories.user_repository import UserRepository
 
 

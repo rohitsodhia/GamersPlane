@@ -1,10 +1,10 @@
 from fastapi import APIRouter, status
-from forums import schemas
-from forums.models import Forum
-from forums.serializers import ForumSerializer
-from games.models import Game
-from helpers.cache import CacheKeys, get_objects_by_id, set_cache
-from helpers.functions import error_response
+
+from app.forums import schemas
+from app.forums.serializers import ForumSerializer
+from app.helpers.cache import CacheKeys, get_objects_by_id, set_cache
+from app.helpers.functions import error_response
+from app.models import Forum, Game
 
 forums = APIRouter(prefix="/forums")
 

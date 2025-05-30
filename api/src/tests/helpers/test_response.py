@@ -1,5 +1,6 @@
-from factories.user_factory import mimesis
-from helpers.response import Response
+from app.helpers.response import Response
+
+from ..factories.user_factory import mimesis
 
 
 class TestResponse:
@@ -37,7 +38,7 @@ class TestResponse:
 
         response_body, returned_response_code = response.success(data)
         assert returned_response_code == 200
-        assert response_body["success"] == True
+        assert response_body["success"]
         assert response_body["data"] == data
         assert "errors" not in response_body
 
@@ -52,7 +53,7 @@ class TestResponse:
 
         response_body, returned_response_code = response.errors(errors)
         assert returned_response_code == 200
-        assert response_body["success"] == False
+        assert not response_body["success"]
         assert response_body["errors"] == errors
         assert "data" not in response_body
 

@@ -21,7 +21,7 @@ def logged_in(func=None, *, permissions=None):
         if not globals.current_user:
             return error_response(status_code=status.HTTP_401_UNAUTHORIZED)
         if permissions:
-            if type(permissions) == str:
+            if type(permissions) is str:
                 permissions = [permissions]
             if not globals.current_user.admin and not bool(
                 set(globals.current_user.permissions) & set(permissions)

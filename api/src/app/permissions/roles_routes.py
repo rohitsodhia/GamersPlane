@@ -1,6 +1,5 @@
 from database import DBSessionDependency
 from fastapi import APIRouter, Request
-from helpers.decorators import logged_in
 from models import Permission, Role, User
 from permissions import schemas
 from sqlalchemy import select

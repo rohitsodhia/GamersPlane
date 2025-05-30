@@ -1,4 +1,4 @@
-from users.models import User
+from app.models import User
 
 
 class TestUser:
@@ -11,14 +11,14 @@ class TestUser:
         assert User.validate_password("abcd") == ["pass_too_short"]
 
     def test_hash_pass(self):
-        assert type(User.hash_pass(self.VALID_PASS)) == str
+        assert type(User.hash_password(self.VALID_PASS)) is str
 
     def test_set_password(self):
         user = User()
         assert user.password == ""
         user.set_password(self.VALID_PASS)
         assert user.password != ""
-        assert type(user.password) == str
+        assert type(user.password) is str
 
     def test_set_bad_password(self):
         user = User()

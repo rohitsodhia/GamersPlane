@@ -1,15 +1,13 @@
 #!/usr/local/bin/python
 
 import asyncio
-import json
 import math
 import random
-from datetime import datetime
 
 from mimesis import Generic
 
 from app.database import session_manager
-from app.models import Genre, Permission, Publisher, Role, System
+from app.models import Role
 
 # from app.permissions.functions import create_permission
 from app.users.functions import register_user

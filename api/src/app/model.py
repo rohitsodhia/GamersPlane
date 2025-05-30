@@ -1,5 +1,4 @@
 class Model:
-
     _fields = []
     _values = {}
 
