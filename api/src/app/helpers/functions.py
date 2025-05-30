@@ -5,7 +5,7 @@ inflectEngine = inflect.engine()
 
 
 def error_response(status_code: int, content: dict | None = None) -> JSONResponse:
-    if content == None:
+    if content is None:
         content = {}
     return JSONResponse(status_code=status_code, content={"errors": content})
 

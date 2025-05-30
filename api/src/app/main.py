@@ -2,7 +2,6 @@ from random import seed
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from app import middleware
 from app.auth.routes import auth

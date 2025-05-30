@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Body, status
-from pydantic import UUID4, EmailStr
+from pydantic import EmailStr
 from sqlalchemy import and_, select
 
 from app.auth import schemas
@@ -9,7 +9,7 @@ from app.envs import HOST_NAME
 from app.helpers.decorators import public
 from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
-from app.models import AccountActivationToken, PasswordResetToken, Token, User
+from app.models import AccountActivationToken, PasswordResetToken, User
 from app.schemas import ErrorResponse
 from app.users import functions as users_functions
 from app.users.exceptions import UserExists
@@ -24,10 +24,9 @@ auth = APIRouter(prefix="/auth")
 )
 @public
 async def login(user_details: schemas.UserInput, db_session: DBSessionDependency):
-    email = user_details.email
     user = await db_session.scalar(
         select(User)
-        .where(and_(User.email == user_details.email, User.activated_on != None))
+        .where(and_(User.email == user_details.email, User.activated_on is not None))
         .limit(1)
     )
     if user:

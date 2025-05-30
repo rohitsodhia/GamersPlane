@@ -9,8 +9,6 @@ from sqlalchemy.orm import (
     with_loader_criteria,
 )
 
-from app.database import session_manager
-
 
 class Base(DeclarativeBase):
     pass

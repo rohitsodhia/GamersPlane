@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, status
 from sqlalchemy import select
 
 from app.database import DBSessionDependency

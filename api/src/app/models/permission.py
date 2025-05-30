@@ -29,7 +29,7 @@ class Permission(Base):
         super().__init__(*args, **kwargs)
 
     def set_permission(self, permission: ValidPermissions, **kwargs) -> None:
-        if type(permission) is not ValidPermissions:
+        if type(permission) is not self.ValidPermissions:
             raise ValueError(f"'{permission}' is not a ValidPermission")
 
         if "{" in permission.value:

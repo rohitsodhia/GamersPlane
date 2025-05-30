@@ -1,12 +1,13 @@
 from enum import Enum
 from typing import TYPE_CHECKING, List
 
-from models.base import Base, SoftDeleteMixin, TimestampMixin
 from sqlalchemy import ARRAY, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.models.base import Base, SoftDeleteMixin, TimestampMixin
+
 if TYPE_CHECKING:
-    from models import Forum, Game
+    from app.models import Forum, Game
 
 
 class Forum(Base, SoftDeleteMixin, TimestampMixin):

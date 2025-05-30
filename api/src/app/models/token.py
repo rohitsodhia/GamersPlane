@@ -1,6 +1,4 @@
 from datetime import datetime, timezone
-from enum import Enum
-from typing import Union
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, String, Uuid, func, select

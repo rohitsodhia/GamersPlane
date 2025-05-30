@@ -1,6 +1,5 @@
 from factories.user_factory import UserFactory
 from tokens.models import AccountActivationToken, Token
-from users.models import User
 
 
 class TestToken:
