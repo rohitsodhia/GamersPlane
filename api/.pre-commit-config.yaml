@@ -1,36 +1,11 @@
 repos:
-# - repo: https://github.com/psf/black-pre-commit-mirror
-#   rev: 24.8.0
-#   hooks:
-#   - id: black
-# - repo: https://github.com/pycqa/isort
-#   rev: 5.13.0
-#   hooks:
-#   - id: isort
-# - repo: local
-#   hooks:
-#   - id: black
-#     name: black
-#     entry: uv run black
-#     language: system
-#     types: [python]
-#   - id: isort
-#     name: isort
-#     entry: uv run isort
-#     language: system
-#     types: [python]
-  - repo: https://github.com/egormkn/run-in-subdirectory
-    rev: 1.0.1
-    hooks:
-      - id: run-in-subdirectory
-        alias: black
-        name: Format server code with Black
-        args: ["api", "uv run black"]
-        types: [ python ]
-        files: ^api/
-      - id: run-in-subdirectory
-        alias: isort
-        name: Format server code with isort
-        args: ["api", "uv run isort"]
-        types: [ text ]
-        files: ^api/
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.11.12
+  files: src/.*\.py
+  hooks:
+    # Run the linter.
+    - id: ruff
+      args: [ --fix ]
+    # Run the formatter.
+    - id: ruff-format
