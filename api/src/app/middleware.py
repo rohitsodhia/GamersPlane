@@ -1,7 +1,7 @@
 import jwt
 from fastapi import HTTPException, Request, status
 
-from app import envs
+from app.configs import configs
 from app.database import DBSessionDependency
 from app.repositories.user_repository import UserRepository
 
@@ -15,15 +15,15 @@ async def validate_jwt(request: Request, db_session: DBSessionDependency):
         try:
             jwt_body = jwt.decode(
                 token,
-                envs.JWT_SECRET_KEY,
-                algorithms=[envs.JWT_ALGORITHM],
+                configs.JWT_SECRET_KEY,
+                algorithms=[configs.JWT_ALGORITHM],
             )
             user_repo = UserRepository(db_session)
             user = await user_repo.get_user(jwt_body["user_id"])
             if user:
                 request.scope["auth"] = await user.awaitable_attrs.permissions
                 request.scope["user"] = user
-        except:
+        except (jwt.InvalidSignatureError, jwt.ExpiredSignatureError):
             pass
 
 
