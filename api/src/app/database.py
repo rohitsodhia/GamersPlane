@@ -10,21 +10,18 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.envs import DATABASE_DATABASE, DATABASE_HOST, DATABASE_PASSWORD, DATABASE_USER
-
-# engine = create_engine(
-#     f"postgresql+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}/{DATABASE_DATABASE}"
-# )
-# Session = sessionmaker(bind=engine)
-
 
 class DatabaseSessionManager:
     def __init__(self):
+        self._engine: AsyncEngine | None = None
+        self._sessionmaker: async_sessionmaker | None = None
+
+    def init(self, host: str, user: str, password: str, database: str):
         self._engine: AsyncEngine | None = create_async_engine(
-            f"postgresql+asyncpg://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}/{DATABASE_DATABASE}"
+            f"postgresql+asyncpg://{user}:{password}@{host}/{database}"
         )
         self._sessionmaker: async_sessionmaker | None = async_sessionmaker(
-            bind=self._engine, autocommit=False, expire_on_commit=False
+            bind=self._engine, autocommit=False, expire_on_commit=False, autoflush=False
         )
 
     async def close(self):
