@@ -7,7 +7,7 @@ from sqlalchemy import DateTime, String, func
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
-from app.envs import JWT_ALGORITHM, JWT_SECRET_KEY
+from app.configs import configs
 from app.models.base import Base
 
 if TYPE_CHECKING:
@@ -87,8 +87,8 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
                 "exp": datetime.datetime.now(datetime.timezone.utc)
                 + datetime.timedelta(**exp_len),
             },
-            JWT_SECRET_KEY,
-            algorithm=JWT_ALGORITHM,
+            configs.JWT_SECRET_KEY,
+            algorithm=configs.JWT_ALGORITHM,
         )
 
     @property

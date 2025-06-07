@@ -4,8 +4,8 @@ from sqlalchemy import and_, select
 
 from app.auth import schemas
 from app.auth.functions import send_activation_email
+from app.configs import configs
 from app.database import DBSessionDependency
-from app.envs import HOST_NAME
 from app.helpers.decorators import public
 from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
@@ -119,7 +119,7 @@ async def generate_password_reset(
         await db_session.commit()
     email_content = get_template(
         "auth/templates/reset_password.html",
-        reset_link=f"{HOST_NAME}/activate/{password_reset_token.token}",
+        reset_link=f"{configs.HOST_NAME}/activate/{password_reset_token.token}",
     )
     send_email(email, "Password reset for Gamers' Plane", email_content)
 
