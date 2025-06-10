@@ -1,32 +1,31 @@
 import smtplib
-import ssl
 from email.headerregistry import Address
 from email.message import EmailMessage
 
 from jinja2 import Environment, FileSystemLoader
 
-from app import envs
+from app.configs import configs
 
-uri = envs.EMAIL_URI
-port = envs.EMAIL_PORT
-login = envs.EMAIL_LOGIN
-password = envs.EMAIL_PASSWORD
+# uri = configs.EMAIL_URI
+# port = configs.EMAIL_PORT
+# login = configs.EMAIL_LOGIN
+# password = configs.EMAIL_PASSWORD
 
-context = ssl.create_default_context()
+# context = ssl.create_default_context()
 
 
-def get_template(template: str, **kwargs) -> str:
-    file_loader = FileSystemLoader(searchpath=envs.ROOT_DIR)
+def get_template(template_path: str, **kwargs) -> str:
+    file_loader = FileSystemLoader(searchpath=configs.ROOT_DIR)
     env = Environment(loader=file_loader)
 
-    template = env.get_template(template)
+    template = env.get_template(template_path)
 
-    output = template.render(site_domain=envs.HOST_NAME, **kwargs)
+    output = template.render(site_domain=configs.HOST_NAME, **kwargs)
     return output
 
 
 def send_email(to: str, subject: str, content: str) -> None:
-    if envs.ENVIRONMENT == "dev":
+    if configs.ENVIRONMENT == "dev":
         return
 
     email = EmailMessage()
@@ -39,6 +38,7 @@ def send_email(to: str, subject: str, content: str) -> None:
     email["Subject"] = subject
     email.set_content(content, subtype="html")
 
-    with smtplib.SMTP_SSL(uri, port, context=context) as server:
-        server.login(login, password)
+    # with smtplib.SMTP_SSL(uri, port, context=context) as server:
+    #     server.login(login, password)
+    with smtplib.SMTP("localhost") as server:
         server.send_message(email)

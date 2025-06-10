@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
+from app.configs import configs
 from app.database import session_manager
-from app.envs import HOST_NAME
 from app.helpers.email import get_template, send_email
 from app.models import AccountActivationToken, User
 
@@ -18,7 +18,7 @@ async def get_activation_link(user: User) -> str:
             db_session.add(account_activation_token)
             await db_session.commit()
 
-    return f"{HOST_NAME}/activate/{account_activation_token.token}"
+    return f"{configs.HOST_NAME}/activate/{account_activation_token.token}"
 
 
 async def send_activation_email(user: User) -> None:

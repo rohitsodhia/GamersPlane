@@ -23,6 +23,7 @@ dependencies = [
 [tool.uv]
 dev-dependencies = [
     "icecream~=2.1",
+    "httpx~=0.28",
     "mimesis~=18.0",
     "pytest~=8.3",
     "pytest-factoryboy~=2.7",
