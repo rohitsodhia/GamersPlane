@@ -20,7 +20,7 @@ auth = APIRouter(prefix="/auth")
 @auth.post(
     "/login",
     response_model=schemas.AuthResponse,
-    responses={404: {"model": ErrorResponse(error=schemas.AuthFailed())}},
+    responses={404: {"model": ErrorResponse[schemas.AuthFailed]}},
 )
 @public
 async def login(user_details: schemas.UserInput, db_session: DBSessionDependency):
