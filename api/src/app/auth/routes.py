@@ -26,7 +26,7 @@ auth = APIRouter(prefix="/auth")
 async def login(user_details: schemas.UserInput, db_session: DBSessionDependency):
     user = await db_session.scalar(
         select(User)
-        .where(and_(User.email == user_details.email, User.activated_on is not None))
+        .where(and_(User.email == user_details.email, User.activated_on.is_not(None)))
         .limit(1)
     )
     if user:
