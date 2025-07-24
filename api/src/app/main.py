@@ -27,6 +27,7 @@ def create_app(init_db=True) -> FastAPI:
             user=configs.DATABASE_USER,
             password=configs.DATABASE_PASSWORD,
             database=configs.DATABASE_DATABASE,
+            dialect=configs.DATABASE_DIALECT,
         )
 
     @asynccontextmanager
