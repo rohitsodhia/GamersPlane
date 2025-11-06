@@ -23,7 +23,7 @@ async def validate_jwt(request: Request, db_session: DBSessionDependency):
             if user:
                 request.scope["auth"] = await user.awaitable_attrs.permissions
                 request.scope["user"] = user
-        except (jwt.InvalidSignatureError, jwt.ExpiredSignatureError):
+        except (jwt.InvalidSignatureError, jwt.ExpiredSignatureError, jwt.DecodeError):
             pass
 
 

@@ -8,10 +8,12 @@ class ConfigStore:
 
         self.HOST_NAME = os.getenv("HOST_NAME", "")
         self.API_HOST_NAME = os.getenv("API_HOST_NAME", "")
+        self.COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", "")
         self.ROOT_DIR = os.getenv("ROOT_DIR", "")
 
         self.JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
+        self.PVAR = os.getenv("PVAR", "")
 
         self.PAGINATE_PER_PAGE = int(os.getenv("PAGINATE_PER_PAGE", 20))
 
