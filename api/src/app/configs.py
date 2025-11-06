@@ -1,5 +1,5 @@
 import os
-from typing import Literal, cast
+from typing import Literal
 
 
 class ConfigStore:
@@ -16,15 +16,21 @@ class ConfigStore:
         self.PAGINATE_PER_PAGE = int(os.getenv("PAGINATE_PER_PAGE", 20))
 
         dialect = os.getenv("DATABASE_DIALECT", "postgresql")
-        if dialect not in ["postgresql", "mysql"]:
-            raise ValueError("DATABASE_DIALECT must be either 'postgresql' or 'mysql'")
-        self.DATABASE_DIALECT: Literal["postgresql", "mysql"] = cast(
-            Literal["postgresql", "mysql"], dialect
+        self.DATABASE_DIALECT: Literal["postgresql", "mysql"] = self._get_dialect(
+            dialect
         )
         self.DATABASE_HOST = os.getenv("DATABASE_HOST", "postgres")
         self.DATABASE_USER = os.getenv("DATABASE_USER", "shopping")
         self.DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD", "test123")
         self.DATABASE_DATABASE = os.getenv("DATABASE_DATABASE", "shopping")
+
+    def _get_dialect(self, dialect: str) -> Literal["postgresql"] | Literal["mysql"]:
+        if dialect == "postgresql":
+            return "postgresql"
+        elif dialect == "mysql":
+            return "mysql"
+        else:
+            raise ValueError("DATABASE_DIALECT must be either 'postgresql' or 'mysql'")
 
 
 configs = ConfigStore()
