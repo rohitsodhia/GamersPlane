@@ -29,7 +29,9 @@ services:
             - postgres
         restart: always
         networks:
-            - gamersplane_network
+            gamersplane_network:
+                aliases:
+                    - apiv2
 
     postgres:
         image: postgres:16.4
