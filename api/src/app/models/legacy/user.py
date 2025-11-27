@@ -94,9 +94,11 @@ class User(MappedAsDataclass, AsyncAttrs, LegacyBase):
         encrypted_hash = hashlib.sha256(encoded_hash).hexdigest()
         response.set_cookie(
             "loginHash",
-            encrypted_hash,
+            f"{self.username}|{encrypted_hash[7 : 7 + 32]}",
             (60 * 60 * 24 * 7),
             domain=configs.COOKIE_DOMAIN,
+            path="/",
+            samesite="strict" if secure else "lax",
             secure=secure,
             httponly=True,
         )

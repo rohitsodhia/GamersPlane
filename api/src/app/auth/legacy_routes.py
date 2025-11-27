@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Response, status
+from fastapi import APIRouter, Body, Request, Response, status
 from pydantic import EmailStr
 from sqlalchemy import and_, or_, select
 
@@ -26,15 +26,16 @@ auth = APIRouter(prefix="/legacy/auth")
 @public
 async def login(
     response: Response,
-    user_details: legacy_schemas.UserInput,
     db_session: DBSessionDependency,
+    user_details: legacy_schemas.UserInput,
 ):
     user: User | None = await db_session.scalar(
         select(User)
         .where(
             and_(
                 or_(
-                    User.username == user_details.user, User.email == user_details.user
+                    User.username == user_details.user,
+                    User.email == user_details.user,
                 ),
                 User.activated_on.is_not(None),
             )
@@ -50,6 +51,14 @@ async def login(
         status_code=status.HTTP_404_NOT_FOUND,
         content={"invalid_user": True},
     )
+
+
+@auth.post("/logout")
+@public
+async def logout(request: Request, response: Response):
+    for cookie_name in request.cookies.keys():
+        response.delete_cookie(key=cookie_name)
+    return {"success": True}
 
 
 @auth.post(
