@@ -56,8 +56,14 @@ async def login(
 @auth.post("/logout")
 @public
 async def logout(request: Request, response: Response):
+    secure: bool = configs.ENVIRONMENT != "dev"
     for cookie_name in request.cookies.keys():
-        response.delete_cookie(key=cookie_name)
+        response.delete_cookie(
+            key=cookie_name,
+            domain=configs.COOKIE_DOMAIN,
+            secure=secure,
+            httponly=True,
+        )
     return {"success": True}
 
 
