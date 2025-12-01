@@ -1,22 +1,16 @@
 from typing import Annotated
 
 from annotated_types import Len
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field
 
-from app.models import User
+from app.models.legacy import User
 
 Password = Annotated[str, Len(min_length=User.MIN_PASSWORD_LENGTH)]
 
 
 class UserInput(BaseModel):
-    email: EmailStr
+    user: str
     password: Password
-
-    @field_validator("password")
-    def validate_password(cls, v):
-        if len(v) < User.MIN_PASSWORD_LENGTH:
-            raise ValueError("Password must be at least 8 characters long")
-        return v
 
 
 class RegistrationResponse(BaseModel):
@@ -24,9 +18,7 @@ class RegistrationResponse(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    logged_in: bool
-    jwt: str
-    user: dict
+    success: bool
 
 
 class AuthFailed(BaseModel):

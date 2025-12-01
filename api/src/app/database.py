@@ -1,5 +1,5 @@
 import contextlib
-from typing import Annotated, AsyncIterator
+from typing import Annotated, AsyncIterator, Literal
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import (
@@ -16,9 +16,20 @@ class DatabaseSessionManager:
         self._engine: AsyncEngine | None = None
         self._sessionmaker: async_sessionmaker | None = None
 
-    def init(self, host: str, user: str, password: str, database: str):
+    def init(
+        self,
+        host: str,
+        user: str,
+        password: str,
+        database: str,
+        dialect: Literal["postgresql", "mysql"] = "postgresql",
+    ):
+        if dialect == "postgresql":
+            driver = "asyncpg"
+        elif dialect == "mysql":
+            driver = "asyncmy"
         self._engine: AsyncEngine | None = create_async_engine(
-            f"postgresql+asyncpg://{user}:{password}@{host}/{database}"
+            f"{dialect}+{driver}://{user}:{password}@{host}/{database}"
         )
         self._sessionmaker: async_sessionmaker | None = async_sessionmaker(
             bind=self._engine, autocommit=False, expire_on_commit=False, autoflush=False

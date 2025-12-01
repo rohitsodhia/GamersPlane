@@ -26,4 +26,10 @@ while [ $# -gt 0 ]; do
     shift
 done
 
+NETWORK_NAME="gamersplane_network"
+DRIVER="bridge"
+
+docker network inspect $NETWORK_NAME >/dev/null 2>&1 || \
+    docker network create --driver $DRIVER $NETWORK_NAME
+
 docker compose ${composeFiles[@]} up $remainingArgs

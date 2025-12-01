@@ -12,6 +12,8 @@ services:
         depends_on:
             - api
             - frontend
+        networks:
+            - gamersplane_network
 
     api:
         container_name: gamersplane-api
@@ -19,11 +21,17 @@ services:
             context: ./api
         ports:
             - 8000:8000
+        extra_hosts:
+            - host.docker.internal:host-gateway
         env_file:
             - ./.env
         depends_on:
             - postgres
         restart: always
+        networks:
+            gamersplane_network:
+                aliases:
+                    - apiv2
 
     postgres:
         image: postgres:16.4
@@ -34,10 +42,14 @@ services:
         volumes:
             # - ./docker/postgres:/docker-entrypoint-initdb.d
             - postgres_db:/var/lib/postgresql/data
+        networks:
+            - gamersplane_network
 
     cache:
         container_name: gamersplane-cache
         image: valkey/valkey:8.1-alpine
+        networks:
+            - gamersplane_network
 
     frontend:
         build:
@@ -47,6 +59,13 @@ services:
         environment:
             - WATCHPACK_POLLING=true
         volumes:
-                - ./frontend:/app
-                # - /app/node_modules
-                # - /app/.next
+            - ./frontend:/app
+            # - /app/node_modules
+            # - /app/.next
+        networks:
+            - gamersplane_network
+
+networks:
+    gamersplane_network:
+        name: gamersplane_network
+        external: true

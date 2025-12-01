@@ -5,6 +5,10 @@ from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
+DATABASE_DIALECT = os.getenv("DATABASE_DIALECT")
+if DATABASE_DIALECT != "postgresql":
+    raise ValueError("DATABASE_DIALECT must be 'postgresql'")
+
 DATABASE_HOST = os.getenv("DATABASE_HOST")
 DATABASE_USER = os.getenv("DATABASE_USER")
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
@@ -16,7 +20,7 @@ config = context.config
 
 config.set_main_option(
     "sqlalchemy.url",
-    f"postgresql+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}/{DATABASE_DATABASE}",
+    f"postgresql+asyncpg://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}/{DATABASE_DATABASE}",
 )
 
 

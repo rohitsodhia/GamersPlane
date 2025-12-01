@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import middleware
+from app.auth.legacy_routes import auth as legacy_auth
 from app.auth.routes import auth
 from app.configs import configs
 from app.database import get_db_session, session_manager
@@ -19,6 +20,11 @@ from app.users.routes import users
 
 seed()
 
+if configs.ENVIRONMENT == "dev":
+    from icecream import install
+
+    install()
+
 
 def create_app(init_db=True) -> FastAPI:
     if init_db:
@@ -27,6 +33,7 @@ def create_app(init_db=True) -> FastAPI:
             user=configs.DATABASE_USER,
             password=configs.DATABASE_PASSWORD,
             database=configs.DATABASE_DATABASE,
+            dialect=configs.DATABASE_DIALECT,
         )
 
     @asynccontextmanager
@@ -46,10 +53,14 @@ def create_app(init_db=True) -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[configs.HOST_NAME],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     app.include_router(auth)
+    app.include_router(legacy_auth)
     # app.include_router(forums)
     # app.include_router(permissions)
     # app.include_router(referral_links)
