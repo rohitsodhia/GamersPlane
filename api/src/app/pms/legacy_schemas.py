@@ -1,0 +1,29 @@
+from typing import Annotated
+
+from annotated_types import Len
+from pydantic import BaseModel
+
+from app.models.legacy import User
+
+Password = Annotated[str, Len(min_length=User.MIN_PASSWORD_LENGTH)]
+
+
+class UserDetails(BaseModel):
+    id: int
+    username: str
+    read: bool
+
+
+class PM(BaseModel):
+    id: int
+    recipient: UserDetails
+    sender: UserDetails
+    title: str
+    message: str
+    reply_to_id: int | None
+
+
+class PMsListResponse(BaseModel):
+    pms: list[PM]
+    count: int
+    page: int

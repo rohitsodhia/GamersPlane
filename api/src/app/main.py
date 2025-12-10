@@ -9,6 +9,7 @@ from app.auth.legacy_routes import auth as legacy_auth
 from app.auth.routes import auth
 from app.configs import configs
 from app.database import get_db_session, session_manager
+from app.pms.legacy_routes import pms as legacy_pms
 
 # from forums.forums_routes import forums
 # from permissions.roles_routes import roles
@@ -61,6 +62,7 @@ def create_app(init_db=True) -> FastAPI:
 
     app.include_router(auth)
     app.include_router(legacy_auth)
+    app.include_router(legacy_pms)
     # app.include_router(forums)
     # app.include_router(permissions)
     # app.include_router(referral_links)
