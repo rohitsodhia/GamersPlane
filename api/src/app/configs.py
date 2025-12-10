@@ -3,6 +3,9 @@ from typing import Literal
 
 
 class ConfigStore:
+    def __init__(self):
+        self.LOGIN_COOKIE = "loginHash"
+
     def from_env(self):
         self.ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
 
