@@ -45,7 +45,8 @@ def create_app(init_db=True) -> FastAPI:
 
     app = FastAPI(
         dependencies=[
-            Depends(middleware.validate_jwt),
+            # Depends(middleware.validate_jwt),
+            Depends(middleware.validate_cookie),
             Depends(get_db_session),
             Depends(middleware.check_authorization),
         ],

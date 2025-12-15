@@ -41,7 +41,7 @@ async def validate_jwt(request: Request, db_session: DBSessionDependency):
 async def check_authorization(request: Request):
     public = getattr(request.scope["route"].endpoint, "is_public", False)
 
-    if not public:
+    if not public and request.scope["user"] is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
