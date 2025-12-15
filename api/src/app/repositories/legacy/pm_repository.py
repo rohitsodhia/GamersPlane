@@ -4,7 +4,7 @@ from typing import Literal
 
 from sqlalchemy import select
 
-from app.models import PM, User
+from app.models.legacy import PM, User
 
 
 class NoRecipientException(Exception):
