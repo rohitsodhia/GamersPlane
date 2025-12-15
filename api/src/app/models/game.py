@@ -2,9 +2,10 @@ import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, List
 
-from models.base import Base, SoftDeleteMixin, TimestampMixin
 from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from models import Forum, ForumGroup, System, User

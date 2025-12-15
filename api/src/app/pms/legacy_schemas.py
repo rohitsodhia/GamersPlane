@@ -27,3 +27,22 @@ class PMsListResponse(BaseModel):
     pms: list[PM]
     count: int
     page: int
+
+
+class NewPM(BaseModel):
+    username: str
+    reply_to_id: int | None = None
+    title: str
+    message: str
+
+
+class NewPMResponse(BaseModel):
+    sent: bool = True
+
+
+class NoRecipientResponse(BaseModel):
+    noRecipient: bool = True
+
+
+class PMSelfResponse(BaseModel):
+    messagingSelf: bool = True

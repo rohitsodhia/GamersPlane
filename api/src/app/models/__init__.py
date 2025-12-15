@@ -4,6 +4,7 @@
 # from .referral_link import ReferralLink
 from .genre import Genre
 from .permission import Permission
+from .pm import PM
 from .publisher import Publisher
 from .role import Role
 from .role_permission import RolePermission

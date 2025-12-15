@@ -4,7 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 
-class PMs(Base, SoftDeleteMixin, TimestampMixin):
+class PM(Base, SoftDeleteMixin, TimestampMixin):
     __tablename__ = "pms"
 
     id: Mapped[int] = mapped_column(primary_key=True)
