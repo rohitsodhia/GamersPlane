@@ -1,11 +1,14 @@
 from datetime import datetime
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column
+from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
 from app.models.legacy.base import LegacyBase
+
+if TYPE_CHECKING:
+    from app.models.legacy import User
 
 
 class PM(MappedAsDataclass, AsyncAttrs, LegacyBase):
@@ -13,7 +16,9 @@ class PM(MappedAsDataclass, AsyncAttrs, LegacyBase):
 
     id: Mapped[int] = mapped_column("pmID", primary_key=True, init=False)
     recipient_id: Mapped[int] = mapped_column("recipientID", ForeignKey("users.userID"))
+    recipient: Mapped["User"] = relationship(foreign_keys=[recipient_id], init=False)
     sender_id: Mapped[int] = mapped_column("senderID", ForeignKey("users.userID"))
+    sender: Mapped["User"] = relationship(foreign_keys=[sender_id], init=False)
     title: Mapped[str] = mapped_column(String(200))
     message: Mapped[str] = mapped_column(Text())
     datestamp: Mapped[datetime] = mapped_column(

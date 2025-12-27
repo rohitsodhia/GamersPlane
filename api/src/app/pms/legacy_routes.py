@@ -2,6 +2,7 @@ from typing import Literal, Union
 
 from fastapi import APIRouter, status
 from sqlalchemy import func, select
+from sqlalchemy.orm import joinedload
 
 from app.configs import configs
 from app.database import DBSessionDependency
@@ -35,16 +36,35 @@ async def get_pms(
 
     statement = (
         select(PM)
+        .where(filter_by_box(box, authed_user))
         .limit(configs.PAGINATE_PER_PAGE)
         .offset((page - 1) * configs.PAGINATE_PER_PAGE)
+        .options(joinedload(PM.recipient), joinedload(PM.sender))
     )
 
     pms = await db_session.scalars(statement)
+    pm_response: list[dict] = []
+    for pm in pms:
+        model = schemas.PM(
+            id=pm.id,
+            recipient=schemas.UserDetails(
+                id=pm.recipient.id,
+                username=pm.recipient.username,
+                read=pm.recipient_read,
+            ),
+            sender=schemas.UserDetails(
+                id=pm.sender.id, username=pm.sender.username, read=pm.sender_read
+            ),
+            title=pm.title,
+            message=pm.message,
+            reply_to_id=pm.reply_to_id,
+        )
+        pm_response.append(model.model_dump())
 
     pm_count = await db_session.scalar(
         select(func.count(PM.id)).where(filter_by_box(box, authed_user))
     )
-    return {"pms": pms, "count": pm_count or 0, "page": page}
+    return {"pms": pm_response, "count": pm_count or 0, "page": page}
 
 
 @pms.post(
