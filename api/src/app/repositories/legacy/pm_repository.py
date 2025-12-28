@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from typing import Literal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.orm import joinedload
 
+from app.database import DBSessionDependency
 from app.models.legacy import PM, User
+
+Box = Literal["inbox", "outbox"]
 
 
 class NoRecipientException(Exception):
@@ -20,22 +24,45 @@ class PMSelfException(Exception):
 class PMRepository:
     def __init__(
         self,
-        db_session,
+        db_session: DBSessionDependency,
         authed_user: User,
     ):
         self.db_session = db_session
         self.authed_user = authed_user
 
-    async def get_pm_count(
-        self, user_id: int, box: Literal["inbox", "outbox"] = "inbox"
-    ) -> int | None:
+    async def get_pm_count(self, user_id: int, box: Box = "inbox") -> int | None:
         pass
 
+    def __filter_by_box(self, box: Box, user_id: int):
+        if box == "inbox":
+            return PM.recipient_id == user_id
+        else:
+            return PM.sender_id == user_id
+
     async def get_pms(
-        self, user_id: int, box: Literal["inbox", "outbox"] = "inbox", page: int = 1
-    ) -> int | None:
-        if page < 1:
-            page = 1
+        self,
+        user_id: int,
+        *,
+        page: int,
+        limit: int,
+        box: Literal["inbox", "outbox"] = "inbox",
+    ):
+        statement = (
+            select(PM)
+            .where(self.__filter_by_box(box, user_id))
+            .limit(limit)
+            .offset((page - 1) * limit)
+            .options(joinedload(PM.recipient), joinedload(PM.sender))
+        )
+
+        pms = await self.db_session.scalars(statement)
+
+        return pms
+
+    async def count_pms(self, user_id: int, box: Box = "inbox"):
+        return await self.db_session.scalar(
+            select(func.count(PM.id)).where(self.__filter_by_box(box, user_id))
+        )
 
     async def send_pm(
         self,
@@ -63,9 +90,11 @@ class PMRepository:
             reply_pm = await self.db_session.scalar(
                 select(PM).where(PM.id == reply_to_id).limit(1)
             )
-            pm.reply_to_id = reply_to_id
-            pm.history = reply_pm.history.copy()
-            pm.history.append(self.authed_user.id)
+
+            if reply_pm:
+                pm.reply_to_id = reply_to_id
+                pm.history = reply_pm.history.copy()
+                pm.history.append(self.authed_user.id)
         self.db_session.add(pm)
         await self.db_session.commit()
         return pm

@@ -1,16 +1,12 @@
 from typing import Literal, Union
 
 from fastapi import APIRouter, status
-from sqlalchemy import func, select
-from sqlalchemy.orm import joinedload
 
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.helpers.functions import error_response
 from app.middleware import AuthedUser
-from app.models.legacy import PM
 from app.pms import legacy_schemas as schemas
-from app.pms.functions import filter_by_box
 from app.repositories.legacy.pm_repository import (
     NoRecipientException,
     PMRepository,
@@ -30,19 +26,19 @@ async def get_pms(
     authed_user: AuthedUser,
     box: Literal["inbox", "outbox"] = "inbox",
     page: int = 1,
+    limit: int = configs.PAGINATE_PER_PAGE,
 ):
     if page < 1:
         page = 1
 
-    statement = (
-        select(PM)
-        .where(filter_by_box(box, authed_user))
-        .limit(configs.PAGINATE_PER_PAGE)
-        .offset((page - 1) * configs.PAGINATE_PER_PAGE)
-        .options(joinedload(PM.recipient), joinedload(PM.sender))
-    )
+    pm_repository = PMRepository(db_session, authed_user=authed_user)
 
-    pms = await db_session.scalars(statement)
+    pms = await pm_repository.get_pms(
+        user_id=authed_user.id,
+        box=box,
+        page=page,
+        limit=limit,
+    )
     pm_response: list[dict] = []
     for pm in pms:
         model = schemas.PM(
@@ -61,9 +57,8 @@ async def get_pms(
         )
         pm_response.append(model.model_dump())
 
-    pm_count = await db_session.scalar(
-        select(func.count(PM.id)).where(filter_by_box(box, authed_user))
-    )
+    pm_count = await pm_repository.count_pms(user_id=authed_user.id, box=box)
+
     return {"pms": pm_response, "count": pm_count or 0, "page": page}
 
 
