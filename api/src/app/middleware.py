@@ -48,6 +48,8 @@ async def check_authorization(request: Request):
 async def validate_cookie(request: Request, db_session: DBSessionDependency):
     cookie = request.cookies.get(configs.LOGIN_COOKIE)
     if cookie:
+        if "%7C" in cookie:
+            cookie = cookie.replace("%7C", "|")
         username, cookie_hash = cookie.split("|")
         user = await db_session.scalar(
             select(User).where(User.username == username).limit(1)
