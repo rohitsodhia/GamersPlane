@@ -54,7 +54,6 @@ async def login(
 
 
 @auth.post("/logout")
-@public
 async def logout(request: Request, response: Response):
     secure: bool = configs.ENVIRONMENT != "dev"
     for cookie_name in request.cookies.keys():
