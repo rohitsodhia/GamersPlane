@@ -45,6 +45,7 @@ class PMRepository:
         *,
         page: int,
         limit: int,
+        sort: Literal["asc", "desc"] = "desc",
         box: Literal["inbox", "outbox"] = "inbox",
     ):
         statement = (
@@ -52,6 +53,7 @@ class PMRepository:
             .where(self.__filter_by_box(box, user_id))
             .limit(limit)
             .offset((page - 1) * limit)
+            .order_by(PM.datestamp.desc() if sort == "desc" else PM.datestamp.asc())
             .options(joinedload(PM.recipient), joinedload(PM.sender))
         )
 
