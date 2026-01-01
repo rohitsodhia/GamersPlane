@@ -24,6 +24,7 @@ class PM(BaseModel):
     sender: UserDetails
     title: str
     message: str
+    datestamp: str
     reply_to_id: int | None
 
 

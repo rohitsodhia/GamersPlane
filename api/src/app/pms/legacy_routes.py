@@ -53,6 +53,7 @@ async def get_pms(
             ),
             title=pm.title,
             message=pm.message,
+            datestamp=str(pm.datestamp),
             reply_to_id=pm.reply_to_id,
         )
         pm_response.append(model.model_dump())
@@ -60,6 +61,15 @@ async def get_pms(
     pm_count = await pm_repository.count_pms(user_id=authed_user.id, box=box)
 
     return {"pms": pm_response, "count": pm_count or 0, "page": page}
+
+
+@pms.get(
+    "/count",
+    response_model=int,
+)
+async def get_pm_count(db_session: DBSessionDependency, authed_user: AuthedUser):
+    pm_repository = PMRepository(db_session, authed_user=authed_user)
+    return await pm_repository.get_pm_count(user_id=authed_user.id)
 
 
 @pms.post(
