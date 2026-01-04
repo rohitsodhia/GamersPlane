@@ -122,13 +122,11 @@ class PMRepository:
         )
         if reply_to_id:
             reply_pm = await self.db_session.scalar(
-                select(PM).where(PM.id == reply_to_id).limit(1)
+                select(func.count(PM.id)).where(PM.id == reply_to_id).limit(1)
             )
 
             if reply_pm:
                 pm.reply_to_id = reply_to_id
-                pm.history_ids = reply_pm.history_ids.copy()
-                pm.history_ids.append(self.authed_user.id)
         self.db_session.add(pm)
         await self.db_session.commit()
         return pm
