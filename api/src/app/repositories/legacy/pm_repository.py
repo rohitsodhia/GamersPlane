@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import joinedload
 
 from app.database import DBSessionDependency
@@ -33,9 +33,9 @@ class PMRepository:
 
     def __filter_by_box(self, box: Box, user_id: int):
         if box == "inbox":
-            return PM.recipient_id == user_id
+            return PM.recipient_id == user_id, ~PM.recipient_deleted
         else:
-            return PM.sender_id == user_id
+            return PM.sender_id == user_id, ~PM.sender_deleted
 
     async def get_pms(
         self,
@@ -48,7 +48,7 @@ class PMRepository:
     ):
         statement = (
             select(PM)
-            .where(self.__filter_by_box(box, user_id))
+            .where(*self.__filter_by_box(box, user_id))
             .limit(limit)
             .offset((page - 1) * limit)
             .order_by(PM.datestamp.desc() if sort == "desc" else PM.datestamp.asc())
@@ -61,13 +61,19 @@ class PMRepository:
 
     async def count_pms(self, user_id: int, box: Box = "inbox"):
         return await self.db_session.scalar(
-            select(func.count(PM.id)).where(self.__filter_by_box(box, user_id))
+            select(func.count(PM.id)).where(*self.__filter_by_box(box, user_id))
         )
 
     async def get_pm(self, pm_id: int):
         pm = await self.db_session.scalar(
             select(PM)
-            .where(PM.id == pm_id)
+            .where(
+                PM.id == pm_id,
+                or_(
+                    and_(PM.recipient_id == self.authed_user.id, ~PM.recipient_deleted),
+                    and_(PM.sender_id == self.authed_user.id, ~PM.sender_deleted),
+                ),
+            )
             .options(joinedload(PM.recipient), joinedload(PM.sender))
         )
         if not pm:
