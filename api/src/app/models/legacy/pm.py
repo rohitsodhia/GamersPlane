@@ -29,7 +29,7 @@ class PM(MappedAsDataclass, AsyncAttrs, LegacyBase):
     reply_to_id: Mapped[int | None] = mapped_column(
         "replyTo", ForeignKey("pms.pmID"), default=None
     )
-    recipeint_deleted: Mapped[bool] = mapped_column("recipientDeleted", default=False)
+    recipient_deleted: Mapped[bool] = mapped_column("recipientDeleted", default=False)
     sender_deleted: Mapped[bool] = mapped_column("senderDeleted", default=False)
     history_ids: Mapped[List[int]] = mapped_column(
         "history", JSON(), default_factory=list

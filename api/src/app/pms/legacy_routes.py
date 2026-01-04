@@ -176,3 +176,9 @@ async def send_pm(
         )
 
     return {"sent": True}
+
+
+@pms.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_pm(db_session: DBSessionDependency, authed_user: AuthedUser, id: int):
+    pm_repository = PMRepository(db_session, authed_user=authed_user)
+    await pm_repository.delete_pm(id)

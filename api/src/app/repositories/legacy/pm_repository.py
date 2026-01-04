@@ -126,3 +126,15 @@ class PMRepository:
         self.db_session.add(pm)
         await self.db_session.commit()
         return pm
+
+    async def delete_pm(self, pm_id: int):
+        pm = await self.get_pm(pm_id)
+        if not pm:
+            raise NotFoundException()
+        elif self.authed_user.id == pm.recipient.id:
+            pm.recipient_deleted = True
+        elif self.authed_user.id == pm.sender.id:
+            pm.sender_deleted = True
+        else:
+            raise ForbiddenException()
+        await self.db_session.commit()
