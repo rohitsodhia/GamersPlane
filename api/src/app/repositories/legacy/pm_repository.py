@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
 from app.database import DBSessionDependency
+from app.exceptions import ForbiddenException, NotFoundException
 from app.models.legacy import PM, User
 
 Box = Literal["inbox", "outbox"]
@@ -29,9 +30,6 @@ class PMRepository:
     ):
         self.db_session = db_session
         self.authed_user = authed_user
-
-    async def get_pm_count(self, user_id: int, box: Box = "inbox") -> int | None:
-        pass
 
     def __filter_by_box(self, box: Box, user_id: int):
         if box == "inbox":
@@ -66,6 +64,34 @@ class PMRepository:
             select(func.count(PM.id)).where(self.__filter_by_box(box, user_id))
         )
 
+    async def get_pm(self, pm_id: int):
+        pm = await self.db_session.scalar(
+            select(PM)
+            .where(PM.id == pm_id)
+            .options(joinedload(PM.recipient), joinedload(PM.sender))
+        )
+        if not pm:
+            raise NotFoundException()
+        elif (
+            self.authed_user.id != pm.recipient.id
+            and self.authed_user.id != pm.sender.id
+        ):
+            raise ForbiddenException()
+
+        return pm
+
+    async def get_pm_history(self, pm: PM):
+        history = list(
+            await self.db_session.scalars(
+                select(PM)
+                .where(PM.id.in_(pm.history_ids))
+                .order_by(PM.datestamp.desc())
+                .options(joinedload(PM.recipient), joinedload(PM.sender))
+            )
+        )
+
+        return history
+
     async def send_pm(
         self,
         title: str,
@@ -95,8 +121,8 @@ class PMRepository:
 
             if reply_pm:
                 pm.reply_to_id = reply_to_id
-                pm.history = reply_pm.history.copy()
-                pm.history.append(self.authed_user.id)
+                pm.history_ids = reply_pm.history_ids.copy()
+                pm.history_ids.append(self.authed_user.id)
         self.db_session.add(pm)
         await self.db_session.commit()
         return pm
