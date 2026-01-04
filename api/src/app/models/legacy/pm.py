@@ -31,4 +31,6 @@ class PM(MappedAsDataclass, AsyncAttrs, LegacyBase):
     )
     recipeint_deleted: Mapped[bool] = mapped_column("recipientDeleted", default=False)
     sender_deleted: Mapped[bool] = mapped_column("senderDeleted", default=False)
-    history: Mapped[List[int]] = mapped_column(JSON(), default_factory=list)
+    history_ids: Mapped[List[int]] = mapped_column(
+        "history", JSON(), default_factory=list
+    )

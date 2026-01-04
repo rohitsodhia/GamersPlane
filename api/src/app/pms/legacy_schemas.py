@@ -34,6 +34,14 @@ class PMsListResponse(BaseModel):
     page: int
 
 
+class PMWithHistory(PM):
+    history: list[PM] = list()
+
+
+class GetPMResponse(BaseModel):
+    pm: PMWithHistory
+
+
 class NewPM(BaseModel):
     username: str
     reply_to_id: int | None = None
