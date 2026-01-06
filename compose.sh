@@ -7,7 +7,9 @@ remainingArgs=()
 while [ $# -gt 0 ]; do
     case $1 in
     -e | --env)
-        composeFiles+=("-f $SCRIPT_DIR/compose.$2.yml")
+        if [[ -f "$SCRIPT_DIR/compose.$2.yml" ]]; then
+            composeFiles+=("-f $SCRIPT_DIR/compose.$2.yml")
+        fi
         shift
         ;;
     --email)
