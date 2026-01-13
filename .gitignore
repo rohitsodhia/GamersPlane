@@ -17,6 +17,7 @@ styles/**/*.css
 # Specific files
 .env
 compose.override.yml
+ssh_key
 
 # Folders
 .venv
