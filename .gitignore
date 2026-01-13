@@ -18,6 +18,7 @@ styles/**/*.css
 .env
 compose.override.yml
 ssh_key
+ssh_key.pub
 
 # Folders
 .venv
