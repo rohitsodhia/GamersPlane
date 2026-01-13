@@ -12,6 +12,11 @@ while [ $# -gt 0 ]; do
         fi
         shift
         ;;
+    -o)
+        if [[ -f "$SCRIPT_DIR/compose.override.yml" ]]; then
+            composeFiles+=("-f $SCRIPT_DIR/compose.override.yml")
+        fi
+        ;;
     --email)
         composeFiles+=("-f $SCRIPT_DIR/compose.email.yml")
         ;;
