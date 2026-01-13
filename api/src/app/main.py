@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from random import seed
 
 from fastapi import Depends, FastAPI
@@ -29,12 +30,24 @@ if configs.ENVIRONMENT == "dev":
 
 def create_app(init_db=True) -> FastAPI:
     if init_db:
+        ssh_config = {}
+        if (
+            configs.DATABASE_SSH_USERNAME
+            and configs.DATABASE_SSH_PKEY
+            and Path(configs.DATABASE_SSH_PKEY).exists()
+        ):
+            ssh_config = {
+                "ssh_user": configs.DATABASE_SSH_USERNAME,
+                "ssh_pkey": configs.DATABASE_SSH_PKEY,
+            }
         session_manager.init(
             host=configs.DATABASE_HOST,
+            port=configs.DATABASE_PORT,
             user=configs.DATABASE_USER,
             password=configs.DATABASE_PASSWORD,
             database=configs.DATABASE_DATABASE,
             dialect=configs.DATABASE_DIALECT,
+            ssh_config=ssh_config,
         )
 
     @asynccontextmanager
