@@ -11,7 +11,7 @@ services:
             - ./docker/nginx/nginx.${ENVIRONMENT}.conf:/etc/nginx/conf.d/site.conf
         depends_on:
             - api
-            - frontend
+            # - frontend
 
     api:
         container_name: gamersplane-api
@@ -23,32 +23,32 @@ services:
             - host.docker.internal:host-gateway
         env_file:
             - ./.env
-        depends_on:
-            - postgres
+        # depends_on:
+        #     - postgres
         restart: always
 
-    postgres:
-        image: postgres:16.4
-        environment:
-            - POSTGRES_USER=${DATABASE_USER}
-            - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
-            - POSTGRES_DB=${DATABASE_DATABASE}
-        volumes:
-            # - ./docker/postgres:/docker-entrypoint-initdb.d
-            - postgres_db:/var/lib/postgresql/data
+    # postgres:
+    #     image: postgres:16.4
+    #     environment:
+    #         - POSTGRES_USER=${DATABASE_USER}
+    #         - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+    #         - POSTGRES_DB=${DATABASE_DATABASE}
+    #     volumes:
+    #         # - ./docker/postgres:/docker-entrypoint-initdb.d
+    #         - postgres_db:/var/lib/postgresql/data
 
-    cache:
-        container_name: gamersplane-cache
-        image: valkey/valkey:8.1-alpine
+    # cache:
+    #     container_name: gamersplane-cache
+    #     image: valkey/valkey:8.1-alpine
 
-    frontend:
-        build:
-            context: ./frontend
-            target: ${ENVIRONMENT}
-            dockerfile: ../docker/Dockerfile-nextjs
-        environment:
-            - WATCHPACK_POLLING=true
-        volumes:
-            - ./frontend:/app
-            # - /app/node_modules
-            # - /app/.next
+    # frontend:
+    #     build:
+    #         context: ./frontend
+    #         target: ${ENVIRONMENT}
+    #         dockerfile: ../docker/Dockerfile-nextjs
+    #     environment:
+    #         - WATCHPACK_POLLING=true
+    #     volumes:
+    #         - ./frontend:/app
+    #         # - /app/node_modules
+    #         # - /app/.next
