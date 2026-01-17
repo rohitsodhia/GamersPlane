@@ -2,3 +2,9 @@
 .vscode
 frontend/
 !frontend/dist/
+
+.venv
+__pycache__
+*.pyc
+.git
+.pytest_cache

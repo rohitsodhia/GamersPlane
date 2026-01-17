@@ -12,7 +12,7 @@ ADD https://astral.sh/uv/install.sh /uv-installer.sh
 RUN sh /uv-installer.sh && rm /uv-installer.sh
 ENV PATH="/root/.local/bin/:$PATH"
 
-RUN pip install supervisor uv
+RUN pip install supervisor
 
 COPY . /app/
 RUN uv sync --frozen
