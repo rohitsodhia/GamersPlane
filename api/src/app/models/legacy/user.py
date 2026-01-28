@@ -80,21 +80,24 @@ class User(MappedAsDataclass, AsyncAttrs, LegacyBase):
         encrypted_password = hashlib.sha256(encoded_password).hexdigest()
         return encrypted_password == self.password
 
-    def set_cookies(self, response: Response):
-        secure: bool = configs.ENVIRONMENT != "dev"
-        response.delete_cookie(
-            "loginHash",
-            domain=configs.COOKIE_DOMAIN,
-            secure=secure,
-            httponly=True,
-        )
+    def get_login_hash(self):
         encoded_hash = (
             configs.PVAR + self.email + self.join_date.strftime("%Y-%m-%d %H:%M:%S")
         ).encode("utf-8")
         encrypted_hash = hashlib.sha256(encoded_hash).hexdigest()
+        return encrypted_hash[7 : 7 + 32]
+
+    def set_cookies(self, response: Response):
+        secure: bool = configs.ENVIRONMENT != "dev"
+        response.delete_cookie(
+            configs.LOGIN_COOKIE,
+            domain=configs.COOKIE_DOMAIN,
+            secure=secure,
+            httponly=True,
+        )
         response.set_cookie(
-            "loginHash",
-            f"{self.username}|{encrypted_hash[7 : 7 + 32]}",
+            configs.LOGIN_COOKIE,
+            f"{self.username}|{self.get_login_hash()}",
             (60 * 60 * 24 * 7),
             domain=configs.COOKIE_DOMAIN,
             path="/",
@@ -104,3 +107,6 @@ class User(MappedAsDataclass, AsyncAttrs, LegacyBase):
         )
 
         return response
+
+    def validate_login_hash(self, cookie_hash: str):
+        return cookie_hash == self.get_login_hash()

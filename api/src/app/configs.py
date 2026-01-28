@@ -3,6 +3,9 @@ from typing import Literal
 
 
 class ConfigStore:
+    def __init__(self):
+        self.LOGIN_COOKIE = "loginHash"
+
     def from_env(self):
         self.ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
 
@@ -22,9 +25,12 @@ class ConfigStore:
             dialect
         )
         self.DATABASE_HOST = os.getenv("DATABASE_HOST", "postgres")
+        self.DATABASE_PORT = int(os.getenv("DATABASE_PORT", 5432))
         self.DATABASE_USER = os.getenv("DATABASE_USER", "shopping")
         self.DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD", "test123")
         self.DATABASE_DATABASE = os.getenv("DATABASE_DATABASE", "shopping")
+        self.DATABASE_SSH_USERNAME = os.getenv("DATABASE_SSH_USERNAME", None)
+        self.DATABASE_SSH_PKEY = "/ssh_key"
 
     def _get_dialect(self, dialect: str) -> Literal["postgresql"] | Literal["mysql"]:
         if dialect == "postgresql":
