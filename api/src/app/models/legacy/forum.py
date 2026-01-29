@@ -1,0 +1,36 @@
+from enum import Enum
+from typing import TYPE_CHECKING
+
+from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.models.legacy.base import LegacyBase
+
+if TYPE_CHECKING:
+    from app.models.legacy import Forum, Game
+
+
+class Forum(LegacyBase):
+    class ForumTypes(Enum):
+        FORUM = "f"
+        CATEGORY = "c"
+
+    __tablename__ = "forums"
+
+    id: Mapped[int] = mapped_column("forumID", primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text(), nullable=True)
+    forum_type: Mapped[ForumTypes] = mapped_column(
+        String(1),
+        default=ForumTypes.FORUM,
+        nullable=True,
+    )
+    parent_id: Mapped[int] = mapped_column(
+        "parentID", ForeignKey("forums.forumID"), nullable=True
+    )
+    parent: Mapped["Forum"] = relationship()
+    depth: Mapped[int] = mapped_column(nullable=True)
+    order: Mapped[int]
+    game_id: Mapped[int] = mapped_column("gameID", ForeignKey("games.gameID"))
+    game: Mapped["Game"] = relationship()
+    thread_count: Mapped[int] = mapped_column(default=0)
