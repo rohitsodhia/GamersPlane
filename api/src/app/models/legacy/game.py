@@ -27,8 +27,8 @@ class Game(LegacyBase):
     system_id: Mapped[int] = mapped_column("system", ForeignKey("systems.id"))
     system: Mapped["System"] = relationship()
     custom_system: Mapped[bool]
-    gm_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    gm: Mapped["User"] = relationship()
+    gm_id: Mapped[int] = mapped_column(ForeignKey("users.userID"))
+    gm: Mapped["User"] = relationship(foreign_keys=[gm_id])
     created: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), insert_default=func.now()
     )
@@ -45,10 +45,18 @@ class Game(LegacyBase):
     char_gen_info: Mapped[str | None] = mapped_column(
         "charGenInfo", Text(), nullable=True
     )
-    root_forum_id: Mapped[int] = mapped_column("forumID", ForeignKey("forums.id"))
-    root_forum: Mapped["Forum"] = relationship()
-    group_id: Mapped[int] = mapped_column("groupID", ForeignKey("forum_groups.id"))
-    group: Mapped["ForumGroup"] = relationship()
+    root_forum_id: Mapped[int] = mapped_column("forumID", ForeignKey("forums.forumID"))
+    root_forum: Mapped["Forum"] = relationship(
+        "Forum",
+        primaryjoin="Game.root_forum_id == Forum.id",
+        foreign_keys=[root_forum_id],
+        uselist=False,
+        post_update=True,
+    )
+    group_id: Mapped[int | None] = mapped_column(
+        "groupID", ForeignKey("forum_groups.groupID"), nullable=True
+    )
+    group: Mapped["ForumGroup"] = relationship(foreign_keys=[group_id])
     status: Mapped[Statuses] = mapped_column(default=Statuses.OPEN)
     public: Mapped[bool]
     retired: Mapped[datetime.datetime | None] = mapped_column(nullable=True)

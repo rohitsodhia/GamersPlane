@@ -20,4 +20,4 @@ class ForumGroup(LegacyBase):
     game_id: Mapped[int] = mapped_column(
         "gameID", ForeignKey("games.gameID"), nullable=True
     )
-    game: Mapped["Game"] = relationship()
+    game: Mapped["Game"] = relationship(foreign_keys=[game_id])
