@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Literal
 
 from sqlalchemy import and_, func, or_, select
