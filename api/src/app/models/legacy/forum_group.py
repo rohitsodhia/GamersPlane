@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 class ForumGroup(LegacyBase):
-    __tablename__ = "forum_groups"
+    __tablename__ = "forums_groups"
 
     id: Mapped[int] = mapped_column("groupID", primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
