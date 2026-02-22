@@ -4,25 +4,11 @@ from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey, String, Text, types
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.helpers.sqlalchemy_types import EnumValueDecorator
 from app.models.legacy.base import LegacyBase
 
 if TYPE_CHECKING:
     from app.models.legacy import Forum, Game
-
-
-class ForumTypeDecorator(types.TypeDecorator):
-    impl = types.String(1)
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        return value.value if isinstance(value, Enum) else value
-
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return None
-        return Forum.ForumTypes(value)
 
 
 class Forum(LegacyBase):
@@ -37,7 +23,7 @@ class Forum(LegacyBase):
     description: Mapped[str] = mapped_column(Text(), nullable=True)
     forum_type: Mapped[ForumTypes] = mapped_column(
         "forumType",
-        ForumTypeDecorator,
+        EnumValueDecorator(ForumTypes, types.String(1)),
         default=ForumTypes.FORUM.value,
         nullable=True,
     )

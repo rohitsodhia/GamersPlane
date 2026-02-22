@@ -5,25 +5,11 @@ from typing import TYPE_CHECKING, Literal, TypedDict
 from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func, types
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.helpers.sqlalchemy_types import EnumValueDecorator
 from app.models.legacy.base import LegacyBase
 
 if TYPE_CHECKING:
     from app.models.legacy import Forum, ForumGroup, System, User
-
-
-class StatusesDecorator(types.TypeDecorator):
-    impl = types.String(1)
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        return value.value if isinstance(value, Enum) else value
-
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return None
-        return Game.Statuses(value)
 
 
 class Game(LegacyBase):
@@ -71,7 +57,10 @@ class Game(LegacyBase):
         "groupID", ForeignKey("forums_groups.groupID")
     )
     group: Mapped["ForumGroup"] = relationship(foreign_keys=[group_id])
-    status: Mapped[Statuses] = mapped_column(StatusesDecorator, default=Statuses.OPEN)
+    status: Mapped[Statuses] = mapped_column(
+        EnumValueDecorator(enum_class=Statuses, impl_class=types.String(1)),
+        default=Statuses.OPEN,
+    )
     public: Mapped[bool]
     retired: Mapped[datetime.datetime | None] = mapped_column(nullable=True)
     allowed_char_sheets: Mapped[list[str]] = mapped_column("allowedCharSheets", JSON())
