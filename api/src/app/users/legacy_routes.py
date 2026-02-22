@@ -2,8 +2,7 @@ from fastapi import APIRouter
 
 from app.database import DBSessionDependency
 from app.middleware import AuthedUser
-from app.repositories.legacy.character_repository import CharacterRepository
-from app.repositories.legacy.game_repository import GameRepository
+from app.repositories.legacy import CharacterRepository, GameRepository, UserRepository
 from app.users import legacy_schemas
 
 users = APIRouter(prefix="/legacy/users")
@@ -13,6 +12,7 @@ users = APIRouter(prefix="/legacy/users")
 async def get_header(db_session: DBSessionDependency, authed_user: AuthedUser):
     character_repository = CharacterRepository(db_session, authed_user)
     game_repository = GameRepository(db_session, authed_user)
+    user_repository = UserRepository(db_session)
 
     characters = await character_repository.get_header_characters()
     if len(characters) > 0 and characters[0]["isFavorite"]:
@@ -29,4 +29,5 @@ async def get_header(db_session: DBSessionDependency, authed_user: AuthedUser):
     return {
         "characters": characters,
         "games": games,
+        "avatar": await user_repository.get_avatar(authed_user.id),
     }

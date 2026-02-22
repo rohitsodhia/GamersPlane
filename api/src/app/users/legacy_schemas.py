@@ -21,3 +21,4 @@ class HeaderGames(BaseModel):
 class GetHeaderResponse(BaseModel):
     characters: list[HeaderCharacters]
     games: list[HeaderGames]
+    avatar: str
