@@ -1,7 +1,7 @@
 from sqlalchemy import func, select, text
 
 from app.database import DBSessionDependency
-from app.models.legacy import Forum, Game, User
+from app.models.legacy import Forum, Game, Player, User
 from app.repositories.legacy import ForumRepository
 
 
@@ -58,6 +58,10 @@ class GameRepository:
         )
         self.db_session.add(game)
         forum.game_id = game.id
+
+        player = Player(game=game, user_id=gm_id)
+        self.db_session.add(player)
+
         await self.db_session.commit()
 
         return game
@@ -78,9 +82,9 @@ class GameRepository:
                     "title": game[1],
                     "forumID": int(game[2]),
                     "retired": bool(game[3]),
-                    "isGM": bool(game[3]),
-                    "isPlayer": bool(game[3]),
-                    "isFavorite": bool(game[3]),
+                    "isGM": bool(game[4]),
+                    "isPlayer": bool(game[5]),
+                    "isFavorite": bool(game[6]),
                 }
             )
 
