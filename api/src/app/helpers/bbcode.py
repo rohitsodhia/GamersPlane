@@ -21,7 +21,7 @@ class BBCodeParser:
             "b": ("strong", ""),
             "i": ("em", ""),
             "u": ("u", ""),
-            "s": ("span", "text-decoration:line-through"),
+            "s": ("s", ""),
             "ooc": ("blockquote", "oocText"),
             "style": ("div", 'style="display:none;"'),
         }
@@ -229,9 +229,16 @@ class BBCodeParser:
 
         # Fallback for simple tags
         if tag in self.simple_map:
-            t, c = self.simple_map[tag]
-            c_attr = f' class="{c}"' if c and "=" not in c else f" {c}" if c else ""
-            return f"<{t}{c_attr}>{content}</{t}>"
+            html_tag, styling = self.simple_map[tag]
+
+            style_attr = (
+                f' class="{styling}"'
+                if styling and "=" not in styling
+                else f" {styling}"
+                if styling
+                else ""
+            )
+            return f"<{html_tag}{style_attr}>{content}</{html_tag}>"
 
         return f"[{tag}]{content}[/{tag}]"
 
