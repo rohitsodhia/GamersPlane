@@ -14,11 +14,12 @@ ENV PATH="/root/.local/bin/:$PATH"
 
 RUN pip install supervisor
 
-COPY . /app/
-RUN uv sync --frozen
-WORKDIR /app/src/app
-# --no-dev
+COPY pyproject.toml uv.lock /app/
+RUN uv sync --frozen --no-install-project --no-dev
 
+COPY . /app/
+RUN uv sync --frozen --no-editable
+# --no-dev
 # COPY ./entrypoint.sh /app/entrypoint.sh
 
 # ENV PYTHONPATH="$PYTHONPATH:/app/src"
@@ -26,5 +27,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # ENTRYPOINT ["/app/entrypoint.sh"]
 
-CMD [ "uv", "run", "uvicorn", "--factory", "main:create_app", "--host", "0.0.0.0", "--port", "8000" ]
+WORKDIR /app/src/app
+CMD [ "uvicorn", "--factory", "main:create_app", "--host", "0.0.0.0", "--port", "8000" ]
 # CMD ["sleep","infinity"]
