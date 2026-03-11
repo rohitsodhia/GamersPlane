@@ -1,6 +1,6 @@
-FROM nginx:1.15-alpine
+FROM nginx:1.29-alpine
 
 EXPOSE 80
 EXPOSE 443
 
-COPY docker/nginx/nginx.conf /etc/nginx/conf.d/site.conf
+COPY default.conf.template /etc/nginx/templates/default.conf.template:ro
