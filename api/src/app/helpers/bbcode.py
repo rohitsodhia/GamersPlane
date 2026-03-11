@@ -5,6 +5,7 @@ from app.configs import configs
 
 # Pre-compiled Tokenizer: Identifies all opening/closing tags and chunks of text.
 TAG_TOKENIZER = re.compile(r"(\[/?[a-zA-Z0-9=\s\"\'\-\_\$\.\+\;\,]+\])", re.IGNORECASE)
+TAGS_TO_STRIP = ["quote", "list", "table", "ooc", "style"]
 
 
 class BBCodeParser:
@@ -44,7 +45,9 @@ class BBCodeParser:
         stack = []
         output = []
 
-        for token in tokens:
+        num_tokens = len(tokens)
+        for i in range(num_tokens):
+            token = tokens[i]
             if not token:
                 continue
 
@@ -74,6 +77,10 @@ class BBCodeParser:
                                 is_thread_admin,
                             )
                         )
+
+                        if tag_name in TAGS_TO_STRIP:
+                            if i + 1 < num_tokens:
+                                tokens[i + 1] = re.sub(r"^\r?\n", "", tokens[i + 1])
                     else:
                         output.append(token)
 
@@ -109,7 +116,7 @@ class BBCodeParser:
     def _transform(self, tag, attr, content, user, post, is_gm, is_thread_admin):
         attr = attr.replace('"', "").strip()
 
-        # 1. GP Class Formatter Logic (Port of gpClassFormatter)
+        # 1. GP Class Formatter
         if tag in ["f", "b"]:
             html_tag = "span" if tag == "f" else "strong"
             styles, classes = [], []
@@ -123,7 +130,7 @@ class BBCodeParser:
             class_attr = f' class="userColor {" ".join(classes)}"'
             return f"<{html_tag}{class_attr}{style_attr}>{content}</{html_tag}>"
 
-        # 2. Advanced List Logic (Port of listTagBuilder)
+        # 2. Lists
         if tag == "list":
             if not attr:
                 return f"<ul>{content}</ul>"
@@ -137,7 +144,7 @@ class BBCodeParser:
         if tag == "*":
             return f"<li>{content}</li>"
 
-        # 3. Ability/Snippet Logic (Port of splitByHeader)
+        # 3. Abilities/Snippets
         if tag in ["abilities", "snippets"]:
             mode = "abilities" if tag == "abilities" else "snippets"
             idx_attr = ""
@@ -146,7 +153,7 @@ class BBCodeParser:
                 idx_attr = f" data-abilitiesfieldidx='{idx}'"
             return self._split_by_header(attr, content, mode, idx_attr)
 
-        # 4. Table Logic
+        # 4. Tables
         if tag == "table":
             classes = ["bbTable"]
             mapping = {
@@ -192,7 +199,7 @@ class BBCodeParser:
                 return f"<iframe src='https://open.spotify.com/embed/{s_type}/{s_id}' width='100%' height='{height}' frameBorder='0' allow='encrypted-media'></iframe>"
             return content
 
-        # 6. Permissions (Note/Private)
+        # 6. Blocks
         if tag in ["note", "private"]:
             note_to = [x.lower() for x in re.split(r"[^\w\.]+", attr)]
             curr_name = user.username.lower() if user else ""
@@ -209,6 +216,11 @@ class BBCodeParser:
                 author_name = post.getAuthor("username") if post else "User"
                 return f'<aside class="note"><div>{author_name} sent a note to <span>{attr}</span></div></aside>'
             return f'<aside class="note"><div>{label}</div>{content}</aside>'
+
+        if tag == "quote":
+            content = content.strip()
+            quotee_text = f"{attr} says:" if attr else "Quote:"
+            return f'<blockquote class="quote"><div class="quotee">{quotee_text}</div>{content}</blockquote>'
 
         # 7. Snippets & Charsheets
         if tag in ["charsheet", "snippet", "#"]:
@@ -306,6 +318,5 @@ class BBCodeParser:
         return re.sub(r"\[\_(([\w\_]*)\=)?([^\]]*)\]", sub_f, text)
 
 
-# Usage
 parser = BBCodeParser()
 BBCode2Html = parser.parse
