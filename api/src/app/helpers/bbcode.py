@@ -29,7 +29,9 @@ from app.configs import configs
 # Note: [#] and [*] are handled as special cases in the walk loop because
 # their closing tags ([/#] and [/*]) cannot be expressed in this character
 # class without ambiguity.
-_TAG_TOKENIZER = re.compile(r"(\[/?[a-zA-Z0-9=\s\"\'\-\_\$\.\+\;\,]+\])", re.IGNORECASE)
+_TAG_TOKENIZER = re.compile(
+    r"(\[/?[a-zA-Z0-9#\*][a-zA-Z0-9=\s\"'\-_$\.\+;,/:]*\])", re.IGNORECASE
+)
 
 # Tags whose closing tag should consume one trailing newline in the source.
 _TAGS_TO_STRIP = frozenset(
@@ -266,7 +268,14 @@ class BBCodeParser:
         attr = attr.replace('"', "").strip()
         handler = self._dispatch.get(tag)
         if handler:
-            return handler(attr, content, user, post, is_gm, is_thread_admin)
+            return handler(
+                attr=attr,
+                content=content,
+                user=user,
+                post=post,
+                is_gm=is_gm,
+                is_thread_admin=is_thread_admin,
+            )
         # Unrecognised tag — return verbatim so content is not lost
         return f"[{tag}]{content}[/{tag}]"
 
@@ -336,7 +345,7 @@ class BBCodeParser:
         addr = _safe_attr(content.strip())
         return f'<a href="mailto:{addr}">{addr}</a>'
 
-    def _tag_url(self, attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_url(self, attr, content, **_):
         raw_href = attr if attr else content.strip()
         href = _safe_url(raw_href)
         safe_href = _safe_attr(href)
