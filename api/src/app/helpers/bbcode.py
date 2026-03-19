@@ -295,12 +295,12 @@ class BBCodeParser:
     def _tag_simple_factory(open_tag: str, close_tag: str):
         """Return a handler that wraps content in fixed open/close tags."""
 
-        def _handler(attr, content, user, post, is_gm, is_thread_admin):
+        def _handler(content, **_):
             return f"{open_tag}{content}{close_tag}"
 
         return _handler
 
-    def _tag_gp_format(self, attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_gp_format(self, attr, content, **_):
         """[f=…] — span with gpFormat classes / inline styles."""
         styles, classes = [], []
         for part in attr.split():
@@ -312,7 +312,7 @@ class BBCodeParser:
         class_attr = f' class="userColor {" ".join(classes)}"'
         return f"<span{class_attr}{style_attr}>{content}</span>"
 
-    def _tag_b(self, attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_b(self, attr, content, **_):
         """[b] plain bold  OR  [b=…] GP formatter on <strong>."""
         if not attr:
             return f"<strong>{content}</strong>"
@@ -328,21 +328,21 @@ class BBCodeParser:
         return f"<strong{class_attr}{style_attr}>{content}</strong>"
 
     @staticmethod
-    def _tag_ooc(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_ooc(content, **_):
         return f'<blockquote class="oocText"><div>OOC:</div>{content}</blockquote>'
 
     @staticmethod
-    def _tag_style(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_style(content, **_):
         return f'<div style="display:none;">{content}</div>'
 
     @staticmethod
-    def _tag_img(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_img(content, **_):
         src = _safe_url(content.strip())
         safe_src = _safe_attr(src)
         return f'<img src="{safe_src}" alt="{safe_src}" class="usrImg">'
 
     @staticmethod
-    def _tag_email(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_email(content, **_):
         addr = _safe_attr(content.strip())
         return f'<a href="mailto:{addr}">{addr}</a>'
 
@@ -359,7 +359,7 @@ class BBCodeParser:
         return f'<a href="{safe_href}"{target} rel="nofollow">{display}</a>'
 
     @staticmethod
-    def _tag_youtube(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_youtube(content, **_):
         m = re.search(r"(?:youtu\.be/|v=)([A-Za-z0-9_\-]+)", content)
         vid_id = _safe_attr(m.group(1) if m else content.strip())
         return (
@@ -372,7 +372,7 @@ class BBCodeParser:
         )
 
     @staticmethod
-    def _tag_spotify(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_spotify(content, **_):
         m = re.search(
             r"spotify\.com/(track|album|episode|show|playlist)/([a-zA-Z0-9]+)",
             content,
@@ -388,7 +388,7 @@ class BBCodeParser:
         )
 
     @staticmethod
-    def _tag_map(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_map(content, **_):
         link = re.sub(r"^[\s]*(--).*?$", "", content, flags=re.MULTILINE)
         link = _safe_url(re.sub(r"\s+", "", link))
         safe_link = _safe_attr(link)
@@ -398,13 +398,13 @@ class BBCodeParser:
         )
 
     @staticmethod
-    def _tag_size(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_size(attr, content, **_):
         # Only allow numeric size values
         safe_size = _safe_attr(attr) if re.match(r"^\d+$", attr) else "100"
         return f'<span class="userSize" style="font-size:{safe_size}%">{content}</span>'
 
     @staticmethod
-    def _tag_color(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_color(attr, content, **_):
         # Allow CSS colour values: named colours, hex, rgb(), hsl()
         safe_color = (
             _safe_attr(attr) if re.match(r"^[\w#(),%. ]+$", attr) else "inherit"
@@ -412,14 +412,14 @@ class BBCodeParser:
         return f'<span class="userColor" style="color:{safe_color}">{content}</span>'
 
     @staticmethod
-    def _tag_zoommap(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_zoommap(attr, content, **_):
         return (
             f'<div class="zoommap" data-mapimage="{_safe_attr(attr)}" '
             f'style="display:none">{content}</div>'
         )
 
     @staticmethod
-    def _tag_spoiler(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_spoiler(attr, content, **_):
         label = html_escape(attr) if attr else "Spoiler"
         return (
             f'<blockquote class="spoiler closed">'
@@ -429,7 +429,7 @@ class BBCodeParser:
         )
 
     @staticmethod
-    def _tag_list(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_list(attr, content, **_):
         if not attr:
             return f"<ul>{content}</ul>"
         if attr.isdigit():
@@ -443,11 +443,11 @@ class BBCodeParser:
         return f'<ol type="{_safe_attr(attr)}">{content}</ol>'
 
     @staticmethod
-    def _tag_li(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_li(attr, content, **_):
         return f"<li>{content}</li>"
 
     @staticmethod
-    def _tag_table(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_table(attr, content, **_):
         t = attr.lower()
         classes = ["bbTable"]
         if "center" in t or "centre" in t:
@@ -491,7 +491,7 @@ class BBCodeParser:
         )
 
     @staticmethod
-    def _tag_npc(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_npc(attr, content, **_):
         avatar = _safe_attr(_safe_url(content.strip()))
         name = html_escape(attr)
         return (
@@ -503,7 +503,7 @@ class BBCodeParser:
         )
 
     @staticmethod
-    def _tag_npcs(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_npcs(attr, content, **_):
         title = html_escape(attr) if attr else "NPCs"
         lines = content.replace("<br />", "").replace("\r", "").strip().split("\n")
         items = []
@@ -569,7 +569,7 @@ class BBCodeParser:
         return (content + "<br/>") if can_view else ""
 
     @staticmethod
-    def _tag_quote(attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_quote(attr, content, **_):
         quotee_text = f"{html_escape(attr)} says:" if attr else "Quote:"
         return (
             f'<blockquote class="quote">'
@@ -577,7 +577,7 @@ class BBCodeParser:
             f"{content.strip()}</blockquote>"
         )
 
-    def _tag_abilities(self, attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_abilities(self, attr, content, **_):
         idx = next(self.counters["formField"])
         icon = '<i class="ra ra-quill-ink"></i> '
         return self._split_by_header(
@@ -587,10 +587,10 @@ class BBCodeParser:
             f" data-abilitiesfieldidx='{idx}'",
         )
 
-    def _tag_snippets(self, attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_snippets(self, attr, content, **_):
         return self._split_by_header(html_escape(attr), content, "snippets")
 
-    def _tag_charsheet(self, attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_charsheet(self, attr, content, **_):
         idx = next(self.counters["charsheet"])
         escaped = _escape_bbcode_content(content)
         safe_name = html_escape(attr)
@@ -606,7 +606,7 @@ class BBCodeParser:
             f"</blockquote>"
         )
 
-    def _tag_snippet(self, attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_snippet(self, attr, content, **_):
         idx = next(self.counters["snippetCount"])
         escaped = _escape_bbcode_content(content)
         safe_name = html_escape(attr)
@@ -620,7 +620,7 @@ class BBCodeParser:
             f"</blockquote>"
         )
 
-    def _tag_formblock(self, attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_formblock(self, attr, content, **_):
         idx = next(self.counters["formField"])
         escaped = _escape_bbcode_content(content)
         icon = '<i class="ra ra-quill-ink"></i> '
@@ -633,7 +633,7 @@ class BBCodeParser:
             f"</div>"
         )
 
-    def _tag_poll(self, attr, content, user, post, is_gm, is_thread_admin):
+    def _tag_poll(self, attr, content, user, post, is_gm, **_):
         if not post:
             return content
 
