@@ -30,7 +30,7 @@ from app.configs import configs
 # their closing tags ([/#] and [/*]) cannot be expressed in this character
 # class without ambiguity.
 _TAG_TOKENIZER = re.compile(
-    r"(\[/?[a-zA-Z0-9#\*][a-zA-Z0-9=\s\"'\-_$\.\+;,/:]*\])", re.IGNORECASE
+    r"(\[/?[a-zA-Z0-9#\*][a-zA-Z0-9=\s\"'\-_$\.\+;,/:\?]*\])", re.IGNORECASE
 )
 
 # Tags whose closing tag should consume one trailing newline in the source.
