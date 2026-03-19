@@ -20,6 +20,7 @@ from itertools import count
 from typing import Any
 
 from app.configs import configs
+from app.models.legacy.user import User
 
 # ---------------------------------------------------------------------------
 # Module-level compiled patterns (created once at import time)
@@ -797,7 +798,7 @@ class BBCodeParser:
 
 def BBCode2Html(
     text: str,
-    current_user=None,
+    current_user: User | None = None,
     post=None,
     is_gm: bool = False,
     is_thread_admin: bool = False,
