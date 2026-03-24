@@ -18,7 +18,9 @@ COPY pyproject.toml uv.lock /app/
 RUN uv sync --frozen --no-install-project --no-dev
 
 COPY . /app/
-RUN uv sync --frozen --no-editable
+RUN uv sync --frozen --no-install-project --no-dev && \
+    uv pip install hatchling && \
+    uv sync --frozen --no-editable --no-build-isolation
 # --no-dev
 # COPY ./entrypoint.sh /app/entrypoint.sh
 
