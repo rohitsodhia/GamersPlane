@@ -6,9 +6,9 @@ volumes:
 services:
     proxy:
         container_name: gamersplane-proxy
-        image: nginx:1.15-alpine
+        image: nginx:1.29-alpine
         volumes:
-            - ./docker/nginx/nginx.${ENVIRONMENT}.conf:/etc/nginx/conf.d/site.conf
+            - ./docker/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
         depends_on:
             - api
             # - frontend

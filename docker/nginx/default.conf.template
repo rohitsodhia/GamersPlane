@@ -20,11 +20,11 @@
 #     }
 # }
 
+
 server {
     listen 80;
 
-    server_name api.gamersplane.local;
-    server_name apiv2.gamersplane.local;
+    server_name ${API_SERVER_NAMES};
 
     location / {
         proxy_pass http://api:8000;

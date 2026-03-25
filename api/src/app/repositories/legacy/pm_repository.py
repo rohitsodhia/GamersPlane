@@ -3,6 +3,7 @@ from typing import Literal
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import joinedload
 
+from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
 from app.models.legacy import PM, User
@@ -39,8 +40,8 @@ class PMRepository:
         self,
         user_id: int,
         *,
-        page: int,
-        limit: int,
+        page: int = 1,
+        limit: int = configs.PAGINATE_PER_PAGE,
         sort: Literal["asc", "desc"] = "desc",
         box: Literal["inbox", "outbox"] = "inbox",
     ):
