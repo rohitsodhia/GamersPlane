@@ -36,5 +36,5 @@ async def get_header(db_session: DBSessionDependency, authed_user: AuthedUser):
         "characters": characters,
         "games": games,
         "avatar": await user_repository.get_avatar(authed_user.id),
-        "pmCount": await pm_repository.count_pms(authed_user.id),
+        "pmCount": await pm_repository.count_pms(authed_user.id, state="unread"),
     }
