@@ -11,12 +11,12 @@ from app.auth.routes import auth
 from app.configs import configs
 from app.database import get_db_session, session_manager
 from app.pms.legacy_routes import pms as legacy_pms
+from app.users.legacy_routes import users
 
 # from forums.forums_routes import forums
 # from permissions.roles_routes import roles
 # from referral_links.routes import referral_links
 # from systems.routes import systems
-from app.users.routes import users
 
 # from permissions.permissions_routes import permissions
 
