@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Literal
 
 from sqlalchemy import and_, func, or_, select
@@ -60,10 +58,18 @@ class PMRepository:
 
         return pms
 
-    async def count_pms(self, user_id: int, box: Box = "inbox"):
-        return await self.db_session.scalar(
-            select(func.count(PM.id)).where(*self.__filter_by_box(box, user_id))
-        )
+    async def count_pms(
+        self,
+        user_id: int,
+        box: Box = "inbox",
+        state: Literal["all", "read", "unread"] = "all",
+    ):
+        statement = select(func.count(PM.id)).where(*self.__filter_by_box(box, user_id))
+        if state == "read":
+            statement = statement.where(PM.recipient_read)
+        elif state == "unread":
+            statement = statement.where(~PM.recipient_read)
+        return await self.db_session.scalar(statement)
 
     async def get_pm(self, pm_id: int):
         pm = await self.db_session.scalar(

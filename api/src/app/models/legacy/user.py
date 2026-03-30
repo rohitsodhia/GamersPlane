@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
 from app.configs import configs
+from app.models.legacy import Character
 from app.models.legacy.base import LegacyBase
 from app.util import random_alpha_num
 
@@ -40,6 +41,7 @@ class User(MappedAsDataclass, AsyncAttrs, LegacyBase):
         DateTime(timezone=True), nullable=True, init=False
     )
     meta: Mapped[List["UserMeta"]] = relationship(default_factory=list)
+    characters: Mapped[List[Character]] = relationship(default_factory=list)
 
     MIN_PASSWORD_LENGTH: int = 6
 
