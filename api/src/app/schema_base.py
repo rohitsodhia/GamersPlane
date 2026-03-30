@@ -21,18 +21,16 @@ def strip_whitespace(v: str) -> str:
 
 
 PipelineMap = List[Callable[[str], str]]
+DEFAULT_PIPELINES = [nl2br, strip_whitespace]
 
 
 def filtered_str(
     pipelines: Optional[PipelineMap] = None,
-    add_pipelines: Optional[PipelineMap] = None,
     **kwargs: Any,
 ) -> Any:
-    if pipelines or add_pipelines:
-        if pipelines is None:
-            pipelines = [nl2br, strip_whitespace]
-        if add_pipelines:
-            pipelines.extend(add_pipelines)
+    if pipelines is None:
+        pipelines = DEFAULT_PIPELINES
+    pipelines = list(dict.fromkeys(pipelines))
     return Field(
         default=kwargs.get("default"),
         json_schema_extra=cast(JsonDict, {"pipelines": pipelines}),

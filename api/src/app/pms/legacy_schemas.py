@@ -3,7 +3,6 @@ from typing import Annotated
 from annotated_types import Len
 from pydantic import ConfigDict
 
-from app.helpers.bbcode import BBCode2Html
 from app.models.legacy import User
 from app.schema_base import SchemaBase, filtered_str
 
@@ -24,8 +23,8 @@ class PM(SchemaBase):
     id: int
     recipient: UserDetails
     sender: UserDetails
-    title: str = filtered_str(add_pipelines=[BBCode2Html])
-    message: str = filtered_str(add_pipelines=[BBCode2Html])
+    title: str = filtered_str()
+    message: str = filtered_str()
     datestamp: str
     reply_to_id: int | None
 
