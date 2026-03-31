@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.database import DBSessionDependency
+from app.helpers.decorators import public
 from app.models.legacy import System
 from app.repositories.legacy.system_repository import SystemRepository
 from app.systems import legacy_schemas as schemas
@@ -8,6 +9,7 @@ from app.systems import legacy_schemas as schemas
 systems = APIRouter(prefix="/legacy/systems")
 
 
+@public
 @systems.get("", response_model=schemas.GetSystemsResponse)
 async def get_systems(db_session: DBSessionDependency):
     system_repository = SystemRepository(db_session)
