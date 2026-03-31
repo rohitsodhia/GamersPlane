@@ -4,7 +4,6 @@ from typing import Literal
 
 from sqlalchemy import func, select
 
-from app.configs import configs
 from app.database import DBSessionDependency
 from app.models.legacy import System
 
@@ -24,17 +23,10 @@ class SystemRepository:
     async def get_systems(
         self,
         *,
-        page: int = 1,
-        limit: int = configs.PAGINATE_PER_PAGE,
         sort: Literal["asc", "desc"] = "asc",
     ):
-        statement = (
-            select(System)
-            .limit(limit)
-            .offset((page - 1) * limit)
-            .order_by(
-                System.sort_name.asc() if sort == "asc" else System.sort_name.desc()
-            )
+        statement = select(System).order_by(
+            System.sort_name.asc() if sort == "asc" else System.sort_name.desc()
         )
 
         pms = await self.db_session.scalars(statement)
