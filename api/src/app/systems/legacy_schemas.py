@@ -21,3 +21,4 @@ class SystemSchema(BaseModel):
 
 class GetSystemsResponse(BaseModel):
     systems: list[SystemSchema]
+    num_systems: int
