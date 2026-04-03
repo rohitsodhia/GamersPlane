@@ -1,6 +1,4 @@
-from datetime import timedelta
-
-from sqlalchemy import and_, case, func, literal, select
+from sqlalchemy import and_, case, func, literal, select, text
 
 from app.database import DBSessionDependency
 from app.models.legacy import User, UserMeta
@@ -30,9 +28,12 @@ class UserRepository:
 
         return get_avatar_path(user_id, avatar_ext)
 
-    async def get_gamers(self, get_inactive: bool = False):
-        fifteen_min_ago = func.now() - timedelta(minutes=15)
-        two_weeks_ago = func.now() - timedelta(weeks=2)
+    async def get_gamers(
+        self,
+        get_inactive: bool = False,
+    ):
+        fifteen_min_ago = func.date_sub(func.now(), text("INTERVAL 15 MINUTE"))
+        two_weeks_ago = func.date_sub(func.now(), text("INTERVAL 2 WEEK"))
 
         online_expr = case(
             (User.last_activity >= fifteen_min_ago, literal(1)), else_=literal(0)
@@ -43,7 +44,6 @@ class UserRepository:
                 User.id,
                 User.username,
                 User.last_activity,
-                User.join_date,
                 online_expr,
                 UserMeta._value.label("avatar_ext"),
             )
@@ -59,4 +59,4 @@ class UserRepository:
         if not get_inactive:
             statement = statement.where(User.last_activity >= two_weeks_ago)
 
-        await self.db_session.scalars(statement)
+        return await self.db_session.execute(statement)
