@@ -1,8 +1,7 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String
+from sqlalchemy import JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.types import JSON
 
 from app.models.legacy.base import LegacyBase
 
@@ -18,7 +17,7 @@ class System(LegacyBase):
     sort_name: Mapped[str] = mapped_column("sortName", String(40))
     enabled: Mapped[bool]
     angular: Mapped[bool]
-    genres: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
+    genres: Mapped[list | None] = mapped_column(JSON(), nullable=True)
     publisher: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
     basics: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
     has_char_sheet: Mapped[bool] = mapped_column("hasCharSheet", default=1)
