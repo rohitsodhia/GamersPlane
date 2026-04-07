@@ -27,6 +27,7 @@ async def get_gamers(
                 username=gamer.username,
                 online=gamer.online,
                 avatar=get_avatar_path(gamer.id, gamer.avatar_ext),
+                lfg=bool(gamer.lfg),
                 inactive=(
                     gamer.last_activity.replace(tzinfo=timezone.utc)
                     < datetime.now(timezone.utc) - timedelta(weeks=2)

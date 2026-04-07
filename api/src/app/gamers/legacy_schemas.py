@@ -6,6 +6,7 @@ class User(BaseModel):
     username: str
     online: bool
     avatar: str
+    lfg: bool
     inactive: bool
 
 
