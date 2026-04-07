@@ -63,7 +63,7 @@ class UserRepository:
                 (User.id == UserMetaLFG.user_id)
                 & (UserMetaLFG.key == UserMetaLFG.MetaKeys.LOOKING_FOR_A_GAME.value),
             )
-            .where(User.activated_on.is_not(None))
+            .where(User.activated_on.is_not(None), User.last_activity.is_not(None))
             .order_by(online_expr.desc(), User.username)
         )
 
