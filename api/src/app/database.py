@@ -52,7 +52,7 @@ class DatabaseSessionManager:
         if dialect == "postgresql":
             driver = "asyncpg"
         elif dialect == "mysql":
-            driver = "asyncmy"
+            driver = "aiomysql"
 
         db_url = URL.create(
             drivername=f"{dialect}+{driver}",

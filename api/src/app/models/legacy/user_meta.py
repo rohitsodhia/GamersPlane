@@ -16,6 +16,23 @@ class UserMeta(LegacyBase):
         SHOW_AVATARS = "showAvatars", "Show Avatars", bool
         SHOW_TZ = "showTZ", "Show Timezone", bool
         TIMEZONE = "timezone", "Timezone", str
+        ACP_PERMISSIONS = "acpPermissions", "ACP Permissions", str
+        BIRTHDAY = "birthday", "Birthday", str
+        ENABLE_FILTER = "enableFilter", "Enable Filter", bool
+        GM_MAIL = "gmMail", "GM Mail", bool
+        IS_GM = "isGM", "Is GM", bool
+        LFG = "lfg", "LFG", bool
+        PM_MAIL = "pmMail", "PM Mail", bool
+        SHOW_AGE = "showAge", "Show Age", bool
+        SHOW_PUB_GAMES = "showPubGames", "Show Public Games", bool
+        STREAM = "stream", "Stream", bool
+        TWITTER = "twitter", "Twitter", str
+        GAMES = "games", "Games", str
+        THEME = "theme", "Theme", str
+        GMAIL = "gmail", "Gmail", str
+        PRONOUN = "pronoun", "Pronoun", str
+        LOOKING_FOR_A_GAME = "lookingForAGame", "Looking For A Game", bool
+        WARN_UNSAVED = "warnUnsaved", "Warn Unsaved", bool
 
     __tablename__ = "usermeta"
 
