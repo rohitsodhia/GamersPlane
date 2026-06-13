@@ -7,6 +7,13 @@ from app.models import User, UserMeta
 from app.users.exceptions import UserExists
 
 
+def get_avatar_path(user_id: int | None = None, ext: str | None = None):
+    if user_id and ext:
+        return f"/ucp/avatars/{user_id}.{ext}"
+    else:
+        return "/ucp/avatars/avatar.png"
+
+
 async def check_for_existing_user(user: User) -> Union[object, None]:
     async with session_manager.session() as db_session:
         get_user = await db_session.execute(
