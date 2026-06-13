@@ -1,0 +1,23 @@
+{
+    "projectName": "frontend",
+    "mode": "file-router",
+    "typescript": true,
+    "packageManager": "npm",
+    "includeExamples": false,
+    "tailwind": false,
+    "addOnOptions": {},
+    "envVarValues": {},
+    "git": false,
+    "install": true,
+    "routerOnly": false,
+    "version": 1,
+    "framework": "react",
+    "chosenAddOns": [
+        "biome",
+        "nitro",
+        "form",
+        "compiler",
+        "store",
+        "tanstack-query"
+    ]
+}
