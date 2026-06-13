@@ -1,5 +1,5 @@
 from sqlalchemy import and_, case, func, literal, select, text
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, joinedload
 
 from app.database import DBSessionDependency
 from app.models.legacy import User, UserMeta
@@ -14,6 +14,13 @@ class UserRepository:
     ):
         self.db_session = db_session
         self.authed_user = authed_user
+
+    async def get_user(self, user_id: int, include_meta: bool = False) -> User | None:
+        query = select(User).where(User.id == user_id).limit(1)
+        if include_meta:
+            query = query.options(joinedload(User.meta))
+        user = await self.db_session.scalar(query)
+        return user
 
     async def get_avatar(self, user_id: int):
         avatar_ext = await self.db_session.scalar(
