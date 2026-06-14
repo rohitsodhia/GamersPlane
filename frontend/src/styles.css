@@ -1,13 +1,25 @@
 * {
     box-sizing: border-box;
+@layer normalize;
+@import url("normalize.css") layer(normalize);
+:root {
+    --bg: light-dark(#ffffff, #1a1a1a);
+    --text: light-dark(#1a1a1a, #f0f0f0);
 }
 
-html,
-body,
-#app {
-    min-height: 100%;
+:root[data-theme="dark"] {
+    color-scheme: dark;
 }
 
-body {
-    margin: 0;
+:root[data-theme="light"] {
+    color-scheme: light;
+}
+
+html {
+    font-size: 16px;
+}
+
+.page-wrap {
+    width: min(1080px, calc(100% - 2rem));
+    margin-inline: auto;
 }
