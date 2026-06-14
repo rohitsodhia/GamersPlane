@@ -1,0 +1,53 @@
+@font-face {
+    font-family: "AgencyFB";
+    src: url("/fonts/AgencyFB.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "OstrichSans";
+    src: url("/fonts/OstrichSans.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Neuropol";
+    src: url("/fonts/Neuropol.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Dumbledor";
+    src:
+        url("/fonts/Dumbledor.woff2") format("woff2"),
+        url("/fonts/Dumbledor.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Aniron";
+    src:
+        url("/fonts/Aniron.woff2") format("woff2"),
+        url("/fonts/Aniron.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "OpenSans";
+    src:
+        url("/fonts/OpenSans.woff2") format("woff2"),
+        url("/fonts/OpenSans.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}

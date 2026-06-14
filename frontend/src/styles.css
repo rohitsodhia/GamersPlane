@@ -1,7 +1,7 @@
-* {
-    box-sizing: border-box;
 @layer normalize;
 @import url("normalize.css") layer(normalize);
+@import url("fonts.css");
+
 :root {
     --bg: light-dark(#ffffff, #1a1a1a);
     --text: light-dark(#1a1a1a, #f0f0f0);
@@ -22,4 +22,58 @@ html {
 .page-wrap {
     width: min(1080px, calc(100% - 2rem));
     margin-inline: auto;
+}
+
+header {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    background: #ddd;
+    box-shadow: 0 1px 20px 1px #777;
+    height: 70px;
+
+    &.landing {
+        height: 120px;
+    }
+
+    & > .page-wrap {
+        display: flex;
+        height: 100%;
+        padding-block: .5em;
+    }
+
+    #header_logo {
+        height: 100%;
+        object-fit: cover;
+    }
+
+    nav {
+        flex-grow: 1;
+
+        ul {
+            display: flex;
+            justify-content: end;
+        }
+
+        a,
+        a:visited,
+        a:active {
+            display: block;
+            font-size: 1.2em;
+            height: 2em;
+            padding: 0 10px;
+            font-family: "OpenSans_Regular";
+            font-weight: bold;
+            color: #000;
+            line-height: 2em;
+
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+    }
+}
+
+main {
+    margin-top: 20px;
 }
