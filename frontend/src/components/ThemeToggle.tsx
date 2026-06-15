@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { useThemeStore } from "@/store/theme";
+
 type ThemeMode = "light" | "dark" | "auto";
 
 function getInitialMode(): ThemeMode {
@@ -15,7 +17,7 @@ function getInitialMode(): ThemeMode {
 	return "auto";
 }
 
-function applyThemeMode(mode: ThemeMode) {
+function applyThemeMode(mode: ThemeMode, setTheme: (theme: ThemeMode) => void) {
 	const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 	const resolved = mode === "auto" ? (prefersDark ? "dark" : "light") : mode;
 
@@ -29,16 +31,18 @@ function applyThemeMode(mode: ThemeMode) {
 	}
 
 	document.documentElement.style.colorScheme = resolved;
+	setTheme(resolved);
 }
 
 export default function ThemeToggle() {
 	const [mode, setMode] = useState<ThemeMode>("auto");
+	const setTheme = useThemeStore((state) => state.setToken);
 
 	useEffect(() => {
 		const initialMode = getInitialMode();
 		setMode(initialMode);
-		applyThemeMode(initialMode);
-	}, []);
+		applyThemeMode(initialMode, setTheme);
+	}, [setTheme]);
 
 	useEffect(() => {
 		if (mode !== "auto") {
@@ -58,7 +62,7 @@ export default function ThemeToggle() {
 		const nextMode: ThemeMode =
 			mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
 		setMode(nextMode);
-		applyThemeMode(nextMode);
+		applyThemeMode(nextMode, setTheme);
 		window.localStorage.setItem("theme", nextMode);
 	}
 
