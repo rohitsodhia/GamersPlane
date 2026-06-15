@@ -3,8 +3,11 @@
 @import url("fonts.css");
 
 :root {
-    --bg: light-dark(#ffffff, #1a1a1a);
-    --text: light-dark(#1a1a1a, #f0f0f0);
+    --bg: light-dark(#ffffff, #222);
+    --text: light-dark(#222, #eee);
+
+    --gp-red: #bc2025;
+    --gp-light-red: #ff252c;
 }
 
 :root[data-theme="dark"] {
@@ -19,56 +22,161 @@ html {
     font-size: 16px;
 }
 
+body {
+    background: var(--bg);
+    color: var(--text);
+}
+
 .page-wrap {
     width: min(1080px, calc(100% - 2rem));
     margin-inline: auto;
+}
+
+.has-dropdown {
+    position: relative;
+
+    .dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        display: flex;
+        flex-direction: column;
+        min-width: 100%;
+        animation: dropdown-slide 0.15s ease-out;
+    }
+}
+
+@keyframes dropdown-slide {
+    from {
+        transform: translateY(-6px);
+    }
+    to {
+        transform: translateY(0);
+    }
 }
 
 header {
     position: sticky;
     top: 0;
     width: 100%;
-    background: #ddd;
-    box-shadow: 0 1px 20px 1px #777;
+    background: light-dark(#ddd, #444);
+    box-shadow: 0 1px 20px 1px light-dark(#777, #999);
     height: 70px;
 
     &.landing {
         height: 120px;
     }
 
+    & > .page-wrap,
+    & > .page-wrap nav > ul {
+        height: 100%;
+    }
+
     & > .page-wrap {
         display: flex;
-        height: 100%;
-        padding-block: .5em;
+        padding-block: 0.5em;
     }
 
     #header_logo {
         height: 100%;
         object-fit: cover;
+        color: light-dark(#231f20, #fff);
     }
 
     nav {
         flex-grow: 1;
+        margin-right: 20px;
 
-        ul {
+        & > ul {
             display: flex;
             justify-content: end;
+            align-items: center;
         }
 
         a,
         a:visited,
-        a:active {
+        a:active,
+        button {
             display: block;
             font-size: 1.2em;
-            height: 2em;
+            height: 2.5em;
             padding: 0 10px;
-            font-family: "OpenSans_Regular";
+            font-family: "OpenSans";
             font-weight: bold;
-            color: #000;
-            line-height: 2em;
+            color: var(--text);
+            line-height: 2.5em;
 
             &:hover {
                 text-decoration: underline;
+            }
+        }
+
+        #header_register,
+        #header_login {
+            a {
+                font-weight: normal;
+            }
+        }
+
+        #header_login a {
+            color: light-dark(var(--gp-red), var(--gp-light-red));
+        }
+
+        #header_register {
+            position: relative;
+            padding-left: calc(10px * 2 + 2px);
+
+            &::before {
+                content: "";
+                position: absolute;
+                left: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 2px;
+                height: 2.5em;
+                background: #999;
+            }
+        }
+
+        .dropdown {
+            --border-radius: 1px;
+            position: relative;
+            background: var(--bg);
+            border: var(--border-radius) solid var(--text);
+            border-radius: 0.3em;
+
+            &::before,
+            &::after {
+                content: "";
+                position: absolute;
+            }
+
+            --triangle-size: 12px;
+            --triangle-size-inner: calc(
+                var(--triangle-size) - var(--border-radius)
+            );
+            &::before {
+                left: 10px;
+                top: calc(-1 * var(--triangle-size));
+                border-left: var(--triangle-size) solid transparent;
+                border-right: var(--triangle-size) solid transparent;
+                border-bottom: var(--triangle-size) solid #333333;
+            }
+            &::after {
+                left: calc(10px + var(--border-radius));
+                top: calc(-1 * var(--triangle-size) + var(--border-radius));
+                border-left: var(--triangle-size-inner) solid transparent;
+                border-right: var(--triangle-size-inner) solid transparent;
+                border-bottom: var(--triangle-size-inner) solid #ffffff;
+            }
+            li:not(:last-child) {
+                border-bottom: 1px solid #ddd;
+            }
+
+            a:hover {
+                background: var(--gp-light-red);
+                color: var(--bg);
+                text-decoration: none;
             }
         }
     }

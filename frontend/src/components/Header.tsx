@@ -1,9 +1,18 @@
 import { Link, useLocation } from "@tanstack/react-router";
+import { useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useThemeStore } from "@/store/theme";
 
 function Header() {
 	const location = useLocation();
-	const logo_path = location.pathname === "/" ? "header_logo.png" : "logo.png";
+	const theme = useThemeStore((state) => state.theme);
+
+	let logo_path = theme === "dark" ? "header_logo_dark.png" : "header_logo.png";
+	if (location.pathname !== "/") {
+		logo_path = "logo.png";
+	}
+
+	const [toolsOpen, setToolsOpen] = useState<boolean>(false);
 
 	return (
 		<header className={`${location.pathname === "/" ? "landing" : ""}`}>
@@ -17,8 +26,23 @@ function Header() {
 				</Link>
 				<nav>
 					<ul>
-						<li>
-							<Link to="/tools">Tools</Link>
+						<li className="has-dropdown">
+							<button
+								type="button"
+								onClick={() => setToolsOpen((open) => !open)}
+							>
+								Tools
+							</button>
+							{toolsOpen && (
+								<ul className="dropdown">
+									<li>
+										<Link to="/tools/dice">Dice</Link>
+									</li>
+									<li>
+										<Link to="/tools/cards">Cards</Link>
+									</li>
+								</ul>
+							)}
 						</li>
 						<li>
 							<Link to="/systems">Systems</Link>
@@ -32,7 +56,7 @@ function Header() {
 						<li id="header_register">
 							<Link to="/register">Register</Link>
 						</li>
-						<li>
+						<li id="header_login">
 							<Link to="/login">Login</Link>
 						</li>
 					</ul>
