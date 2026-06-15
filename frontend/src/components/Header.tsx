@@ -7,10 +7,7 @@ function Header() {
 	const location = useLocation();
 	const theme = useThemeStore((state) => state.theme);
 
-	let logo_path = theme === "dark" ? "header_logo_dark.png" : "header_logo.png";
-	if (location.pathname !== "/") {
-		logo_path = "logo.png";
-	}
+	const logo_path = location.pathname === "/" ? "header_logo" : "logo";
 
 	const [toolsOpen, setToolsOpen] = useState<boolean>(false);
 
@@ -20,7 +17,7 @@ function Header() {
 				<Link to="/">
 					<img
 						id="header_logo"
-						src={`/images/${logo_path}`}
+						src={`/images/${logo_path}${theme === "dark" ? "_dark" : ""}.png`}
 						alt="Gamers' Plane Logo"
 					/>
 				</Link>
