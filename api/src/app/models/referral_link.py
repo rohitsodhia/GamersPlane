@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, SoftDeleteMixin
+from app.models.base import Base
 
 
-class ReferralLink(Base, SoftDeleteMixin):
+class ReferralLink(Base):
     __tablename__ = "referral_links"
 
     key: Mapped[int] = mapped_column(primary_key=True)

@@ -1,11 +1,11 @@
 # from .forum import Forum
 # from .forum_group import ForumGroup
 # from .game import Game
-# from .referral_link import ReferralLink
 from .genre import Genre
 from .permission import Permission
 from .pm import PM
 from .publisher import Publisher
+from .referral_link import ReferralLink
 from .role import Role
 from .role_permission import RolePermission
 from .system import System

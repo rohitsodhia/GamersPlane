@@ -1,12 +1,16 @@
 from fastapi import APIRouter
 
-from app.models import ReferralLink
+from app.database import DBSessionDependency
+from app.helpers.decorators import public
 from app.referral_links import schemas
+from app.repositories import ReferralLinkRepository
 
 referral_links = APIRouter(prefix="/referral_links")
 
 
 @referral_links.get("/", response_model=schemas.GetReferralLinksResponse)
-def get_referral_links():
-    links = ReferralLink.objects.order_by("order").values()
-    return {"referralLinks": [link for link in links]}
+@public
+async def get_referral_links(db_session: DBSessionDependency):
+    referral_link_repository = ReferralLinkRepository(db_session)
+    links = await referral_link_repository.get_referral_links()
+    return {"referralLinks": links or []}

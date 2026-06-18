@@ -12,12 +12,13 @@ from app.database import get_db_session, session_manager
 from app.gamers.legacy_routes import gamers as legacy_gamers
 from app.me.legacy_routes import me as legacy_me
 from app.pms.legacy_routes import pms as legacy_pms
+from app.referral_links.routes import referral_links
 from app.systems.legacy_routes import systems as legacy_systems
 
 seed()
 
 if configs.ENVIRONMENT == "dev":
-    from icecream import install
+    from icecream.builtins import install
 
     install()
 
@@ -74,5 +75,7 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(legacy_gamers)
     app.include_router(legacy_pms)
     app.include_router(legacy_systems)
+
+    app.include_router(referral_links)
 
     return app
