@@ -7,10 +7,11 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import Footer from "../components/Footer";
-import Header from "../components/Header";
-import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
-import appCss from "../styles.css?url";
+import Footer from "@/components/Footer";
+import Header from "@/components/Header";
+import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools";
+import { referralLinksQueryOptions } from "@/queries/referralLinks";
+import appCss from "@/styles.css?url";
 
 interface MyRouterContext {
 	queryClient: QueryClient;
@@ -39,6 +40,9 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 	}),
 	shellComponent: RootDocument,
 	component: RootLayout,
+	loader: async ({ context }) => {
+		await context.queryClient.ensureQueryData(referralLinksQueryOptions);
+	},
 });
 
 function RootLayout() {

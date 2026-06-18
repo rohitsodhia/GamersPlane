@@ -3,11 +3,13 @@
 @import url("fonts.css");
 
 :root {
-    --bg: light-dark(#ffffff, #222);
+    /* --bg: light-dark(#ffffff, #303136); */
+    --bg: light-dark(#ffffff, #333);
     --text: light-dark(#222, #eee);
 
     --gp-red: #bc2025;
     --gp-light-red: #ff252c;
+    --gp-link-red: light-dark(#fff, #b44);
 }
 
 :root[data-theme="dark"] {
@@ -19,10 +21,13 @@
 }
 
 html {
+    font-family: "Lucida Grande", Verdana, Arial, Sans-Serif;
     font-size: 16px;
 }
 
 body {
+    display: flex;
+    flex-direction: column;
     background: var(--bg);
     color: var(--text);
 }
@@ -55,12 +60,21 @@ body {
     }
 }
 
+.trapBtn {
+    clip-path: polygon(12% 0%, 100% 0%, 88% 100%, 0% 100%);
+    padding-inline: 1.3em;
+    background: var(--gp-red);
+    font-family: Neuropol;
+    font-size: 1.3em;
+    line-height: 1.8em;
+}
+
 header {
     position: sticky;
     top: 0;
     width: 100%;
     background: light-dark(#ddd, #444);
-    box-shadow: 0 1px 20px 1px light-dark(#777, #999);
+    box-shadow: 0 1px 20px 1px #777;
     height: 70px;
 
     &.landing {
@@ -78,9 +92,11 @@ header {
     }
 
     #header_logo {
-        height: 100%;
+        height: 90%;
         object-fit: cover;
         color: light-dark(#231f20, #fff);
+        line-height: 1em;
+        align-content: center;
     }
 
     nav {
@@ -183,5 +199,44 @@ header {
 }
 
 main {
+    flex-grow: 1;
     margin-top: 20px;
+}
+
+footer {
+    background-color: light-dark(#333, #444);
+    border-top: 5px solid light-dark(#aaa, #666);
+    color: #fff;
+
+    .page-wrap {
+        display: flex;
+        gap: 3em;
+    }
+
+    ul {
+        margin-top: .5em;
+    }
+
+    li {
+        line-height: 1.8em;
+    }
+
+    ul:last-of-type {
+        margin-left: auto;
+
+        & > li {
+            text-align: right;
+        }
+    }
+
+    a {
+        color: var(--gp-link-red);
+        text-transform: uppercase;
+    }
+}
+
+#register-form {
+    .form-field {
+        display: flex;
+    }
 }
