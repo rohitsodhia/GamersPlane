@@ -1,12 +1,14 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import HttpUrl
+
+from app.schema_base import SchemaBase
 
 
-class ReferralLinkSchema(BaseModel):
-    key: str
+class ReferralLinkSchema(SchemaBase):
+    key: int
     title: str
     link: HttpUrl
     order: int
 
 
-class GetReferralLinksResponse(BaseModel):
+class GetReferralLinksResponse(SchemaBase):
     referralLinks: list[ReferralLinkSchema]

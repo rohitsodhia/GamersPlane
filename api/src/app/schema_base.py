@@ -1,7 +1,7 @@
 from functools import reduce
 from typing import Any, Callable, List, Optional, cast
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 from pydantic.config import JsonDict
 from pydantic.fields import FieldInfo
 
@@ -39,6 +39,8 @@ def filtered_str(
 
 
 class SchemaBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     @field_validator("*", mode="after")
     @classmethod
     def apply_pipelines(cls, value: Any, info: ValidationInfo) -> Any:

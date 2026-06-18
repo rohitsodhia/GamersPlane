@@ -12,5 +12,5 @@ referral_links = APIRouter(prefix="/referral_links")
 @public
 async def get_referral_links(db_session: DBSessionDependency):
     referral_link_repository = ReferralLinkRepository(db_session)
-    links = await referral_link_repository.get_referral_links()
-    return {"referralLinks": links or []}
+    referral_links = await referral_link_repository.get_all()
+    return {"referralLinks": referral_links or []}
