@@ -1,11 +1,11 @@
 import asyncio
-import random
+import json
 from functools import wraps
 
 import typer
 from app.configs import configs
 from app.database import session_manager
-from app.repositories.legacy import GameRepository
+from app.repositories import ReferralLinkRepository
 from mimesis import Text
 
 app = typer.Typer()
@@ -34,21 +34,33 @@ def initialize():
 
 @app.command()
 @async_command
-async def create_game():
-    async with session_manager.session() as session:
-        game_repository = GameRepository(session)
-        game = await game_repository.create_game(
-            title=" ".join(mimesis_text.words(3)),
-            system_id="custom",
-            gm_id=1,
-            post_frequency={"timesPer": random.randint(1, 5), "perPeriod": "d"},
-            num_players=random.randint(1, 6),
-            chars_per_player=1,
-            description=mimesis_text.sentence(),
-            char_gen_info=mimesis_text.sentence(),
-        )
+async def seed():
+    async with session_manager.transaction() as session:
+        with open("data/referral_links.json") as f:
+            referral_links_data = json.load(f)
 
-        print(f"Game {game.id} created: {game.title}")
+        referral_links_repository = ReferralLinkRepository(session)
+        for referral_link in referral_links_data:
+            await referral_links_repository.add(**referral_link)
+
+
+# @app.command()
+# @async_command
+# async def create_game():
+#     async with session_manager.session() as session:
+#         game_repository = GameRepository(session)
+#         game = await game_repository.create_game(
+#             title=" ".join(mimesis_text.words(3)),
+#             system_id="custom",
+#             gm_id=1,
+#             post_frequency={"timesPer": random.randint(1, 5), "perPeriod": "d"},
+#             num_players=random.randint(1, 6),
+#             chars_per_player=1,
+#             description=mimesis_text.sentence(),
+#             char_gen_info=mimesis_text.sentence(),
+#         )
+
+#         print(f"Game {game.id} created: {game.title}")
 
 
 if __name__ == "__main__":
