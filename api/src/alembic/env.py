@@ -1,28 +1,46 @@
 import os
 from logging.config import fileConfig
+from sqlalchemy.engine import URL
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
 
 from alembic import context
-
-DATABASE_DIALECT = os.getenv("DATABASE_DIALECT")
-if DATABASE_DIALECT != "postgresql":
-    raise ValueError("DATABASE_DIALECT must be 'postgresql'")
 
 DATABASE_HOST = os.getenv("DATABASE_HOST")
 DATABASE_USER = os.getenv("DATABASE_USER")
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
 DATABASE_DATABASE = os.getenv("DATABASE_DATABASE")
+required = {
+    "DATABASE_HOST": DATABASE_HOST,
+    "DATABASE_USER": DATABASE_USER,
+    "DATABASE_PASSWORD": DATABASE_PASSWORD,
+    "DATABASE_DATABASE": DATABASE_DATABASE,
+}
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-config.set_main_option(
-    "sqlalchemy.url",
-    f"postgresql+asyncpg://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}/{DATABASE_DATABASE}",
-)
+# replace the db_url block in env.py with this
+url_from_config = config.get_main_option("sqlalchemy.url")
 
+if url_from_config:
+    db_url = url_from_config
+else:
+    missing = [k for k, v in required.items() if not v]
+    if missing:
+        raise ValueError(f"Missing required env vars: {', '.join(missing)}")
+
+    db_url = URL.create(
+        drivername="postgresql+psycopg",
+        username=DATABASE_USER,
+        password=DATABASE_PASSWORD,
+        host=DATABASE_HOST,
+        database=DATABASE_DATABASE,
+    ).render_as_string(hide_password=False)
+
+config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -31,6 +49,8 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
+# from myapp import mymodel
+# target_metadata = mymodel.Base.metadata
 from app.models.base import Base
 
 target_metadata = Base.metadata
@@ -79,7 +99,9 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection, target_metadata=target_metadata
+        )
 
         with context.begin_transaction():
             context.run_migrations()

@@ -1,8 +1,8 @@
-"""Initial tables
+"""Create initial tables
 
-Revision ID: 31749ad6cc3c
+Revision ID: 1376b5c27aad
 Revises:
-Create Date: 2024-12-16 02:30:55.526163
+Create Date: 2026-06-18 01:20:04.576414
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "31749ad6cc3c"
+revision: str = "1376b5c27aad"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -47,6 +47,16 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
+        "referral_links",
+        sa.Column("key", sa.Integer(), nullable=False),
+        sa.Column("title", sa.String(), nullable=False),
+        sa.Column("link", sa.String(), nullable=False),
+        sa.Column("order", sa.Integer(), nullable=False),
+        sa.Column("enabled", sa.Boolean(), nullable=False),
+        sa.PrimaryKeyConstraint("key"),
+        sa.UniqueConstraint("order"),
+    )
+    op.create_table(
         "users",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("username", sa.String(length=24), nullable=False),
@@ -60,6 +70,36 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email"),
         sa.UniqueConstraint("username"),
+    )
+    op.create_table(
+        "pms",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("recipient_id", sa.Integer(), nullable=False),
+        sa.Column("sender_id", sa.Integer(), nullable=False),
+        sa.Column("title", sa.String(length=200), nullable=False),
+        sa.Column("message", sa.Text(), nullable=False),
+        sa.Column("recipient_read", sa.Boolean(), nullable=False),
+        sa.Column("sender_read", sa.Boolean(), nullable=False),
+        sa.Column("reply_to_id", sa.Integer(), nullable=True),
+        sa.Column("recipeint_deleted", sa.Boolean(), nullable=False),
+        sa.Column("sender_deleted", sa.Boolean(), nullable=False),
+        sa.Column("history", sa.JSON(), nullable=False),
+        sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["recipient_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["reply_to_id"],
+            ["pms.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["sender_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
         "roles",
@@ -187,7 +227,9 @@ def downgrade() -> None:
     op.drop_table("tokens")
     op.drop_table("systems")
     op.drop_table("roles")
+    op.drop_table("pms")
     op.drop_table("users")
+    op.drop_table("referral_links")
     op.drop_table("publishers")
     op.drop_table("permissions")
     op.drop_table("genres")
