@@ -207,6 +207,7 @@ footer {
     background-color: light-dark(#333, #444);
     border-top: 5px solid light-dark(#aaa, #666);
     color: #fff;
+    padding-bottom: 1em;
 
     .page-wrap {
         display: flex;
@@ -226,6 +227,10 @@ footer {
 
         & > li {
             text-align: right;
+        }
+
+        form {
+            margin-top: .5em;
         }
     }
 
