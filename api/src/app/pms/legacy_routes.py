@@ -3,7 +3,7 @@ from typing import Literal, Union
 from fastapi import APIRouter, status
 
 from app.configs import configs
-from app.database import DBSessionDependency
+from app.database import LegacyDBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
 from app.helpers.bbcode import BBCode2Html
 from app.helpers.functions import error_response
@@ -24,7 +24,7 @@ pms = APIRouter(prefix="/legacy/pms")
     response_model=schemas.PMsListResponse,
 )
 async def get_pms(
-    db_session: DBSessionDependency,
+    db_session: LegacyDBSessionDependency,
     authed_user: AuthedUser,
     box: Literal["inbox", "outbox"] = "inbox",
     page: int = 1,
@@ -67,7 +67,7 @@ async def get_pms(
 
 @pms.get("/{id}", response_model=schemas.GetPMResponse)
 async def get_pm(
-    db_session: DBSessionDependency,
+    db_session: LegacyDBSessionDependency,
     authed_user: AuthedUser,
     id: int,
     includeSelfHistory: bool = False,
@@ -153,7 +153,7 @@ async def get_pm(
     },
 )
 async def send_pm(
-    db_session: DBSessionDependency,
+    db_session: LegacyDBSessionDependency,
     authed_user: AuthedUser,
     new_pm: schemas.NewPM,
 ):
@@ -180,6 +180,6 @@ async def send_pm(
 
 
 @pms.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_pm(db_session: DBSessionDependency, authed_user: AuthedUser, id: int):
+async def delete_pm(db_session: LegacyDBSessionDependency, authed_user: AuthedUser, id: int):
     pm_repository = PMRepository(db_session, authed_user=authed_user)
     await pm_repository.delete_pm(id)

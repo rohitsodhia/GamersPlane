@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.database import DBSessionDependency
+from app.database import LegacyDBSessionDependency
 from app.me import legacy_schemas
 from app.middleware import AuthedUser
 from app.repositories.legacy import (
@@ -14,7 +14,7 @@ me = APIRouter(prefix="/legacy/me")
 
 
 @me.get("/header", response_model=legacy_schemas.GetHeaderResponse)
-async def get_header(db_session: DBSessionDependency, authed_user: AuthedUser):
+async def get_header(db_session: LegacyDBSessionDependency, authed_user: AuthedUser):
     character_repository = CharacterRepository(db_session, authed_user)
     game_repository = GameRepository(db_session, authed_user)
     user_repository = UserRepository(db_session)

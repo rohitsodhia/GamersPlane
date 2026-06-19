@@ -5,7 +5,7 @@ from sqlalchemy import and_, or_, select
 from app.auth import legacy_schemas, schemas
 from app.auth.functions import send_activation_email
 from app.configs import configs
-from app.database import DBSessionDependency
+from app.database import LegacyDBSessionDependency
 from app.helpers.decorators import public
 from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
@@ -26,7 +26,7 @@ auth = APIRouter(prefix="/legacy/auth")
 @public
 async def login(
     response: Response,
-    db_session: DBSessionDependency,
+    db_session: LegacyDBSessionDependency,
     user_details: legacy_schemas.UserInput,
 ):
     user: User | None = await db_session.scalar(
@@ -101,7 +101,7 @@ async def register(user_details: schemas.Register):
 
 @auth.post("/activate/{token}")
 @public
-async def activate_user(token: str, db_session: DBSessionDependency):
+async def activate_user(token: str, db_session: LegacyDBSessionDependency):
     account_activation_token = await AccountActivationToken.validate_token(token)
     if not account_activation_token:
         return error_response(
@@ -121,7 +121,7 @@ async def activate_user(token: str, db_session: DBSessionDependency):
 @auth.post("/password_reset")
 @public
 async def generate_password_reset(
-    db_session: DBSessionDependency, email: EmailStr = Body(..., embed=True)
+    db_session: LegacyDBSessionDependency, email: EmailStr = Body(..., embed=True)
 ):
     user = await db_session.scalar(select(User).where(User.email == email).limit(1))
     if not user:
@@ -159,7 +159,7 @@ async def check_password_reset(email: EmailStr, token: str):
 @auth.patch("/password_reset")
 @public
 async def reset_password(
-    reset_details: schemas.ResetPasswordInput, db_session: DBSessionDependency
+    reset_details: schemas.ResetPasswordInput, db_session: LegacyDBSessionDependency
 ):
     password_reset = await PasswordResetToken.validate_token(
         token=reset_details.token, email=reset_details.email

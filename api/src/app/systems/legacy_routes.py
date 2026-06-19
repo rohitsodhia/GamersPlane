@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.database import DBSessionDependency
+from app.database import LegacyDBSessionDependency
 from app.helpers.decorators import public
 from app.models.legacy import System
 from app.repositories.legacy.system_repository import SystemRepository
@@ -11,7 +11,7 @@ systems = APIRouter(prefix="/legacy/systems")
 
 @public
 @systems.get("", response_model=schemas.GetSystemsResponse)
-async def get_systems(db_session: DBSessionDependency):
+async def get_systems(db_session: LegacyDBSessionDependency):
     system_repository = SystemRepository(db_session)
     systems = await system_repository.get_systems()
     systems_return = []

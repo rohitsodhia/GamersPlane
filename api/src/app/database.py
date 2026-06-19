@@ -124,6 +124,7 @@ class DatabaseSessionManager:
 
 
 session_manager = DatabaseSessionManager()
+legacy_session_manager = DatabaseSessionManager()
 
 
 async def get_db_session():
@@ -131,4 +132,10 @@ async def get_db_session():
         yield session
 
 
+async def get_legacy_db_session():
+    async with legacy_session_manager.session() as session:
+        yield session
+
+
 DBSessionDependency = Annotated[AsyncSession, Depends(get_db_session)]
+LegacyDBSessionDependency = Annotated[AsyncSession, Depends(get_legacy_db_session)]
