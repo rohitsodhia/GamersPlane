@@ -14,12 +14,22 @@ ENV PATH="/root/.local/bin/:$PATH"
 
 RUN uv pip install --system supervisor
 
+ARG ENVIRONMENT=prod
+
 COPY --link pyproject.toml uv.lock /app/
-RUN uv sync --frozen --no-install-project --no-dev
+RUN if [ "$ENVIRONMENT" = "dev" ]; then \
+        uv sync --frozen --no-install-project; \
+    else \
+        uv sync --frozen --no-install-project --no-dev; \
+    fi
 
 COPY . /app/
 RUN uv pip install hatchling && \
-    uv sync --frozen --no-editable --no-build-isolation --no-dev
+    if [ "$ENVIRONMENT" = "dev" ]; then \
+        uv sync --frozen --no-editable --no-build-isolation; \
+    else \
+        uv sync --frozen --no-editable --no-build-isolation --no-dev; \
+    fi
 # --no-dev
 # COPY ./entrypoint.sh /app/entrypoint.sh
 

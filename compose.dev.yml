@@ -4,7 +4,12 @@ services:
             - 81:80
 
     api:
-        command: uv run uvicorn --factory main:create_app --host 0.0.0.0 --reload --timeout-keep-alive 600
+        build:
+            args:
+                ENVIRONMENT: ${ENVIRONMENT}
+        command: uv run --no-sync uvicorn --factory main:create_app --host 0.0.0.0 --reload --timeout-keep-alive 600
+        environment:
+            - PYTHONPATH=/app/src
         volumes:
             - ./api/src:/app/src
             - ./docker/python:/app/scripts
