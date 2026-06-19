@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 
 from app.configs import configs
-from app.database import DBSessionDependency
+from app.database import LegacyDBSessionDependency
 from app.models.legacy.user import User
 from app.repositories.user_repository import UserRepository
 
@@ -17,7 +17,7 @@ async def authed_user(request: Request) -> User:
 AuthedUser = Annotated[User, Depends(authed_user)]
 
 
-async def validate_jwt(request: Request, db_session: DBSessionDependency):
+async def validate_jwt(request: Request, db_session: LegacyDBSessionDependency):
     token = request.headers.get("Authorization")
     request.scope["auth"] = None
     request.scope["user"] = None
@@ -45,7 +45,7 @@ async def check_authorization(request: Request):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
-async def validate_cookie(request: Request, db_session: DBSessionDependency):
+async def validate_cookie(request: Request, db_session: LegacyDBSessionDependency):
     cookie = request.cookies.get(configs.LOGIN_COOKIE)
     if cookie:
         if "%7C" in cookie:

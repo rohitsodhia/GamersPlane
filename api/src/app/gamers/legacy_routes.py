@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter
 
-from app.database import DBSessionDependency
+from app.database import LegacyDBSessionDependency
 from app.gamers import legacy_schemas
 from app.repositories.legacy import (
     UserRepository,
@@ -14,7 +14,7 @@ gamers = APIRouter(prefix="/legacy/gamers")
 
 @gamers.get("", response_model=legacy_schemas.GetGamersResponse)
 async def get_gamers(
-    db_session: DBSessionDependency,
+    db_session: LegacyDBSessionDependency,
     get_inactive: bool = False,
 ):
     user_repository = UserRepository(db_session)

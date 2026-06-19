@@ -6,7 +6,7 @@ volumes:
 services:
     proxy:
         container_name: gamersplane-proxy
-        image: nginx:1.29-alpine
+        image: nginx:1.31-alpine
         volumes:
             - ./docker/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
         depends_on:
@@ -27,15 +27,15 @@ services:
         #     - postgres
         restart: always
 
-    # postgres:
-    #     image: postgres:16.4
-    #     environment:
-    #         - POSTGRES_USER=${DATABASE_USER}
-    #         - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
-    #         - POSTGRES_DB=${DATABASE_DATABASE}
-    #     volumes:
-    #         # - ./docker/postgres:/docker-entrypoint-initdb.d
-    #         - postgres_db:/var/lib/postgresql/data
+    postgres:
+        image: postgres:18.4
+        environment:
+            - POSTGRES_USER=${DATABASE_USER}
+            - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+            - POSTGRES_DB=${DATABASE_DATABASE}
+        volumes:
+            # - ./docker/postgres:/docker-entrypoint-initdb.d
+            - postgres_db:/var/lib/postgresql
 
     # cache:
     #     container_name: gamersplane-cache
