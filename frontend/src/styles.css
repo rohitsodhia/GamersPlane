@@ -138,7 +138,8 @@ header {
             color: light-dark(var(--gp-red), var(--gp-light-red));
         }
 
-        #header_register {
+        #header_register,
+        #header_theme_toggle {
             position: relative;
             padding-left: calc(10px * 2 + 2px);
 
@@ -152,6 +153,31 @@ header {
                 height: 2.5em;
                 background: #999;
             }
+        }
+
+        .theme-toggle-icon-auto #theme-toggle-icon-layer-light {
+            stroke: light-dark(transparent, #fff);
+            stroke-width: 4px;
+        }
+
+        .light-layer,
+        .dark-layer {
+            transition: opacity 0.5s ease;
+        }
+
+        .theme-toggle-icon-dark {
+            .light-layer {
+                opacity: 0;
+            }
+
+            .dark-layer path:first-of-type {
+                stroke: #fff;
+                stroke-width: 2px;
+            }
+        }
+
+        .theme-toggle-icon-light .dark-layer {
+            opacity: 0;
         }
 
         .dropdown {
@@ -215,7 +241,7 @@ footer {
     }
 
     ul {
-        margin-top: .5em;
+        margin-top: 0.5em;
     }
 
     li {

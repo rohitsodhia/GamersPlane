@@ -56,8 +56,10 @@ function Header() {
 						<li id="header_login">
 							<Link to="/login">Login</Link>
 						</li>
+						<li id="header_theme_toggle">
+							<ThemeToggle />
+						</li>
 					</ul>
-					<ThemeToggle />
 				</nav>
 			</div>
 		</header>
