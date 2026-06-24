@@ -29,12 +29,10 @@ class AuthResponse(BaseModel):
     user: dict
 
 
-class AuthFailed(BaseModel):
-    invalid_user: bool = True
-
-
-class Register(UserInput):
+class RegisterInput(UserInput):
+    email: EmailStr
     username: str = Field(..., pattern=r"^[a-zA-Z]+$")
+    password: Password
 
 
 class PasswordResetResponse(BaseModel):

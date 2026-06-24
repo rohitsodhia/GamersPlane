@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import middleware
 from app.auth.legacy_routes import auth as legacy_auth
+from app.auth.routes import auth
 from app.configs import configs
 from app.database import (
     get_db_session,
@@ -98,13 +99,13 @@ def create_app(init_db=True) -> FastAPI:
         allow_headers=["*"],
     )
 
-    # app.include_router(auth)
     app.include_router(legacy_auth)
     app.include_router(legacy_me)
     app.include_router(legacy_gamers)
     app.include_router(legacy_pms)
     app.include_router(legacy_systems)
 
+    app.include_router(auth)
     app.include_router(referral_links)
 
     return app

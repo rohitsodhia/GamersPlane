@@ -50,7 +50,7 @@ async def login(user_details: schemas.UserInput, db_session: DBSessionDependency
     response_model=schemas.RegistrationResponse,
 )
 @public
-async def register(user_details: schemas.Register):
+async def register(user_details: schemas.RegisterInput):
     errors: list[ErrorItem] = []
     pass_invalid = User.validate_password(user_details.password)
     if pass_invalid:
