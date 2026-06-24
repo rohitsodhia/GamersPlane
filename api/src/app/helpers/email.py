@@ -1,6 +1,7 @@
 import smtplib
 from email.headerregistry import Address
 from email.message import EmailMessage
+from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -13,9 +14,11 @@ from app.configs import configs
 
 # context = ssl.create_default_context()
 
+_APP_DIR = Path(__file__).parent.parent
+
 
 def get_template(template_path: str, **kwargs) -> str:
-    file_loader = FileSystemLoader(searchpath=configs.ROOT_DIR)
+    file_loader = FileSystemLoader(searchpath=str(_APP_DIR))
     env = Environment(loader=file_loader)
 
     template = env.get_template(template_path)
