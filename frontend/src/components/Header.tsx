@@ -1,7 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
-import ThemeToggle from "@/components/ThemeToggle";
-import { useThemeStore } from "@/store/theme";
+import ThemeToggle from "#/components/ThemeToggle";
+import { useThemeStore } from "#/store/theme";
 
 function Header() {
 	const location = useLocation();
@@ -56,8 +56,10 @@ function Header() {
 						<li id="header_login">
 							<Link to="/login">Login</Link>
 						</li>
+						<li id="header_theme_toggle">
+							<ThemeToggle />
+						</li>
 					</ul>
-					<ThemeToggle />
 				</nav>
 			</div>
 		</header>

@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { referralLinksQueryOptions } from "@/queries/referralLinks";
+import { referralLinksQueryOptions } from "#/queries/referralLinks";
 
 function Footer() {
 	const { data } = useSuspenseQuery(referralLinksQueryOptions);

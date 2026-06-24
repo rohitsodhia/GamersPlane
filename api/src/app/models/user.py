@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationshi
 
 from app.configs import configs
 from app.models.base import Base
+from app.schemas import ErrorItem
 
 if TYPE_CHECKING:
     from app.models import Role, UserMeta
@@ -54,10 +55,12 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
     #     return list([v[0] for v in permissions])
 
     @staticmethod
-    def validate_password(password: str) -> list[str]:
-        invalid: list[str] = []
+    def validate_password(password: str) -> list[ErrorItem]:
+        invalid: list[ErrorItem] = []
         if len(password) < User.MIN_PASSWORD_LENGTH:
-            invalid.append("pass_too_short")
+            invalid.append(
+                ErrorItem(code="pass_too_short", detail="Password too short")
+            )
         return invalid
 
     @staticmethod

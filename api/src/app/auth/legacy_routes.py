@@ -11,7 +11,7 @@ from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
 from app.models import AccountActivationToken, PasswordResetToken
 from app.models.legacy import User
-from app.schemas import ErrorResponse
+from app.schemas import ErrorItem
 from app.users import functions as users_functions
 from app.users.exceptions import UserExists
 
@@ -21,7 +21,6 @@ auth = APIRouter(prefix="/legacy/auth")
 @auth.post(
     "/login",
     response_model=legacy_schemas.AuthResponse,
-    responses={404: {"model": ErrorResponse[schemas.AuthFailed]}},
 )
 @public
 async def login(
@@ -49,7 +48,7 @@ async def login(
             return {"success": True}
     return error_response(
         status_code=status.HTTP_404_NOT_FOUND,
-        content={"invalid_user": True},
+        errors=[ErrorItem(code="invalid_user", detail="Invalid username or password")],
     )
 
 
@@ -68,19 +67,21 @@ async def logout(request: Request, response: Response):
 
 @auth.post(
     "/register",
-    response_model=schemas.RegistrationResponse,
+    response_model=legacy_schemas.RegistrationResponse,
 )
 @public
-async def register(user_details: schemas.Register):
+async def register(user_details: legacy_schemas.RegisterInput):
     errors = {}
     pass_invalid = User.validate_password(user_details.password)
     if pass_invalid:
-        errors["pass_errors"] = pass_invalid
+        for e in pass_invalid:
+            e.field = "password"
+        errors = pass_invalid
 
     if len(errors):
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,
-            content=errors,
+            errors=pass_invalid,
         )
 
     try:
@@ -95,7 +96,7 @@ async def register(user_details: schemas.Register):
     except UserExists as e:
         return error_response(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content=e.errors,
+            errors=e.errors,
         )
 
 
@@ -106,7 +107,7 @@ async def activate_user(token: str, db_session: LegacyDBSessionDependency):
     if not account_activation_token:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,
-            content={"invalid_token": True},
+            errors=[ErrorItem(code="invalid_token", detail="Invalid token")],
         )
 
     account_activation_token.user.activate()
@@ -127,7 +128,7 @@ async def generate_password_reset(
     if not user:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,
-            content={"no_account": True},
+            errors=[ErrorItem(code="no_account", detail="No account found")],
         )
 
     password_reset_token = await db_session.scalar(
@@ -166,18 +167,21 @@ async def reset_password(
     )
     if not password_reset:
         return error_response(
-            status_code=status.HTTP_404_NOT_FOUND, content={"invalid_token": True}
+            status_code=status.HTTP_404_NOT_FOUND,
+            errors=[ErrorItem(code="invalid_token", detail="Invalid token")],
         )
 
-    errors = {}
+    errors: list[ErrorItem] = []
     if reset_details.password != reset_details.confirm_password:
-        errors["password_mismatch"] = True
+        errors.append(
+            ErrorItem(code="password_mismatch", detail="Passwords do not match")
+        )
     pass_invalid = User.validate_password(reset_details.password)
     if len(pass_invalid):
-        errors["pass_errors"] = pass_invalid
+        errors.append(ErrorItem(code="invalid_password", detail="Invalid password"))
 
     if errors:
-        return error_response(status_code=status.HTTP_400_BAD_REQUEST, content=errors)
+        return error_response(status_code=status.HTTP_400_BAD_REQUEST, errors=errors)
 
     user = password_reset.user
     user.set_password(reset_details.password)

@@ -1,4 +1,19 @@
-import { useAuthStore } from "@/store/auth";
+import { useAuthStore } from "#/store/auth";
+
+export type ApiErrorItem = {
+	field?: string;
+	code: string;
+	detail: string;
+};
+
+export class ApiError extends Error {
+	constructor(
+		public status: number,
+		public errors: ApiErrorItem[],
+	) {
+		super("API error");
+	}
+}
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
 	const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
