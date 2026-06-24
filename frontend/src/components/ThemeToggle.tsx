@@ -19,7 +19,7 @@ function LightDarkIcon({ current }: { current: ThemeMode }) {
 			xmlSpace="preserve"
 			className={`theme-toggle-icon-${current}`}
 		>
-			<title>Light/Dark mode icon - Currently {current}</title>
+			<title>{`Light/Dark mode icon - Currently ${current}`}</title>
 			<g className="light-layer">
 				<g>
 					<path
