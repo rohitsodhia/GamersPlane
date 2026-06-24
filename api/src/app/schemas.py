@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
 
-class ErrorResponse[ErrorT: BaseModel](BaseModel):
-    error: ErrorT
+class ErrorItem(BaseModel):
+    field: str | None = None
+    code: str
+    detail: str

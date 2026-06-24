@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationshi
 from app.configs import configs
 from app.models.legacy import Character
 from app.models.legacy.base import LegacyBase
+from app.schemas import ErrorItem
 from app.util import random_alpha_num
 
 if TYPE_CHECKING:
@@ -56,10 +57,12 @@ class User(MappedAsDataclass, AsyncAttrs, LegacyBase):
     #     return list([v[0] for v in permissions])
 
     @staticmethod
-    def validate_password(password: str) -> list[str]:
-        invalid: list[str] = []
+    def validate_password(password: str) -> list[ErrorItem]:
+        invalid: list[ErrorItem] = []
         if len(password) < User.MIN_PASSWORD_LENGTH:
-            invalid.append("pass_too_short")
+            invalid.append(
+                ErrorItem(code="pass_too_short", detail="Password too short")
+            )
         return invalid
 
     def hash_password(self, password: str) -> str:

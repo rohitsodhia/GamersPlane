@@ -1,9 +1,8 @@
-from typing import Union
-
 from sqlalchemy import or_, select
 
 from app.database import session_manager
 from app.models import User, UserMeta
+from app.schemas import ErrorItem
 from app.users.exceptions import UserExists
 
 
@@ -14,7 +13,7 @@ def get_avatar_path(user_id: int | None = None, ext: str | None = None):
         return "/ucp/avatars/avatar.png"
 
 
-async def check_for_existing_user(user: User) -> Union[object, None]:
+async def check_for_existing_user(user: User) -> list[ErrorItem] | None:
     async with session_manager.session() as db_session:
         get_user = await db_session.execute(
             select(User.email, User.username)
@@ -22,12 +21,14 @@ async def check_for_existing_user(user: User) -> Union[object, None]:
             .limit(2)
         )
         if get_user:
-            errors = {}
+            errors = []
             for reg_email, reg_username in get_user:
                 if reg_email == user.email:
-                    errors["email_taken"] = True
+                    errors.append(ErrorItem(code="email_taken", detail="Email taken"))
                 if reg_username == user.username:
-                    errors["username_taken"] = True
+                    errors.append(
+                        ErrorItem(code="username_taken", detail="Username taken")
+                    )
             if len(errors):
                 return errors
 
@@ -37,7 +38,7 @@ async def register_user(email: str, username: str, password: str) -> User:
     new_user.set_password(password)
     errors = await check_for_existing_user(new_user)
     if errors:
-        raise UserExists({"errors": errors})
+        raise UserExists(errors)
 
     async with session_manager.session() as db_session:
         new_user.meta.append(

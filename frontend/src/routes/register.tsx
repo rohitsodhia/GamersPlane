@@ -44,19 +44,22 @@ function Register() {
 					}}
 				>
 					{(field) => (
-						<div className="form-field">
+						<>
 							<label htmlFor={field.name}>Username</label>
-							<input
-								id={field.name}
-								name={field.name}
-								type="text"
-								maxLength={24}
-								value={field.state.value}
-								onBlur={field.handleBlur}
-								onChange={(e) => field.handleChange(e.target.value)}
-							/>
-							<FieldError message={field.state.meta.errors[0]} />
-						</div>
+							<div>
+								<input
+									id={field.name}
+									name={field.name}
+									type="text"
+									maxLength={24}
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+									autoComplete="off"
+								/>
+								<FieldError message={field.state.meta.errors[0]} />
+							</div>
+						</>
 					)}
 				</form.Field>
 
@@ -72,18 +75,21 @@ function Register() {
 					}}
 				>
 					{(field) => (
-						<div className="form-field">
+						<>
 							<label htmlFor={field.name}>Email</label>
-							<input
-								id={field.name}
-								name={field.name}
-								type="email"
-								value={field.state.value}
-								onBlur={field.handleBlur}
-								onChange={(e) => field.handleChange(e.target.value)}
-							/>
-							<FieldError message={field.state.meta.errors[0]} />
-						</div>
+							<div>
+								<input
+									id={field.name}
+									name={field.name}
+									type="email"
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+									autoComplete="email"
+								/>
+								<FieldError message={field.state.meta.errors[0]} />
+							</div>
+						</>
 					)}
 				</form.Field>
 
@@ -98,18 +104,21 @@ function Register() {
 					}}
 				>
 					{(field) => (
-						<div className="form-field">
+						<>
 							<label htmlFor={field.name}>Password</label>
-							<input
-								id={field.name}
-								name={field.name}
-								type="password"
-								value={field.state.value}
-								onBlur={field.handleBlur}
-								onChange={(e) => field.handleChange(e.target.value)}
-							/>
-							<FieldError message={field.state.meta.errors[0]} />
-						</div>
+							<div>
+								<input
+									id={field.name}
+									name={field.name}
+									type="password"
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+									autoComplete="off"
+								/>
+								<FieldError message={field.state.meta.errors[0]} />
+							</div>
+						</>
 					)}
 				</form.Field>
 
@@ -131,26 +140,31 @@ function Register() {
 					}}
 				>
 					{(field) => (
-						<div className="form-field">
+						<>
 							<label htmlFor={field.name}>Confirm Password</label>
-							<input
-								id={field.name}
-								name={field.name}
-								type="password"
-								value={field.state.value}
-								onBlur={field.handleBlur}
-								onChange={(e) => field.handleChange(e.target.value)}
-							/>
-							<FieldError message={field.state.meta.errors[0]} />
-						</div>
+							<div>
+								<input
+									id={field.name}
+									name={field.name}
+									type="password"
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+									autoComplete="off"
+								/>
+								<FieldError message={field.state.meta.errors[0]} />
+							</div>
+						</>
 					)}
 				</form.Field>
 
 				<form.Subscribe selector={(state) => state.canSubmit}>
 					{(canSubmit) => (
-						<button type="submit" disabled={!canSubmit} className="trapBtn">
-							Register
-						</button>
+						<div>
+							<button type="submit" disabled={!canSubmit} className="trap-btn">
+								Register
+							</button>
+						</div>
 					)}
 				</form.Subscribe>
 			</form>

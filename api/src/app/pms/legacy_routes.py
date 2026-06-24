@@ -1,4 +1,4 @@
-from typing import Literal, Union
+from typing import Literal
 
 from fastapi import APIRouter, status
 
@@ -14,7 +14,7 @@ from app.repositories.legacy.pm_repository import (
     PMRepository,
     PMSelfException,
 )
-from app.schemas import ErrorResponse
+from app.schemas import ErrorItem
 
 pms = APIRouter(prefix="/legacy/pms")
 
@@ -79,11 +79,12 @@ async def get_pm(
     except NotFoundException:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,
-            content={"Not found": True},
+            errors=[ErrorItem(code="not_found", detail="PM not found")],
         )
     except ForbiddenException:
         return error_response(
             status_code=status.HTTP_403_FORBIDDEN,
+            errors=[ErrorItem(code="forbidden", detail="Forbidden")],
         )
 
     if authed_user.id == pm.recipient.id:
@@ -143,14 +144,6 @@ async def get_pm(
 @pms.post(
     "",
     response_model=schemas.NewPMResponse,
-    responses={
-        400: {
-            "model": Union[
-                ErrorResponse[schemas.NoRecipientResponse],
-                ErrorResponse[schemas.PMSelfResponse],
-            ]
-        }
-    },
 )
 async def send_pm(
     db_session: LegacyDBSessionDependency,
@@ -168,18 +161,20 @@ async def send_pm(
     except NoRecipientException:
         return error_response(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content=schemas.NoRecipientResponse().model_dump(),
+            errors=[ErrorItem(code="no_recipient", detail="No recipient")],
         )
     except PMSelfException:
         return error_response(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content=schemas.PMSelfResponse().model_dump(),
+            errors=[ErrorItem(code="pm_self", detail="PM self")],
         )
 
     return {"sent": True}
 
 
 @pms.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_pm(db_session: LegacyDBSessionDependency, authed_user: AuthedUser, id: int):
+async def delete_pm(
+    db_session: LegacyDBSessionDependency, authed_user: AuthedUser, id: int
+):
     pm_repository = PMRepository(db_session, authed_user=authed_user)
     await pm_repository.delete_pm(id)

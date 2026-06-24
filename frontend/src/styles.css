@@ -10,6 +10,7 @@
     --gp-red: #bc2025;
     --gp-light-red: #ff252c;
     --gp-link-red: light-dark(#fff, #b44);
+    --gp-orange: #c60;
 }
 
 :root[data-theme="dark"] {
@@ -30,6 +31,10 @@ body {
     flex-direction: column;
     background: var(--bg);
     color: var(--text);
+}
+
+input {
+    padding: 0.2em 0.4em;
 }
 
 .page-wrap {
@@ -60,13 +65,29 @@ body {
     }
 }
 
-.trapBtn {
-    clip-path: polygon(12% 0%, 100% 0%, 88% 100%, 0% 100%);
+h1.headerbar,
+.trap-btn {
+    clip-path: polygon(1em 0%, 100% 0%, calc(100% - 1em) 100%, 0% 100%);
     padding-inline: 1.3em;
-    background: var(--gp-red);
+    line-height: 1.8em;
+    color: #fff;
+}
+
+h1.headerbar {
+    background-color: var(--gp-orange);
+    margin-bottom: 0.7em;
+    font-family: "AgencyFB";
+    font-size: 2em;
+}
+
+.trap-btn {
+    background-color: var(--gp-red);
     font-family: Neuropol;
     font-size: 1.3em;
-    line-height: 1.8em;
+}
+
+.hb-margined {
+    margin-inline: 2em;
 }
 
 header {
@@ -256,7 +277,7 @@ footer {
         }
 
         form {
-            margin-top: .5em;
+            margin-top: 0.5em;
         }
     }
 
@@ -267,7 +288,22 @@ footer {
 }
 
 #register-form {
-    .form-field {
-        display: flex;
+    display: grid;
+    grid-template-columns: max-content 300px;
+    gap: 0.5em 1em;
+    width: fit-content;
+    margin-inline: auto;
+
+    label {
+        align-self: center;
+    }
+
+    & > div:last-of-type {
+        grid-column: span 2;
+        text-align: center;
+    }
+
+    input {
+        width: 100%;
     }
 }
