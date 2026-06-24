@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { useThemeStore } from "@/store/theme";
+import { useThemeStore } from "#/store/theme";
 
 type ThemeMode = "light" | "dark" | "auto";
 

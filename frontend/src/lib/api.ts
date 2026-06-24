@@ -1,4 +1,4 @@
-import { useAuthStore } from "@/store/auth";
+import { useAuthStore } from "#/store/auth";
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
 	const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;

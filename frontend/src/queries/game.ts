@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "#/lib/api";
 
 type SuggestedNumPlayers = {
 	best: string;

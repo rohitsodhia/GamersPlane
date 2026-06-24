@@ -1,7 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
-import ThemeToggle from "@/components/ThemeToggle";
-import { useThemeStore } from "@/store/theme";
+import ThemeToggle from "#/components/ThemeToggle";
+import { useThemeStore } from "#/store/theme";
 
 function Header() {
 	const location = useLocation();
