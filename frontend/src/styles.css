@@ -34,12 +34,33 @@ body {
 }
 
 input {
-    padding: 0.2em 0.4em;
+    padding: 0.3em 0.5em;
+    border: 1px solid light-dark(#666, #888);
+    border-radius: 0.2em;
+    background-color: light-dark(#eee, #393939);
+}
+
+a,
+a:visited,
+a:active {
+    color: var(--gp-light-red);
+}
+
+a:hover {
+    text-decoration: underline;
 }
 
 .page-wrap {
     width: min(1080px, calc(100% - 2rem));
     margin-inline: auto;
+}
+
+.error-banner {
+    padding: 0.5em 0.8em;
+    margin-bottom: 1em;
+    background-color: light-dark(#faa, #400);
+    border: 2px solid light-dark(#b00, #c00);
+    border-radius: 0.2em;
 }
 
 .has-dropdown {
@@ -67,23 +88,46 @@ input {
 
 h1.headerbar,
 .trap-btn {
-    clip-path: polygon(1em 0%, 100% 0%, calc(100% - 1em) 100%, 0% 100%);
-    padding-inline: 1.3em;
+    /* clip-path: polygon(1em 0%, 100% 0%, calc(100% - 1em) 100%, 0% 100%); */
+    position: relative;
+    margin-inline: 0.5em;
+    padding-inline: 0.6em;
     line-height: 1.8em;
     color: #fff;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        transform: skewX(-20deg);
+        z-index: -1;
+    }
 }
 
 h1.headerbar {
-    background-color: var(--gp-orange);
+    background-color: transparent;
     margin-bottom: 0.7em;
     font-family: "AgencyFB";
     font-size: 2em;
+
+    &::before {
+        background-color: var(--gp-orange);
+    }
 }
 
 .trap-btn {
-    background-color: var(--gp-red);
+    background: transparent;
     font-family: Neuropol;
     font-size: 1.3em;
+    outline: none;
+
+    &::before {
+        background-color: var(--gp-red);
+    }
+
+    &:focus-visible::before {
+        border: 1px solid white;
+    }
 }
 
 .hb-margined {
@@ -295,7 +339,7 @@ footer {
     margin-inline: auto;
 
     label {
-        align-self: center;
+        margin-top: 0.4em;
     }
 
     & > div:last-of-type {
@@ -305,5 +349,24 @@ footer {
 
     input {
         width: 100%;
+    }
+
+    & > div:not(:last-of-type) > p {
+        margin-top: 0.5em;
+        font-size: 0.8em;
+    }
+
+    .field-invalid {
+        border-color: var(--gp-red);
+    }
+
+    label,
+    .field-message {
+        height: 2em;
+    }
+
+    .field-error {
+        margin-top: 0.5em;
+        color: var(--gp-red);
     }
 }
