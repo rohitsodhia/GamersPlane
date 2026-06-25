@@ -290,8 +290,31 @@ header {
 }
 
 main {
+    position: relative;
     flex-grow: 1;
     margin-top: 20px;
+}
+
+@keyframes loading-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0;
+    }
+}
+
+#loading-spinner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#loading-spinner-top-cube {
+    animation: loading-pulse 2.4s ease-in-out infinite;
 }
 
 footer {
