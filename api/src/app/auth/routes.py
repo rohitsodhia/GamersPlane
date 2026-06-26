@@ -94,7 +94,7 @@ async def activate_user(token: str, db_session: DBSessionDependency):
     db_session.add(account_activation_token.user)
     account_activation_token.use()
     db_session.add(account_activation_token)
-    await db_session.commit()
+    await db_session.flush()
 
     return {"success": True}
 

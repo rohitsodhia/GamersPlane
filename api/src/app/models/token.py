@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, String, Uuid, func, select
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Mapped, joinedload, mapped_column, relationship
 
 from app.database import session_manager
@@ -45,7 +46,10 @@ class Token(Base, TimestampMixin):
                 get_token_query = get_token_query.join(Token.user).where(
                     User.email == email
                 )
-            token_obj = await db_session.scalar(get_token_query)
+            try:
+                token_obj = await db_session.scalar(get_token_query)
+            except DBAPIError:
+                return None
 
         return token_obj if token_obj else None
 
