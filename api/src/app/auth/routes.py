@@ -10,6 +10,7 @@ from app.helpers.decorators import public
 from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
 from app.models import AccountActivationToken, PasswordResetToken, User
+from app.repositories import UserRepository
 from app.schemas import ErrorItem
 from app.users import functions as users_functions
 from app.users.exceptions import UserExists
@@ -78,6 +79,18 @@ async def register(user_details: schemas.RegisterInput):
             status_code=status.HTTP_400_BAD_REQUEST,
             errors=e.errors,
         )
+
+
+@auth.post("/resendActivation")
+@public
+async def resend_activation(
+    db_session: DBSessionDependency, email: EmailStr = Body(..., embed=True)
+):
+    user_repository = UserRepository(db_session)
+    user = await user_repository.get_user_by_email(email)
+    if user:
+        await send_activation_email(user)
+    return {"success": True}
 
 
 @auth.post("/activate/{token}")
