@@ -14,3 +14,9 @@ class UserRepository:
             select(User).where(User.id == user_id).limit(1)
         )
         return user
+
+    async def get_user_by_email(self, email: str) -> User | None:
+        user = await self.db_session.scalar(
+            select(User).where(User.email == email).limit(1)
+        )
+        return user

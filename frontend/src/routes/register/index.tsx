@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useState } from "react";
 import { ApiError } from "#/lib/api";
@@ -20,10 +20,10 @@ function Register() {
 
 	const form = useForm({
 		defaultValues: {
-			username: "asaasdf",
-			email: "asvwdf@gmail.com",
-			password: "asdfasdf",
-			confirmPassword: "asdfasdf",
+			username: "",
+			email: "",
+			password: "",
+			confirmPassword: "",
 		},
 		onSubmit: async ({ value }) => {
 			setRegistrationAPIErrors([]);
@@ -48,15 +48,21 @@ function Register() {
 	return (
 		<div>
 			<h1 className="headerbar">Create an Account</h1>
-			{registrationAPIErrors.length > 0 && (
-				<div className="hb-margined error-banner">
-					<ul>
-						{registrationAPIErrors.map((error) => (
-							<li key={error}>{error}</li>
-						))}
-					</ul>
-				</div>
-			)}
+			<div className="hb-margined">
+				{registrationAPIErrors.length > 0 && (
+					<div className="banner error-banner">
+						<ul>
+							{registrationAPIErrors.map((error) => (
+								<li key={error}>{error}</li>
+							))}
+						</ul>
+					</div>
+				)}
+				<p>
+					If you've previously registered but never received your activation mail, try{" "}
+					<Link to="/register/resend">resending your activation email</Link>.
+				</p>
+			</div>
 			<form
 				id="register-form"
 				onSubmit={(e) => {

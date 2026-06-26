@@ -33,11 +33,11 @@ body {
     color: var(--text);
 }
 
-input {
+input:not([type]="image") {
     padding: 0.3em 0.5em;
     border: 1px solid light-dark(#666, #888);
     border-radius: 0.2em;
-    background-color: light-dark(#eee, #393939);
+    background-color: light-dark(#eee, #444);
 }
 
 a,
@@ -59,12 +59,21 @@ p {
     margin-inline: auto;
 }
 
-.error-banner {
+.banner {
     padding: 0.5em 0.8em;
     margin-bottom: 1em;
-    background-color: light-dark(#faa, #400);
-    border: 2px solid light-dark(#b00, #c00);
+    border: 2px solid transparent;
     border-radius: 0.2em;
+}
+
+.success-banner {
+    background-color: light-dark(#4a4, #040);
+    border-color: light-dark(#070, #090);
+}
+
+.error-banner {
+    background-color: light-dark(#faa, #400);
+    border-color: light-dark(#b00, #c00);
 }
 
 .has-dropdown {
@@ -365,6 +374,7 @@ footer {
     gap: 0.5em 1em;
     width: fit-content;
     margin-inline: auto;
+    margin-top: 1em;
 
     label {
         margin-top: 0.4em;
@@ -400,5 +410,18 @@ footer {
     .field-error {
         margin-top: 0.5em;
         color: var(--gp-red);
+    }
+}
+
+#resend-activation-form {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    margin-top: 1em;
+    width: fit-content;
+
+    & > div:last-of-type {
+        grid-column: span 2;
+        text-align: center;
+        margin-top: .5em;
     }
 }

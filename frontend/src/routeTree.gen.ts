@@ -13,6 +13,7 @@ import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
 import { Route as RegisterSuccessRouteImport } from './routes/register/success'
+import { Route as RegisterResendRouteImport } from './routes/register/resend'
 
 const ActivateRoute = ActivateRouteImport.update({
   id: '/activate',
@@ -34,16 +35,23 @@ const RegisterSuccessRoute = RegisterSuccessRouteImport.update({
   path: '/register/success',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RegisterResendRoute = RegisterResendRouteImport.update({
+  id: '/register/resend',
+  path: '/register/resend',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
+  '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
   '/register/': typeof RegisterIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
+  '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
   '/register': typeof RegisterIndexRoute
 }
@@ -51,20 +59,33 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
+  '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
   '/register/': typeof RegisterIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/activate' | '/register/success' | '/register/'
+  fullPaths:
+    | '/'
+    | '/activate'
+    | '/register/resend'
+    | '/register/success'
+    | '/register/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/activate' | '/register/success' | '/register'
-  id: '__root__' | '/' | '/activate' | '/register/success' | '/register/'
+  to: '/' | '/activate' | '/register/resend' | '/register/success' | '/register'
+  id:
+    | '__root__'
+    | '/'
+    | '/activate'
+    | '/register/resend'
+    | '/register/success'
+    | '/register/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ActivateRoute: typeof ActivateRoute
+  RegisterResendRoute: typeof RegisterResendRoute
   RegisterSuccessRoute: typeof RegisterSuccessRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
 }
@@ -99,12 +120,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/register/resend': {
+      id: '/register/resend'
+      path: '/register/resend'
+      fullPath: '/register/resend'
+      preLoaderRoute: typeof RegisterResendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivateRoute: ActivateRoute,
+  RegisterResendRoute: RegisterResendRoute,
   RegisterSuccessRoute: RegisterSuccessRoute,
   RegisterIndexRoute: RegisterIndexRoute,
 }
