@@ -50,6 +50,10 @@ a:hover {
     text-decoration: underline;
 }
 
+p {
+    margin-block: .5em;
+}
+
 .page-wrap {
     width: min(1080px, calc(100% - 2rem));
     margin-inline: auto;
@@ -92,7 +96,7 @@ h1.headerbar,
     position: relative;
     margin-inline: 0.5em;
     padding-inline: 0.6em;
-    line-height: 1.8em;
+    line-height: 1.7em;
     color: #fff;
 
     &::before {
@@ -109,6 +113,7 @@ h1.headerbar {
     margin-bottom: 0.7em;
     font-family: "AgencyFB";
     font-size: 2em;
+    font-weight: normal;
 
     &::before {
         background-color: var(--gp-orange);
@@ -348,7 +353,7 @@ footer {
         }
     }
 
-    a {
+    a, a:active, a:visited {
         color: var(--gp-link-red);
         text-transform: uppercase;
     }
@@ -363,6 +368,10 @@ footer {
 
     label {
         margin-top: 0.4em;
+    }
+
+    p {
+        margin-block: 0;
     }
 
     & > div:last-of-type {
