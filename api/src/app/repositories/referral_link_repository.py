@@ -29,4 +29,3 @@ class ReferralLinkRepository:
             enabled=enabled,
         )
         self.db_session.add(referral_link)
-        await self.db_session.flush()

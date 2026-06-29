@@ -135,7 +135,7 @@ class PMRepository:
             if reply_pm:
                 pm.reply_to_id = reply_to_id
         self.db_session.add(pm)
-        await self.db_session.commit()
+        await self.db_session.flush()
         return pm
 
     async def delete_pm(self, pm_id: int):
@@ -148,4 +148,4 @@ class PMRepository:
             pm.sender_deleted = True
         else:
             raise ForbiddenException()
-        await self.db_session.commit()
+        await self.db_session.flush()

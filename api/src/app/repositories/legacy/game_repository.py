@@ -62,8 +62,6 @@ class GameRepository:
         player = Player(game=game, user_id=gm_id)
         self.db_session.add(player)
 
-        await self.db_session.commit()
-
         return game
 
     async def get_header_games(self):

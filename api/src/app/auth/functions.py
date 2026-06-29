@@ -16,7 +16,6 @@ async def get_activation_link(user: User) -> str:
         if not account_activation_token:
             account_activation_token = AccountActivationToken(user=user)
             db_session.add(account_activation_token)
-            await db_session.commit()
 
     return f"{configs.HOST_NAME}/activate/{account_activation_token.token}"
 

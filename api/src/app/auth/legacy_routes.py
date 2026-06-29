@@ -114,7 +114,6 @@ async def activate_user(token: str, db_session: LegacyDBSessionDependency):
     db_session.add(account_activation_token.user)
     account_activation_token.use()
     db_session.add(account_activation_token)
-    await db_session.commit()
 
     return {"success": True}
 
@@ -137,7 +136,6 @@ async def generate_password_reset(
     if not password_reset_token:
         password_reset_token = PasswordResetToken(user=user)
         db_session.add(password_reset_token)
-        await db_session.commit()
     email_content = get_template(
         "auth/templates/reset_password.html",
         reset_link=f"{configs.HOST_NAME}/activate/{password_reset_token.token}",
@@ -188,6 +186,5 @@ async def reset_password(
     db_session.add(user)
     password_reset.use()
     db_session.add(password_reset)
-    await db_session.commit()
 
     return {"success": True}

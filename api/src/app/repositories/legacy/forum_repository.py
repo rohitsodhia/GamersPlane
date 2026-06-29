@@ -26,7 +26,7 @@ class ForumRepository:
             order=order,
         )
         self.db_session.add(forum)
-        # await self.db_session.commit()
+        # await self.db_session.flush()
 
         return forum
 
@@ -39,6 +39,6 @@ class ForumRepository:
     ):
         forum_group = ForumGroup(name=name, status=status, owner_id=owner_id)
         self.db_session.add(forum_group)
-        # await self.db_session.commit()
+        # await self.db_session.flush()
 
         return forum_group
