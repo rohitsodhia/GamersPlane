@@ -1,6 +1,6 @@
 from sqlalchemy import or_, select
 
-from app.database import session_manager
+from app.database import DBSessionDependency
 from app.models import User, UserMeta
 from app.schemas import ErrorItem
 from app.users.exceptions import UserExists
@@ -13,43 +13,41 @@ def get_avatar_path(user_id: int | None = None, ext: str | None = None):
         return "/ucp/avatars/avatar.png"
 
 
-async def check_for_existing_user(user: User) -> list[ErrorItem] | None:
-    async with session_manager.session() as db_session:
-        get_user = await db_session.execute(
-            select(User.email, User.username)
-            .where(or_(User.email == user.email, User.username == user.username))
-            .limit(2)
-        )
-        if get_user:
-            errors = []
-            for reg_email, reg_username in get_user:
-                if reg_email == user.email:
-                    errors.append(ErrorItem(code="email_taken", detail="Email taken"))
-                if reg_username == user.username:
-                    errors.append(
-                        ErrorItem(code="username_taken", detail="Username taken")
-                    )
-            if len(errors):
-                return errors
+async def check_for_existing_user(
+    db_session: DBSessionDependency, user: User
+) -> list[ErrorItem] | None:
+    get_user = await db_session.execute(
+        select(User.email, User.username)
+        .where(or_(User.email == user.email, User.username == user.username))
+        .limit(2)
+    )
+    if get_user:
+        errors = []
+        for reg_email, reg_username in get_user:
+            if reg_email == user.email:
+                errors.append(ErrorItem(code="email_taken", detail="Email taken"))
+            if reg_username == user.username:
+                errors.append(ErrorItem(code="username_taken", detail="Username taken"))
+        if len(errors):
+            return errors
 
 
-async def register_user(email: str, username: str, password: str) -> User:
+async def register_user(
+    db_session: DBSessionDependency, email: str, username: str, password: str
+) -> User:
     new_user = User(email=email, username=username)
     new_user.set_password(password)
-    errors = await check_for_existing_user(new_user)
+    errors = await check_for_existing_user(db_session, new_user)
     if errors:
         raise UserExists(errors)
 
-    async with session_manager.session() as db_session:
-        new_user.meta.append(
-            UserMeta(key=UserMeta.MetaKeys.NEW_GAME_MAIL.value, value=True)
-        )
-        new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.POST_SIDE.value, value="l"))
-        new_user.meta.append(
-            UserMeta(key=UserMeta.MetaKeys.SHOW_AVATARS.value, value=True)
-        )
+    new_user.meta.append(
+        UserMeta(key=UserMeta.MetaKeys.NEW_GAME_MAIL.value, value=True)
+    )
+    new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.POST_SIDE.value, value="l"))
+    new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.SHOW_AVATARS.value, value=True))
 
-        db_session.add(new_user)
-        await db_session.commit()
+    db_session.add(new_user)
+    await db_session.flush()
 
     return new_user

@@ -70,7 +70,9 @@ async def logout(request: Request, response: Response):
     response_model=legacy_schemas.RegistrationResponse,
 )
 @public
-async def register(user_details: legacy_schemas.RegisterInput):
+async def register(
+    user_details: legacy_schemas.RegisterInput, db_session: LegacyDBSessionDependency
+):
     errors = {}
     pass_invalid = User.validate_password(user_details.password)
     if pass_invalid:
@@ -86,6 +88,7 @@ async def register(user_details: legacy_schemas.RegisterInput):
 
     try:
         new_user = await users_functions.register_user(
+            db_session,
             email=user_details.email,
             username=user_details.username,
             password=user_details.password,
