@@ -1,7 +1,8 @@
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 
 from app.configs import configs
-from app.database import session_manager
+from app.database import DBSessionDependency, session_manager
 from app.helpers.email import get_template, send_email
 from app.models import AccountActivationToken, User
 
@@ -18,6 +19,21 @@ async def get_activation_link(user: User) -> str:
             db_session.add(account_activation_token)
 
     return f"{configs.HOST_NAME}/activate/{account_activation_token.token}"
+
+
+async def activate_account(db_session: DBSessionDependency, token: str) -> bool:
+    account_activation_token = await db_session.scalar(
+        select(AccountActivationToken)
+        .options(joinedload(AccountActivationToken.user))
+        .where(AccountActivationToken.token == token)
+        .limit(1)
+    )
+    if not account_activation_token:
+        return False
+
+    account_activation_token.user.activate()
+    account_activation_token.use()
+    return True
 
 
 async def send_activation_email(user: User) -> None:

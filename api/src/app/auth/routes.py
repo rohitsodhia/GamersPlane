@@ -3,13 +3,13 @@ from pydantic import EmailStr
 from sqlalchemy import and_, select
 
 from app.auth import schemas
-from app.auth.functions import send_activation_email
+from app.auth.functions import activate_account, send_activation_email
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.helpers.decorators import public
 from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
-from app.models import AccountActivationToken, PasswordResetToken, User
+from app.models import PasswordResetToken, User
 from app.repositories import UserRepository
 from app.schemas import ErrorItem
 from app.users import functions as users_functions
@@ -96,19 +96,12 @@ async def resend_activation(
 @auth.post("/activate/{token}")
 @public
 async def activate_user(token: str, db_session: DBSessionDependency):
-    account_activation_token = await AccountActivationToken.validate_token(token)
-    if not account_activation_token:
+    activated = await activate_account(db_session, token)
+    if not activated:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,
             errors=[ErrorItem(code="invalid_token", detail="Invalid token")],
         )
-
-    account_activation_token.user.activate()
-    db_session.add(account_activation_token.user)
-    account_activation_token.use()
-    db_session.add(account_activation_token)
-    await db_session.flush()
-
     return {"success": True}
 
 
