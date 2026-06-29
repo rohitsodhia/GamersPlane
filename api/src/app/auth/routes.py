@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Body, status
 from pydantic import EmailStr
-from sqlalchemy import and_, select
+from sqlalchemy import func, or_, select
 
 from app.auth import schemas
 from app.auth.functions import activate_account, send_activation_email
@@ -24,9 +24,16 @@ auth = APIRouter(prefix="/auth")
 )
 @public
 async def login(user_details: schemas.UserInput, db_session: DBSessionDependency):
+    identifier = user_details.identifier.lower()
     user = await db_session.scalar(
         select(User)
-        .where(and_(User.email == user_details.email, User.activated_on.is_not(None)))
+        .where(
+            or_(
+                func.lower(User.username) == identifier,
+                func.lower(User.email) == identifier,
+            ),
+            User.activated_on.is_not(None),
+        )
         .limit(1)
     )
     if user:

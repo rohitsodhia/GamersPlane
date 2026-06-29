@@ -9,7 +9,7 @@ Password = Annotated[str, Len(min_length=User.MIN_PASSWORD_LENGTH)]
 
 
 class UserInput(BaseModel):
-    email: EmailStr
+    identifier: str
     password: Password
 
     @field_validator("password")
