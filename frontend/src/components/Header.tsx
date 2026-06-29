@@ -24,10 +24,7 @@ function Header() {
 				<nav>
 					<ul>
 						<li className="has-dropdown">
-							<button
-								type="button"
-								onClick={() => setToolsOpen((open) => !open)}
-							>
+							<button type="button" onClick={() => setToolsOpen((open) => !open)}>
 								Tools
 							</button>
 							{toolsOpen && (
@@ -54,7 +51,9 @@ function Header() {
 							<Link to="/register">Register</Link>
 						</li>
 						<li id="header_login">
-							<Link to="/login">Login</Link>
+							<Link to="/login" search={{ redirect: location.pathname }}>
+								Login
+							</Link>
 						</li>
 						<li id="header_theme_toggle">
 							<ThemeToggle />

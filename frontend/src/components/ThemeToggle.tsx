@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { useThemeStore } from "#/store/theme";
+import { useThemeStore } from "#/stores/theme";
 
 type ThemeMode = "light" | "dark" | "auto";
 
@@ -81,7 +81,7 @@ function applyThemeMode(mode: ThemeMode, setTheme: (theme: ThemeMode) => void) {
 
 export default function ThemeToggle() {
 	const [mode, setMode] = useState<ThemeMode>("auto");
-	const setTheme = useThemeStore((state) => state.setToken);
+	const setTheme = useThemeStore((state) => state.setTheme);
 
 	useEffect(() => {
 		const initialMode = getInitialMode();

@@ -33,7 +33,7 @@ body {
     color: var(--text);
 }
 
-input:not([type]="image") {
+input:not([type="image"]) {
     padding: 0.3em 0.5em;
     border: 1px solid light-dark(#666, #888);
     border-radius: 0.2em;
@@ -51,7 +51,7 @@ a:hover {
 }
 
 p {
-    margin-block: .5em;
+    margin-block: 0.5em;
 }
 
 .page-wrap {
@@ -362,7 +362,9 @@ footer {
         }
     }
 
-    a, a:active, a:visited {
+    a,
+    a:active,
+    a:visited {
         color: var(--gp-link-red);
         text-transform: uppercase;
     }
@@ -413,15 +415,37 @@ footer {
     }
 }
 
-#resend-activation-form {
+#resend-activation-form,
+#login-form {
     display: grid;
     grid-template-columns: 100px 1fr;
     margin-top: 1em;
-    width: fit-content;
 
     & > div:last-of-type {
         grid-column: span 2;
         text-align: center;
-        margin-top: .5em;
+        margin-top: 0.5em;
+    }
+}
+
+#resend-activation-form {
+    width: fit-content;
+
+    label {
+        align-items: center;
+    }
+}
+
+#login-page {
+    max-width: 500px;
+    margin-inline: auto;
+}
+
+#login-form {
+    grid-template-columns: 150px 1fr;
+    gap: 0.5em 1em;
+
+    input {
+        width: 100%;
     }
 }
