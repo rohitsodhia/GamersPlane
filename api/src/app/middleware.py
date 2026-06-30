@@ -2,11 +2,10 @@ from typing import Annotated
 
 import jwt
 from fastapi import Depends, HTTPException, Request, status
-from sqlalchemy import select
 
 from app.configs import configs
-from app.database import LegacyDBSessionDependency
-from app.models.legacy.user import User
+from app.database import DBSessionDependency
+from app.models import User
 from app.repositories.user_repository import UserRepository
 
 
@@ -17,7 +16,7 @@ async def authed_user(request: Request) -> User:
 AuthedUser = Annotated[User, Depends(authed_user)]
 
 
-async def validate_jwt(request: Request, db_session: LegacyDBSessionDependency):
+async def validate_jwt(request: Request, db_session: DBSessionDependency):
     token = request.headers.get("Authorization")
     request.scope["auth"] = None
     request.scope["user"] = None
@@ -43,16 +42,3 @@ async def check_authorization(request: Request):
 
     if not public and request.scope.get("user") is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-
-
-async def validate_cookie(request: Request, db_session: LegacyDBSessionDependency):
-    cookie = request.cookies.get(configs.LOGIN_COOKIE)
-    if cookie:
-        if "%7C" in cookie:
-            cookie = cookie.replace("%7C", "|")
-        username, cookie_hash = cookie.split("|")
-        user = await db_session.scalar(
-            select(User).where(User.username == username).limit(1)
-        )
-        if user and user.validate_login_hash(cookie_hash):
-            request.scope["user"] = user
