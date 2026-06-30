@@ -9,6 +9,10 @@ services:
         image: nginx:1.31-alpine
         volumes:
             - ./docker/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+            - ./images:/var/www/images:ro
+        environment:
+            - API_SERVER_NAMES=${API_SERVER_NAMES}
+            - IMAGES_SERVER_NAMES=${IMAGES_SERVER_NAMES}
         depends_on:
             - api
             # - frontend
@@ -23,6 +27,8 @@ services:
             - host.docker.internal:host-gateway
         env_file:
             - ./.env
+        volumes:
+            - ./images:/var/www/images
         # depends_on:
         #     - postgres
         restart: always

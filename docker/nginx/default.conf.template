@@ -33,3 +33,14 @@ server {
         proxy_redirect off;
     }
 }
+
+server {
+    listen 80;
+    server_name ${IMAGES_SERVER_NAMES};
+
+    root /var/www/images;
+
+    location / {
+        try_files $uri =404;
+    }
+}
