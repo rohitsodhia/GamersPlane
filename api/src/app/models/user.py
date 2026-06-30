@@ -9,10 +9,11 @@ from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationshi
 
 from app.configs import configs
 from app.models.base import Base
+from app.models.user_meta import UserMeta
 from app.schemas import ErrorItem
 
 if TYPE_CHECKING:
-    from app.models import Role, UserMeta
+    from app.models import Role
 
 
 class User(MappedAsDataclass, AsyncAttrs, Base):
@@ -100,3 +101,10 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
         for role in self.roles:
             permissions.extend([p.permission for p in role.permissions])
         return list(set(permissions))
+
+    @property
+    def avatar(self) -> str:
+        for meta in self.meta:
+            if meta.key == UserMeta.MetaKeys.AVATAR_EXT.value:
+                return f"{self.id}.{meta.value}"
+        return "avatar.png"
