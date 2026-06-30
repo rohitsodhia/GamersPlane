@@ -9,6 +9,7 @@ from app.database import DBSessionDependency
 from app.helpers.decorators import public
 from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
+from app.middleware import AuthedUser
 from app.models import PasswordResetToken, User
 from app.repositories import UserRepository
 from app.schemas import ErrorItem
@@ -185,3 +186,12 @@ async def reset_password(
     db_session.add(password_reset)
 
     return {"success": True}
+
+
+@auth.get("/me", response_model=schemas.UserOutput)
+async def get_current_user(current_user: AuthedUser):
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "avatar": f"{configs.AVATARS_ROOT}/{current_user.avatar}",
+    }

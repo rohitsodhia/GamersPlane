@@ -44,3 +44,9 @@ class ResetPasswordInput(BaseModel):
     token: str
     password: Password
     confirm_password: Password
+
+
+class UserOutput(BaseModel):
+    id: int
+    username: str
+    avatar: str
