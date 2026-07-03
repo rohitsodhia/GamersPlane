@@ -79,7 +79,7 @@ function applyThemeMode(mode: ThemeMode, setTheme: (theme: ThemeMode) => void) {
 	setTheme(resolved);
 }
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ showLabel = false }: { showLabel?: boolean }) {
 	const [mode, setMode] = useState<ThemeMode>("auto");
 	const setTheme = useThemeStore((state) => state.setTheme);
 
@@ -124,7 +124,7 @@ export default function ThemeToggle() {
 			title={label}
 			className="theme-toggle"
 		>
-			{/* {mode === "auto" ? "Auto" : mode === "dark" ? "Dark" : "Light"} */}
+			{showLabel && (mode === "auto" ? "Auto" : mode === "dark" ? "Dark" : "Light")}
 			<LightDarkIcon current={mode} />
 		</button>
 	);

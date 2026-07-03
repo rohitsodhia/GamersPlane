@@ -5,6 +5,7 @@
 :root {
     /* --bg: light-dark(#ffffff, #303136); */
     --bg: light-dark(#ffffff, #333);
+    --bg-inverse: light-dark(#333, #ffffff);
     --text: light-dark(#222, #eee);
 
     --gp-red: #bc2025;
@@ -83,9 +84,6 @@ p {
         position: absolute;
         top: 100%;
         left: 0;
-        display: flex;
-        flex-direction: column;
-        min-width: 100%;
         animation: dropdown-slide 0.15s ease-out;
     }
 }
@@ -218,7 +216,8 @@ header {
         }
 
         #header_register,
-        #header_theme_toggle {
+        #header_theme_toggle,
+        #header_avatar {
             position: relative;
             padding-left: calc(10px * 2 + 2px);
 
@@ -259,6 +258,13 @@ header {
             opacity: 0;
         }
 
+        [popover].dropdown {
+            position: fixed;
+            inset: auto;
+            margin: 0;
+            overflow: visible;
+        }
+
         .dropdown {
             --border-radius: 1px;
             position: relative;
@@ -281,15 +287,17 @@ header {
                 top: calc(-1 * var(--triangle-size));
                 border-left: var(--triangle-size) solid transparent;
                 border-right: var(--triangle-size) solid transparent;
-                border-bottom: var(--triangle-size) solid #333333;
+                border-bottom: var(--triangle-size) solid var(--bg-inverse);
             }
+
             &::after {
                 left: calc(10px + var(--border-radius));
                 top: calc(-1 * var(--triangle-size) + var(--border-radius));
                 border-left: var(--triangle-size-inner) solid transparent;
                 border-right: var(--triangle-size-inner) solid transparent;
-                border-bottom: var(--triangle-size-inner) solid #ffffff;
+                border-bottom: var(--triangle-size-inner) solid var(--bg);
             }
+
             li:not(:last-child) {
                 border-bottom: 1px solid #ddd;
             }
@@ -299,6 +307,50 @@ header {
                 color: var(--bg);
                 text-decoration: none;
             }
+        }
+    }
+
+    #header_avatar {
+        & > button {
+            height: 2.5em;
+            border: 1px solid var(--gp-red);
+            background: var(--bg);
+            padding: 0;
+            cursor: pointer;
+        }
+
+        img {
+            max-height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+        }
+    }
+
+    #header_user_menu {
+        width: max-content;
+
+        &::before {
+            left: auto;
+            right: 10px;
+        }
+
+        &::after {
+            left: auto;
+            right: calc(10px + var(--border-radius));
+        }
+
+        & > li > * {
+            width: 100%;
+            text-align: left;
+        }
+
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+        }
+
+        .theme-toggle svg {
+            margin-left: 0.5em;
         }
     }
 }
