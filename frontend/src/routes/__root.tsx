@@ -10,7 +10,9 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import Footer from "#/components/Footer";
 import Header from "#/components/Header";
 import TanStackQueryDevtools from "#/integrations/tanstack-query/devtools";
+import { meQueryOptions } from "#/queries/me";
 import { referralLinksQueryOptions } from "#/queries/referralLinks";
+import { useAuthStore } from "#/stores/auth";
 import appCss from "#/styles.css?url";
 
 interface MyRouterContext {
@@ -41,7 +43,17 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 	shellComponent: RootDocument,
 	component: RootLayout,
 	loader: async ({ context }) => {
-		await context.queryClient.ensureQueryData(referralLinksQueryOptions);
+		const { token, setToken } = useAuthStore.getState();
+		await Promise.all([
+			context.queryClient.ensureQueryData(referralLinksQueryOptions),
+			...(token
+				? [
+						context.queryClient
+							.ensureQueryData(meQueryOptions)
+							.catch(() => setToken(null)),
+					]
+				: []),
+		]);
 	},
 });
 

@@ -5,6 +5,7 @@
 :root {
     /* --bg: light-dark(#ffffff, #303136); */
     --bg: light-dark(#ffffff, #333);
+    --bg-inverse: light-dark(#333, #ffffff);
     --text: light-dark(#222, #eee);
 
     --gp-red: #bc2025;
@@ -33,7 +34,7 @@ body {
     color: var(--text);
 }
 
-input:not([type]="image") {
+input:not([type="image"]) {
     padding: 0.3em 0.5em;
     border: 1px solid light-dark(#666, #888);
     border-radius: 0.2em;
@@ -51,7 +52,7 @@ a:hover {
 }
 
 p {
-    margin-block: .5em;
+    margin-block: 0.5em;
 }
 
 .page-wrap {
@@ -83,9 +84,6 @@ p {
         position: absolute;
         top: 100%;
         left: 0;
-        display: flex;
-        flex-direction: column;
-        min-width: 100%;
         animation: dropdown-slide 0.15s ease-out;
     }
 }
@@ -218,7 +216,8 @@ header {
         }
 
         #header_register,
-        #header_theme_toggle {
+        #header_theme_toggle,
+        #header_avatar {
             position: relative;
             padding-left: calc(10px * 2 + 2px);
 
@@ -259,6 +258,13 @@ header {
             opacity: 0;
         }
 
+        [popover].dropdown {
+            position: fixed;
+            inset: auto;
+            margin: 0;
+            overflow: visible;
+        }
+
         .dropdown {
             --border-radius: 1px;
             position: relative;
@@ -281,15 +287,17 @@ header {
                 top: calc(-1 * var(--triangle-size));
                 border-left: var(--triangle-size) solid transparent;
                 border-right: var(--triangle-size) solid transparent;
-                border-bottom: var(--triangle-size) solid #333333;
+                border-bottom: var(--triangle-size) solid var(--bg-inverse);
             }
+
             &::after {
                 left: calc(10px + var(--border-radius));
                 top: calc(-1 * var(--triangle-size) + var(--border-radius));
                 border-left: var(--triangle-size-inner) solid transparent;
                 border-right: var(--triangle-size-inner) solid transparent;
-                border-bottom: var(--triangle-size-inner) solid #ffffff;
+                border-bottom: var(--triangle-size-inner) solid var(--bg);
             }
+
             li:not(:last-child) {
                 border-bottom: 1px solid #ddd;
             }
@@ -299,6 +307,50 @@ header {
                 color: var(--bg);
                 text-decoration: none;
             }
+        }
+    }
+
+    #header_avatar {
+        & > button {
+            height: 2.5em;
+            border: 1px solid var(--gp-red);
+            background: var(--bg);
+            padding: 0;
+            cursor: pointer;
+        }
+
+        img {
+            max-height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+        }
+    }
+
+    #header_user_menu {
+        width: max-content;
+
+        &::before {
+            left: auto;
+            right: 10px;
+        }
+
+        &::after {
+            left: auto;
+            right: calc(10px + var(--border-radius));
+        }
+
+        & > li > * {
+            width: 100%;
+            text-align: left;
+        }
+
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+        }
+
+        .theme-toggle svg {
+            margin-left: 0.5em;
         }
     }
 }
@@ -362,7 +414,9 @@ footer {
         }
     }
 
-    a, a:active, a:visited {
+    a,
+    a:active,
+    a:visited {
         color: var(--gp-link-red);
         text-transform: uppercase;
     }
@@ -413,15 +467,37 @@ footer {
     }
 }
 
-#resend-activation-form {
+#resend-activation-form,
+#login-form {
     display: grid;
     grid-template-columns: 100px 1fr;
     margin-top: 1em;
-    width: fit-content;
 
     & > div:last-of-type {
         grid-column: span 2;
         text-align: center;
-        margin-top: .5em;
+        margin-top: 0.5em;
+    }
+}
+
+#resend-activation-form {
+    width: fit-content;
+
+    label {
+        align-items: center;
+    }
+}
+
+#login-page {
+    max-width: 500px;
+    margin-inline: auto;
+}
+
+#login-form {
+    grid-template-columns: 150px 1fr;
+    gap: 0.5em 1em;
+
+    input {
+        width: 100%;
     }
 }

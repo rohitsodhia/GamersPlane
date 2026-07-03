@@ -3,10 +3,11 @@ import json
 from functools import wraps
 
 import typer
+from mimesis import Text
+
 from app.configs import configs
 from app.database import session_manager
 from app.repositories import ReferralLinkRepository
-from mimesis import Text
 
 app = typer.Typer()
 mimesis_text = Text()
@@ -35,7 +36,7 @@ def initialize():
 @app.command()
 @async_command
 async def seed():
-    async with session_manager.transaction() as session:
+    async with session_manager.session() as session:
         with open("data/referral_links.json") as f:
             referral_links_data = json.load(f)
 

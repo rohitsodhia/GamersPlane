@@ -9,7 +9,7 @@ Password = Annotated[str, Len(min_length=User.MIN_PASSWORD_LENGTH)]
 
 
 class UserInput(BaseModel):
-    email: EmailStr
+    identifier: str
     password: Password
 
     @field_validator("password")
@@ -44,3 +44,9 @@ class ResetPasswordInput(BaseModel):
     token: str
     password: Password
     confirm_password: Password
+
+
+class UserOutput(BaseModel):
+    id: int
+    username: str
+    avatar: str

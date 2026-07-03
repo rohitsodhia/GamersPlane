@@ -2,7 +2,6 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { ApiError } from "#/lib/api";
 import { resendActivation } from "#/queries/register";
 
 export const Route = createFileRoute("/register/resend")({
@@ -11,7 +10,7 @@ export const Route = createFileRoute("/register/resend")({
 
 function RouteComponent() {
 	const mutation = useMutation({ mutationFn: resendActivation });
-	const [resendAPISuccess, setResendAPISuccess] = useState<boolean>(true);
+	const [resendAPISuccess, setResendAPISuccess] = useState<boolean>(false);
 
 	const form = useForm({
 		defaultValues: {
@@ -81,7 +80,6 @@ function RouteComponent() {
 										autoComplete="email"
 										className={field.state.meta.isValid ? "" : "field-invalid"}
 									/>
-									<p className="field-message"></p>
 								</div>
 							</>
 						)}

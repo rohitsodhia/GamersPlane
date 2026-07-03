@@ -67,5 +67,4 @@ class PMRepository:
             pm.history = reply_pm.history.copy()
             pm.history.append(self.authed_user.id)
         self.db_session.add(pm)
-        await self.db_session.commit()
         return pm

@@ -5,14 +5,17 @@ from typing import Literal
 class ConfigStore:
     def __init__(self):
         self.LOGIN_COOKIE = "loginHash"
+        self._from_env()
+        self.AVATARS_ROOT = self.IMAGES_HOST_NAME + "/avatars"
 
-    def from_env(self):
+    def _from_env(self):
         self.ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
         self.TZ = os.getenv("TZ", "UTC")
 
         self.HOST_NAME = os.getenv("HOST_NAME", "")
         self.V1_HOST_NAME = os.getenv("V1_HOST_NAME", "")
         self.API_HOST_NAME = os.getenv("API_HOST_NAME", "")
+        self.IMAGES_HOST_NAME = os.getenv("IMAGES_HOST_NAME", "")
         self.COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", "")
         self.ROOT_DIR = os.getenv("ROOT_DIR", "")
 
@@ -60,4 +63,3 @@ class ConfigStore:
 
 
 configs = ConfigStore()
-configs.from_env()

@@ -1,15 +1,16 @@
 from fastapi import APIRouter, Body, status
 from pydantic import EmailStr
-from sqlalchemy import and_, select
+from sqlalchemy import func, or_, select
 
 from app.auth import schemas
-from app.auth.functions import send_activation_email
+from app.auth.functions import activate_account, send_activation_email
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.helpers.decorators import public
 from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
-from app.models import AccountActivationToken, PasswordResetToken, User
+from app.middleware import AuthedUser
+from app.models import PasswordResetToken, User
 from app.repositories import UserRepository
 from app.schemas import ErrorItem
 from app.users import functions as users_functions
@@ -24,9 +25,16 @@ auth = APIRouter(prefix="/auth")
 )
 @public
 async def login(user_details: schemas.UserInput, db_session: DBSessionDependency):
+    identifier = user_details.identifier.lower()
     user = await db_session.scalar(
         select(User)
-        .where(and_(User.email == user_details.email, User.activated_on.is_not(None)))
+        .where(
+            or_(
+                func.lower(User.username) == identifier,
+                func.lower(User.email) == identifier,
+            ),
+            User.activated_on.is_not(None),
+        )
         .limit(1)
     )
     if user:
@@ -51,7 +59,9 @@ async def login(user_details: schemas.UserInput, db_session: DBSessionDependency
     response_model=schemas.RegistrationResponse,
 )
 @public
-async def register(user_details: schemas.RegisterInput):
+async def register(
+    user_details: schemas.RegisterInput, db_session: DBSessionDependency
+):
     errors: list[ErrorItem] = []
     pass_invalid = User.validate_password(user_details.password)
     if pass_invalid:
@@ -67,6 +77,7 @@ async def register(user_details: schemas.RegisterInput):
 
     try:
         new_user = await users_functions.register_user(
+            db_session,
             email=user_details.email,
             username=user_details.username,
             password=user_details.password,
@@ -96,19 +107,12 @@ async def resend_activation(
 @auth.post("/activate/{token}")
 @public
 async def activate_user(token: str, db_session: DBSessionDependency):
-    account_activation_token = await AccountActivationToken.validate_token(token)
-    if not account_activation_token:
+    activated = await activate_account(db_session, token)
+    if not activated:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,
             errors=[ErrorItem(code="invalid_token", detail="Invalid token")],
         )
-
-    account_activation_token.user.activate()
-    db_session.add(account_activation_token.user)
-    account_activation_token.use()
-    db_session.add(account_activation_token)
-    await db_session.flush()
-
     return {"success": True}
 
 
@@ -130,7 +134,6 @@ async def generate_password_reset(
     if not password_reset_token:
         password_reset_token = PasswordResetToken(user=user)
         db_session.add(password_reset_token)
-        await db_session.commit()
     email_content = get_template(
         "auth/templates/reset_password.html",
         reset_link=f"{configs.HOST_NAME}/activate/{password_reset_token.token}",
@@ -181,6 +184,14 @@ async def reset_password(
     db_session.add(user)
     password_reset.use()
     db_session.add(password_reset)
-    await db_session.commit()
 
     return {"success": True}
+
+
+@auth.get("/me", response_model=schemas.UserOutput)
+async def get_current_user(current_user: AuthedUser):
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "avatar": f"{configs.AVATARS_ROOT}/{current_user.avatar}",
+    }

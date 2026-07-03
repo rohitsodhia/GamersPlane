@@ -103,7 +103,7 @@ async def main():
         #     forums[forum.id] = forum
         # print("Forums created\n")
 
-        await db_session.commit()
+        await db_session.flush()
 
 
 asyncio.run(main())

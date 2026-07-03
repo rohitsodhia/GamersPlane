@@ -106,21 +106,12 @@ class DatabaseSessionManager:
         session = self._sessionmaker()
         try:
             yield session
+            await session.commit()
         except Exception:
             await session.rollback()
             raise
         finally:
             await session.close()
-
-    @contextlib.asynccontextmanager
-    async def transaction(self) -> AsyncIterator[AsyncSession]:
-        async with self.session() as session:
-            try:
-                yield session
-                await session.commit()
-            except Exception:
-                await session.rollback()
-                raise
 
 
 session_manager = DatabaseSessionManager()

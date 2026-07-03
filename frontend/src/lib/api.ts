@@ -1,4 +1,4 @@
-import { useAuthStore } from "#/store/auth";
+import { useAuthStore } from "#/stores/auth";
 
 export type ApiErrorItem = {
 	field?: string;

@@ -91,7 +91,6 @@ async def get_pm(
         pm.recipient_read = True
     elif authed_user.id == pm.sender.id:
         pm.sender_read = True
-    await db_session.commit()
 
     model = schemas.PMWithHistory(
         id=pm.id,

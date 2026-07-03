@@ -70,7 +70,9 @@ async def logout(request: Request, response: Response):
     response_model=legacy_schemas.RegistrationResponse,
 )
 @public
-async def register(user_details: legacy_schemas.RegisterInput):
+async def register(
+    user_details: legacy_schemas.RegisterInput, db_session: LegacyDBSessionDependency
+):
     errors = {}
     pass_invalid = User.validate_password(user_details.password)
     if pass_invalid:
@@ -86,6 +88,7 @@ async def register(user_details: legacy_schemas.RegisterInput):
 
     try:
         new_user = await users_functions.register_user(
+            db_session,
             email=user_details.email,
             username=user_details.username,
             password=user_details.password,
@@ -114,7 +117,6 @@ async def activate_user(token: str, db_session: LegacyDBSessionDependency):
     db_session.add(account_activation_token.user)
     account_activation_token.use()
     db_session.add(account_activation_token)
-    await db_session.commit()
 
     return {"success": True}
 
@@ -137,7 +139,6 @@ async def generate_password_reset(
     if not password_reset_token:
         password_reset_token = PasswordResetToken(user=user)
         db_session.add(password_reset_token)
-        await db_session.commit()
     email_content = get_template(
         "auth/templates/reset_password.html",
         reset_link=f"{configs.HOST_NAME}/activate/{password_reset_token.token}",
@@ -188,6 +189,5 @@ async def reset_password(
     db_session.add(user)
     password_reset.use()
     db_session.add(password_reset)
-    await db_session.commit()
 
     return {"success": True}
