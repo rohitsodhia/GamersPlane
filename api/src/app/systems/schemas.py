@@ -3,17 +3,17 @@ from pydantic import BaseModel
 
 class PublisherSchema(BaseModel):
     name: str
-    website: str
+    website: str | None
 
 
 class SystemSchema(BaseModel):
     id: str
     name: str
-    sortName: str
+    sort_name: str
     publisher: PublisherSchema | None = None
     genres: list[str] = []
-    basics: dict | None = None
-    hasCharSheet: bool
+    basics: list[dict] = []
+    has_char_sheet: bool
     enabled: bool
 
 
