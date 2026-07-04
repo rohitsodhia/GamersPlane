@@ -7,7 +7,13 @@ from mimesis import Text
 
 from app.configs import configs
 from app.database import session_manager
-from app.repositories import ReferralLinkRepository
+from app.repositories import (
+    GenreRepository,
+    PublisherRepository,
+    ReferralLinkRepository,
+    SystemRepository,
+)
+from app.users.functions import register_user
 
 app = typer.Typer()
 mimesis_text = Text()
@@ -39,10 +45,70 @@ async def seed():
     async with session_manager.session() as session:
         with open("data/referral_links.json") as f:
             referral_links_data = json.load(f)
-
         referral_links_repository = ReferralLinkRepository(session)
         for referral_link in referral_links_data:
             await referral_links_repository.add(**referral_link)
+        typer.echo("Referral links added")
+
+        with open("data/publishers.json") as f:
+            publishers_data = json.load(f)
+        publisher_repo = PublisherRepository(session)
+        for publisher in publishers_data:
+            await publisher_repo.add(**publisher)
+        typer.echo("Publishers added")
+
+        publishers_by_name = {p.name: p for p in await publisher_repo.get_all()}
+        with open("data/systems.json") as f:
+            systems_data = json.load(f)
+        genre_repo = GenreRepository(session)
+        system_repo = SystemRepository(session)
+        genres_by_name: dict = {}
+        for system in systems_data:
+            genre_objects = []
+            for genre_name in system["genres"]:
+                if genre_name not in genres_by_name:
+                    genres_by_name[genre_name] = await genre_repo.add(genre_name)
+                genre_objects.append(genres_by_name[genre_name])
+
+            publisher = publishers_by_name[system["publisher"]]
+            await system_repo.add(
+                id=system["id"],
+                name=system["name"],
+                sort_name=system["sort_name"],
+                publisher_id=publisher.id,
+                genres=genre_objects,
+                basics=system["basics"],
+                has_char_sheet=system["has_char_sheet"],
+                enabled=system["enabled"],
+            )
+        typer.echo("Systems added")
+
+        user = await register_user(
+            session,
+            email="contact@gamersplane.com",
+            username="Keleth",
+            password="test1234",
+        )
+        user.activate()
+        typer.echo("User added")
+
+
+@app.command()
+@async_command
+async def create_user(
+    username: str = typer.Option(..., prompt=True),
+    email: str = typer.Option(..., prompt=True),
+    password: str = typer.Option(
+        ..., prompt=True, hide_input=True, confirmation_prompt=True
+    ),
+    activate: bool = typer.Option(True),
+):
+    async with session_manager.session() as session:
+        user = await register_user(
+            session, email=email, username=username, password=password
+        )
+        if activate:
+            user.activate()
 
 
 # @app.command()
