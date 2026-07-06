@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SystemsRouteImport } from './routes/systems'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as IndexRouteImport } from './routes/index'
@@ -16,6 +17,11 @@ import { Route as RegisterIndexRouteImport } from './routes/register/index'
 import { Route as RegisterSuccessRouteImport } from './routes/register/success'
 import { Route as RegisterResendRouteImport } from './routes/register/resend'
 
+const SystemsRoute = SystemsRouteImport.update({
+  id: '/systems',
+  path: '/systems',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
   '/login': typeof LoginRoute
+  '/systems': typeof SystemsRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
   '/register/': typeof RegisterIndexRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
   '/login': typeof LoginRoute
+  '/systems': typeof SystemsRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
   '/register': typeof RegisterIndexRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
   '/login': typeof LoginRoute
+  '/systems': typeof SystemsRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
   '/register/': typeof RegisterIndexRoute
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
     | '/'
     | '/activate'
     | '/login'
+    | '/systems'
     | '/register/resend'
     | '/register/success'
     | '/register/'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/activate'
     | '/login'
+    | '/systems'
     | '/register/resend'
     | '/register/success'
     | '/register'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/activate'
     | '/login'
+    | '/systems'
     | '/register/resend'
     | '/register/success'
     | '/register/'
@@ -103,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ActivateRoute: typeof ActivateRoute
   LoginRoute: typeof LoginRoute
+  SystemsRoute: typeof SystemsRoute
   RegisterResendRoute: typeof RegisterResendRoute
   RegisterSuccessRoute: typeof RegisterSuccessRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
@@ -110,6 +123,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/systems': {
+      id: '/systems'
+      path: '/systems'
+      fullPath: '/systems'
+      preLoaderRoute: typeof SystemsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -159,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivateRoute: ActivateRoute,
   LoginRoute: LoginRoute,
+  SystemsRoute: SystemsRoute,
   RegisterResendRoute: RegisterResendRoute,
   RegisterSuccessRoute: RegisterSuccessRoute,
   RegisterIndexRoute: RegisterIndexRoute,

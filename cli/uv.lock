@@ -269,8 +269,8 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "api", editable = "../api" },
-    { name = "mimesis", specifier = "~=18.0" },
-    { name = "typer", specifier = "~=0.24" },
+    { name = "mimesis", specifier = "~=19.0" },
+    { name = "typer", specifier = "~=0.26" },
 ]
 
 [package.metadata.requires-dev]
@@ -645,11 +645,11 @@ wheels = [
 
 [[package]]
 name = "mimesis"
-version = "18.0.0"
+version = "19.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5d/f1/33fb02aa19271a5a2334d24a597047399744a3f1e8c97be31053887260b4/mimesis-18.0.0.tar.gz", hash = "sha256:7d7c76ecd680ae48afe8dc4413ef1ef1ee7ef20e16f9f9cb42892add642fc1b2", size = 4681287, upload-time = "2024-09-13T22:26:05.273Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/12/bf/1612e48b9eea7fa39e27600e94b9b267b37da749fcdf019e5e6a892ba2ec/mimesis-19.1.0.tar.gz", hash = "sha256:af4f14852a97657c5dbfad860be90c0efe97bf3758809e034b6581a45b13814b", size = 18252875, upload-time = "2026-01-11T09:14:58.969Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/c8/0b91996ce5337bb877300d0a0e86df17ab72da573625348dcb6cd92c3c41/mimesis-18.0.0-py3-none-any.whl", hash = "sha256:a51854a5ce63ebf2bd6a98e8841412e04cede38593be7e16d1d712848e6273df", size = 4734674, upload-time = "2024-09-13T22:26:03.283Z" },
+    { url = "https://files.pythonhosted.org/packages/40/f2/39da33ad3c10956d9ee7cdea3c3ee92e98c529b2994ed7c36a208b497603/mimesis-19.1.0-py3-none-any.whl", hash = "sha256:cf2ea4674819eaf386a2b8d28ded450968f1770fcb23f6c6ef884f61727bb4e6", size = 4464087, upload-time = "2026-01-11T09:14:55.738Z" },
 ]
 
 [[package]]
@@ -1095,17 +1095,17 @@ wheels = [
 
 [[package]]
 name = "typer"
-version = "0.24.0"
+version = "0.26.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-doc" },
-    { name = "click" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "rich" },
     { name = "shellingham" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/b6/3e681d3b6bb22647509bdbfdd18055d5adc0dce5c5585359fa46ff805fdc/typer-0.24.0.tar.gz", hash = "sha256:f9373dc4eff901350694f519f783c29b6d7a110fc0dcc11b1d7e353b85ca6504", size = 118380, upload-time = "2026-02-16T22:08:48.496Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7c/f7/68adc395201b20b872d68e975386832e8005ffeacedd43a1d837a32815be/typer-0.26.8.tar.gz", hash = "sha256:c244a6bd558886fe3f8780efb6bdd28bb9aff005a94eedebaa5cb32926fe2f7e", size = 202097, upload-time = "2026-06-26T09:22:45.705Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/85/d0/4da85c2a45054bb661993c93524138ace4956cb075a7ae0c9d1deadc331b/typer-0.24.0-py3-none-any.whl", hash = "sha256:5fc435a9c8356f6160ed6e85a6301fdd6e3d8b2851da502050d1f92c5e9eddc8", size = 56441, upload-time = "2026-02-16T22:08:47.535Z" },
+    { url = "https://files.pythonhosted.org/packages/80/87/b9fd69c92c6102a066e1b86a35243f53e70bd4c709f2a26d9f4fee4f4dc0/typer-0.26.8-py3-none-any.whl", hash = "sha256:3512ca79ac5c11113414b36e80281b872884477722440691c89d1112e321a49c", size = 122564, upload-time = "2026-06-26T09:22:44.72Z" },
 ]
 
 [[package]]
