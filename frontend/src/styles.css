@@ -3,15 +3,16 @@
 @import url("fonts.css");
 
 :root {
-    /* --bg: light-dark(#ffffff, #303136); */
-    --bg: light-dark(#ffffff, #333);
-    --bg-inverse: light-dark(#333, #ffffff);
-    --text: light-dark(#222, #eee);
+    --bg-light: oklch(1 0 0);
+    --bg-dark: oklch(0.32 0 0);
 
-    --gp-red: #bc2025;
-    --gp-light-red: #ff252c;
-    --gp-link-red: light-dark(#fff, #b44);
-    --gp-orange: #c60;
+    --bg: light-dark(var(--bg-light), var(--bg-dark));
+    --bg-inverse: light-dark(var(--bg-dark), var(--bg-light));
+    --text: light-dark(oklch(0.25 0 0) . oklch(0.94 0 0));
+
+    --gp-red: oklch(0.51 0.19 25.9);
+    --gp-light-red: oklch(from var(--gp-red) calc(l * 1.1) c h);
+    --gp-orange: oklch(0.62 0.16 53.46);
 }
 
 :root[data-theme="dark"] {
