@@ -6,13 +6,18 @@ class PublisherSchema(BaseModel):
     website: str | None
 
 
+class BasicsSchema(BaseModel):
+    label: str
+    url: str
+
+
 class SystemSchema(BaseModel):
     id: str
     name: str
     sort_name: str
     publisher: PublisherSchema | None = None
     genres: list[str] = []
-    basics: list[dict] = []
+    basics: list[BasicsSchema] = []
     has_char_sheet: bool
     enabled: bool
 
