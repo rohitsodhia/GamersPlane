@@ -147,6 +147,23 @@ h1.headerbar {
     margin-inline: 2em;
 }
 
+.paginate-container {
+    display: flex;
+    column-gap: 0.5em;
+
+    button {
+        &.current-page {
+            border: 1px solid #ccc;
+            border-radius: 0.25em;
+            padding: 0 0.5em;
+            cursor: default;
+        }
+
+        &:hover {
+            color: var(--gp-light-red);
+        }
+    }
+}
 header {
     position: sticky;
     top: 0;
