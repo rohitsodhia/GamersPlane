@@ -8,7 +8,7 @@
 
     --bg: light-dark(var(--bg-light), var(--bg-dark));
     --bg-inverse: light-dark(var(--bg-dark), var(--bg-light));
-    --text: light-dark(oklch(0.25 0 0) . oklch(0.94 0 0));
+    --text: light-dark(oklch(0.25 0 0), oklch(0.94 0 0));
 
     --gp-red: oklch(0.51 0.19 25.9);
     --gp-light-red: oklch(from var(--gp-red) calc(l * 1.1) c h);
@@ -128,6 +128,7 @@ h1.headerbar {
     }
 }
 
+
 .trap-btn {
     background: transparent;
     font-family: Neuropol;
@@ -198,11 +199,13 @@ header {
     }
 
     #header_logo {
-        height: 90%;
-        object-fit: cover;
-        color: light-dark(#231f20, #fff);
         line-height: 1em;
         align-content: center;
+
+        img {
+            height: 90%;
+            object-fit: cover;
+        }
     }
 
     nav {
@@ -230,35 +233,6 @@ header {
 
             &:hover {
                 text-decoration: underline;
-            }
-        }
-
-        #header_register,
-        #header_login {
-            a {
-                font-weight: normal;
-            }
-        }
-
-        #header_login a {
-            color: light-dark(var(--gp-red), var(--gp-light-red));
-        }
-
-        #header_register,
-        #header_theme_toggle,
-        #header_avatar {
-            position: relative;
-            padding-left: calc(10px * 2 + 2px);
-
-            &::before {
-                content: "";
-                position: absolute;
-                left: 10px;
-                top: 50%;
-                transform: translateY(-50%);
-                width: 2px;
-                height: 2.5em;
-                background: #999;
             }
         }
 
@@ -339,7 +313,38 @@ header {
         }
     }
 
+    #header_register,
+    #header_login {
+        a {
+            font-weight: normal;
+        }
+    }
+
+    #header_login a {
+        color: light-dark(var(--gp-red), var(--gp-light-red));
+    }
+
+    #header_register,
+    #header_theme_toggle,
     #header_avatar {
+        position: relative;
+        padding-left: calc(10px * 2 + 2px);
+
+        &::before {
+            content: "";
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 2px;
+            height: 2.5em;
+            background: #999;
+        }
+    }
+
+    #header_avatar {
+        padding-left: calc(10px * 2 + 0.75em);
+
         & > button {
             height: 2.5em;
             border: 1px solid var(--gp-red);
