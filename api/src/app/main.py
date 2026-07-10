@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from random import seed
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import middleware
@@ -15,10 +15,13 @@ from app.database import (
     legacy_session_manager,
     session_manager,
 )
+from app.exceptions import ForbiddenException, NotFoundException, ValidationError
 from app.gamers.legacy_routes import gamers as legacy_gamers
+from app.helpers.functions import error_response
 from app.me.legacy_routes import me as legacy_me
 from app.pms.legacy_routes import pms as legacy_pms
 from app.referral_links.routes import referral_links
+from app.schemas import ErrorItem
 from app.systems.legacy_routes import systems as legacy_systems
 from app.systems.routes import systems
 
@@ -98,6 +101,25 @@ def create_app(init_db=True) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.exception_handler(NotFoundException)
+    async def not_found_exception_handler(request: Request, exc: NotFoundException):
+        return error_response(
+            status_code=404, errors=[ErrorItem(code="not_found", detail=str(exc))]
+        )
+
+    @app.exception_handler(ForbiddenException)
+    async def forbidden_exception_handler(request: Request, exc: ForbiddenException):
+        return error_response(
+            status_code=403, errors=[ErrorItem(code="forbidden", detail=str(exc))]
+        )
+
+    @app.exception_handler(ValidationError)
+    async def validation_error_handler(request: Request, exc: ValidationError):
+        return error_response(
+            status_code=400,
+            errors=[ErrorItem(code="validation_error", detail=str(exc))],
+        )
 
     app.include_router(legacy_auth)
     app.include_router(legacy_me)
