@@ -18,6 +18,8 @@ class ConfigStore:
         self.IMAGES_HOST_NAME = os.getenv("IMAGES_HOST_NAME", "")
         self.COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", "")
         self.ROOT_DIR = os.getenv("ROOT_DIR", "")
+        self.IMAGES_DIR = os.getenv("IMAGES_DIR", "")
+        self.AVATARS_DIR = self.IMAGES_DIR + "/avatars"
 
         self.JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
