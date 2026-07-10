@@ -19,6 +19,7 @@ from app.exceptions import ForbiddenException, NotFoundException, ValidationErro
 from app.gamers.legacy_routes import gamers as legacy_gamers
 from app.helpers.functions import error_response
 from app.me.legacy_routes import me as legacy_me
+from app.me.routes import me
 from app.pms.legacy_routes import pms as legacy_pms
 from app.referral_links.routes import referral_links
 from app.schemas import ErrorItem
@@ -129,6 +130,7 @@ def create_app(init_db=True) -> FastAPI:
 
     app.include_router(auth)
     app.include_router(referral_links)
+    app.include_router(me)
     app.include_router(systems)
 
     return app

@@ -8,11 +8,16 @@ from app.models.base import Base
 
 class UserMeta(Base):
     class MetaKeys(LabelEnum):
-        AVATAR_EXT = "avatarExt", "Avatar Extension", bool
+        AVATAR_EXT = "avatarExt", "Avatar Extension", str
+        BIRTHDAY = "birthday", "Birthday", str
+        GM_MAIL = "gmMail", "GM Mail", bool
         LOCATION = "location", "Location", str
         NEW_GAME_MAIL = "newGameMail", "New Game Mail", bool
+        PM_MAIL = "pmMail", "PM Mail", bool
         POST_SIDE = "postSide", "Post Side", str
+        PRONOUNS = "pronouns", "Pronouns", str
         REFERENCE = "reference", "Reference", str
+        SHOW_AGE = "showAge", "Show Age", bool
         SHOW_AVATARS = "showAvatars", "Show Avatars", bool
         SHOW_TZ = "showTZ", "Show Timezone", bool
         TIMEZONE = "timezone", "Timezone", str
