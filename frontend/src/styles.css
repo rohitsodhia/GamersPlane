@@ -35,11 +35,19 @@ body {
     color: var(--text);
 }
 
+input {
+    accent-color: var(--gp-red);
+}
+
 input:not([type="image"]) {
     padding: 0.3em 0.5em;
     border: 1px solid light-dark(#666, #888);
     border-radius: 0.2em;
     background-color: light-dark(#eee, #444);
+}
+
+input:is([type="radio"], [type="checkbox"]) {
+    margin-right: 0.5em;
 }
 
 a,
@@ -99,6 +107,7 @@ p {
 }
 
 h1.headerbar,
+h2.headerbar,
 .trap-btn {
     /* clip-path: polygon(1em 0%, 100% 0%, calc(100% - 1em) 100%, 0% 100%); */
     position: relative;
@@ -116,18 +125,30 @@ h1.headerbar,
     }
 }
 
-h1.headerbar {
+h1.headerbar,
+h2.headerbar {
     background-color: transparent;
     margin-bottom: 0.7em;
     font-family: "AgencyFB";
-    font-size: 2em;
     font-weight: normal;
+}
+
+h1.headerbar {
+    font-size: 2em;
 
     &::before {
         background-color: var(--gp-orange);
     }
 }
 
+h2.headerbar {
+    font-size: 1.7em;
+    padding-inline: 0.75em;
+
+    &::before {
+        background-color: oklch(0.25 0 0);
+    }
+}
 
 .trap-btn {
     background: transparent;
@@ -606,5 +627,43 @@ footer {
 
     h3 {
         margin-top: 0.75em;
+    }
+}
+
+#profile-settings-form {
+    display: grid;
+    grid-template-columns: 250px max-content;
+    gap: 1em;
+    width: fit-content;
+    margin-inline: auto;
+
+    & > div {
+        display: contents;
+    }
+
+    & > div > *:nth-child(1) {
+        font-weight: bold;
+    }
+
+    .center-vertically {
+        align-content: center;
+    }
+
+    .across-all-cols {
+        column-span: 2;
+    }
+
+    div label {
+        margin-right: 1em;
+    }
+}
+
+#edit_settings_avatar {
+    input[type="file"] {
+        margin-block: 0.5em;
+    }
+    p {
+        font-size: 0.85em;
+        margin-bottom: 0;
     }
 }
