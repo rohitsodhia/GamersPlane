@@ -25,3 +25,4 @@ ssh_key.pub
 logs/
 .pytest_cache
 __pycache__
+images/avatars/*
