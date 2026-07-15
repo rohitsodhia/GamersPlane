@@ -1,6 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { requireAuth } from "#/lib/auth-route";
 import {
 	deleteUserAvatar,
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/profile")({
 function RouteComponent() {
 	const { data: me } = useSuspenseQuery(meFullQueryOptions);
 	const queryClient = useQueryClient();
+	const [showSuccess, setShowSuccess] = useState(false);
 
 	const updateSettingsMutation = useMutation({ mutationFn: updateUserSettings });
 	const updateAvatarMutation = useMutation({ mutationFn: updateUserAvatar });
@@ -47,6 +49,9 @@ function RouteComponent() {
 			}
 
 			await refreshMe(queryClient);
+
+			setShowSuccess(true);
+			setTimeout(() => setShowSuccess(false), 3000);
 		},
 	});
 
@@ -268,13 +273,21 @@ function RouteComponent() {
 
 				<form.Subscribe selector={(state) => state.canSubmit}>
 					{(canSubmit) => (
-						<div className="across-all-cols">
+						<div className="is-container center">
 							<button type="submit" disabled={!canSubmit} className="trap-btn">
 								Save
 							</button>
 						</div>
 					)}
 				</form.Subscribe>
+				<div className="is-container">
+					<div className={`banner success-banner ${showSuccess ? "is-visible" : ""}`}>
+						Settings saved
+					</div>
+					<div aria-live="polite" role="status" className="visually-hidden">
+						{showSuccess ? "Settings saved" : ""}
+					</div>{" "}
+				</div>
 			</form>
 		</div>
 	);

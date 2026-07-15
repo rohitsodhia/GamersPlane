@@ -42,7 +42,7 @@ input {
 input:not([type="image"]) {
     padding: 0.3em 0.5em;
     border: 1px solid light-dark(#666, #888);
-    border-radius: 0.2em;
+    border-radius: 0.3em;
     background-color: light-dark(#eee, #444);
 }
 
@@ -194,6 +194,18 @@ h2.headerbar {
 
 .align-right {
     text-align: right;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 header {
@@ -637,11 +649,11 @@ footer {
     width: fit-content;
     margin-inline: auto;
 
-    & > div {
+    & > div:not(.is-container) {
         display: contents;
     }
 
-    & > div > *:nth-child(1) {
+    & > div > *:nth-child(1):not(button) {
         font-weight: bold;
     }
 
@@ -649,12 +661,30 @@ footer {
         align-content: center;
     }
 
-    .across-all-cols {
-        column-span: 2;
-    }
-
     div label {
         margin-right: 1em;
+    }
+
+    .center {
+        display: flex;
+        justify-content: center;
+    }
+
+    .success-banner {
+        margin-bottom: 0;
+        width: fit-content;
+        opacity: 0;
+        transition: opacity 1s ease;
+    }
+
+    .success-banner.is-visible {
+        opacity: 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .success-banner {
+            transition: none;
+        }
     }
 }
 
