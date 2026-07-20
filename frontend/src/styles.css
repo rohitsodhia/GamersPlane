@@ -1,6 +1,7 @@
 @layer normalize;
 @import url("normalize.css") layer(normalize);
 @import url("fonts.css");
+@import url("rpg-awesome.css");
 
 :root {
     --bg-light: oklch(1 0 0);
