@@ -5,6 +5,7 @@ from annotated_types import Len
 from pydantic import BaseModel, field_validator
 
 from app.models import User
+from app.models.user_meta import PostSide
 from app.schema_base import SchemaBase, filtered_str, strip_whitespace
 
 Password = Annotated[str, Len(min_length=User.MIN_PASSWORD_LENGTH)]
@@ -22,6 +23,9 @@ class UserOutput(BaseModel):
     pmMail: bool | None = None
     newGameMail: bool | None = None
     gmMail: bool | None = None
+    postSide: PostSide = "l"
+    lookingForAGame: bool | None = None
+    games: str | None = filtered_str(pipelines=[strip_whitespace])
 
 
 class UpdateProfileInput(SchemaBase):
@@ -32,6 +36,9 @@ class UpdateProfileInput(SchemaBase):
     pmMail: bool | None = None
     newGameMail: bool | None = None
     gmMail: bool | None = None
+    postSide: PostSide = "l"
+    lookingForAGame: bool | None = None
+    games: str | None = filtered_str(pipelines=[strip_whitespace])
 
     @field_validator("birthday")
     @classmethod
@@ -49,6 +56,9 @@ class UpdatedProfileFields(BaseModel):
     pmMail: bool | None = None
     newGameMail: bool | None = None
     gmMail: bool | None = None
+    postSide: PostSide | None = None
+    lookingForAGame: bool | None = None
+    games: str | None = None
 
 
 class UpdateProfileResponse(BaseModel):
