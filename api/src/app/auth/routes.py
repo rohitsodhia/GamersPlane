@@ -54,6 +54,14 @@ async def login(user_details: schemas.UserInput, db_session: DBSessionDependency
 
 
 @auth.post(
+    "/refresh",
+    response_model=schemas.RefreshResponse,
+)
+async def refresh(current_user: AuthedUser):
+    return {"jwt": current_user.generate_jwt()}
+
+
+@auth.post(
     "/register",
     response_model=schemas.RegistrationResponse,
 )

@@ -39,6 +39,10 @@ class PasswordResetResponse(BaseModel):
     valid_token: bool
 
 
+class RefreshResponse(BaseModel):
+    jwt: str
+
+
 class ResetPasswordInput(BaseModel):
     email: EmailStr
     token: str
