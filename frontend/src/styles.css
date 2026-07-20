@@ -14,6 +14,10 @@
     --gp-red: oklch(0.51 0.19 25.9);
     --gp-light-red: oklch(from var(--gp-red) calc(l * 1.1) c h);
     --gp-orange: oklch(0.62 0.16 53.46);
+
+    --line-height: 1.5em;
+
+    accent-color: var(--gp-red);
 }
 
 :root[data-theme="dark"] {
@@ -34,13 +38,12 @@ body {
     flex-direction: column;
     background: var(--bg);
     color: var(--text);
+    line-height: var(--line-height);
 }
 
-input {
-    accent-color: var(--gp-red);
-}
-
-input:not([type="image"]) {
+input:not([type="image"]),
+select,
+textarea {
     padding: 0.3em 0.5em;
     border: 1px solid light-dark(#666, #888);
     border-radius: 0.3em;
@@ -129,7 +132,7 @@ h2.headerbar,
 h1.headerbar,
 h2.headerbar {
     background-color: transparent;
-    margin-bottom: 0.7em;
+    margin-block: 0.7em;
     font-family: "AgencyFB";
     font-weight: normal;
 }
@@ -427,6 +430,10 @@ main {
     position: relative;
     flex-grow: 1;
     margin-block: 20px;
+
+    & > div > *:first-child {
+        margin-top: 0;
+    }
 }
 
 @keyframes loading-pulse {
@@ -643,12 +650,10 @@ footer {
     }
 }
 
-#profile-settings-form {
+#settings_page form {
     display: grid;
-    grid-template-columns: 250px max-content;
+    grid-template-columns: 250px 1fr;
     gap: 1em;
-    width: fit-content;
-    margin-inline: auto;
 
     & > div:not(.is-container) {
         display: contents;
@@ -662,8 +667,18 @@ footer {
         align-content: center;
     }
 
+    .push-down {
+        margin-top: 0.4em;
+    }
+
     div label {
         margin-right: 1em;
+    }
+
+    textarea {
+        width: 100%;
+        max-width: 400px;
+        height: calc(var(--line-height) * 3);
     }
 
     .center {
@@ -686,6 +701,25 @@ footer {
         .success-banner {
             transition: none;
         }
+    }
+
+    &#security-form {
+        & > div:first-child {
+            display: block;
+            grid-column: span 2;
+            width: 0;
+            min-width: 100%;
+        }
+    }
+
+    .explanation {
+        font-size: 0.8em;
+        margin-top: 0.5em;
+    }
+
+    .error {
+        margin-top: 0.5em;
+        color: var(--gp-red);
     }
 }
 

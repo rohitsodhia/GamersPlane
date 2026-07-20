@@ -1,6 +1,8 @@
 import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import { ApiError, apiFetch } from "#/lib/api";
 
+type PostSide = "l" | "r" | "c";
+
 type MeResponse = {
 	id: number;
 	username: string;
@@ -16,6 +18,9 @@ type MeFullApiResponse = MeResponse & {
 	pmMail: boolean | null;
 	newGameMail: boolean | null;
 	gmMail: boolean | null;
+	postSide: PostSide;
+	lookingForAGame: boolean | null;
+	games: string | null;
 };
 
 type MeFullResponse = Omit<MeFullApiResponse, "joinDate"> & {
@@ -68,10 +73,29 @@ export const updateUserSettings = async (userData: {
 	pmMail?: boolean;
 	newGameMail?: boolean;
 	gmMail?: boolean;
+	postSide?: PostSide;
+	lookingForAGame?: boolean;
+	games?: string;
 }) => {
 	const res = await apiFetch("/me", {
 		method: "POST",
 		body: JSON.stringify(userData),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+export const updateUserPassword = async (passwordData: {
+	oldPassword: string;
+	password: string;
+	confirmPassword: string;
+}) => {
+	const res = await apiFetch("/me/password", {
+		method: "POST",
+		body: JSON.stringify(passwordData),
 	});
 	if (!res.ok) {
 		const { errors } = await res.json();
