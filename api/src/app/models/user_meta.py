@@ -1,3 +1,5 @@
+from typing import Literal, get_args
+
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -5,14 +7,23 @@ from app.exceptions import ValidationError
 from app.helpers.enums import LabelEnum
 from app.models.base import Base
 
+PostSide = Literal["l", "r", "c"]
+
 
 class UserMeta(Base):
     class MetaKeys(LabelEnum):
-        AVATAR_EXT = "avatarExt", "Avatar Extension", bool
+        AVATAR_EXT = "avatarExt", "Avatar Extension", str
+        BIRTHDAY = "birthday", "Birthday", str
+        GAMES = "games", "Games", str
+        GM_MAIL = "gmMail", "GM Mail", bool
         LOCATION = "location", "Location", str
+        LOOKING_FOR_A_GAME = "lookingForAGame", "Looking For A Game", bool
         NEW_GAME_MAIL = "newGameMail", "New Game Mail", bool
+        PM_MAIL = "pmMail", "PM Mail", bool
         POST_SIDE = "postSide", "Post Side", str
+        PRONOUNS = "pronouns", "Pronouns", str
         REFERENCE = "reference", "Reference", str
+        SHOW_AGE = "showAge", "Show Age", bool
         SHOW_AVATARS = "showAvatars", "Show Avatars", bool
         SHOW_TZ = "showTZ", "Show Timezone", bool
         TIMEZONE = "timezone", "Timezone", str
@@ -42,8 +53,8 @@ class UserMeta(Base):
             raise ValidationError(f"{self.key} must be a {str(cast_type)[8:-2]}")
         if self.key == self.MetaKeys.POST_SIDE.value:
             value = value.lower()
-            if value not in ["l", "r"]:
-                raise ValidationError("Post Side must either be 'l' or 'r'")
+            if value not in get_args(PostSide):
+                raise ValidationError("Post Side must either be 'l', 'r', or 'c'")
         elif cast_type is bool:
             value = 1 if value else 0
 

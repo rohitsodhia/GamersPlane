@@ -60,9 +60,8 @@ function Header() {
 	return (
 		<header className={`${location.pathname === "/" ? "landing" : ""}`}>
 			<div className="page-wrap">
-				<Link to="/">
+				<Link id="header_logo" to="/">
 					<img
-						id="header_logo"
 						src={`/images/${logo_path}${theme === "dark" ? "_dark" : ""}.png`}
 						alt="Gamers' Plane Logo"
 					/>
@@ -111,6 +110,9 @@ function Header() {
 									popover="auto"
 									ref={userPopoverRef}
 								>
+									<li>
+										<Link to="/profile">Edit Profile</Link>
+									</li>
 									<li>
 										<ThemeToggle showLabel />
 									</li>

@@ -1,7 +1,9 @@
+from datetime import date
+
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
-from app.models import User
+from app.models import User, UserMeta
 
 
 class UserRepository:
@@ -22,3 +24,27 @@ class UserRepository:
             select(User).where(User.email == email).limit(1)
         )
         return user
+
+    async def update_user_meta(
+        self, user: User, updates: dict[UserMeta.MetaKeys, str | bool | date | None]
+    ) -> None:
+        meta_by_key = {meta.key: meta for meta in user.meta}
+        for key, value in updates.items():
+            stored_value = value.isoformat() if isinstance(value, date) else value
+            existing_user_meta = meta_by_key.get(key.value)
+            if existing_user_meta:
+                existing_user_meta.value = stored_value
+            else:
+                user.meta.append(
+                    UserMeta(user_id=user.id, key=key.value, value=stored_value)
+                )
+
+        self.db_session.add(user)
+
+    async def delete_user_meta(self, user: User, key: UserMeta.MetaKeys) -> None:
+        existing_user_meta = next(
+            (meta for meta in user.meta if meta.key == key.value), None
+        )
+        if existing_user_meta:
+            user.meta.remove(existing_user_meta)
+            await self.db_session.delete(existing_user_meta)

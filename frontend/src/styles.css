@@ -1,6 +1,7 @@
 @layer normalize;
 @import url("normalize.css") layer(normalize);
 @import url("fonts.css");
+@import url("rpg-awesome.css");
 
 :root {
     --bg-light: oklch(1 0 0);
@@ -8,11 +9,15 @@
 
     --bg: light-dark(var(--bg-light), var(--bg-dark));
     --bg-inverse: light-dark(var(--bg-dark), var(--bg-light));
-    --text: light-dark(oklch(0.25 0 0) . oklch(0.94 0 0));
+    --text: light-dark(oklch(0.25 0 0), oklch(0.94 0 0));
 
     --gp-red: oklch(0.51 0.19 25.9);
     --gp-light-red: oklch(from var(--gp-red) calc(l * 1.1) c h);
     --gp-orange: oklch(0.62 0.16 53.46);
+
+    --line-height: 1.5em;
+
+    accent-color: var(--gp-red);
 }
 
 :root[data-theme="dark"] {
@@ -33,13 +38,20 @@ body {
     flex-direction: column;
     background: var(--bg);
     color: var(--text);
+    line-height: var(--line-height);
 }
 
-input:not([type="image"]) {
+input:not([type="image"]),
+select,
+textarea {
     padding: 0.3em 0.5em;
     border: 1px solid light-dark(#666, #888);
-    border-radius: 0.2em;
+    border-radius: 0.3em;
     background-color: light-dark(#eee, #444);
+}
+
+input:is([type="radio"], [type="checkbox"]) {
+    margin-right: 0.5em;
 }
 
 a,
@@ -99,6 +111,7 @@ p {
 }
 
 h1.headerbar,
+h2.headerbar,
 .trap-btn {
     /* clip-path: polygon(1em 0%, 100% 0%, calc(100% - 1em) 100%, 0% 100%); */
     position: relative;
@@ -116,15 +129,28 @@ h1.headerbar,
     }
 }
 
-h1.headerbar {
+h1.headerbar,
+h2.headerbar {
     background-color: transparent;
-    margin-bottom: 0.7em;
+    margin-block: 0.7em;
     font-family: "AgencyFB";
-    font-size: 2em;
     font-weight: normal;
+}
+
+h1.headerbar {
+    font-size: 2em;
 
     &::before {
         background-color: var(--gp-orange);
+    }
+}
+
+h2.headerbar {
+    font-size: 1.7em;
+    padding-inline: 0.75em;
+
+    &::before {
+        background-color: oklch(0.25 0 0);
     }
 }
 
@@ -174,6 +200,18 @@ h1.headerbar {
     text-align: right;
 }
 
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 header {
     position: sticky;
     top: 0;
@@ -198,11 +236,13 @@ header {
     }
 
     #header_logo {
-        height: 90%;
-        object-fit: cover;
-        color: light-dark(#231f20, #fff);
         line-height: 1em;
         align-content: center;
+
+        img {
+            height: 90%;
+            object-fit: cover;
+        }
     }
 
     nav {
@@ -230,35 +270,6 @@ header {
 
             &:hover {
                 text-decoration: underline;
-            }
-        }
-
-        #header_register,
-        #header_login {
-            a {
-                font-weight: normal;
-            }
-        }
-
-        #header_login a {
-            color: light-dark(var(--gp-red), var(--gp-light-red));
-        }
-
-        #header_register,
-        #header_theme_toggle,
-        #header_avatar {
-            position: relative;
-            padding-left: calc(10px * 2 + 2px);
-
-            &::before {
-                content: "";
-                position: absolute;
-                left: 10px;
-                top: 50%;
-                transform: translateY(-50%);
-                width: 2px;
-                height: 2.5em;
-                background: #999;
             }
         }
 
@@ -339,7 +350,38 @@ header {
         }
     }
 
+    #header_register,
+    #header_login {
+        a {
+            font-weight: normal;
+        }
+    }
+
+    #header_login a {
+        color: light-dark(var(--gp-red), var(--gp-light-red));
+    }
+
+    #header_register,
+    #header_theme_toggle,
     #header_avatar {
+        position: relative;
+        padding-left: calc(10px * 2 + 2px);
+
+        &::before {
+            content: "";
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 2px;
+            height: 2.5em;
+            background: #999;
+        }
+    }
+
+    #header_avatar {
+        padding-left: calc(10px * 2 + 0.75em);
+
         & > button {
             height: 2.5em;
             border: 1px solid var(--gp-red);
@@ -388,6 +430,10 @@ main {
     position: relative;
     flex-grow: 1;
     margin-block: 20px;
+
+    & > div > *:first-child {
+        margin-top: 0;
+    }
 }
 
 @keyframes loading-pulse {
@@ -601,5 +647,88 @@ footer {
 
     h3 {
         margin-top: 0.75em;
+    }
+}
+
+#settings_page form {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 1em;
+
+    & > div:not(.is-container) {
+        display: contents;
+    }
+
+    & > div > *:nth-child(1):not(button) {
+        font-weight: bold;
+    }
+
+    .center-vertically {
+        align-content: center;
+    }
+
+    .push-down {
+        margin-top: 0.4em;
+    }
+
+    div label {
+        margin-right: 1em;
+    }
+
+    textarea {
+        width: 100%;
+        max-width: 400px;
+        height: calc(var(--line-height) * 3);
+    }
+
+    .center {
+        display: flex;
+        justify-content: center;
+    }
+
+    .success-banner {
+        margin-bottom: 0;
+        width: fit-content;
+        opacity: 0;
+        transition: opacity 1s ease;
+    }
+
+    .success-banner.is-visible {
+        opacity: 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .success-banner {
+            transition: none;
+        }
+    }
+
+    &#security-form {
+        & > div:first-child {
+            display: block;
+            grid-column: span 2;
+            width: 0;
+            min-width: 100%;
+        }
+    }
+
+    .explanation {
+        font-size: 0.8em;
+        margin-top: 0.5em;
+    }
+
+    .error {
+        margin-top: 0.5em;
+        color: var(--gp-red);
+    }
+}
+
+#edit_settings_avatar {
+    input[type="file"] {
+        margin-block: 0.5em;
+    }
+    p {
+        font-size: 0.85em;
+        margin-bottom: 0;
     }
 }

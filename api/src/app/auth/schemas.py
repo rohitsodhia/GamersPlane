@@ -39,14 +39,12 @@ class PasswordResetResponse(BaseModel):
     valid_token: bool
 
 
+class RefreshResponse(BaseModel):
+    jwt: str
+
+
 class ResetPasswordInput(BaseModel):
     email: EmailStr
     token: str
     password: Password
     confirm_password: Password
-
-
-class UserOutput(BaseModel):
-    id: int
-    username: str
-    avatar: str

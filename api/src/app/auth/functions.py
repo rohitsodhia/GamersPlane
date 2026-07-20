@@ -5,6 +5,18 @@ from app.configs import configs
 from app.database import DBSessionDependency, session_manager
 from app.helpers.email import get_template, send_email
 from app.models import AccountActivationToken, User
+from app.schemas import ErrorItem
+
+
+def validate_password_change(password: str, confirm_password: str) -> list[ErrorItem]:
+    errors: list[ErrorItem] = []
+    if password != confirm_password:
+        errors.append(
+            ErrorItem(code="password_mismatch", detail="Passwords do not match")
+        )
+    if User.validate_password(password):
+        errors.append(ErrorItem(code="invalid_password", detail="Invalid password"))
+    return errors
 
 
 async def get_activation_link(user: User) -> str:

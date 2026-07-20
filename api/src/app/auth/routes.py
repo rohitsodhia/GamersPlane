@@ -3,7 +3,11 @@ from pydantic import EmailStr
 from sqlalchemy import func, or_, select
 
 from app.auth import schemas
-from app.auth.functions import activate_account, send_activation_email
+from app.auth.functions import (
+    activate_account,
+    send_activation_email,
+    validate_password_change,
+)
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.helpers.decorators import public
@@ -52,6 +56,14 @@ async def login(user_details: schemas.UserInput, db_session: DBSessionDependency
         status_code=status.HTTP_404_NOT_FOUND,
         errors=[ErrorItem(code="invalid_user", detail="Invalid username or password")],
     )
+
+
+@auth.post(
+    "/refresh",
+    response_model=schemas.RefreshResponse,
+)
+async def refresh(current_user: AuthedUser):
+    return {"jwt": current_user.generate_jwt()}
 
 
 @auth.post(
@@ -167,14 +179,9 @@ async def reset_password(
             errors=[ErrorItem(code="invalid_token", detail="Invalid token")],
         )
 
-    errors: list[ErrorItem] = []
-    if reset_details.password != reset_details.confirm_password:
-        errors.append(
-            ErrorItem(code="password_mismatch", detail="Passwords do not match")
-        )
-    pass_invalid = User.validate_password(reset_details.password)
-    if len(pass_invalid):
-        errors.append(ErrorItem(code="invalid_password", detail="Invalid password"))
+    errors = validate_password_change(
+        reset_details.password, reset_details.confirm_password
+    )
 
     if errors:
         return error_response(status_code=status.HTTP_400_BAD_REQUEST, errors=errors)
@@ -186,12 +193,3 @@ async def reset_password(
     db_session.add(password_reset)
 
     return {"success": True}
-
-
-@auth.get("/me", response_model=schemas.UserOutput)
-async def get_current_user(current_user: AuthedUser):
-    return {
-        "id": current_user.id,
-        "username": current_user.username,
-        "avatar": f"{configs.AVATARS_ROOT}/{current_user.avatar}",
-    }

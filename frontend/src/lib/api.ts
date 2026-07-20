@@ -23,7 +23,9 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 	const response = await fetch(`${apiBaseUrl}${path}`, {
 		...restOptions,
 		headers: {
-			"Content-Type": "application/json",
+			...(options.body instanceof FormData
+				? {}
+				: { "Content-Type": "application/json" }),
 			...(token ? { Authorization: `Bearer ${token}` } : {}),
 			...(headers instanceof Headers
 				? Object.fromEntries(headers.entries())
