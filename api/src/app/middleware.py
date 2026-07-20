@@ -1,10 +1,11 @@
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Request
 
 from app.configs import configs
 from app.database import DBSessionDependency
+from app.exceptions import ForbiddenException
 from app.models import User
 from app.repositories.user_repository import UserRepository
 
@@ -41,4 +42,4 @@ async def check_authorization(request: Request):
     public = getattr(request.scope["route"].endpoint, "is_public", False)
 
     if not public and request.scope.get("user") is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        raise ForbiddenException()
