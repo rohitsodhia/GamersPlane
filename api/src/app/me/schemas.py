@@ -63,3 +63,13 @@ class UpdateAvatarResponse(BaseModel):
 
 class DeleteAvatarResponse(BaseModel):
     success: bool = True
+
+
+class UpdatePasswordInput(BaseModel):
+    oldPassword: str
+    password: Password
+    confirmPassword: Password
+
+
+class UpdatePasswordResponse(BaseModel):
+    success: bool = True

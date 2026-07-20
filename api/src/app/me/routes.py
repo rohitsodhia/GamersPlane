@@ -4,12 +4,15 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from PIL import Image, UnidentifiedImageError
 
+from app.auth.functions import validate_password_change
 from app.configs import configs
 from app.database import DBSessionDependency
+from app.helpers.functions import error_response
 from app.me import schemas
 from app.middleware import AuthedUser
 from app.models import UserMeta
 from app.repositories.user_repository import UserRepository
+from app.schemas import ErrorItem
 
 me = APIRouter(prefix="/me")
 
@@ -25,6 +28,9 @@ _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
     "pmMail": UserMeta.MetaKeys.PM_MAIL,
     "newGameMail": UserMeta.MetaKeys.NEW_GAME_MAIL,
     "gmMail": UserMeta.MetaKeys.GM_MAIL,
+    "postSide": UserMeta.MetaKeys.POST_SIDE,
+    "lookingForAGame": UserMeta.MetaKeys.LOOKING_FOR_A_GAME,
+    "games": UserMeta.MetaKeys.GAMES,
 }
 
 
@@ -154,3 +160,34 @@ async def delete_current_user_avatar(
     return {
         "success": True,
     }
+
+
+@me.post(
+    "/password",
+    response_model=schemas.UpdatePasswordResponse,
+)
+async def update_current_user_password(
+    password_details: schemas.UpdatePasswordInput,
+    current_user: AuthedUser,
+    db_session: DBSessionDependency,
+):
+    if not current_user.check_pass(password_details.oldPassword):
+        return error_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            errors=[
+                ErrorItem(
+                    code="invalid_old_password", detail="Old password is incorrect"
+                )
+            ],
+        )
+
+    errors = validate_password_change(
+        password_details.password, password_details.confirmPassword
+    )
+    if errors:
+        return error_response(status_code=status.HTTP_400_BAD_REQUEST, errors=errors)
+
+    current_user.set_password(password_details.password)
+    db_session.add(current_user)
+
+    return {"success": True}

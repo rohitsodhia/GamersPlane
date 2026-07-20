@@ -3,12 +3,17 @@ from pydantic import EmailStr
 from sqlalchemy import func, or_, select
 
 from app.auth import schemas
-from app.auth.functions import activate_account, send_activation_email
+from app.auth.functions import (
+    activate_account,
+    send_activation_email,
+    validate_password_change,
+)
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.helpers.decorators import public
 from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
+from app.middleware import AuthedUser
 from app.models import PasswordResetToken, User
 from app.repositories import UserRepository
 from app.schemas import ErrorItem
@@ -174,14 +179,9 @@ async def reset_password(
             errors=[ErrorItem(code="invalid_token", detail="Invalid token")],
         )
 
-    errors: list[ErrorItem] = []
-    if reset_details.password != reset_details.confirm_password:
-        errors.append(
-            ErrorItem(code="password_mismatch", detail="Passwords do not match")
-        )
-    pass_invalid = User.validate_password(reset_details.password)
-    if len(pass_invalid):
-        errors.append(ErrorItem(code="invalid_password", detail="Invalid password"))
+    errors = validate_password_change(
+        reset_details.password, reset_details.confirm_password
+    )
 
     if errors:
         return error_response(status_code=status.HTTP_400_BAD_REQUEST, errors=errors)
