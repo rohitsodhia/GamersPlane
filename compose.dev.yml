@@ -21,6 +21,8 @@ services:
             - 5432:5432
         environment:
             - POSTGRES_PASSWORD=test123
+        volumes:
+            - ./docker/postgres:/docker-entrypoint-initdb.d
 
     # frontend:
     #     build:
