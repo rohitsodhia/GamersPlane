@@ -1,5 +1,6 @@
+import factory
 from factory.alchemy import SQLAlchemyModelFactory
-from factory.declarations import LazyAttribute, LazyFunction, Sequence
+from factory.declarations import Sequence
 
 from app.models import User
 
@@ -7,17 +8,16 @@ from app.models import User
 class UserFactory(SQLAlchemyModelFactory):
     class Meta:  # type: ignore[misc]
         model = User
-        exclude = ["raw_password"]
 
-    raw_password: str = "ValidPass1!"
-
+    username = Sequence(lambda n: f"user{n}")
     email = Sequence(lambda n: f"user{n}@example.com")
-    display_name = Sequence(lambda n: f"user{n}")
-    password = LazyAttribute(lambda o: User.hash_password(o.raw_password))
-    activated_on = None
+
+    @factory.post_generation
+    def password(obj, create, extracted, **kwargs):
+        obj.set_password(extracted or "ValidPass1!")
 
 
 class ActivatedUserFactory(UserFactory):
-    activated_on = LazyFunction(
-        lambda: __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
-    )
+    @factory.post_generation
+    def activated_on(obj, create, extracted, **kwargs):
+        obj.activate()
