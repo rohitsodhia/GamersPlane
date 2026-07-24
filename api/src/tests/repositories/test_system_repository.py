@@ -54,3 +54,58 @@ class TestSystemRepository:
         systems = (await repository.get()).all()
 
         assert systems == []
+
+    async def test_get_excludes_disabled_by_default(self, repository, create):
+        publisher = await create(PublisherFactory)
+        await repository.add(
+            id="enabled-system",
+            name="Enabled",
+            sort_name="Enabled",
+            publisher_id=publisher.id,
+            genres=[],
+            basics=[],
+            enabled=True,
+        )
+        await repository.add(
+            id="disabled-system",
+            name="Disabled",
+            sort_name="Disabled",
+            publisher_id=publisher.id,
+            genres=[],
+            basics=[],
+            enabled=False,
+        )
+
+        systems = (await repository.get()).all()
+
+        assert [system.id for system in systems] == ["enabled-system"]
+
+    async def test_get_includes_disabled_when_only_enabled_is_false(
+        self, repository, create
+    ):
+        publisher = await create(PublisherFactory)
+        await repository.add(
+            id="enabled-system",
+            name="Enabled",
+            sort_name="Enabled",
+            publisher_id=publisher.id,
+            genres=[],
+            basics=[],
+            enabled=True,
+        )
+        await repository.add(
+            id="disabled-system",
+            name="Disabled",
+            sort_name="Disabled",
+            publisher_id=publisher.id,
+            genres=[],
+            basics=[],
+            enabled=False,
+        )
+
+        systems = (await repository.get(only_enabled=False)).all()
+
+        assert sorted(system.id for system in systems) == [
+            "disabled-system",
+            "enabled-system",
+        ]
