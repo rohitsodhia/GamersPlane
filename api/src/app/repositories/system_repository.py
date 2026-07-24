@@ -8,12 +8,15 @@ class SystemRepository:
     def __init__(self, db_session):
         self.db_session = db_session
 
-    async def get(self):
-        return await self.db_session.scalars(
-            select(System).options(
-                selectinload(System.publisher), selectinload(System.genres)
-            )
+    async def get(self, only_enabled: bool = True):
+        query = (
+            select(System)
+            .order_by(System.sort_name)
+            .options(selectinload(System.publisher), selectinload(System.genres))
         )
+        if only_enabled:
+            query = query.where(System.enabled)
+        return await self.db_session.scalars(query)
 
     async def add(
         self,
