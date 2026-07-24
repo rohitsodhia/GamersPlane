@@ -43,17 +43,17 @@ uv run ruff check src/
 # Format
 uv run ruff format src/
 
-# Run all tests (from api/src/)
-cd src && uv run pytest
+# Run all tests (via the dockerized API container)
+./docker/api_tests
 
 # Run a single test file
-cd src && uv run pytest tests/auth/test_user.py
+./docker/api_tests tests/referral_links/test_routes.py
 
 # Run a single test by name
-cd src && uv run pytest tests/auth/test_user.py::test_name
+./docker/api_tests tests/referral_links/test_routes.py::TestGetReferralLinks::test_get_referral_links_is_public
 ```
 
-Tests use a real PostgreSQL database named `{DATABASE_DATABASE}_test` (drops/recreates tables on each test function). There is no mocking of the database layer.
+`docker/api_tests` runs `pytest` inside the `gamersplane-api` container (`docker exec -i -w /app/src gamersplane-api pytest $@`), so the stack must be up (`./compose.sh -e dev up`) before running tests. Tests use a real PostgreSQL database named `{DATABASE_DATABASE}_test` (drops/recreates tables on each test function). There is no mocking of the database layer.
 
 **Alembic migrations** live in `api/src/alembic/`. Run via `api/src/scripts/alembic.sh`.
 
@@ -116,6 +116,10 @@ All routes require authentication by default. Mark a route handler with `@public
 ### Repositories
 
 `src/app/repositories/` contains data access classes. `legacy/` subdirectory holds repositories for the legacy schema.
+
+### Legacy code
+
+Anything under a `legacy/` directory or `legacy_routes.py` (routes, models, repositories) is compatibility scaffolding for the old PHP frontend and will be deleted once the rebuild is complete. It is not under active development. Do not write tests for it, refactor it, or otherwise touch it unless explicitly asked to.
 
 ## Frontend Architecture
 

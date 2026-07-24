@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from alembic import command
 from app.configs import configs
-from app.database import get_db_session, session_manager
+from app.database import get_db_session, get_legacy_db_session, session_manager
 from app.main import create_app
 
 
@@ -92,7 +92,11 @@ async def client(db_session, wrap_in_savepoint):
     async def override_get_db_session():
         yield db_session
 
+    async def override_get_legacy_db_session():
+        yield AsyncMock()
+
     app.dependency_overrides[get_db_session] = override_get_db_session
+    app.dependency_overrides[get_legacy_db_session] = override_get_legacy_db_session
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
