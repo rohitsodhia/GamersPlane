@@ -37,11 +37,11 @@ export function systemsQueryOptions(params?: {
 }): UseSuspenseQueryOptions<System[]>;
 // biome-ignore lint/suspicious/noExplicitAny: overload implementation signature requires any to satisfy return type compatibility
 export function systemsQueryOptions(params: { basic?: boolean } = {}): any {
-	const search = params.basic ? "?basic=true" : "";
+	const path = params.basic ? "/systems/basic" : "/systems/";
 	return queryOptions({
 		queryKey: ["systems", params],
 		queryFn: async () => {
-			const res = await apiFetch(`/systems/${search}`);
+			const res = await apiFetch(path);
 			if (!res.ok) throw new Error("Failed to fetch systems");
 			return (await res.json()).systems;
 		},
