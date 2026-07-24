@@ -94,7 +94,7 @@ async def register(
             username=user_details.username,
             password=user_details.password,
         )
-        await send_activation_email(new_user)
+        await send_activation_email(db_session, new_user)
 
         return {"registered": True}
     except UserExists as e:
@@ -112,7 +112,7 @@ async def resend_activation(
     user_repository = UserRepository(db_session)
     user = await user_repository.get_user_by_email(email)
     if user:
-        await send_activation_email(user)
+        await send_activation_email(db_session, user)
     return {"success": True}
 
 
@@ -160,8 +160,12 @@ async def generate_password_reset(
     response_model=schemas.PasswordResetResponse,
 )
 @public
-async def check_password_reset(email: EmailStr, token: str):
-    valid_token = await PasswordResetToken.validate_token(token=token, email=email)
+async def check_password_reset(
+    email: EmailStr, token: str, db_session: DBSessionDependency
+):
+    valid_token = await PasswordResetToken.validate_token(
+        db_session, token=token, email=email
+    )
     return {"valid_token": bool(valid_token)}
 
 
@@ -171,7 +175,7 @@ async def reset_password(
     reset_details: schemas.ResetPasswordInput, db_session: DBSessionDependency
 ):
     password_reset = await PasswordResetToken.validate_token(
-        token=reset_details.token, email=reset_details.email
+        db_session, token=reset_details.token, email=reset_details.email
     )
     if not password_reset:
         return error_response(

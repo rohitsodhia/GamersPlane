@@ -3,9 +3,9 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, String, Uuid, func, select
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, joinedload, mapped_column, relationship
 
-from app.database import session_manager
 from app.helpers.enums import LabelEnum
 from app.models.base import Base, TimestampMixin
 from app.models.user import User
@@ -34,22 +34,23 @@ class Token(Base, TimestampMixin):
     }
 
     @staticmethod
-    async def validate_token(token: str, email: str | None = None) -> "Token | None":
-        async with session_manager.session() as db_session:
-            get_token_query = (
-                select(Token)
-                .options(joinedload(Token.user))
-                .where(Token.token == token)
-                .limit(1)
+    async def validate_token(
+        db_session: AsyncSession, token: str, email: str | None = None
+    ) -> "Token | None":
+        get_token_query = (
+            select(Token)
+            .options(joinedload(Token.user))
+            .where(Token.token == token)
+            .limit(1)
+        )
+        if email:
+            get_token_query = get_token_query.join(Token.user).where(
+                User.email == email
             )
-            if email:
-                get_token_query = get_token_query.join(Token.user).where(
-                    User.email == email
-                )
-            try:
-                token_obj = await db_session.scalar(get_token_query)
-            except DBAPIError:
-                return None
+        try:
+            token_obj = await db_session.scalar(get_token_query)
+        except DBAPIError:
+            return None
 
         return token_obj if token_obj else None
 
