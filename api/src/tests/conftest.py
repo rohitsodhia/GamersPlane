@@ -78,11 +78,12 @@ async def db_session(db_connection):
 
 
 @pytest.fixture(autouse=False)
-async def wrap_in_savepoint(db_connection):
+async def wrap_in_savepoint(db_connection, db_session):
     """Roll back to a savepoint after each test to keep data isolation."""
     await db_connection.begin_nested()
     yield
     await db_connection.rollback()
+    db_session.expunge_all()
 
 
 @pytest.fixture(scope="function")
