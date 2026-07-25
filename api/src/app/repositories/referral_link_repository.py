@@ -21,7 +21,7 @@ class ReferralLinkRepository:
         link: str,
         order: int,
         enabled: bool = True,
-    ):
+    ) -> ReferralLink:
         referral_link = ReferralLink(
             title=title,
             link=link,
@@ -29,3 +29,5 @@ class ReferralLinkRepository:
             enabled=enabled,
         )
         self.db_session.add(referral_link)
+        await self.db_session.flush()
+        return referral_link

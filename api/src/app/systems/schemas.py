@@ -24,3 +24,15 @@ class SystemSchema(BaseModel):
 
 class GetSystemsResponse(BaseModel):
     systems: list[SystemSchema]
+
+
+class BasicSystemSchema(BaseModel):
+    id: str
+    name: str
+    sort_name: str
+    genres: list[str] = []
+    has_char_sheet: bool
+
+
+class GetBasicSystemsResponse(BaseModel):
+    systems: list[BasicSystemSchema]

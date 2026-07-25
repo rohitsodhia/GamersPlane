@@ -1,8 +1,8 @@
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.configs import configs
-from app.database import DBSessionDependency, session_manager
 from app.helpers.email import get_template, send_email
 from app.models import AccountActivationToken, User
 from app.schemas import ErrorItem
@@ -19,21 +19,21 @@ def validate_password_change(password: str, confirm_password: str) -> list[Error
     return errors
 
 
-async def get_activation_link(user: User) -> str:
-    async with session_manager.session() as db_session:
-        account_activation_token = await db_session.scalar(
-            select(AccountActivationToken)
-            .where(AccountActivationToken.user_id == user.id)
-            .limit(1)
-        )
-        if not account_activation_token:
-            account_activation_token = AccountActivationToken(user=user)
-            db_session.add(account_activation_token)
+async def get_activation_link(db_session: AsyncSession, user: User) -> str:
+    account_activation_token = await db_session.scalar(
+        select(AccountActivationToken)
+        .where(AccountActivationToken.user_id == user.id)
+        .limit(1)
+    )
+    if not account_activation_token:
+        account_activation_token = AccountActivationToken(user_id=user.id)
+        db_session.add(account_activation_token)
+        await db_session.flush()
 
     return f"{configs.HOST_NAME}/activate/{account_activation_token.token}"
 
 
-async def activate_account(db_session: DBSessionDependency, token: str) -> bool:
+async def activate_account(db_session: AsyncSession, token: str) -> bool:
     account_activation_token = await db_session.scalar(
         select(AccountActivationToken)
         .options(joinedload(AccountActivationToken.user))
@@ -48,9 +48,9 @@ async def activate_account(db_session: DBSessionDependency, token: str) -> bool:
     return True
 
 
-async def send_activation_email(user: User) -> None:
+async def send_activation_email(db_session: AsyncSession, user: User) -> None:
     email_content = get_template(
         "auth/templates/activation.html",
-        activation_link=await get_activation_link(user),
+        activation_link=await get_activation_link(db_session, user),
     )
     send_email(user.email, "Activate your Gamers' Plane account!", email_content)

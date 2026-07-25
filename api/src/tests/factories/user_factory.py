@@ -1,24 +1,23 @@
-import math
-import random
-from datetime import datetime
-
 import factory
-from mimesis import Generic
-from mimesis_factory import MimesisField
-from users.models import User
+from factory.alchemy import SQLAlchemyModelFactory
+from factory.declarations import Sequence
 
-random_seed = math.floor(random.random() * 100000)
-mimesis = Generic(seed=random_seed)
+from app.models import User
 
 
-class UserFactory(factory.Factory):
-    class Meta(object):
+class UserFactory(SQLAlchemyModelFactory):
+    class Meta:  # type: ignore[misc]
         model = User
 
-    username = MimesisField("username", template="l_d")
-    password = "test1234"
-    email = factory.LazyAttribute(
-        lambda instance: "{0}@test.com".format(instance.username)
-    )
-    joinDate = datetime.now()
-    activatedOn = datetime.now()
+    username = Sequence(lambda n: f"user{n}")
+    email = Sequence(lambda n: f"user{n}@example.com")
+
+    @factory.post_generation
+    def password(obj, create, extracted, **kwargs):
+        obj.set_password(extracted or "ValidPass1!")
+
+
+class ActivatedUserFactory(UserFactory):
+    @factory.post_generation
+    def activated_on(obj, create, extracted, **kwargs):
+        obj.activate()

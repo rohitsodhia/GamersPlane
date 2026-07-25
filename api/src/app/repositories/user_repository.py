@@ -40,6 +40,7 @@ class UserRepository:
                 )
 
         self.db_session.add(user)
+        await self.db_session.flush()
 
     async def delete_user_meta(self, user: User, key: UserMeta.MetaKeys) -> None:
         existing_user_meta = next(
@@ -48,3 +49,4 @@ class UserRepository:
         if existing_user_meta:
             user.meta.remove(existing_user_meta)
             await self.db_session.delete(existing_user_meta)
+            await self.db_session.flush()

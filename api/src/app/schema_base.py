@@ -31,8 +31,9 @@ def filtered_str(
     if pipelines is None:
         pipelines = DEFAULT_PIPELINES
     pipelines = list(dict.fromkeys(pipelines))
+    default = kwargs.pop("default", None)
     return Field(
-        default=kwargs.get("default"),
+        default=default,
         json_schema_extra=cast(JsonDict, {"pipelines": pipelines}),
         **kwargs,
     )
