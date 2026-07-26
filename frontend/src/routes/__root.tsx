@@ -9,6 +9,7 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import Footer from "#/components/Footer";
 import Header from "#/components/Header";
+import NotFound from "#/components/NotFound";
 import TanStackQueryDevtools from "#/integrations/tanstack-query/devtools";
 import { isTokenExpiringSoon, isTokenValid } from "#/lib/jwt";
 import { meQueryOptions } from "#/queries/me";
@@ -72,6 +73,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 				: []),
 		]);
 	},
+	notFoundComponent: NotFound,
 });
 
 function RootLayout() {
