@@ -1,5 +1,5 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import type { QueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQuery } from "@tanstack/react-query";
 import {
 	createRootRouteWithContext,
 	HeadContent,
@@ -7,8 +7,10 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { useEffect, useState } from "react";
 import Footer from "#/components/Footer";
 import Header from "#/components/Header";
+import NotFound from "#/components/NotFound";
 import TanStackQueryDevtools from "#/integrations/tanstack-query/devtools";
 import { isTokenExpiringSoon, isTokenValid } from "#/lib/jwt";
 import { meQueryOptions } from "#/queries/me";
@@ -72,16 +74,30 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 				: []),
 		]);
 	},
+	notFoundComponent: NotFound,
 });
 
 function RootLayout() {
+	const token = useAuthStore((state) => state.token);
+	const { isFetched: meFetched } = useQuery({ ...meQueryOptions, enabled: !!token });
+	const { isFetched: referralLinksFetched } = useQuery(referralLinksQueryOptions);
+
+	const [mounted, setMounted] = useState(false);
+	useEffect(() => setMounted(true), []);
+	// `mounted` is false during SSR/the static shell build (effects never run there)
+	// and on the client's first hydration commit, so this stays consistent across
+	// both — Header/Footer only mount once we actually know the freshly-loaded data,
+	// instead of briefly rendering the shell's build-time content before it flips.
+	const authResolved = mounted && (!token || meFetched);
+	const referralLinksResolved = mounted && referralLinksFetched;
+
 	return (
 		<>
-			<Header />
+			{authResolved && <Header />}
 			<main className="page-wrap">
 				<Outlet />
 			</main>
-			<Footer />
+			{referralLinksResolved && <Footer />}
 		</>
 	);
 }

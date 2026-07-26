@@ -3,7 +3,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ApiError } from "#/lib/api";
-import { requireAuth } from "#/lib/auth-route";
+import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
 import {
 	deleteUserAvatar,
 	meFullQueryOptions,
@@ -15,7 +15,11 @@ import {
 
 export const Route = createFileRoute("/profile")({
 	beforeLoad: requireAuth,
-	loader: ({ context }) => context.queryClient.ensureQueryData(meFullQueryOptions),
+	loader: ({ context, location }) =>
+		redirectToLoginOnAuthFailure(
+			context.queryClient.ensureQueryData(meFullQueryOptions),
+			location,
+		),
 	component: RouteComponent,
 });
 
@@ -456,6 +460,7 @@ function RouteComponent() {
 									maxLength={32}
 									value={field.state.value}
 									onChange={(e) => field.handleChange(e.target.value)}
+									autoComplete="new-password"
 								/>
 								<div className="explanation">
 									Password must be between 8-32 characters
@@ -492,6 +497,7 @@ function RouteComponent() {
 										value={field.state.value}
 										onBlur={field.handleBlur}
 										onChange={(e) => field.handleChange(e.target.value)}
+										autoComplete="new-password"
 									/>
 									{field.state.meta.errors.length > 0 && (
 										<div className="error">{field.state.meta.errors.join(", ")}</div>
