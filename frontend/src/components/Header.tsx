@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ThemeToggle from "#/components/ThemeToggle";
 import { meQueryOptions } from "#/queries/me";
 import { useAuthStore } from "#/stores/auth";
