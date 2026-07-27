@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import bcrypt
 from dotenv import load_dotenv
 from sqlalchemy import URL
 
@@ -17,6 +18,21 @@ from alembic import command
 from app.configs import configs
 from app.database import get_db_session, get_legacy_db_session, session_manager
 from app.main import create_app
+
+
+@pytest.fixture(scope="session", autouse=True)
+def fast_bcrypt():
+    """Use bcrypt's minimum cost factor for the test process only.
+
+    Production code always calls bcrypt.gensalt() with its real default
+    (12 rounds); there is no env var or config path that could carry a
+    weakened cost factor into a non-test environment. 4 is the lowest
+    value bcrypt allows (ValueError below that).
+    """
+    original_gensalt = bcrypt.gensalt
+    bcrypt.gensalt = lambda *args, **kwargs: original_gensalt(rounds=4)
+    yield
+    bcrypt.gensalt = original_gensalt
 
 
 @pytest.fixture(scope="session")
