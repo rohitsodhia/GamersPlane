@@ -27,6 +27,7 @@ class PMsListResponse(SchemaBase):
     pms: list[PM]
     count: int
     page: int
+    limit: int
 
 
 class PMWithHistory(PM):

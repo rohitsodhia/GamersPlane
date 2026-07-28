@@ -61,7 +61,7 @@ async def get_pms(
 
     pm_count = await pm_repository.count_pms(user_id=authed_user.id, box=box)
 
-    return {"pms": pm_response, "count": pm_count or 0, "page": page}
+    return {"pms": pm_response, "count": pm_count or 0, "page": page, "limit": limit}
 
 
 @pms.get("/{id}", response_model=schemas.GetPMResponse)

@@ -65,6 +65,7 @@ class TestGetPMs:
         body = response.json()
         assert len(body["pms"]) == 2
         assert body["count"] == 3
+        assert body["limit"] == 2
 
 
 class TestGetPM:
