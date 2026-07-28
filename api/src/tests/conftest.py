@@ -5,9 +5,9 @@ import bcrypt
 from dotenv import load_dotenv
 from sqlalchemy import URL
 
-from tests.factories import ActivatedUserFactory
-
 load_dotenv(Path(__file__).parent.parent.parent / ".env.test", override=True)
+
+from tests.factories import ActivatedUserFactory
 
 import pytest
 from alembic.config import Config
