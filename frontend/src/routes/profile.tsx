@@ -399,7 +399,7 @@ function RouteComponent() {
 				</div>
 			</form>
 
-			<h2 className="headerbar hbDark">Security</h2>
+			<h2 className="headerbar hb-dark">Security</h2>
 			<form
 				id="security-form"
 				onSubmit={(e) => {

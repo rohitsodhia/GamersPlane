@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
+import { Route as PmsIndexRouteImport } from './routes/pms/index'
 import { Route as RegisterSuccessRouteImport } from './routes/register/success'
 import { Route as RegisterResendRouteImport } from './routes/register/resend'
 
@@ -48,6 +49,11 @@ const RegisterIndexRoute = RegisterIndexRouteImport.update({
   path: '/register/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PmsIndexRoute = PmsIndexRouteImport.update({
+  id: '/pms/',
+  path: '/pms/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterSuccessRoute = RegisterSuccessRouteImport.update({
   id: '/register/success',
   path: '/register/success',
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/systems': typeof SystemsRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/systems': typeof SystemsRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/pms': typeof PmsIndexRoute
   '/register': typeof RegisterIndexRoute
 }
 export interface FileRoutesById {
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/systems': typeof SystemsRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/register/resend'
     | '/register/success'
+    | '/pms/'
     | '/register/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/register/resend'
     | '/register/success'
+    | '/pms'
     | '/register'
   id:
     | '__root__'
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/register/resend'
     | '/register/success'
+    | '/pms/'
     | '/register/'
   fileRoutesById: FileRoutesById
 }
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   SystemsRoute: typeof SystemsRoute
   RegisterResendRoute: typeof RegisterResendRoute
   RegisterSuccessRoute: typeof RegisterSuccessRoute
+  PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
 }
 
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pms/': {
+      id: '/pms/'
+      path: '/pms'
+      fullPath: '/pms/'
+      preLoaderRoute: typeof PmsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register/success': {
       id: '/register/success'
       path: '/register/success'
@@ -203,6 +223,7 @@ const rootRouteChildren: RootRouteChildren = {
   SystemsRoute: SystemsRoute,
   RegisterResendRoute: RegisterResendRoute,
   RegisterSuccessRoute: RegisterSuccessRoute,
+  PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
 }
 export const routeTree = rootRouteImport
