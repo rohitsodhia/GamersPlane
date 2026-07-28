@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ThemeToggle from "#/components/ThemeToggle";
-import { meQueryOptions } from "#/queries/me";
+import { meHeaderQueryOptions, meQueryOptions } from "#/queries/me";
 import { useAuthStore } from "#/stores/auth";
 import { useThemeStore } from "#/stores/theme";
 
@@ -40,6 +40,8 @@ function Header() {
 
 	const token = useAuthStore((state) => state.token);
 	const { data: me } = useQuery({ ...meQueryOptions, enabled: !!token });
+	const { data: header } = useQuery({ ...meHeaderQueryOptions, enabled: !!token });
+	const pmCount = header?.pmCount ?? 0;
 
 	const { buttonRef: toolsButtonRef, popoverRef: toolsPopoverRef } = usePopoverAnchor(
 		(rect) => ({ top: rect.bottom, left: rect.left }),
@@ -103,6 +105,13 @@ function Header() {
 									popoverTarget="header_user_menu"
 								>
 									<img src={me.avatar} alt={me.username} />
+									{pmCount > 0 && (
+										<img
+											id="header_new_messages"
+											src="/images/envelope.jpg"
+											alt="New Messages"
+										/>
+									)}
 								</button>
 								<ul
 									id="header_user_menu"
@@ -115,6 +124,9 @@ function Header() {
 									</li>
 									<li>
 										<ThemeToggle showLabel />
+									</li>
+									<li>
+										<Link to="/pms">Messages{pmCount > 0 ? ` (${pmCount})` : ""}</Link>
 									</li>
 									<li>
 										<button type="button" className="non-button" onClick={logout}>
