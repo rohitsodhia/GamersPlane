@@ -83,3 +83,9 @@ class UpdatePasswordInput(BaseModel):
 
 class UpdatePasswordResponse(BaseModel):
     success: bool = True
+
+
+class GetHeaderResponse(BaseModel):
+    characters: list = []
+    games: list = []
+    pmCount: int = 0
