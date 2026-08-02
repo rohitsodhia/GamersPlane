@@ -120,7 +120,7 @@ class PMRepository:
     async def send_pm(
         self,
         title: str,
-        message: str,
+        message: dict,
         reply_to_id: int | None = None,
         recipient_username: str | None = None,
     ) -> PM:

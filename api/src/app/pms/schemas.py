@@ -18,7 +18,7 @@ class PM(SchemaBase):
     recipient: UserDetails
     sender: UserDetails
     title: str = filtered_str()
-    message: str = filtered_str()
+    message: dict
     datestamp: str
     reply_to_id: int | None
 
@@ -42,7 +42,7 @@ class NewPM(SchemaBase):
     username: str
     reply_to_id: int | None = None
     title: str
-    message: str
+    message: dict
 
 
 class NewPMResponse(SchemaBase):

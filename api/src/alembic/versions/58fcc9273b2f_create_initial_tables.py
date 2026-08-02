@@ -77,7 +77,7 @@ def upgrade() -> None:
         sa.Column("recipient_id", sa.Integer(), nullable=False),
         sa.Column("sender_id", sa.Integer(), nullable=False),
         sa.Column("title", sa.String(length=200), nullable=False),
-        sa.Column("message", sa.Text(), nullable=False),
+        sa.Column("message", sa.JSON(), nullable=False),
         sa.Column("datestamp", sa.DateTime(timezone=True), nullable=False),
         sa.Column("recipient_read", sa.Boolean(), nullable=False),
         sa.Column("sender_read", sa.Boolean(), nullable=False),

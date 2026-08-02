@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import JSON, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -19,7 +19,7 @@ class PM(Base, TimestampMixin):
     sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     sender: Mapped["User"] = relationship(foreign_keys=[sender_id])
     title: Mapped[str] = mapped_column(String(200))
-    message: Mapped[str] = mapped_column(Text())
+    message: Mapped[dict] = mapped_column(JSON())
     datestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), insert_default=func.now()
     )

@@ -4,7 +4,6 @@ from fastapi import APIRouter, status
 
 from app.configs import configs
 from app.database import DBSessionDependency
-from app.helpers.bbcode import BBCode2Html
 from app.helpers.functions import error_response
 from app.middleware import AuthedUser
 from app.pms import schemas
@@ -53,7 +52,7 @@ async def get_pms(
                 id=pm.sender.id, username=pm.sender.username, read=pm.sender_read
             ),
             title=pm.title,
-            message=BBCode2Html(pm.message),
+            message=pm.message,
             datestamp=str(pm.datestamp),
             reply_to_id=pm.reply_to_id,
         )
@@ -91,7 +90,7 @@ async def get_pm(
             id=pm.sender.id, username=pm.sender.username, read=pm.sender_read
         ),
         title=pm.title,
-        message=BBCode2Html(pm.message),
+        message=pm.message,
         datestamp=str(pm.datestamp),
         reply_to_id=pm.reply_to_id,
     )
@@ -111,7 +110,7 @@ async def get_pm(
                     id=pm.sender.id, username=pm.sender.username, read=pm.sender_read
                 ),
                 title=pm.title,
-                message=BBCode2Html(pm.message),
+                message=pm.message,
                 datestamp=str(pm.datestamp),
                 reply_to_id=pm.reply_to_id,
             )
