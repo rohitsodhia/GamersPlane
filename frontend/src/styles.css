@@ -13,9 +13,12 @@
 
     --gp-red: oklch(0.51 0.19 25.9);
     --gp-light-red: oklch(from var(--gp-red) calc(l * 1.1) c h);
+    --gp-dark-red: oklch(from var(--gp-red) calc(l * 0.7) c h);
     --gp-orange: oklch(0.62 0.16 53.46);
 
     --line-height: 1.5em;
+
+    --skew-angle: 20deg;
 
     accent-color: var(--gp-red);
 }
@@ -110,31 +113,41 @@ p {
     }
 }
 
-h1.headerbar,
-h2.headerbar,
+.headerbar,
 .trap-btn {
+    --hb-height: 1.7em;
+
     /* clip-path: polygon(1em 0%, 100% 0%, calc(100% - 1em) 100%, 0% 100%); */
     position: relative;
-    margin-inline: 0.5em;
-    padding-inline: 0.6em;
-    line-height: 1.7em;
+    margin-inline: calc(var(--hb-height) * 0.5 * tan(var(--skew-angle)));
+    padding-inline: calc(var(--hb-height) * 0.5 * tan(var(--skew-angle)) + 6px);
+    line-height: var(--hb-height);
     color: #fff;
 
     &::before {
         content: "";
         position: absolute;
         inset: 0;
-        transform: skewX(-20deg);
+        transform: skewX(calc(var(--skew-angle) * -1));
         z-index: -1;
+    }
+}
+
+.headerbar {
+    background-color: transparent;
+    font-weight: normal;
+
+    &.hb-dark {
+        &::before {
+            background-color: #000;
+        }
     }
 }
 
 h1.headerbar,
 h2.headerbar {
-    background-color: transparent;
-    margin-block: 0.7em;
     font-family: "AgencyFB";
-    font-weight: normal;
+    margin-block: 0.7em;
 }
 
 h1.headerbar {
@@ -169,8 +182,45 @@ h2.headerbar {
     }
 }
 
-.hb-margined {
-    margin-inline: 2em;
+/* TODO: revisit with CSS anchor positioning (anchor-name + anchor-scope,
+    scoped per-instance) once browser support is further along - was flaky
+    in current Firefox despite caniuse listing it as supported. */
+.trapezoid {
+    --trap-height: 1.5em;
+
+    position: relative;
+    margin-inline: calc(var(--trap-height) * tan(var(--skew-angle)));
+
+    &,
+    &::before,
+    &::after {
+        background: #000;
+    }
+
+    &::before,
+    &::after {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        display: block;
+        width: calc(var(--trap-height) * tan(var(--skew-angle)));
+        content: "";
+    }
+
+    &::before {
+        left: calc(-1 * var(--trap-height) * tan(var(--skew-angle)));
+        clip-path: polygon(100% 0%, 0% 100%, 100% 100%);
+    }
+
+    &::after {
+        right: calc(-1 * var(--trap-height) * tan(var(--skew-angle)));
+        clip-path: polygon(0% 0%, 0% 100%, 100% 100%);
+    }
+
+    & > * {
+        height: var(--trap-height);
+        background: #000;
+    }
 }
 
 .paginate-container {
@@ -654,7 +704,7 @@ footer {
     }
 }
 
-#settings_page form {
+#edit-profile-page form {
     display: grid;
     grid-template-columns: 250px 1fr;
     gap: 1em;
@@ -727,7 +777,7 @@ footer {
     }
 }
 
-#edit_settings_avatar {
+#edit-settings_avatar {
     input[type="file"] {
         margin-block: 0.5em;
     }
@@ -735,4 +785,38 @@ footer {
         font-size: 0.85em;
         margin-bottom: 0;
     }
+}
+
+#pms-controls-container {
+    display: flex;
+
+    & > div {
+        margin-left: auto;
+        align-self: flex-end;
+    }
+
+    .trapezoid {
+        --trap-height: 2em;
+        padding: 0.2em;
+
+        & > button {
+            padding-inline: 0.5em;
+            font-size: 0.85em;
+        }
+
+        .current,
+        & > button:hover {
+            background: var(--gp-dark-red);
+            color: #fff;
+        }
+    }
+}
+
+#pms-list-header {
+    --hb-height: 2.5em;
+}
+
+#pms-list {
+    border: 1px solid var(--text);
+    border-top: none;
 }

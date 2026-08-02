@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import Paginate from "#/components/Paginate";
 import { requireAuth } from "#/lib/auth-route";
+import { useHbMargined } from "#/lib/use-hb-margined";
 import { deletePM, type PM, type PMBox, pmsQueryOptions } from "#/queries/pms";
 
 export const Route = createFileRoute("/pms/")({
@@ -85,61 +86,70 @@ function RouteComponent() {
 		setPage(1);
 	};
 
+	const hbMargined = useHbMargined<HTMLDivElement>();
+
 	return (
 		<div>
 			<h1 className="headerbar">
 				Private Messages - {box.charAt(0).toUpperCase() + box.slice(1)}
 			</h1>
 
-			<div id="controls-container" className="hb-topper clearfix" hb-margined="dark">
-				<Link to="/pms/send/" className="fancy-button">
+			<div
+				id="pms-controls-container"
+				style={{ marginInlineStart: `${hbMargined.margin}px` }}
+			>
+				<Link to="/pms/send/" className="trap-btn">
 					New PM
 				</Link>
-				<div className="trapezoid section-controls">
-					<button
-						type="button"
-						className={`border-box${box === "inbox" ? " current" : ""}`}
-						onClick={() => switchBox("inbox")}
-					>
-						Inbox
-					</button>
-					<button
-						type="button"
-						className={`border-box${box === "outbox" ? " current" : ""}`}
-						onClick={() => switchBox("outbox")}
-					>
-						Outbox
-					</button>
+				<div>
+					<div className="trapezoid">
+						<button
+							type="button"
+							className={`border-box${box === "inbox" ? " current" : ""}`}
+							onClick={() => switchBox("inbox")}
+						>
+							Inbox
+						</button>
+						<button
+							type="button"
+							className={`border-box${box === "outbox" ? " current" : ""}`}
+							onClick={() => switchBox("outbox")}
+						>
+							Outbox
+						</button>
+					</div>
 				</div>
 			</div>
-			<div id="pms">
-				<div className="headerbar hb-dark">
+			<div>
+				<div id="pms-list-header" className="headerbar hb-dark" ref={hbMargined.ref}>
 					<div className="del-col" />
 					<div className="info">Message</div>
 				</div>
-				<div id="pm-list" hb-margined>
-					{isPending && <div className="loading">Loading...</div>}
-					{data?.pms.map((pm) => (
-						<PMRow
-							key={pm.id}
-							pm={pm}
-							box={box}
-							onDelete={(id) => deletePMMutation.mutate(id)}
-						/>
-					))}
-					{data && data.pms.length === 0 && (
-						<div className="no-results">No messages</div>
-					)}
-				</div>
-				<div className="tr" hb-margined>
-					{data && (
-						<Paginate
-							numItems={data.count}
-							itemsPerPage={data.limit}
-							current={page}
-							onPageChange={setPage}
-						/>
-					)}
+				<div style={{ marginInline: `${hbMargined.margin}px` }}>
+					<div id="pms-list">
+						{isPending && <div className="loading">Loading...</div>}
+						{data?.pms.map((pm) => (
+							<PMRow
+								key={pm.id}
+								pm={pm}
+								box={box}
+								onDelete={(id) => deletePMMutation.mutate(id)}
+							/>
+						))}
+						{data && data.pms.length === 0 && (
+							<div className="no-results">No messages</div>
+						)}
+					</div>
+					<div>
+						{data && (
+							<Paginate
+								numItems={data.count}
+								itemsPerPage={data.limit}
+								current={page}
+								onPageChange={setPage}
+							/>
+						)}
+					</div>
 				</div>
 			</div>
 		</div>
