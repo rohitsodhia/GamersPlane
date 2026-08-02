@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
+import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	deleteUserAvatar,
 	meFullQueryOptions,
@@ -85,17 +86,22 @@ function RouteComponent() {
 		},
 	});
 
+	const profileHbMargined = useHbMargined<HTMLHeadingElement>();
+	const securityHbMargined = useHbMargined<HTMLHeadingElement>();
+
 	return (
 		<div id="edit-profile-page">
 			<h1 className="headerbar">Edit Settings</h1>
-			<h2 className="headerbar">Profile</h2>
+			<h2 className="headerbar" ref={profileHbMargined.ref}>
+				Profile
+			</h2>
 			<form
 				id="profile-settings-form"
 				onSubmit={(e) => {
 					e.preventDefault();
 					profileSettingsForm.handleSubmit();
 				}}
-				className="hb-margined"
+				style={{ marginInline: `${profileHbMargined.margin}px` }}
 			>
 				<div>
 					<div>User Since</div>
@@ -399,14 +405,16 @@ function RouteComponent() {
 				</div>
 			</form>
 
-			<h2 className="headerbar hb-dark">Security</h2>
+			<h2 className="headerbar hb-dark" ref={securityHbMargined.ref}>
+				Security
+			</h2>
 			<form
 				id="security-form"
 				onSubmit={(e) => {
 					e.preventDefault();
 					securityForm.handleSubmit();
 				}}
-				className="hb-margined"
+				style={{ marginInline: `${securityHbMargined.margin}px` }}
 			>
 				<div className="span-two-col">
 					If you're looking to change your username or email, please email

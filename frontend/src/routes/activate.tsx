@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
+import { useHbMargined } from "#/lib/use-hb-margined";
 import { activate } from "#/queries/activate";
 
 export const Route = createFileRoute("/activate")({
@@ -15,10 +16,14 @@ export const Route = createFileRoute("/activate")({
 });
 
 function MissingToken() {
+	const hbMargined = useHbMargined<HTMLHeadingElement>();
+
 	return (
 		<div>
-			<h1 className="headerbar">Missing token</h1>
-			<div className="hb-margined">
+			<h1 className="headerbar" ref={hbMargined.ref}>
+				Missing token
+			</h1>
+			<div style={{ marginInline: `${hbMargined.margin}px` }}>
 				<p>
 					The link you followed is incorrect. If you copied and pasted it, please double
 					check you copied the entire link, otherwise request a new link.
@@ -29,10 +34,14 @@ function MissingToken() {
 }
 
 function RouteComponent() {
+	const hbMargined = useHbMargined<HTMLHeadingElement>();
+
 	return (
 		<div>
-			<h1 className="headerbar">Welcome to Gamers' Plane!</h1>
-			<div className="hb-margined">
+			<h1 className="headerbar" ref={hbMargined.ref}>
+				Welcome to Gamers' Plane!
+			</h1>
+			<div style={{ marginInline: `${hbMargined.margin}px` }}>
 				<p>Congratulations! Your account has been activated. You can now log in.</p>
 				<p>
 					We recommend you check out the <Link to="/faqs/">FAQs</Link> and our{" "}

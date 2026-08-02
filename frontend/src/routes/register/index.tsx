@@ -4,6 +4,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useState } from "react";
 import { ApiError } from "#/lib/api";
+import { useHbMargined } from "#/lib/use-hb-margined";
 import { register } from "#/queries/register";
 
 export const Route = createFileRoute("/register/")({ component: Register });
@@ -45,10 +46,14 @@ function Register() {
 		},
 	});
 
+	const hbMargined = useHbMargined<HTMLHeadingElement>();
+
 	return (
 		<div>
-			<h1 className="headerbar">Create an Account</h1>
-			<div className="hb-margined">
+			<h1 className="headerbar" ref={hbMargined.ref}>
+				Create an Account
+			</h1>
+			<div style={{ marginInline: `${hbMargined.margin}px` }}>
 				{registrationAPIErrors.length > 0 && (
 					<div className="banner error-banner">
 						<ul>

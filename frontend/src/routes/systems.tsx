@@ -2,6 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import Paginate from "#/components/Paginate";
+import { useHbMargined } from "#/lib/use-hb-margined";
 import { systemsQueryOptions } from "#/queries/systems";
 
 export const Route = createFileRoute("/systems")({
@@ -34,10 +35,14 @@ function RouteComponent() {
 		page * ITEMS_PER_PAGE,
 	);
 
+	const hbMargined = useHbMargined<HTMLHeadingElement>();
+
 	return (
 		<div id="systems-list-page">
-			<h1 className="headerbar">Systems on Gamers' Plane</h1>
-			<div className="hb-margined">
+			<h1 className="headerbar" ref={hbMargined.ref}>
+				Systems on Gamers' Plane
+			</h1>
+			<div style={{ marginInline: `${hbMargined.margin}px` }}>
 				<div id="systems-filter" className="two-column">
 					<form>
 						<label htmlFor="systems-search">Search:</label>
