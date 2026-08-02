@@ -74,11 +74,17 @@ function Header() {
 							<button type="button" ref={toolsButtonRef} popoverTarget="tools-menu">
 								Tools
 							</button>
+							{/* biome-ignore lint/a11y/useKeyWithClickEvents: delegated click handler catches bubbled clicks from interactive <a> children, which already fire click on keyboard activation */}
 							<ul
 								id="tools-menu"
 								className="dropdown"
 								popover="auto"
 								ref={toolsPopoverRef}
+								onClick={(e) => {
+									if (e.target instanceof HTMLElement) {
+										e.currentTarget.hidePopover();
+									}
+								}}
 							>
 								<li>
 									<Link to="/tools/dice">Dice</Link>
@@ -113,20 +119,29 @@ function Header() {
 										/>
 									)}
 								</button>
+								{/* biome-ignore lint/a11y/useKeyWithClickEvents: delegated click handler catches bubbled clicks from interactive <a>/<button> children, which already fire click on keyboard activation */}
 								<ul
 									id="header_user_menu"
 									className="dropdown"
 									popover="auto"
 									ref={userPopoverRef}
+									onClick={(e) => {
+										if (
+											e.target instanceof HTMLElement &&
+											!e.target.closest(".theme-toggle")
+										) {
+											e.currentTarget.hidePopover();
+										}
+									}}
 								>
 									<li>
 										<Link to="/profile">Edit Profile</Link>
 									</li>
 									<li>
-										<ThemeToggle showLabel />
+										<Link to="/pms">Messages{pmCount > 0 ? ` (${pmCount})` : ""}</Link>
 									</li>
 									<li>
-										<Link to="/pms">Messages{pmCount > 0 ? ` (${pmCount})` : ""}</Link>
+										<ThemeToggle showLabel />
 									</li>
 									<li>
 										<button type="button" className="non-button" onClick={logout}>
