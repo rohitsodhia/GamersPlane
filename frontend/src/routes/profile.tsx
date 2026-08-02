@@ -86,7 +86,7 @@ function RouteComponent() {
 	});
 
 	return (
-		<div id="settings_page">
+		<div id="edit-profile-page">
 			<h1 className="headerbar">Edit Settings</h1>
 			<h2 className="headerbar">Profile</h2>
 			<form
@@ -106,21 +106,21 @@ function RouteComponent() {
 						}).format(me.joinDate)}
 					</div>
 				</div>
-				<div id="edit_settings_avatar">
-					<label htmlFor="edit_settings_avatar_file">Avatar</label>
+				<div id="edit-settings_avatar">
+					<label htmlFor="edit-settings_avatar-file">Avatar</label>
 					<div>
-						<div id="edit_settings_avatar_disp">
+						<div id="edit-settings_avatar-disp">
 							<img src={me?.avatar} alt="Your avatar" />
 							<profileSettingsForm.Field name="deleteAvatar">
 								{(field) => (
 									<div>
 										<input
-											id="edit_settings_avatar_delete"
+											id="edit-settings_avatar-delete"
 											type="checkbox"
 											checked={field.state.value}
 											onChange={(e) => field.handleChange(e.target.checked)}
 										/>
-										<label htmlFor="edit_settings_avatar_delete">Delete avatar</label>
+										<label htmlFor="edit-settings_avatar-delete">Delete avatar</label>
 									</div>
 								)}
 							</profileSettingsForm.Field>
@@ -128,7 +128,7 @@ function RouteComponent() {
 						<profileSettingsForm.Field name="avatarFile">
 							{(field) => (
 								<input
-									id="edit_settings_avatar_file"
+									id="edit-settings_avatar-file"
 									type="file"
 									accept="image/*"
 									onChange={(e) => field.handleChange(e.target.files?.[0] ?? undefined)}
@@ -229,21 +229,21 @@ function RouteComponent() {
 							<div>Receive PM emails?</div>
 							<div>
 								<input
-									id="edit_settings_pm_mail_yes"
+									id="edit-settings_pm-mail-yes"
 									type="radio"
 									name={field.name}
 									checked={field.state.value === true}
 									onChange={() => field.handleChange(true)}
 								/>
-								<label htmlFor="edit_settings_pm_mail_yes">Yes</label>
+								<label htmlFor="edit-settings_pm-mail-yes">Yes</label>
 								<input
-									id="edit_settings_pm_mail_no"
+									id="edit-settings_pm-mail-no"
 									type="radio"
 									name={field.name}
 									checked={field.state.value === false}
 									onChange={() => field.handleChange(false)}
 								/>
-								<label htmlFor="edit_settings_pm_mail_no">No</label>
+								<label htmlFor="edit-settings_pm-mail-no">No</label>
 							</div>
 						</div>
 					)}
@@ -255,21 +255,21 @@ function RouteComponent() {
 							<div>Receive new game emails?</div>
 							<div>
 								<input
-									id="edit_settings_new_game_mail_yes"
+									id="edit-settings_new-game-mail-yes"
 									type="radio"
 									name={field.name}
 									checked={field.state.value === true}
 									onChange={() => field.handleChange(true)}
 								/>
-								<label htmlFor="edit_settings_new_game_mail_yes">Yes</label>
+								<label htmlFor="edit-settings_new-game-mail-yes">Yes</label>
 								<input
-									id="edit_settings_new_game_mail_no"
+									id="edit-settings_new-game-mail-no"
 									type="radio"
 									name={field.name}
 									checked={field.state.value === false}
 									onChange={() => field.handleChange(false)}
 								/>
-								<label htmlFor="edit_settings_new_game_mail_no">No</label>
+								<label htmlFor="edit-settings_new-game-mail-no">No</label>
 							</div>
 						</div>
 					)}
@@ -281,21 +281,21 @@ function RouteComponent() {
 							<div>Receive GM emails?</div>
 							<div>
 								<input
-									id="edit_settings_gm_mail_yes"
+									id="edit-settings_gm-mail-yes"
 									type="radio"
 									name={field.name}
 									checked={field.state.value === true}
 									onChange={() => field.handleChange(true)}
 								/>
-								<label htmlFor="edit_settings_gm_mail_yes">Yes</label>
+								<label htmlFor="edit-settings_gm-mail-yes">Yes</label>
 								<input
-									id="edit_settings_gm_mail_no"
+									id="edit-settings_gm-mail-no"
 									type="radio"
 									name={field.name}
 									checked={field.state.value === false}
 									onChange={() => field.handleChange(false)}
 								/>
-								<label htmlFor="edit_settings_gm_mail_no">No</label>
+								<label htmlFor="edit-settings_gm-mail-no">No</label>
 							</div>
 						</div>
 					)}
@@ -307,32 +307,32 @@ function RouteComponent() {
 							<div>Post side</div>
 							<div>
 								<input
-									id="edit_settings_post_side_left"
+									id="edit-settings_post-side-left"
 									type="radio"
 									name={field.name}
 									value="l"
 									checked={field.state.value === "l"}
 									onChange={() => field.handleChange("l")}
 								/>
-								<label htmlFor="edit_settings_post_side_left">Left</label>
+								<label htmlFor="edit-settings_post-side-left">Left</label>
 								<input
-									id="edit_settings_post_side_right"
+									id="edit-settings_post-side-right"
 									type="radio"
 									name={field.name}
 									value="r"
 									checked={field.state.value === "r"}
 									onChange={() => field.handleChange("r")}
 								/>
-								<label htmlFor="edit_settings_post_side_right">Right</label>
+								<label htmlFor="edit-settings_post-side-right">Right</label>
 								<input
-									id="edit_settings_post_side_conversation"
+									id="edit-settings_post-side-conversation"
 									type="radio"
 									name={field.name}
 									value="c"
 									checked={field.state.value === "c"}
 									onChange={() => field.handleChange("c")}
 								/>
-								<label htmlFor="edit_settings_post_side_conversation">
+								<label htmlFor="edit-settings_post-side-conversation">
 									Conversation
 								</label>
 							</div>
@@ -430,7 +430,7 @@ function RouteComponent() {
 								/>
 								{updatePasswordMutation.error instanceof ApiError &&
 									updatePasswordMutation.error.errors.some(
-										(err) => err.code === "invalid_old_password",
+										(err) => err.code === "invalid-old-password",
 									) && <div className="error">Your old password is wrong</div>}
 							</div>
 						</div>
