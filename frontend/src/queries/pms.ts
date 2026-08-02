@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
-import { apiFetch } from "#/lib/api";
+import type { JSONContent } from "@tiptap/core";
+import { ApiError, apiFetch } from "#/lib/api";
 
 export type PMBox = "inbox" | "outbox";
 
@@ -41,4 +42,20 @@ export function pmsQueryOptions(params: { box: PMBox; page: number }) {
 export const deletePM = async (id: number) => {
 	const res = await apiFetch(`/pms/${id}`, { method: "DELETE" });
 	if (!res.ok) throw new Error("Failed to delete PM");
+};
+
+export const sendPM = async (data: {
+	username: string;
+	title: string;
+	message: JSONContent;
+}) => {
+	const res = await apiFetch("/pms", {
+		method: "POST",
+		body: JSON.stringify(data),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
 };
