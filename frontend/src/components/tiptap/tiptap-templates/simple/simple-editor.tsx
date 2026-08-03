@@ -1,24 +1,29 @@
-import type { JSONContent } from "@tiptap/core";
-import { Color } from "@tiptap/extension-color";
+"use client";
+
 import { FindAndReplace } from "@tiptap/extension-find-and-replace";
+import { Highlight } from "@tiptap/extension-highlight";
 import { Image } from "@tiptap/extension-image";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Subscript } from "@tiptap/extension-subscript";
 import { Superscript } from "@tiptap/extension-superscript";
 import { TextAlign } from "@tiptap/extension-text-align";
-import { TextStyle } from "@tiptap/extension-text-style";
 import { Typography } from "@tiptap/extension-typography";
 import { Selection } from "@tiptap/extensions";
-import type { Editor as TiptapEditor } from "@tiptap/react";
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
-import { BubbleMenu } from "@tiptap/react/menus";
+// --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit";
-import clsx from "clsx";
-import type { ComponentProps } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-// --- Tiptap node styles ---
+import { useCallback, useEffect, useRef, useState } from "react";
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
+// --- Tiptap Node ---
+import { ImageUploadNode } from "#/components/tiptap/tiptap-node/image-upload-node/image-upload-node-extension";
+// --- UI Primitives ---
+import { Button } from "#/components/tiptap/tiptap-ui-primitive/button";
+import { Spacer } from "#/components/tiptap/tiptap-ui-primitive/spacer";
+import {
+	Toolbar,
+	ToolbarGroup,
+	ToolbarSeparator,
+} from "#/components/tiptap/tiptap-ui-primitive/toolbar";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
@@ -29,14 +34,20 @@ import "#/components/tiptap/tiptap-node/paragraph-node/paragraph-node.scss";
 
 // --- Icons ---
 import { ArrowLeftIcon } from "#/components/tiptap/tiptap-icons/arrow-left-icon";
-import { CaseSensitiveIcon } from "#/components/tiptap/tiptap-icons/case-sensitive-icon";
-import { CornerDownLeftIcon } from "#/components/tiptap/tiptap-icons/corner-down-left-icon";
-import { ImagePlusIcon } from "#/components/tiptap/tiptap-icons/image-plus-icon";
+import { HighlighterIcon } from "#/components/tiptap/tiptap-icons/highlighter-icon";
 import { LinkIcon } from "#/components/tiptap/tiptap-icons/link-icon";
-// --- Tiptap UI ---
+// --- Components ---
+import { ThemeToggle } from "#/components/tiptap/tiptap-templates/simple/theme-toggle";
 import { BlockquoteButton } from "#/components/tiptap/tiptap-ui/blockquote-button";
 import { CodeBlockButton } from "#/components/tiptap/tiptap-ui/code-block-button";
+import {
+	ColorHighlightPopover,
+	ColorHighlightPopoverButton,
+	ColorHighlightPopoverContent,
+} from "#/components/tiptap/tiptap-ui/color-highlight-popover";
+// --- Tiptap UI ---
 import { HeadingDropdownMenu } from "#/components/tiptap/tiptap-ui/heading-dropdown-menu";
+import { ImageUploadButton } from "#/components/tiptap/tiptap-ui/image-upload-button";
 import {
 	LinkButton,
 	LinkContent,
@@ -49,97 +60,33 @@ import {
 	SearchAndReplaceButton,
 } from "#/components/tiptap/tiptap-ui/search-and-replace";
 import { TextAlignButton } from "#/components/tiptap/tiptap-ui/text-align-button";
-import {
-	TextColorPopover,
-	TextColorPopoverButton,
-	TextColorPopoverContent,
-} from "#/components/tiptap/tiptap-ui/text-color-popover";
 import { UndoRedoButton } from "#/components/tiptap/tiptap-ui/undo-redo-button";
-// --- UI primitives ---
-import { Button } from "#/components/tiptap/tiptap-ui-primitive/button";
-import { Spacer } from "#/components/tiptap/tiptap-ui-primitive/spacer";
-import {
-	Toolbar,
-	ToolbarGroup,
-	ToolbarSeparator,
-} from "#/components/tiptap/tiptap-ui-primitive/toolbar";
-
-// --- Hooks ---
 import { useCursorVisibility } from "#/hooks/use-cursor-visibility";
+// --- Hooks ---
 import { useIsBreakpoint } from "#/hooks/use-is-breakpoint";
 import { useWindowSize } from "#/hooks/use-window-size";
+
+// --- Lib ---
+import { handleImageUpload, MAX_FILE_SIZE } from "#/lib/tiptap-utils";
 
 // --- Styles ---
 import "#/components/tiptap/tiptap-templates/simple/simple-editor.scss";
 
-export const emptyContent: JSONContent = { type: "doc", content: [] };
-
-export function isContentEmpty(content: JSONContent | null | undefined): boolean {
-	if (!content) return true;
-	if (content.text) return false;
-	return (content.content ?? []).every(isContentEmpty);
-}
+import content from "#/components/tiptap/tiptap-templates/simple/data/content.json";
 
 const SEARCH_AND_REPLACE_SCROLL_OPTIONS: ScrollIntoViewOptions = {
 	block: "center",
 };
 
-// No dedicated "insert line break" button ships with the tiptap templates
-// (Shift+Enter covers it), but markItUp had one, so wire the existing
-// StarterKit HardBreak command up to a toolbar button.
-function LineBreakButton({ editor }: { editor: TiptapEditor | null }) {
-	if (!editor) return null;
-
-	return (
-		<Button
-			type="button"
-			variant="ghost"
-			tooltip="Line break"
-			aria-label="Line break"
-			onClick={() => editor.chain().focus().setHardBreak().run()}
-		>
-			<CornerDownLeftIcon className="tiptap-button-icon" />
-		</Button>
-	);
-}
-
-// The template's ImageUploadButton needs a real upload endpoint we don't have
-// yet. Inserting by URL needs no backend, so wire that up with the installed
-// Image extension instead, matching markItUp's "By URL..." option.
-function ImageUrlButton({ editor }: { editor: TiptapEditor | null }) {
-	const handleClick = useCallback(() => {
-		if (!editor) return;
-		const url = window.prompt("Image URL");
-		if (!url) return;
-		editor.chain().focus().setImage({ src: url }).run();
-	}, [editor]);
-
-	if (!editor) return null;
-
-	return (
-		<Button
-			type="button"
-			variant="ghost"
-			tooltip="Image by URL"
-			aria-label="Image by URL"
-			onClick={handleClick}
-		>
-			<ImagePlusIcon className="tiptap-button-icon" />
-		</Button>
-	);
-}
-
 const MainToolbarContent = ({
-	editor,
-	onTextColorClick,
+	onHighlighterClick,
 	onLinkClick,
 	onSearchAndReplaceClick,
 	isSearchAndReplaceOpen,
 	searchAndReplaceButtonRef,
 	isMobile,
 }: {
-	editor: TiptapEditor | null;
-	onTextColorClick: () => void;
+	onHighlighterClick: () => void;
 	onLinkClick: () => void;
 	onSearchAndReplaceClick: () => void;
 	isSearchAndReplaceOpen: boolean;
@@ -148,7 +95,7 @@ const MainToolbarContent = ({
 }) => {
 	return (
 		<>
-			{/* <Spacer /> */}
+			<Spacer />
 
 			<ToolbarGroup>
 				<UndoRedoButton action="undo" />
@@ -176,13 +123,11 @@ const MainToolbarContent = ({
 				<MarkButton type="code" />
 				<MarkButton type="underline" />
 				{!isMobile ? (
-					<TextColorPopover />
+					<ColorHighlightPopover />
 				) : (
-					<TextColorPopoverButton onClick={onTextColorClick} />
+					<ColorHighlightPopoverButton onClick={onHighlighterClick} />
 				)}
 				{!isMobile ? <LinkPopover /> : <LinkButton onClick={onLinkClick} />}
-				<LineBreakButton editor={editor} />
-				<ImageUrlButton editor={editor} />
 			</ToolbarGroup>
 
 			<ToolbarSeparator />
@@ -201,6 +146,12 @@ const MainToolbarContent = ({
 				<TextAlignButton align="justify" />
 			</ToolbarGroup>
 
+			<ToolbarSeparator />
+
+			<ToolbarGroup>
+				<ImageUploadButton text="Add" />
+			</ToolbarGroup>
+
 			<Spacer />
 
 			{isMobile && <ToolbarSeparator />}
@@ -212,6 +163,7 @@ const MainToolbarContent = ({
 					data-active-state={isSearchAndReplaceOpen ? "on" : "off"}
 					onClick={onSearchAndReplaceClick}
 				/>
+				<ThemeToggle />
 			</ToolbarGroup>
 		</>
 	);
@@ -221,15 +173,15 @@ const MobileToolbarContent = ({
 	type,
 	onBack,
 }: {
-	type: "color" | "link";
+	type: "highlighter" | "link";
 	onBack: () => void;
 }) => (
 	<>
 		<ToolbarGroup>
 			<Button variant="ghost" onClick={onBack}>
 				<ArrowLeftIcon className="tiptap-button-icon" />
-				{type === "color" ? (
-					<CaseSensitiveIcon className="tiptap-button-icon" />
+				{type === "highlighter" ? (
+					<HighlighterIcon className="tiptap-button-icon" />
 				) : (
 					<LinkIcon className="tiptap-button-icon" />
 				)}
@@ -238,53 +190,29 @@ const MobileToolbarContent = ({
 
 		<ToolbarSeparator />
 
-		{type === "color" ? <TextColorPopoverContent /> : <LinkContent />}
+		{type === "highlighter" ? <ColorHighlightPopoverContent /> : <LinkContent />}
 	</>
 );
 
-// Tiptap's default shouldShow only treats a `TextSelection` as "empty text",
-// but clicking into an empty document produces an `AllSelection` instead
-// (from 0 to the size of the empty paragraph), which slips past that check
-// and shows the bubble menu with nothing highlighted. Checking the selected
-// text length directly covers every selection type.
-const bubbleMenuShouldShow: NonNullable<
-	ComponentProps<typeof BubbleMenu>["shouldShow"]
-> = ({ editor, state, from, to }) => {
-	if (!editor.isEditable || state.selection.empty) return false;
-	return state.doc.textBetween(from, to).length > 0;
-};
-
-// Selection-driven inline formatting, shown next to highlighted text.
-const BubbleMenuContent = () => (
-	<Toolbar variant="floating">
-		<ToolbarGroup>
-			<MarkButton type="bold" />
-			<MarkButton type="italic" />
-			<MarkButton type="underline" />
-			<MarkButton type="strike" />
-			<LinkPopover />
-		</ToolbarGroup>
-	</Toolbar>
-);
-
-type EditorProps = {
-	id?: string;
-	value: JSONContent | null | undefined;
-	onChange: (value: JSONContent) => void;
-	onBlur?: () => void;
-	className?: string;
-};
-
-const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
+export function SimpleEditor() {
 	const isMobile = useIsBreakpoint();
 	const { height } = useWindowSize();
-	const [mobileView, setMobileView] = useState<"main" | "color" | "link">("main");
+	const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">("main");
 	const [isSearchAndReplaceOpen, setIsSearchAndReplaceOpen] = useState(false);
 	const toolbarRef = useRef<HTMLDivElement>(null);
 	const searchAndReplaceButtonRef = useRef<HTMLButtonElement>(null);
 
 	const editor = useEditor({
 		immediatelyRender: false,
+		editorProps: {
+			attributes: {
+				autocomplete: "off",
+				autocorrect: "off",
+				autocapitalize: "off",
+				"aria-label": "Main content area, start typing to enter text.",
+				class: "simple-editor",
+			},
+		},
 		extensions: [
 			StarterKit.configure({
 				horizontalRule: false,
@@ -297,8 +225,7 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			TaskList,
 			TaskItem.configure({ nested: true }),
-			TextStyle,
-			Color,
+			Highlight.configure({ multicolor: true }),
 			Image,
 			Typography,
 			Superscript,
@@ -308,31 +235,19 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 				searchDebounceMs: 500,
 				injectCSS: false,
 			}),
+			ImageUploadNode.configure({
+				accept: "image/*",
+				maxSize: MAX_FILE_SIZE,
+				limit: 3,
+				upload: handleImageUpload,
+				onError: (error) => console.error("Upload failed:", error),
+			}),
 		],
-		content: value ?? emptyContent,
-		onUpdate: ({ editor }) => {
-			onChange(editor.getJSON());
-		},
-		onBlur: () => {
-			onBlur?.();
-		},
-		editorProps: {
-			attributes: {
-				autocomplete: "off",
-				autocorrect: "off",
-				autocapitalize: "off",
-				class: "simple-editor",
-				...(id ? { id } : {}),
-			},
-		},
+		content,
 	});
 
-	// Only relevant when the toolbar floats over content (mobile, overlapping
-	// the virtual keyboard). On desktop the toolbar is static and the page can
-	// legitimately be taller than the viewport, so this hook's scroll
-	// correction would otherwise fight the browser's native scroll-into-view.
 	const rect = useCursorVisibility({
-		editor: isMobile ? editor : null,
+		editor,
 		overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
 	});
 
@@ -341,17 +256,6 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 			setMobileView("main");
 		}
 	}, [isMobile, mobileView]);
-
-	// Keep the editor in sync when the external value changes without going
-	// through onUpdate (e.g. form reset), without clobbering in-progress typing.
-	useEffect(() => {
-		if (!editor) return;
-		const current = JSON.stringify(editor.getJSON());
-		const next = JSON.stringify(value ?? emptyContent);
-		if (current !== next) {
-			editor.commands.setContent(value ?? emptyContent);
-		}
-	}, [editor, value]);
 
 	const openSearchAndReplace = useCallback(() => {
 		setMobileView("main");
@@ -368,25 +272,26 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 			closeSearchAndReplace();
 			return;
 		}
+
 		openSearchAndReplace();
 	}, [closeSearchAndReplace, isSearchAndReplaceOpen, openSearchAndReplace]);
 
-	// Memoize the provider value to avoid unnecessary re-renders
-	const providerValue = useMemo(() => ({ editor }), [editor]);
-
 	return (
-		<div className="tiptap-editor simple-editor-wrapper">
-			<EditorContext.Provider value={providerValue}>
+		<div className="simple-editor-wrapper">
+			<EditorContext.Provider value={{ editor }}>
 				<Toolbar
 					ref={toolbarRef}
 					style={{
-						...(isMobile ? { bottom: `calc(100% - ${height - rect.y}px)` } : {}),
+						...(isMobile
+							? {
+									bottom: `calc(100% - ${height - rect.y}px)`,
+								}
+							: {}),
 					}}
 				>
 					{mobileView === "main" ? (
 						<MainToolbarContent
-							editor={editor}
-							onTextColorClick={() => setMobileView("color")}
+							onHighlighterClick={() => setMobileView("highlighter")}
 							onLinkClick={() => setMobileView("link")}
 							onSearchAndReplaceClick={toggleSearchAndReplace}
 							isSearchAndReplaceOpen={isSearchAndReplaceOpen}
@@ -395,7 +300,7 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 						/>
 					) : (
 						<MobileToolbarContent
-							type={mobileView === "color" ? "color" : "link"}
+							type={mobileView === "highlighter" ? "highlighter" : "link"}
 							onBack={() => setMobileView("main")}
 						/>
 					)}
@@ -412,18 +317,9 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 				<EditorContent
 					editor={editor}
 					role="presentation"
-					className={clsx("simple-editor-content", className)}
+					className="simple-editor-content"
 				/>
-
-				<BubbleMenu
-					className="simple-editor-bubble-menu"
-					shouldShow={bubbleMenuShouldShow}
-				>
-					<BubbleMenuContent />
-				</BubbleMenu>
 			</EditorContext.Provider>
 		</div>
 	);
-};
-
-export default Editor;
+}
