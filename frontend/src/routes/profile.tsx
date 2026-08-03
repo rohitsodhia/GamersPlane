@@ -101,6 +101,7 @@ function RouteComponent() {
 					e.preventDefault();
 					profileSettingsForm.handleSubmit();
 				}}
+				className="grid-layout"
 				style={{ marginInline: `${profileHbMargined.margin}px` }}
 			>
 				<div>
@@ -414,6 +415,7 @@ function RouteComponent() {
 					e.preventDefault();
 					securityForm.handleSubmit();
 				}}
+				className="grid-layout"
 				style={{ marginInline: `${securityHbMargined.margin}px` }}
 			>
 				<div className="span-two-col">

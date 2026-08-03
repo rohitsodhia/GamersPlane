@@ -71,6 +71,7 @@ function RouteComponent() {
 						e.preventDefault();
 						form.handleSubmit();
 					}}
+					className="grid-layout"
 				>
 					<form.Field
 						name="username"
@@ -84,27 +85,34 @@ function RouteComponent() {
 						}}
 					>
 						{(field) => (
-							<div className="tr clearfix">
-								<label htmlFor={field.name}>Username:</label>
-								<input
-									id={field.name}
-									name={field.name}
-									type="text"
-									maxLength={24}
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-									autoComplete="off"
-									className={field.state.meta.isValid ? "" : "field-invalid"}
-								/>
-								<p
-									className={clsx(
-										"field-message",
-										field.state.meta.errors.length ? "field-error" : "",
-									)}
-								>
-									<FieldError message={field.state.meta.errors[0]} />
-								</p>
+							<div>
+								<label htmlFor={field.name} className="push-down">
+									Username:
+								</label>
+								<div>
+									<input
+										id={field.name}
+										name={field.name}
+										type="text"
+										maxLength={24}
+										value={field.state.value}
+										onBlur={field.handleBlur}
+										onChange={(e) => field.handleChange(e.target.value)}
+										autoComplete="off"
+										className={clsx(
+											"input-field",
+											field.state.meta.isValid ? "" : "field-invalid",
+										)}
+									/>
+									<p
+										className={clsx(
+											"field-message",
+											field.state.meta.errors.length ? "field-error" : "",
+										)}
+									>
+										<FieldError message={field.state.meta.errors[0]} />
+									</p>
+								</div>
 							</div>
 						)}
 					</form.Field>
@@ -116,26 +124,33 @@ function RouteComponent() {
 						}}
 					>
 						{(field) => (
-							<div className="tr">
-								<label htmlFor={field.name}>Title:</label>
-								<input
-									id={field.name}
-									name={field.name}
-									type="text"
-									maxLength={100}
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-									className={field.state.meta.isValid ? "" : "field-invalid"}
-								/>
-								<p
-									className={clsx(
-										"field-message",
-										field.state.meta.errors.length ? "field-error" : "",
-									)}
-								>
-									<FieldError message={field.state.meta.errors[0]} />
-								</p>
+							<div>
+								<label htmlFor={field.name} className="push-down">
+									Title:
+								</label>
+								<div>
+									<input
+										id={field.name}
+										name={field.name}
+										type="text"
+										maxLength={100}
+										value={field.state.value}
+										onBlur={field.handleBlur}
+										onChange={(e) => field.handleChange(e.target.value)}
+										className={clsx(
+											"input-field",
+											field.state.meta.isValid ? "" : "field-invalid",
+										)}
+									/>
+									<p
+										className={clsx(
+											"field-message",
+											field.state.meta.errors.length ? "field-error" : "",
+										)}
+									>
+										<FieldError message={field.state.meta.errors[0]} />
+									</p>
+								</div>
 							</div>
 						)}
 					</form.Field>
@@ -148,34 +163,38 @@ function RouteComponent() {
 						}}
 					>
 						{(field) => (
-							<div className="tr">
-								<label htmlFor={field.name}>Message:</label>
-								<Editor
-									id={field.name}
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(value) => field.handleChange(value)}
-									className={field.state.meta.isValid ? "" : "field-invalid"}
-								/>
-								<p
-									className={clsx(
-										"field-message",
-										field.state.meta.errors.length ? "field-error" : "",
-									)}
-								>
-									<FieldError message={field.state.meta.errors[0]} />
-								</p>
+							<div>
+								<label htmlFor={field.name} className="push-down">
+									Message:
+								</label>
+								<div>
+									<Editor
+										id={field.name}
+										value={field.state.value}
+										onBlur={field.handleBlur}
+										onChange={(value) => field.handleChange(value)}
+										className={field.state.meta.isValid ? "" : "field-invalid"}
+									/>
+									<p
+										className={clsx(
+											"field-message",
+											field.state.meta.errors.length ? "field-error" : "",
+										)}
+									>
+										<FieldError message={field.state.meta.errors[0]} />
+									</p>
+								</div>
 							</div>
 						)}
 					</form.Field>
 
 					<form.Subscribe selector={(state) => state.canSubmit}>
 						{(canSubmit) => (
-							<div className="alignCenter">
+							<div className="is-container">
 								<button
 									type="submit"
 									name="send"
-									className="fancyButton"
+									className="trap-btn"
 									disabled={!canSubmit || mutation.isPending}
 								>
 									Send
