@@ -2,7 +2,7 @@ import pytest
 
 from app.models import UserMeta
 from app.repositories.user_repository import UserRepository
-from tests.factories import UserFactory
+from tests.factories import ActivatedUserFactory, UserFactory
 
 
 class TestUserRepository:
@@ -38,7 +38,7 @@ class TestUserRepository:
         assert found is None
 
     async def test_search_by_username(self, repository, create):
-        user = await create(UserFactory, username="findme")
+        user = await create(ActivatedUserFactory, username="findme")
 
         found = await repository.search_by_username("findme")
 
@@ -51,19 +51,46 @@ class TestUserRepository:
         assert found is None
 
     async def test_search_by_username_is_exact_not_partial(self, repository, create):
-        await create(UserFactory, username="findme")
+        await create(ActivatedUserFactory, username="findme")
 
         found = await repository.search_by_username("findm")
 
         assert found is None
 
     async def test_search_by_username_is_case_insensitive(self, repository, create):
-        user = await create(UserFactory, username="FindMe")
+        user = await create(ActivatedUserFactory, username="FindMe")
 
         found = await repository.search_by_username("findme")
 
         assert found is not None
         assert found.id == user.id
+
+    async def test_search_by_username_excludes_unactivated(self, repository, create):
+        await create(UserFactory, username="findme")
+
+        found = await repository.search_by_username("findme")
+
+        assert found is None
+
+    async def test_search_by_id(self, repository, create):
+        user = await create(ActivatedUserFactory)
+
+        found = await repository.search_by_id(user.id)
+
+        assert found is not None
+        assert found.id == user.id
+
+    async def test_search_by_id_not_found(self, repository):
+        found = await repository.search_by_id(999999)
+
+        assert found is None
+
+    async def test_search_by_id_excludes_unactivated(self, repository, create):
+        user = await create(UserFactory)
+
+        found = await repository.search_by_id(user.id)
+
+        assert found is None
 
     async def test_update_user_meta_creates_new(self, repository, create):
         user = await create(UserFactory)

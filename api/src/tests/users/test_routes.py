@@ -1,4 +1,4 @@
-from tests.factories import UserFactory
+from tests.factories import ActivatedUserFactory
 
 
 class TestSearchUser:
@@ -9,7 +9,7 @@ class TestSearchUser:
 
     async def test_search_user_found(self, authed_client, create):
         client, _user = authed_client
-        other = await create(UserFactory, username="findme")
+        other = await create(ActivatedUserFactory, username="findme")
 
         response = await client.get("/users/search", params={"username": "findme"})
 

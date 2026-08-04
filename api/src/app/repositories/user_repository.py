@@ -52,9 +52,17 @@ class UserRepository:
             await self.db_session.delete(existing_user_meta)
             await self.db_session.flush()
 
+    async def search_by_id(self, id: int) -> User | None:
+        return await self.db_session.scalar(
+            select(User).where(User.id == id, User.activated_on.is_not(None)).limit(1)
+        )
+
     async def search_by_username(self, username: str) -> User | None:
         return await self.db_session.scalar(
             select(User)
-            .where(func.lower(User.username) == username.lower())
+            .where(
+                func.lower(User.username) == username.lower(),
+                User.activated_on.is_not(None),
+            )
             .limit(1)
         )
