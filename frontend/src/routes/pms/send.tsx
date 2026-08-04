@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useState } from "react";
@@ -22,7 +22,13 @@ function FieldError({ message }: { message: string | undefined }) {
 
 function RouteComponent() {
 	const navigate = useNavigate();
-	const mutation = useMutation({ mutationFn: sendPM });
+	const queryClient = useQueryClient();
+	const mutation = useMutation({
+		mutationFn: sendPM,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["pms"] });
+		},
+	});
 	const [apiErrors, setApiErrors] = useState<string[]>([]);
 
 	const form = useForm({

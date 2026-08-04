@@ -1,14 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { z } from "zod";
 import Paginate from "#/components/Paginate";
 import { requireAuth } from "#/lib/auth-route";
+import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { deletePM, type PM, type PMBox, pmsQueryOptions } from "#/queries/pms";
 
 export const Route = createFileRoute("/pms/")({
 	beforeLoad: requireAuth,
 	component: RouteComponent,
+	validateSearch: z.object({
+		box: z.enum(["inbox", "outbox"]).optional().catch(undefined),
+	}),
 });
 
 function PMRow({
@@ -20,16 +25,16 @@ function PMRow({
 	box: PMBox;
 	onDelete: (id: number) => void;
 }) {
-	const read = box === "inbox" ? pm.recipient.read : pm.sender.read;
+	const isInbox = box === "inbox";
+	const read = isInbox ? pm.recipient.read : pm.sender.read;
+	const displayedUser = isInbox ? pm.sender : pm.recipient;
 
 	return (
 		<div id={`pm-${pm.id}`} className={`pm tr${read ? "" : " new"}`}>
 			<div className="del-col">
-				<button
-					type="button"
-					onClick={() => onDelete(pm.id)}
-					className="delete-pm sprite cross"
-				/>
+				<button type="button" onClick={() => onDelete(pm.id)}>
+					<img src="/images/icons/cross.png" alt="Delete PM" />
+				</button>
 			</div>
 			<div className="info">
 				<div className="title">
@@ -37,38 +42,26 @@ function PMRow({
 						{pm.title}
 					</Link>
 				</div>
-				{box === "inbox" ? (
-					<div className="details">
-						from{" "}
-						<Link
-							to="/user/$id"
-							params={{ id: String(pm.sender.id) }}
-							className="username"
-						>
-							{pm.sender.username}
-						</Link>{" "}
-						on <span>{pm.datestamp}</span>
-					</div>
-				) : (
-					<div className="details">
-						to{" "}
-						<Link
-							to="/user/$id"
-							params={{ id: String(pm.recipient.id) }}
-							className="username"
-						>
-							{pm.recipient.username}
-						</Link>{" "}
-						on <span>{pm.datestamp}</span>
-					</div>
-				)}
+				<div className="details">
+					{isInbox ? "from" : "to"}{" "}
+					<Link
+						to="/user/$id"
+						params={{ id: String(displayedUser.id) }}
+						className="username"
+					>
+						{displayedUser.username}
+					</Link>{" "}
+					on <span>{formatDateTime(pm.datestamp)}</span>
+				</div>
 			</div>
 		</div>
 	);
 }
 
 function RouteComponent() {
-	const [box, setBox] = useState<PMBox>("inbox");
+	const { box: searchBox } = Route.useSearch();
+	const box = searchBox ?? "inbox";
+	const navigate = Route.useNavigate();
 	const [page, setPage] = useState(1);
 	const queryClient = useQueryClient();
 
@@ -82,7 +75,7 @@ function RouteComponent() {
 	});
 
 	const switchBox = (newBox: PMBox) => {
-		setBox(newBox);
+		navigate({ search: { box: newBox } });
 		setPage(1);
 	};
 
@@ -120,36 +113,31 @@ function RouteComponent() {
 					</div>
 				</div>
 			</div>
-			<div>
+			<div id="pms-list">
 				<div id="pms-list-header" className="headerbar hb-dark" ref={hbMargined.ref}>
-					<div className="del-col" />
-					<div className="info">Message</div>
+					&nbsp;
 				</div>
-				<div style={{ marginInline: `${hbMargined.margin}px` }}>
-					<div id="pms-list">
-						{isPending && <div className="loading">Loading...</div>}
-						{data?.pms.map((pm) => (
-							<PMRow
-								key={pm.id}
-								pm={pm}
-								box={box}
-								onDelete={(id) => deletePMMutation.mutate(id)}
-							/>
-						))}
-						{data && data.pms.length === 0 && (
-							<div className="no-results">No messages</div>
-						)}
-					</div>
-					<div>
-						{data && (
-							<Paginate
-								numItems={data.count}
-								itemsPerPage={data.limit}
-								current={page}
-								onPageChange={setPage}
-							/>
-						)}
-					</div>
+				<div id="pms-list-container" style={{ marginInline: `${hbMargined.margin}px` }}>
+					{isPending && <div className="loading">Loading...</div>}
+					{data?.pms.map((pm) => (
+						<PMRow
+							key={pm.id}
+							pm={pm}
+							box={box}
+							onDelete={(id) => deletePMMutation.mutate(id)}
+						/>
+					))}
+					{data && data.pms.length === 0 && (
+						<div className="no-results">No messages</div>
+					)}
+					{data && (
+						<Paginate
+							numItems={data.count}
+							itemsPerPage={1}
+							current={page}
+							onPageChange={setPage}
+						/>
+					)}
 				</div>
 			</div>
 		</div>
