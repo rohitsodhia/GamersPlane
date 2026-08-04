@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -51,3 +51,10 @@ class UserRepository:
             user.meta.remove(existing_user_meta)
             await self.db_session.delete(existing_user_meta)
             await self.db_session.flush()
+
+    async def search_by_username(self, username: str) -> User | None:
+        return await self.db_session.scalar(
+            select(User)
+            .where(func.lower(User.username) == username.lower())
+            .limit(1)
+        )

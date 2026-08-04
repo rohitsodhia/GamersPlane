@@ -14,3 +14,12 @@ class UserDict(BaseModel):
 
 class GetUserResponse(BaseModel):
     user: UserDict
+
+
+class SearchUserDict(BaseModel):
+    id: int
+    username: str
+
+
+class SearchUserResponse(BaseModel):
+    user: SearchUserDict

@@ -37,6 +37,34 @@ class TestUserRepository:
 
         assert found is None
 
+    async def test_search_by_username(self, repository, create):
+        user = await create(UserFactory, username="findme")
+
+        found = await repository.search_by_username("findme")
+
+        assert found is not None
+        assert found.id == user.id
+
+    async def test_search_by_username_not_found(self, repository):
+        found = await repository.search_by_username("nobody")
+
+        assert found is None
+
+    async def test_search_by_username_is_exact_not_partial(self, repository, create):
+        await create(UserFactory, username="findme")
+
+        found = await repository.search_by_username("findm")
+
+        assert found is None
+
+    async def test_search_by_username_is_case_insensitive(self, repository, create):
+        user = await create(UserFactory, username="FindMe")
+
+        found = await repository.search_by_username("findme")
+
+        assert found is not None
+        assert found.id == user.id
+
     async def test_update_user_meta_creates_new(self, repository, create):
         user = await create(UserFactory)
 
