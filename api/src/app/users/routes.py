@@ -17,7 +17,7 @@ users = APIRouter(prefix="/users")
 async def search_user(username: str, db_session: DBSessionDependency):
     user_repository = UserRepository(db_session)
 
-    user = await user_repository.search_by_username(username)
+    user = await user_repository.get_user_by_username(username)
     if not user:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -40,7 +40,7 @@ async def search_user(username: str, db_session: DBSessionDependency):
 async def get_user(id: int, db_session: DBSessionDependency):
     user_repository = UserRepository(db_session)
 
-    user = await user_repository.search_by_id(id)
+    user = await user_repository.get_user_by_id(id)
     if not user:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,

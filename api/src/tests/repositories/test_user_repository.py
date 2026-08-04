@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from app.models import UserMeta
@@ -37,58 +39,58 @@ class TestUserRepository:
 
         assert found is None
 
-    async def test_search_by_username(self, repository, create):
+    async def test_get_user_by_username(self, repository, create):
         user = await create(ActivatedUserFactory, username="findme")
 
-        found = await repository.search_by_username("findme")
+        found = await repository.get_user_by_username("findme")
 
         assert found is not None
         assert found.id == user.id
 
-    async def test_search_by_username_not_found(self, repository):
-        found = await repository.search_by_username("nobody")
+    async def test_get_user_by_username_not_found(self, repository):
+        found = await repository.get_user_by_username("nobody")
 
         assert found is None
 
-    async def test_search_by_username_is_exact_not_partial(self, repository, create):
+    async def test_get_user_by_username_is_exact_not_partial(self, repository, create):
         await create(ActivatedUserFactory, username="findme")
 
-        found = await repository.search_by_username("findm")
+        found = await repository.get_user_by_username("findm")
 
         assert found is None
 
-    async def test_search_by_username_is_case_insensitive(self, repository, create):
+    async def test_get_user_by_username_is_case_insensitive(self, repository, create):
         user = await create(ActivatedUserFactory, username="FindMe")
 
-        found = await repository.search_by_username("findme")
+        found = await repository.get_user_by_username("findme")
 
         assert found is not None
         assert found.id == user.id
 
-    async def test_search_by_username_excludes_unactivated(self, repository, create):
+    async def test_get_user_by_username_excludes_unactivated(self, repository, create):
         await create(UserFactory, username="findme")
 
-        found = await repository.search_by_username("findme")
+        found = await repository.get_user_by_username("findme")
 
         assert found is None
 
-    async def test_search_by_id(self, repository, create):
+    async def test_get_user_by_id(self, repository, create):
         user = await create(ActivatedUserFactory)
 
-        found = await repository.search_by_id(user.id)
+        found = await repository.get_user_by_id(user.id)
 
         assert found is not None
         assert found.id == user.id
 
-    async def test_search_by_id_not_found(self, repository):
-        found = await repository.search_by_id(999999)
+    async def test_get_user_by_id_not_found(self, repository):
+        found = await repository.get_user_by_id(999999)
 
         assert found is None
 
-    async def test_search_by_id_excludes_unactivated(self, repository, create):
+    async def test_get_user_by_id_excludes_unactivated(self, repository, create):
         user = await create(UserFactory)
 
-        found = await repository.search_by_id(user.id)
+        found = await repository.get_user_by_id(user.id)
 
         assert found is None
 
@@ -109,9 +111,7 @@ class TestUserRepository:
             user, {UserMeta.MetaKeys.PRONOUNS: "they/them"}
         )
 
-        await repository.update_user_meta(
-            user, {UserMeta.MetaKeys.PRONOUNS: "she/her"}
-        )
+        await repository.update_user_meta(user, {UserMeta.MetaKeys.PRONOUNS: "she/her"})
 
         assert len(user.meta) == 1
         assert user.meta[0].value == "she/her"
@@ -139,3 +139,29 @@ class TestUserRepository:
         await repository.delete_user_meta(user, UserMeta.MetaKeys.PRONOUNS)
 
         assert user.meta == []
+
+    async def test_update_last_activity_sets_when_never_set(self, repository, create):
+        user = await create(UserFactory)
+        assert user.last_activity is None
+
+        await repository.update_last_activity(user)
+
+        assert user.last_activity is not None
+
+    async def test_update_last_activity_updates_when_stale(self, repository, create):
+        user = await create(UserFactory)
+        stale = datetime.now(timezone.utc) - timedelta(minutes=10)
+        user.last_activity = stale
+
+        await repository.update_last_activity(user)
+
+        assert user.last_activity > stale
+
+    async def test_update_last_activity_skips_when_recent(self, repository, create):
+        user = await create(UserFactory)
+        recent = datetime.now(timezone.utc) - timedelta(minutes=1)
+        user.last_activity = recent
+
+        await repository.update_last_activity(user)
+
+        assert user.last_activity == recent
