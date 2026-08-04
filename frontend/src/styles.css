@@ -141,6 +141,17 @@ p {
     }
 }
 
+.headerbar,
+.trap-btn,
+.trap-btn:visited {
+    color: #fff;
+}
+
+.trap-btn:hover {
+    color: #ccc;
+    text-decoration: none;
+}
+
 .headerbar {
     background-color: transparent;
     font-weight: normal;
@@ -720,8 +731,10 @@ footer {
 }
 
 form.grid-layout {
+    --label-col-width: 250px;
+
     display: grid;
-    grid-template-columns: 250px 1fr;
+    grid-template-columns: var(--label-col-width) 1fr;
     gap: 1em;
 
     & > div:not(.is-container) {
@@ -754,8 +767,11 @@ form.grid-layout {
         margin-top: 0.5em;
     }
 
+    .field-invalid {
+        border-color: var(--gp-red);
+    }
+
     .error {
-        margin-top: 0.5em;
         color: var(--gp-red);
     }
 }
@@ -782,6 +798,10 @@ form.grid-layout {
         .success-banner {
             transition: none;
         }
+    }
+
+    .error {
+        margin-top: 0.5em;
     }
 
     &#security-form {
@@ -839,6 +859,8 @@ form.grid-layout {
 }
 
 #send-pm-form {
+    --label-col-width: 100px;
+
     .input-field {
         width: min(100%, 300px);
     }
@@ -846,5 +868,10 @@ form.grid-layout {
     & > div:last-of-type {
         grid-column: span 2;
         text-align: center;
+    }
+
+    .error {
+        display: inline-block;
+        margin-left: 1em;
     }
 }

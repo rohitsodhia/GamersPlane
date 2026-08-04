@@ -8,6 +8,7 @@ import { ApiError } from "#/lib/api";
 import { requireAuth } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { sendPM } from "#/queries/pms";
+import { searchUserByUsername } from "#/queries/users";
 
 export const Route = createFileRoute("/pms/send")({
 	beforeLoad: requireAuth,
@@ -17,11 +18,6 @@ export const Route = createFileRoute("/pms/send")({
 function FieldError({ message }: { message: string | undefined }) {
 	if (!message) return null;
 	return <>{message}</>;
-}
-
-// TODO: swap for a real username-lookup endpoint once one exists on the API.
-async function checkUsernameExists(_username: string): Promise<boolean> {
-	return true;
 }
 
 function RouteComponent() {
@@ -79,8 +75,8 @@ function RouteComponent() {
 							onBlur: ({ value }) => (!value ? "Username is required." : undefined),
 							onBlurAsync: async ({ value }) => {
 								if (!value) return undefined;
-								const exists = await checkUsernameExists(value);
-								return exists ? undefined : "Invalid user";
+								const user = await searchUserByUsername(value);
+								return user ? undefined : "Invalid user";
 							},
 						}}
 					>
@@ -104,14 +100,11 @@ function RouteComponent() {
 											field.state.meta.isValid ? "" : "field-invalid",
 										)}
 									/>
-									<p
-										className={clsx(
-											"field-message",
-											field.state.meta.errors.length ? "field-error" : "",
-										)}
-									>
-										<FieldError message={field.state.meta.errors[0]} />
-									</p>
+									{field.state.meta.errors[0] && (
+										<div className="error">
+											<FieldError message={field.state.meta.errors[0]} />
+										</div>
+									)}
 								</div>
 							</div>
 						)}
@@ -142,14 +135,11 @@ function RouteComponent() {
 											field.state.meta.isValid ? "" : "field-invalid",
 										)}
 									/>
-									<p
-										className={clsx(
-											"field-message",
-											field.state.meta.errors.length ? "field-error" : "",
-										)}
-									>
-										<FieldError message={field.state.meta.errors[0]} />
-									</p>
+									{field.state.meta.errors[0] && (
+										<div className="error">
+											<FieldError message={field.state.meta.errors[0]} />
+										</div>
+									)}
 								</div>
 							</div>
 						)}
@@ -175,14 +165,11 @@ function RouteComponent() {
 										onChange={(value) => field.handleChange(value)}
 										className={field.state.meta.isValid ? "" : "field-invalid"}
 									/>
-									<p
-										className={clsx(
-											"field-message",
-											field.state.meta.errors.length ? "field-error" : "",
-										)}
-									>
-										<FieldError message={field.state.meta.errors[0]} />
-									</p>
+									{field.state.meta.errors[0] && (
+										<p className="error">
+											<FieldError message={field.state.meta.errors[0]} />
+										</p>
+									)}
 								</div>
 							</div>
 						)}
