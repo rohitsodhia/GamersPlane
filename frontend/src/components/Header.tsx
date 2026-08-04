@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import ThemeToggle from "#/components/ThemeToggle";
 import { meHeaderQueryOptions, meQueryOptions } from "#/queries/me";
 import { useAuthStore } from "#/stores/auth";
@@ -114,7 +114,7 @@ function Header() {
 									{pmCount > 0 && (
 										<img
 											id="header_new_messages"
-											src="/images/envelope.jpg"
+											src="/images/icons/envelope.jpg"
 											alt="New Messages"
 										/>
 									)}
