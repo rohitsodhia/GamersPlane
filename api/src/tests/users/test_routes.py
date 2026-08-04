@@ -25,3 +25,21 @@ class TestSearchUser:
 
         assert response.status_code == 404
         assert response.json()["errors"][0]["code"] == "user_not_found"
+
+
+class TestGetUser:
+    async def test_get_user_found(self, client, create):
+        user = await create(ActivatedUserFactory)
+
+        response = await client.get(f"/users/{user.id}")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["user"]["id"] == user.id
+        assert body["user"]["username"] == user.username
+
+    async def test_get_user_not_found(self, client):
+        response = await client.get("/users/999999")
+
+        assert response.status_code == 404
+        assert response.json()["errors"][0]["code"] == "user_not_found"

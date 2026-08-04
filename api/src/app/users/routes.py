@@ -1,10 +1,8 @@
 from fastapi import APIRouter, status
-from sqlalchemy import select
 
 from app.database import DBSessionDependency
 from app.helpers.decorators import public
 from app.helpers.functions import error_response
-from app.models import User
 from app.repositories import UserRepository
 from app.schemas import ErrorItem
 from app.users import schemas
@@ -40,7 +38,9 @@ async def search_user(username: str, db_session: DBSessionDependency):
 )
 @public
 async def get_user(id: int, db_session: DBSessionDependency):
-    user = await db_session.scalar(select(User).where(User.id == id).limit(1))
+    user_repository = UserRepository(db_session)
+
+    user = await user_repository.search_by_id(id)
     if not user:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,
