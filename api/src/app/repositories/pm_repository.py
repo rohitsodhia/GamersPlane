@@ -2,10 +2,10 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from sqlalchemy import and_, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.configs import configs
-from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
 from app.models import PM, User
 
@@ -25,7 +25,7 @@ class PMSelfException(Exception):
 class PMRepository:
     def __init__(
         self,
-        db_session: DBSessionDependency,
+        db_session: AsyncSession,
         authed_user: User,
     ):
         self.db_session = db_session

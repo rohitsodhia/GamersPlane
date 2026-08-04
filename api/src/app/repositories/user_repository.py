@@ -1,13 +1,14 @@
 from datetime import date
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.models import User, UserMeta
 
 
 class UserRepository:
-    def __init__(self, db_session):
+    def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
 
     async def get_user(self, user_id: int) -> User | None:

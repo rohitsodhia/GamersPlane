@@ -1,10 +1,11 @@
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Genre
 
 
 class GenreRepository:
-    def __init__(self, db_session):
+    def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
 
     async def add(self, genre: str) -> Genre:
@@ -15,4 +16,4 @@ class GenreRepository:
 
     async def get_all(self) -> list[Genre]:
         result = await self.db_session.scalars(select(Genre))
-        return result.all()
+        return list(result.all())
