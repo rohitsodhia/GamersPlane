@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import { useThemeStore } from "#/stores/theme";
 
@@ -49,20 +49,7 @@ function LightDarkIcon({ current }: { current: ThemeMode }) {
 	);
 }
 
-function getInitialMode(): ThemeMode {
-	if (typeof window === "undefined") {
-		return "auto";
-	}
-
-	const stored = window.localStorage.getItem("theme");
-	if (stored === "light" || stored === "dark" || stored === "auto") {
-		return stored;
-	}
-
-	return "auto";
-}
-
-function applyThemeMode(mode: ThemeMode, setTheme: (theme: ThemeMode) => void) {
+function applyThemeMode(mode: ThemeMode, setTheme: (theme: "light" | "dark") => void) {
 	const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 	const resolved = mode === "auto" ? (prefersDark ? "dark" : "light") : mode;
 
@@ -80,14 +67,13 @@ function applyThemeMode(mode: ThemeMode, setTheme: (theme: ThemeMode) => void) {
 }
 
 export default function ThemeToggle({ showLabel = false }: { showLabel?: boolean }) {
-	const [mode, setMode] = useState<ThemeMode>("auto");
+	const mode = useThemeStore((state) => state.mode);
+	const setMode = useThemeStore((state) => state.setMode);
 	const setTheme = useThemeStore((state) => state.setTheme);
 
 	useEffect(() => {
-		const initialMode = getInitialMode();
-		setMode(initialMode);
-		applyThemeMode(initialMode, setTheme);
-	}, [setTheme]);
+		applyThemeMode(mode, setTheme);
+	}, [mode, setTheme]);
 
 	useEffect(() => {
 		if (mode !== "auto") {
@@ -107,8 +93,6 @@ export default function ThemeToggle({ showLabel = false }: { showLabel?: boolean
 		const nextMode: ThemeMode =
 			mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
 		setMode(nextMode);
-		applyThemeMode(nextMode, setTheme);
-		window.localStorage.setItem("theme", nextMode);
 	}
 
 	const label =
