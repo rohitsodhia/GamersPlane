@@ -30,7 +30,7 @@ function PMRow({
 	const displayedUser = isInbox ? pm.sender : pm.recipient;
 
 	return (
-		<div id={`pm-${pm.id}`} className={`pm tr${read ? "" : " new"}`}>
+		<div className={`pm ${read ? "read" : " unread"}`}>
 			<div className="del-col">
 				<button type="button" onClick={() => onDelete(pm.id)}>
 					<img src="/images/icons/cross.png" alt="Delete PM" />

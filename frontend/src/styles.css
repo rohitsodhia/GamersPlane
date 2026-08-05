@@ -869,6 +869,12 @@ form.grid-layout {
 }
 
 #pms-list {
+    .unread {
+        .title {
+            font-weight: bold;
+        }
+    }
+
     .del-col {
         display: flex;
         align-self: center;
