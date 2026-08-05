@@ -15,9 +15,13 @@ export type PM = {
 	recipient: PMUser;
 	sender: PMUser;
 	title: string;
-	message: string;
+	message: JSONContent;
 	datestamp: string;
 	reply_to_id: number | null;
+};
+
+export type PMDetail = PM & {
+	history: PM[];
 };
 
 type PMsListResponse = {
@@ -39,6 +43,18 @@ export function pmsQueryOptions(params: { box: PMBox; page: number }) {
 	});
 }
 
+export function pmQueryOptions(id: number) {
+	return queryOptions({
+		queryKey: ["pms", id],
+		queryFn: async (): Promise<PMDetail> => {
+			const res = await apiFetch(`/pms/${id}`);
+			if (!res.ok) throw new Error("Failed to fetch PM");
+			const { pm } = await res.json();
+			return pm;
+		},
+	});
+}
+
 export const deletePM = async (id: number) => {
 	const res = await apiFetch(`/pms/${id}`, { method: "DELETE" });
 	if (!res.ok) throw new Error("Failed to delete PM");
@@ -48,6 +64,7 @@ export const sendPM = async (data: {
 	username: string;
 	title: string;
 	message: JSONContent;
+	reply_to_id?: number;
 }) => {
 	const res = await apiFetch("/pms", {
 		method: "POST",

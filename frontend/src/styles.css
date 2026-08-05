@@ -194,6 +194,7 @@ h2.headerbar {
 }
 
 .trap-btn {
+    display: inline-block;
     background: transparent;
     font-family: Neuropol;
     font-size: 1.3em;
@@ -245,6 +246,7 @@ h2.headerbar {
 
     & > * {
         height: var(--trap-height);
+        color: #fff;
         background: #000;
     }
 }
@@ -543,7 +545,6 @@ main {
 footer {
     background-color: light-dark(#333, #444);
     border-top: 5px solid light-dark(#aaa, #666);
-    color: #fff;
     padding-bottom: 1em;
 
     .page-wrap {
@@ -574,7 +575,7 @@ footer {
     a,
     a:active,
     a:visited {
-        color: var(--gp-light-red);
+        color: #fff;
         text-transform: uppercase;
     }
 }
@@ -850,7 +851,7 @@ form.grid-layout {
         padding: 0.2em;
 
         & > button {
-            padding-inline: 0.5em;
+            padding-inline: 1em;
             font-size: 0.85em;
         }
 
@@ -921,5 +922,27 @@ form.grid-layout {
     .error {
         display: inline-block;
         margin-left: 1em;
+    }
+}
+
+#display-pm {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    row-gap: 0.3em;
+    margin-top: 1em;
+
+    & > div {
+        display: contents;
+
+        &:not(.message) > *:first-child {
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+    }
+
+    .message {
+        display: block;
+        grid-column: span 2;
     }
 }
