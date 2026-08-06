@@ -446,7 +446,7 @@ header {
     }
 
     #header_register,
-    #header_theme_toggle,
+    #header_theme-toggle,
     #header_avatar {
         position: relative;
         padding-left: calc(10px * 2 + 2px);
@@ -481,7 +481,7 @@ header {
         }
     }
 
-    #header_user_menu {
+    #header_user-menu {
         width: max-content;
 
         &::before {

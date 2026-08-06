@@ -108,12 +108,12 @@ function Header() {
 								<button
 									type="button"
 									ref={userButtonRef}
-									popoverTarget="header_user_menu"
+									popoverTarget="header_user-menu"
 								>
 									<img src={me.avatar} alt={me.username} />
 									{pmCount > 0 && (
 										<img
-											id="header_new_messages"
+											id="header_new-messages"
 											src="/images/icons/envelope.jpg"
 											alt="New Messages"
 										/>
@@ -121,7 +121,7 @@ function Header() {
 								</button>
 								{/* biome-ignore lint/a11y/useKeyWithClickEvents: delegated click handler catches bubbled clicks from interactive <a>/<button> children, which already fire click on keyboard activation */}
 								<ul
-									id="header_user_menu"
+									id="header_user-menu"
 									className="dropdown"
 									popover="auto"
 									ref={userPopoverRef}
@@ -160,7 +160,7 @@ function Header() {
 										Login
 									</Link>
 								</li>
-								<li id="header_theme_toggle">
+								<li id="header_theme-toggle">
 									<ThemeToggle />
 								</li>
 							</>
