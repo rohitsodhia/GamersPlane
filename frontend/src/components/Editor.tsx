@@ -415,12 +415,14 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 					className={clsx("simple-editor-content", className)}
 				/>
 
-				<BubbleMenu
-					className="simple-editor-bubble-menu"
-					shouldShow={bubbleMenuShouldShow}
-				>
-					<BubbleMenuContent />
-				</BubbleMenu>
+				{editor && (
+					<BubbleMenu
+						className="simple-editor-bubble-menu"
+						shouldShow={bubbleMenuShouldShow}
+					>
+						<BubbleMenuContent />
+					</BubbleMenu>
+				)}
 			</EditorContext.Provider>
 		</div>
 	);
