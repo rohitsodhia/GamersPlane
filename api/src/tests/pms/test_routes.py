@@ -1,4 +1,4 @@
-from tests.factories import PMFactory, UserFactory
+from tests.factories import PMFactory, UserFactory, prose_doc
 
 
 class TestGetPMs:
@@ -67,6 +67,19 @@ class TestGetPMs:
         assert body["count"] == 3
         assert body["limit"] == 2
 
+    async def test_get_pms_second_page(self, authed_client, create):
+        client, user = authed_client
+        other = await create(UserFactory, username="other")
+        for i in range(3):
+            await create(PMFactory, recipient=user, sender=other, title=f"PM {i}")
+
+        response = await client.get("/pms", params={"limit": 2, "page": 2})
+
+        body = response.json()
+        assert body["page"] == 2
+        assert len(body["pms"]) == 1
+        assert body["count"] == 3
+
 
 class TestGetPM:
     async def test_get_pm_requires_auth(self, client, create):
@@ -78,11 +91,17 @@ class TestGetPM:
 
         assert response.status_code == 403
 
-    async def test_get_pm_as_recipient_marks_recipient_read(self, authed_client, create):
+    async def test_get_pm_as_recipient_marks_recipient_read(
+        self, authed_client, create
+    ):
         client, user = authed_client
         other = await create(UserFactory, username="other")
         pm = await create(
-            PMFactory, recipient=user, sender=other, title="Hello", message="Hi there"
+            PMFactory,
+            recipient=user,
+            sender=other,
+            title="Hello",
+            message=prose_doc("Hi there"),
         )
 
         response = await client.get(f"/pms/{pm.id}")
@@ -90,7 +109,7 @@ class TestGetPM:
         assert response.status_code == 200
         body = response.json()["pm"]
         assert body["title"] == "Hello"
-        assert body["message"] == "Hi there"
+        assert body["message"] == prose_doc("Hi there")
         assert body["recipient"]["read"] is True
         assert body["sender"]["read"] is False
 
@@ -142,6 +161,28 @@ class TestGetPM:
         body = response.json()["pm"]
         assert [h["title"] for h in body["history"]] == ["Original"]
 
+    async def test_get_pm_history_excludes_entries_authed_user_is_not_part_of(
+        self, authed_client, create
+    ):
+        client, user = authed_client
+        other = await create(UserFactory, username="other")
+        stranger = await create(UserFactory, username="stranger")
+        unrelated = await create(
+            PMFactory, recipient=other, sender=stranger, title="Unrelated"
+        )
+        reply = await create(
+            PMFactory,
+            recipient=other,
+            sender=user,
+            title="Reply",
+            history_ids=[unrelated.id],
+        )
+
+        response = await client.get(f"/pms/{reply.id}")
+
+        body = response.json()["pm"]
+        assert body["history"] == []
+
     async def test_get_pm_include_self_history_prepends_current_pm(
         self, authed_client, create
     ):
@@ -160,7 +201,7 @@ class TestGetPM:
         )
 
         response = await client.get(
-            f"/pms/{reply.id}", params={"includeSelfHistory": True}
+            f"/pms/{reply.id}", params={"include_self_history": True}
         )
 
         body = response.json()["pm"]
@@ -177,7 +218,7 @@ class TestSendPM:
             json={
                 "username": recipient.username,
                 "title": "Hello",
-                "message": "Hi there",
+                "message": prose_doc("Hi there"),
             },
         )
 
@@ -192,7 +233,7 @@ class TestSendPM:
             json={
                 "username": recipient.username,
                 "title": "Hello",
-                "message": "Hi there",
+                "message": prose_doc("Hi there"),
             },
         )
 
@@ -203,7 +244,11 @@ class TestSendPM:
 
         response = await client.post(
             "/pms",
-            json={"username": "nobody", "title": "Hello", "message": "Hi there"},
+            json={
+                "username": "nobody",
+                "title": "Hello",
+                "message": prose_doc("Hi there"),
+            },
         )
 
         assert response.status_code == 400
@@ -217,12 +262,90 @@ class TestSendPM:
             json={
                 "username": user.username,
                 "title": "Hello",
-                "message": "Hi there",
+                "message": prose_doc("Hi there"),
             },
         )
 
         assert response.status_code == 400
         assert response.json()["errors"][0]["code"] == "pm_self"
+
+    async def test_send_pm_strips_whitespace_from_title_on_read(
+        self, authed_client, create
+    ):
+        client, _user = authed_client
+        recipient = await create(UserFactory, username="recipient")
+
+        response = await client.post(
+            "/pms",
+            json={
+                "username": recipient.username,
+                "title": "  Hello\nthere  ",
+                "message": prose_doc("Hi there"),
+            },
+        )
+
+        assert response.status_code == 200
+
+        list_response = await client.get("/pms", params={"box": "outbox"})
+        title = list_response.json()["pms"][0]["title"]
+        assert title == "Hello<br>there"
+
+    async def test_send_pm_reply_links_history(self, authed_client, create):
+        client, user = authed_client
+        other = await create(UserFactory, username="other")
+        original = await create(
+            PMFactory, recipient=user, sender=other, title="Original"
+        )
+
+        response = await client.post(
+            "/pms",
+            json={
+                "username": other.username,
+                "title": "Reply",
+                "message": prose_doc("Hi there"),
+                "reply_to_id": original.id,
+            },
+        )
+
+        assert response.status_code == 200
+
+        list_response = await client.get("/pms", params={"box": "outbox"})
+        pm = list_response.json()["pms"][0]
+        reply_id = pm["id"]
+
+        get_response = await client.get(f"/pms/{reply_id}")
+        body = get_response.json()["pm"]
+        assert body["reply_to_id"] == original.id
+        assert [h["title"] for h in body["history"]] == ["Original"]
+
+    async def test_send_pm_with_inaccessible_reply_to_id_creates_standalone_pm(
+        self, authed_client, create
+    ):
+        client, _user = authed_client
+        recipient = await create(UserFactory, username="recipient")
+        alice = await create(UserFactory, username="alice")
+        bob = await create(UserFactory, username="bob")
+        unrelated = await create(PMFactory, recipient=alice, sender=bob)
+
+        response = await client.post(
+            "/pms",
+            json={
+                "username": recipient.username,
+                "title": "Reply",
+                "message": prose_doc("Hi there"),
+                "reply_to_id": unrelated.id,
+            },
+        )
+
+        assert response.status_code == 200
+
+        list_response = await client.get("/pms", params={"box": "outbox"})
+        pm = list_response.json()["pms"][0]
+
+        get_response = await client.get(f"/pms/{pm['id']}")
+        body = get_response.json()["pm"]
+        assert body["reply_to_id"] is None
+        assert body["history"] == []
 
 
 class TestDeletePM:
@@ -243,6 +366,18 @@ class TestDeletePM:
         response = await client.delete(f"/pms/{pm.id}")
 
         assert response.status_code == 204
+
+    async def test_delete_pm_as_sender(self, authed_client, create):
+        client, user = authed_client
+        other = await create(UserFactory, username="other")
+        pm = await create(PMFactory, recipient=other, sender=user)
+
+        response = await client.delete(f"/pms/{pm.id}")
+
+        assert response.status_code == 204
+
+        list_response = await client.get("/pms", params={"box": "outbox"})
+        assert list_response.json()["pms"] == []
 
     async def test_delete_pm_not_found(self, authed_client):
         client, _user = authed_client
