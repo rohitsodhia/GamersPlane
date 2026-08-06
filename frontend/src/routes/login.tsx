@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
+import { useHbMargined } from "#/lib/use-hb-margined";
 import { login } from "#/queries/login";
 import { useAuthStore } from "#/stores/auth";
 
@@ -50,10 +51,14 @@ function RouteComponent() {
 		},
 	});
 
+	const hbMargined = useHbMargined<HTMLHeadingElement>();
+
 	return (
 		<div id="login-page">
-			<h1 className="headerbar">Login</h1>
-			<div className="hb-margined">
+			<h1 className="headerbar" ref={hbMargined.ref}>
+				Login
+			</h1>
+			<div style={{ marginInline: `${hbMargined.margin}px` }}>
 				{apiErrors && (
 					<p className="banner error-banner">
 						Invalid username or password. Please try again.

@@ -27,9 +27,21 @@ type MeFullResponse = Omit<MeFullApiResponse, "joinDate"> & {
 	joinDate: Date;
 };
 
+type MeHeaderResponse = {
+	characters: unknown[];
+	games: unknown[];
+	pmCount: number;
+};
+
 const fetchMe = async (): Promise<MeResponse> => {
 	const res = await apiFetch("/me");
 	if (!res.ok) throw new Error("Failed to fetch current user");
+	return res.json();
+};
+
+const fetchMeHeader = async (): Promise<MeHeaderResponse> => {
+	const res = await apiFetch("/me/header");
+	if (!res.ok) throw new Error("Failed to fetch header data");
 	return res.json();
 };
 
@@ -44,6 +56,12 @@ export const meQueryOptions = queryOptions({
 	queryKey: ["me"],
 	queryFn: fetchMe,
 	staleTime: 1000 * 60 * 5,
+});
+
+export const meHeaderQueryOptions = queryOptions({
+	queryKey: ["me", "header"],
+	queryFn: fetchMeHeader,
+	staleTime: Number.POSITIVE_INFINITY,
 });
 
 // Nested under the "me" key so invalidating ["me"] invalidates this too.

@@ -1,5 +1,7 @@
 from .genre_factory import GenreFactory
 from .permission_factory import PermissionFactory
+from .pm_factory import PMFactory
+from .prose import prose_doc
 from .publisher_factory import PublisherFactory
 from .referral_link_factory import ReferralLinkFactory
 from .role_factory import RoleFactory

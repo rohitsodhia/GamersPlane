@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import ThemeToggle from "#/components/ThemeToggle";
-import { meQueryOptions } from "#/queries/me";
+import { meHeaderQueryOptions, meQueryOptions } from "#/queries/me";
 import { useAuthStore } from "#/stores/auth";
 import { useThemeStore } from "#/stores/theme";
 
@@ -40,6 +40,8 @@ function Header() {
 
 	const token = useAuthStore((state) => state.token);
 	const { data: me } = useQuery({ ...meQueryOptions, enabled: !!token });
+	const { data: header } = useQuery({ ...meHeaderQueryOptions, enabled: !!token });
+	const pmCount = header?.pmCount ?? 0;
 
 	const { buttonRef: toolsButtonRef, popoverRef: toolsPopoverRef } = usePopoverAnchor(
 		(rect) => ({ top: rect.bottom, left: rect.left }),
@@ -72,11 +74,17 @@ function Header() {
 							<button type="button" ref={toolsButtonRef} popoverTarget="tools-menu">
 								Tools
 							</button>
+							{/* biome-ignore lint/a11y/useKeyWithClickEvents: delegated click handler catches bubbled clicks from interactive <a> children, which already fire click on keyboard activation */}
 							<ul
 								id="tools-menu"
 								className="dropdown"
 								popover="auto"
 								ref={toolsPopoverRef}
+								onClick={(e) => {
+									if (e.target instanceof HTMLElement) {
+										e.currentTarget.hidePopover();
+									}
+								}}
 							>
 								<li>
 									<Link to="/tools/dice">Dice</Link>
@@ -100,18 +108,37 @@ function Header() {
 								<button
 									type="button"
 									ref={userButtonRef}
-									popoverTarget="header_user_menu"
+									popoverTarget="header_user-menu"
 								>
 									<img src={me.avatar} alt={me.username} />
+									{pmCount > 0 && (
+										<img
+											id="header_new-messages"
+											src="/images/icons/envelope.jpg"
+											alt="New Messages"
+										/>
+									)}
 								</button>
+								{/* biome-ignore lint/a11y/useKeyWithClickEvents: delegated click handler catches bubbled clicks from interactive <a>/<button> children, which already fire click on keyboard activation */}
 								<ul
-									id="header_user_menu"
+									id="header_user-menu"
 									className="dropdown"
 									popover="auto"
 									ref={userPopoverRef}
+									onClick={(e) => {
+										if (
+											e.target instanceof HTMLElement &&
+											!e.target.closest(".theme-toggle")
+										) {
+											e.currentTarget.hidePopover();
+										}
+									}}
 								>
 									<li>
 										<Link to="/profile">Edit Profile</Link>
+									</li>
+									<li>
+										<Link to="/pms">Messages{pmCount > 0 ? ` (${pmCount})` : ""}</Link>
 									</li>
 									<li>
 										<ThemeToggle showLabel />
@@ -133,7 +160,7 @@ function Header() {
 										Login
 									</Link>
 								</li>
-								<li id="header_theme_toggle">
+								<li id="header_theme-toggle">
 									<ThemeToggle />
 								</li>
 							</>

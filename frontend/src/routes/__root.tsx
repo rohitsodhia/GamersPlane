@@ -13,7 +13,7 @@ import Header from "#/components/Header";
 import NotFound from "#/components/NotFound";
 import TanStackQueryDevtools from "#/integrations/tanstack-query/devtools";
 import { isTokenExpiringSoon, isTokenValid } from "#/lib/jwt";
-import { meQueryOptions } from "#/queries/me";
+import { meHeaderQueryOptions, meQueryOptions } from "#/queries/me";
 import { referralLinksQueryOptions } from "#/queries/referralLinks";
 import { refreshToken } from "#/queries/refresh";
 import { useAuthStore } from "#/stores/auth";
@@ -40,6 +40,13 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			},
 		],
 		links: [
+			{
+				rel: "preload",
+				href: "/fonts/LucidaGrande.woff2",
+				as: "font",
+				type: "font/woff2",
+				crossOrigin: "anonymous",
+			},
 			{
 				rel: "stylesheet",
 				href: appCss,
@@ -70,6 +77,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 						context.queryClient
 							.ensureQueryData(meQueryOptions)
 							.catch(() => setToken(null)),
+						context.queryClient.ensureQueryData(meHeaderQueryOptions).catch(() => {}),
 					]
 				: []),
 		]);

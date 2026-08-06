@@ -1,13 +1,14 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.models import User, UserMeta
 
 
 class UserRepository:
-    def __init__(self, db_session):
+    def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
 
     async def get_user(self, user_id: int) -> User | None:
@@ -24,6 +25,34 @@ class UserRepository:
             select(User).where(User.email == email).limit(1)
         )
         return user
+
+    async def get_user_by_id(self, id: int) -> User | None:
+        return await self.db_session.scalar(
+            select(User).where(User.id == id, User.activated_on.is_not(None)).limit(1)
+        )
+
+    async def get_user_by_username(self, username: str) -> User | None:
+        return await self.db_session.scalar(
+            select(User)
+            .where(
+                func.lower(User.username) == username.lower(),
+                User.activated_on.is_not(None),
+            )
+            .limit(1)
+        )
+
+    async def get_user_by_identifier(self, identifier: str) -> User | None:
+        return await self.db_session.scalar(
+            select(User)
+            .where(
+                or_(
+                    func.lower(User.username) == identifier,
+                    func.lower(User.email) == identifier,
+                ),
+                User.activated_on.is_not(None),
+            )
+            .limit(1)
+        )
 
     async def update_user_meta(
         self, user: User, updates: dict[UserMeta.MetaKeys, str | bool | date | None]
@@ -50,3 +79,11 @@ class UserRepository:
             user.meta.remove(existing_user_meta)
             await self.db_session.delete(existing_user_meta)
             await self.db_session.flush()
+
+    async def update_last_activity(self, user: User) -> None:
+        now = datetime.now(timezone.utc)
+        if user.last_activity and now - user.last_activity < timedelta(minutes=5):
+            return
+        user.last_activity = now
+        self.db_session.add(user)
+        await self.db_session.flush()

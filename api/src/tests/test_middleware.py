@@ -91,6 +91,16 @@ class TestValidateJwt:
         assert request.scope["user"].id == user.id
         assert request.scope["auth"] == []
 
+    async def test_valid_token_updates_last_activity(self, db_session, create):
+        user = await create(UserFactory)
+        assert user.last_activity is None
+        token = user.generate_jwt()
+        request = make_request({"Authorization": f"Bearer {token}"})
+
+        await validate_jwt(request, db_session)
+
+        assert request.scope["user"].last_activity is not None
+
 
 class TestCheckAuthorization:
     def route_scope(self, is_public: bool, user=None) -> dict:

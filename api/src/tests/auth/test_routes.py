@@ -86,6 +86,35 @@ class TestLogin:
 
         assert response.status_code == 422
 
+    async def test_login_updates_last_activity(self, client, create):
+        user = await create(
+            ActivatedUserFactory, username="loginuser", password="ValidPass1!"
+        )
+        assert user.last_activity is None
+
+        response = await client.post(
+            "/auth/login",
+            json={"identifier": "loginuser", "password": "ValidPass1!"},
+        )
+
+        assert response.status_code == 200
+        assert user.last_activity is not None
+
+    async def test_login_wrong_password_does_not_update_last_activity(
+        self, client, create
+    ):
+        user = await create(
+            ActivatedUserFactory, username="wrongpass", password="ValidPass1!"
+        )
+
+        response = await client.post(
+            "/auth/login",
+            json={"identifier": "wrongpass", "password": "WrongPass1!"},
+        )
+
+        assert response.status_code == 404
+        assert user.last_activity is None
+
 
 class TestRefresh:
     async def test_refresh_requires_auth(self, client):

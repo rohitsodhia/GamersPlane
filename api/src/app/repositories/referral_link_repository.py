@@ -1,10 +1,11 @@
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ReferralLink
 
 
 class ReferralLinkRepository:
-    def __init__(self, db_session):
+    def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
 
     async def get_all(self) -> list[ReferralLink] | None:
@@ -13,7 +14,7 @@ class ReferralLinkRepository:
             .where(ReferralLink.enabled)
             .order_by(ReferralLink.order)
         )
-        return links.all()
+        return list(links.all())
 
     async def add(
         self,

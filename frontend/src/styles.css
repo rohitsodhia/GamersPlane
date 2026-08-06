@@ -3,6 +3,8 @@
 @import url("fonts.css");
 @import url("rpg-awesome.css");
 
+@import "./styles/_variables.scss";
+@import "./styles/_keyframe-animations.scss";
 :root {
     --bg-light: oklch(1 0 0);
     --bg-dark: oklch(0.32 0 0);
@@ -13,9 +15,13 @@
 
     --gp-red: oklch(0.51 0.19 25.9);
     --gp-light-red: oklch(from var(--gp-red) calc(l * 1.1) c h);
+    --gp-dark-red: oklch(from var(--gp-red) calc(l * 0.7) c h);
     --gp-orange: oklch(0.62 0.16 53.46);
+    --gp-light-blue: #06f;
 
     --line-height: 1.5em;
+
+    --skew-angle: 20deg;
 
     accent-color: var(--gp-red);
 }
@@ -29,7 +35,7 @@
 }
 
 html {
-    font-family: "Lucida Grande", Verdana, Arial, Sans-Serif;
+    font-family: "LucidaGrande", sans-serif;
     font-size: 16px;
 }
 
@@ -43,11 +49,17 @@ body {
 
 input:not([type="image"]),
 select,
-textarea {
-    padding: 0.3em 0.5em;
+textarea,
+.tiptap-editor {
     border: 1px solid light-dark(#666, #888);
     border-radius: 0.3em;
     background-color: light-dark(#eee, #444);
+}
+
+input:not([type="image"]),
+select,
+textarea {
+    padding: 0.3em 0.5em;
 }
 
 input:is([type="radio"], [type="checkbox"]) {
@@ -62,6 +74,12 @@ a:active {
 
 a:hover {
     text-decoration: underline;
+}
+
+a.username,
+a.username:visited,
+a.username:active {
+    color: var(--gp-light-blue);
 }
 
 p {
@@ -110,31 +128,52 @@ p {
     }
 }
 
-h1.headerbar,
-h2.headerbar,
+.headerbar,
 .trap-btn {
+    --hb-height: 1.7em;
+
     /* clip-path: polygon(1em 0%, 100% 0%, calc(100% - 1em) 100%, 0% 100%); */
     position: relative;
-    margin-inline: 0.5em;
-    padding-inline: 0.6em;
-    line-height: 1.7em;
+    margin-inline: calc(var(--hb-height) * 0.5 * tan(var(--skew-angle)));
+    padding-inline: calc(var(--hb-height) * 0.5 * tan(var(--skew-angle)) + 6px);
+    line-height: var(--hb-height);
     color: #fff;
 
     &::before {
         content: "";
         position: absolute;
         inset: 0;
-        transform: skewX(-20deg);
+        transform: skewX(calc(var(--skew-angle) * -1));
         z-index: -1;
+    }
+}
+
+.headerbar,
+.trap-btn,
+.trap-btn:visited {
+    color: #fff;
+}
+
+.trap-btn:hover {
+    color: #ccc;
+    text-decoration: none;
+}
+
+.headerbar {
+    background-color: transparent;
+    font-weight: normal;
+
+    &.hb-dark {
+        &::before {
+            background-color: #000;
+        }
     }
 }
 
 h1.headerbar,
 h2.headerbar {
-    background-color: transparent;
-    margin-block: 0.7em;
     font-family: "AgencyFB";
-    font-weight: normal;
+    margin-block: 0.7em;
 }
 
 h1.headerbar {
@@ -155,6 +194,7 @@ h2.headerbar {
 }
 
 .trap-btn {
+    display: inline-block;
     background: transparent;
     font-family: Neuropol;
     font-size: 1.3em;
@@ -169,15 +209,55 @@ h2.headerbar {
     }
 }
 
-.hb-margined {
-    margin-inline: 2em;
+/* TODO: revisit with CSS anchor positioning (anchor-name + anchor-scope,
+    scoped per-instance) once browser support is further along - was flaky
+    in current Firefox despite caniuse listing it as supported. */
+.trapezoid {
+    --trap-height: 1.5em;
+
+    position: relative;
+    margin-inline: calc(var(--trap-height) * tan(var(--skew-angle)));
+
+    &,
+    &::before,
+    &::after {
+        background: #000;
+    }
+
+    &::before,
+    &::after {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        display: block;
+        width: calc(var(--trap-height) * tan(var(--skew-angle)));
+        content: "";
+    }
+
+    &::before {
+        left: calc(-1 * var(--trap-height) * tan(var(--skew-angle)));
+        clip-path: polygon(100% 0%, 0% 100%, 100% 100%);
+    }
+
+    &::after {
+        right: calc(-1 * var(--trap-height) * tan(var(--skew-angle)));
+        clip-path: polygon(0% 0%, 0% 100%, 100% 100%);
+    }
+
+    & > * {
+        height: var(--trap-height);
+        color: #fff;
+        background: #000;
+    }
 }
 
 .paginate-container {
     display: flex;
-    column-gap: 0.5em;
+    column-gap: 0.2em;
 
     button {
+        color: var(--gp-red);
+
         &.current-page {
             border: 1px solid #ccc;
             border-radius: 0.25em;
@@ -185,8 +265,12 @@ h2.headerbar {
             cursor: default;
         }
 
+        &:not(.current-page) {
+            padding-inline: 0.5em;
+        }
+
         &:hover {
-            color: var(--gp-light-red);
+            color: var(--gp-light-blue);
         }
     }
 }
@@ -210,6 +294,13 @@ h2.headerbar {
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+}
+
+.tiptap-content {
+    & > *:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
 }
 
 header {
@@ -362,7 +453,7 @@ header {
     }
 
     #header_register,
-    #header_theme_toggle,
+    #header_theme-toggle,
     #header_avatar {
         position: relative;
         padding-left: calc(10px * 2 + 2px);
@@ -397,7 +488,7 @@ header {
         }
     }
 
-    #header_user_menu {
+    #header_user-menu {
         width: max-content;
 
         &::before {
@@ -424,6 +515,17 @@ header {
             margin-left: 0.5em;
         }
     }
+}
+
+#header_avatar {
+    position: relative;
+}
+
+#header_new-messages {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    transform: translate(50%, 50%);
 }
 
 main {
@@ -461,7 +563,6 @@ main {
 footer {
     background-color: light-dark(#333, #444);
     border-top: 5px solid light-dark(#aaa, #666);
-    color: #fff;
     padding-bottom: 1em;
 
     .page-wrap {
@@ -492,8 +593,15 @@ footer {
     a,
     a:active,
     a:visited {
-        color: var(--gp-light-red);
+        color: #fff;
         text-transform: uppercase;
+    }
+}
+
+.tiptap-editor {
+    .tiptap-toolbar {
+        border-top-left-radius: inherit;
+        border-top-right-radius: inherit;
     }
 }
 
@@ -654,9 +762,11 @@ footer {
     }
 }
 
-#settings_page form {
+form.grid-layout {
+    --label-col-width: 250px;
+
     display: grid;
-    grid-template-columns: 250px 1fr;
+    grid-template-columns: var(--label-col-width) 1fr;
     gap: 1em;
 
     & > div:not(.is-container) {
@@ -679,15 +789,30 @@ footer {
         margin-right: 1em;
     }
 
+    .center {
+        display: flex;
+        justify-content: center;
+    }
+
+    .explanation {
+        font-size: 0.8em;
+        margin-top: 0.5em;
+    }
+
+    .field-invalid {
+        border-color: var(--gp-red);
+    }
+
+    .error {
+        color: var(--gp-red);
+    }
+}
+
+#edit-profile-page form {
     textarea {
         width: 100%;
         max-width: 400px;
         height: calc(var(--line-height) * 3);
-    }
-
-    .center {
-        display: flex;
-        justify-content: center;
     }
 
     .success-banner {
@@ -707,6 +832,10 @@ footer {
         }
     }
 
+    .error {
+        margin-top: 0.5em;
+    }
+
     &#security-form {
         & > div:first-child {
             display: block;
@@ -715,24 +844,149 @@ footer {
             min-width: 100%;
         }
     }
-
-    .explanation {
-        font-size: 0.8em;
-        margin-top: 0.5em;
-    }
-
-    .error {
-        margin-top: 0.5em;
-        color: var(--gp-red);
-    }
 }
 
-#edit_settings_avatar {
+#edit-settings_avatar {
     input[type="file"] {
         margin-block: 0.5em;
     }
     p {
         font-size: 0.85em;
         margin-bottom: 0;
+    }
+}
+
+#pms-controls-container {
+    display: flex;
+
+    & > div {
+        margin-left: auto;
+        align-self: flex-end;
+    }
+
+    .trapezoid {
+        --trap-height: 2em;
+        padding: 0.2em;
+
+        & > button {
+            padding-inline: 1em;
+            font-size: 0.85em;
+        }
+
+        .current,
+        & > button:hover {
+            background: var(--gp-dark-red);
+            color: #fff;
+        }
+    }
+}
+
+#pms-list-header,
+.pm {
+    display: grid;
+    grid-template-columns: 50px 1fr;
+}
+
+#pms-list {
+    .unread {
+        .title {
+            font-weight: bold;
+        }
+    }
+
+    .del-col {
+        display: flex;
+        align-self: center;
+        justify-self: center;
+    }
+
+    .info {
+        padding-block: 0.3em;
+    }
+
+    .details {
+        font-size: 0.85em;
+    }
+}
+
+#pms-list-header {
+    --hb-height: 2.5em;
+}
+
+#pms-list-container {
+    .pm {
+        border: 1px solid var(--text);
+        border-top: none;
+    }
+
+    .paginate-container {
+        justify-content: flex-end;
+        margin-top: 1em;
+    }
+}
+
+#send-pm-form {
+    --label-col-width: 100px;
+
+    .input-field {
+        width: min(100%, 300px);
+    }
+
+    & > div:last-of-type {
+        grid-column: span 2;
+        text-align: center;
+    }
+
+    .error {
+        display: inline-block;
+        margin-left: 1em;
+    }
+}
+
+#display-pm {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    row-gap: 0.3em;
+    margin-top: 1em;
+
+    & > div {
+        display: contents;
+
+        &:not(.message) > *:first-child {
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+    }
+
+    .message {
+        display: block;
+        grid-column: span 2;
+    }
+}
+
+#pm-history-container {
+    background-color: #eee;
+    margin-top: 1em;
+    padding-inline: 1em;
+    border: 2px solid #000;
+
+    .history-pm {
+        padding-block: 1em;
+    }
+
+    .history-pm:not(.first) {
+        border-top: 1px solid #000;
+
+    }
+
+    .title {
+        font-weight: bold;
+        margin-top: 0;
+    }
+
+    .user {
+        font-size: .8em;
+        line-height: 1em;;
     }
 }

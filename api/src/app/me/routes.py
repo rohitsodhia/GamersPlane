@@ -11,6 +11,7 @@ from app.helpers.functions import error_response
 from app.me import schemas
 from app.middleware import AuthedUser
 from app.models import UserMeta
+from app.repositories.pm_repository import PMRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas import ErrorItem
 
@@ -45,7 +46,9 @@ async def get_current_user(current_user: AuthedUser, full: bool = False):
         output["joinDate"] = current_user.join_date
         meta_by_key = {meta.key: meta.value for meta in current_user.meta}
         for field, key in _PROFILE_META_KEYS.items():
-            output[field] = meta_by_key.get(key.value)
+            value = meta_by_key.get(key.value)
+            if value is not None:
+                output[field] = value
     return output
 
 
@@ -75,6 +78,20 @@ async def update_current_user(
     await user_repo.update_user_meta(current_user, updates)
 
     return {"success": True, "updated": updated_fields}
+
+
+@me.get("/header", response_model=schemas.GetHeaderResponse)
+async def get_header(db_session: DBSessionDependency, authed_user: AuthedUser):
+    pm_repository = PMRepository(db_session, authed_user=authed_user)
+
+    return {
+        "characters": [],
+        "games": [],
+        "pmCount": await pm_repository.count_pms(
+            user_id=authed_user.id, state="unread"
+        )
+        or 0,
+    }
 
 
 @me.post(

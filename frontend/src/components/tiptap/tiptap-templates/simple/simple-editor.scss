@@ -1,0 +1,40 @@
+.tiptap.ProseMirror {
+  font-family: inherit;
+}
+
+.simple-editor-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.simple-editor-search-and-replace {
+  position: absolute;
+  top: calc(var(--tt-toolbar-height) + 0.5rem);
+  right: 0.5rem;
+  z-index: 51;
+  max-height: calc(100% - var(--tt-toolbar-height) - 1rem);
+}
+
+.simple-editor-content {
+  width: 100%;
+}
+
+// Tiptap's BubbleMenu positions its content inside its own plain div (not
+// the .tiptap-toolbar element rendered inside it), so the z-index has to go
+// on that outer div via this class — without it the menu renders behind the
+// fixed toolbar (z-index: 50 in toolbar.scss) whenever a selection sits near
+// the top of the editor.
+.simple-editor-bubble-menu {
+  z-index: 52;
+}
+
+.simple-editor-content .tiptap.ProseMirror.simple-editor {
+  min-height: 12rem;
+  padding: 1rem 1.25rem;
+}
+
+@media screen and (max-width: 480px) {
+  .simple-editor-content .tiptap.ProseMirror.simple-editor {
+    padding: 0.75rem 1rem;
+  }
+}

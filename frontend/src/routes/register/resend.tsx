@@ -2,6 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useHbMargined } from "#/lib/use-hb-margined";
 import { resendActivation } from "#/queries/register";
 
 export const Route = createFileRoute("/register/resend")({
@@ -29,10 +30,14 @@ function RouteComponent() {
 		},
 	});
 
+	const hbMargined = useHbMargined<HTMLHeadingElement>();
+
 	return (
 		<div>
-			<h1 className="headerbar">Resend Activation Email</h1>
-			<div className="hb-margined">
+			<h1 className="headerbar" ref={hbMargined.ref}>
+				Resend Activation Email
+			</h1>
+			<div style={{ marginInline: `${hbMargined.margin}px` }}>
 				{resendAPISuccess && (
 					<p className="banner success-banner">
 						An email has been sent to you with a link to activate your account.

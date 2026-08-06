@@ -15,8 +15,12 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
+import { Route as PmsIndexRouteImport } from './routes/pms/index'
 import { Route as RegisterSuccessRouteImport } from './routes/register/success'
 import { Route as RegisterResendRouteImport } from './routes/register/resend'
+import { Route as PmsSendRouteImport } from './routes/pms/send'
+import { Route as PmsReplyRouteImport } from './routes/pms/reply'
+import { Route as PmsPmIDRouteImport } from './routes/pms/$pmID'
 
 const SystemsRoute = SystemsRouteImport.update({
   id: '/systems',
@@ -48,6 +52,11 @@ const RegisterIndexRoute = RegisterIndexRouteImport.update({
   path: '/register/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PmsIndexRoute = PmsIndexRouteImport.update({
+  id: '/pms/',
+  path: '/pms/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterSuccessRoute = RegisterSuccessRouteImport.update({
   id: '/register/success',
   path: '/register/success',
@@ -58,6 +67,21 @@ const RegisterResendRoute = RegisterResendRouteImport.update({
   path: '/register/resend',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PmsSendRoute = PmsSendRouteImport.update({
+  id: '/pms/send',
+  path: '/pms/send',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PmsReplyRoute = PmsReplyRouteImport.update({
+  id: '/pms/reply',
+  path: '/pms/reply',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PmsPmIDRoute = PmsPmIDRouteImport.update({
+  id: '/pms/$pmID',
+  path: '/pms/$pmID',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -65,8 +89,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
+  '/pms/$pmID': typeof PmsPmIDRoute
+  '/pms/reply': typeof PmsReplyRoute
+  '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
 }
 export interface FileRoutesByTo {
@@ -75,8 +103,12 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
+  '/pms/$pmID': typeof PmsPmIDRoute
+  '/pms/reply': typeof PmsReplyRoute
+  '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/pms': typeof PmsIndexRoute
   '/register': typeof RegisterIndexRoute
 }
 export interface FileRoutesById {
@@ -86,8 +118,12 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
+  '/pms/$pmID': typeof PmsPmIDRoute
+  '/pms/reply': typeof PmsReplyRoute
+  '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
 }
 export interface FileRouteTypes {
@@ -98,8 +134,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/systems'
+    | '/pms/$pmID'
+    | '/pms/reply'
+    | '/pms/send'
     | '/register/resend'
     | '/register/success'
+    | '/pms/'
     | '/register/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -108,8 +148,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/systems'
+    | '/pms/$pmID'
+    | '/pms/reply'
+    | '/pms/send'
     | '/register/resend'
     | '/register/success'
+    | '/pms'
     | '/register'
   id:
     | '__root__'
@@ -118,8 +162,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/systems'
+    | '/pms/$pmID'
+    | '/pms/reply'
+    | '/pms/send'
     | '/register/resend'
     | '/register/success'
+    | '/pms/'
     | '/register/'
   fileRoutesById: FileRoutesById
 }
@@ -129,8 +177,12 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
+  PmsPmIDRoute: typeof PmsPmIDRoute
+  PmsReplyRoute: typeof PmsReplyRoute
+  PmsSendRoute: typeof PmsSendRoute
   RegisterResendRoute: typeof RegisterResendRoute
   RegisterSuccessRoute: typeof RegisterSuccessRoute
+  PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
 }
 
@@ -178,6 +230,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pms/': {
+      id: '/pms/'
+      path: '/pms'
+      fullPath: '/pms/'
+      preLoaderRoute: typeof PmsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register/success': {
       id: '/register/success'
       path: '/register/success'
@@ -192,6 +251,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterResendRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pms/send': {
+      id: '/pms/send'
+      path: '/pms/send'
+      fullPath: '/pms/send'
+      preLoaderRoute: typeof PmsSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pms/reply': {
+      id: '/pms/reply'
+      path: '/pms/reply'
+      fullPath: '/pms/reply'
+      preLoaderRoute: typeof PmsReplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pms/$pmID': {
+      id: '/pms/$pmID'
+      path: '/pms/$pmID'
+      fullPath: '/pms/$pmID'
+      preLoaderRoute: typeof PmsPmIDRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -201,8 +281,12 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,
+  PmsPmIDRoute: PmsPmIDRoute,
+  PmsReplyRoute: PmsReplyRoute,
+  PmsSendRoute: PmsSendRoute,
   RegisterResendRoute: RegisterResendRoute,
   RegisterSuccessRoute: RegisterSuccessRoute,
+  PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
 }
 export const routeTree = rootRouteImport

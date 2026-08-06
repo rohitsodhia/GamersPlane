@@ -21,10 +21,12 @@ from app.helpers.functions import error_response
 from app.me.legacy_routes import me as legacy_me
 from app.me.routes import me
 from app.pms.legacy_routes import pms as legacy_pms
+from app.pms.routes import pms
 from app.referral_links.routes import referral_links
 from app.schemas import ErrorItem
 from app.systems.legacy_routes import systems as legacy_systems
 from app.systems.routes import systems
+from app.users.routes import users
 
 seed()
 
@@ -131,6 +133,8 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(auth)
     app.include_router(referral_links)
     app.include_router(me)
+    app.include_router(users)
     app.include_router(systems)
+    app.include_router(pms)
 
     return app

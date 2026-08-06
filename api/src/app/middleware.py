@@ -29,9 +29,10 @@ async def validate_jwt(request: Request, db_session: DBSessionDependency):
                 configs.JWT_SECRET_KEY,
                 algorithms=[configs.JWT_ALGORITHM],
             )
-            user_repo = UserRepository(db_session)
-            user = await user_repo.get_user(jwt_body["user_id"])
+            user_repository = UserRepository(db_session)
+            user = await user_repository.get_user(jwt_body["user_id"])
             if user:
+                await user_repository.update_last_activity(user)
                 request.scope["auth"] = await user.awaitable_attrs.permissions
                 request.scope["user"] = user
         except (jwt.InvalidSignatureError, jwt.ExpiredSignatureError, jwt.DecodeError):
