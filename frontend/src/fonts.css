@@ -1,6 +1,18 @@
 @font-face {
+    font-family: "LucidaGrande";
+    src:
+        url("/fonts/LucidaGrande.woff2") format("woff2"),
+        url("/fonts/LucidaGrande.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
     font-family: "AgencyFB";
-    src: url("/fonts/AgencyFB.woff") format("woff");
+    src:
+        url("/fonts/AgencyFB.woff2") format("woff2"),
+        url("/fonts/AgencyFB.woff") format("woff");
     font-weight: normal;
     font-style: normal;
     font-display: swap;
@@ -16,7 +28,9 @@
 
 @font-face {
     font-family: "Neuropol";
-    src: url("/fonts/Neuropol.woff") format("woff");
+    src:
+        url("/fonts/Neuropol.woff2") format("woff2"),
+        url("/fonts/Neuropol.woff") format("woff");
     font-weight: normal;
     font-style: normal;
     font-display: swap;
