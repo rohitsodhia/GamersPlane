@@ -68,7 +68,7 @@ async def get_pm(
     db_session: DBSessionDependency,
     authed_user: AuthedUser,
     id: int,
-    includeSelfHistory: bool = False,
+    include_self_history: bool = False,
 ):
     pm_repository = PMRepository(db_session, authed_user=authed_user)
 
@@ -116,7 +116,7 @@ async def get_pm(
             )
         )
 
-    if includeSelfHistory:
+    if include_self_history:
         history.insert(
             0,
             schemas.PM(**model.model_dump()),
