@@ -43,11 +43,14 @@ export function pmsQueryOptions(params: { box: PMBox; page: number }) {
 	});
 }
 
-export function pmQueryOptions(id: number) {
+export function pmQueryOptions(id: number, options?: { includeSelfHistory?: boolean }) {
+	const includeSelfHistory = options?.includeSelfHistory ?? false;
 	return queryOptions({
-		queryKey: ["pms", id],
+		queryKey: ["pms", id, { includeSelfHistory }],
 		queryFn: async (): Promise<PMDetail> => {
-			const res = await apiFetch(`/pms/${id}`);
+			const res = await apiFetch(
+				`/pms/${id}${includeSelfHistory ? "?include_self_history=true" : ""}`,
+			);
 			if (!res.ok) throw new Error("Failed to fetch PM");
 			const { pm } = await res.json();
 			return pm;

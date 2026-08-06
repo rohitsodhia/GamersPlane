@@ -510,6 +510,17 @@ header {
     }
 }
 
+#header_avatar {
+    position: relative;
+}
+
+#header_new-messages {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    transform: translate(50%, 50%);
+}
+
 main {
     position: relative;
     flex-grow: 1;

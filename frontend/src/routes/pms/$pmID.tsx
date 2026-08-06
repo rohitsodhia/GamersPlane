@@ -4,7 +4,8 @@ import { TiptapContent } from "#/components/TiptapContent";
 import { requireAuth } from "#/lib/auth-route";
 import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { deletePM, type PM, pmQueryOptions } from "#/queries/pms";
+import { deletePM, pmQueryOptions } from "#/queries/pms";
+import { PmHistory } from "#/routes/pms/-history-pm";
 
 export const Route = createFileRoute("/pms/$pmID")({
 	beforeLoad: requireAuth,
@@ -17,36 +18,6 @@ export const Route = createFileRoute("/pms/$pmID")({
 	},
 	component: RouteComponent,
 });
-
-function HistoryPM({ pm, isFirst }: { pm: PM; isFirst: boolean }) {
-	return (
-		<div className={`history-pm${isFirst ? " first" : ""}`}>
-			<p className="title">
-				<Link to="/pms/$pmID" params={{ pmID: String(pm.id) }}>
-					{pm.title}
-				</Link>
-			</p>
-			<p className="user">
-				from{" "}
-				<Link to="/user/$id" params={{ id: String(pm.sender.id) }} className="username">
-					{pm.sender.username}
-				</Link>{" "}
-				on <span>{formatDateTime(pm.datestamp)}</span>
-			</p>
-			<p className="user">
-				to{" "}
-				<Link
-					to="/user/$id"
-					params={{ id: String(pm.recipient.id) }}
-					className="username"
-				>
-					{pm.recipient.username}
-				</Link>
-			</p>
-			<TiptapContent content={pm.message} className="message" />
-		</div>
-	);
-}
 
 function RouteComponent() {
 	const { pmID } = Route.useParams();
@@ -118,13 +89,7 @@ function RouteComponent() {
 				<TiptapContent content={pm.message} className="message" />
 			</div>
 
-			{pm.history.length > 0 && (
-				<div id="history">
-					{pm.history.map((historyPM, index) => (
-						<HistoryPM key={historyPM.id} pm={historyPM} isFirst={index === 0} />
-					))}
-				</div>
-			)}
+			<PmHistory pms={pm.history} />
 		</div>
 	);
 }
