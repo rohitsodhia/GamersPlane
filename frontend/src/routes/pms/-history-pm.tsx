@@ -37,7 +37,7 @@ export function PmHistory({ pms }: { pms: PM[] }) {
 	if (pms.length === 0) return null;
 
 	return (
-		<div id="history">
+		<div id="pm-history-container">
 			{pms.map((pm, index) => (
 				<HistoryPM key={pm.id} pm={pm} isFirst={index === 0} />
 			))}

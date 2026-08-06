@@ -296,6 +296,13 @@ h2.headerbar {
     border: 0;
 }
 
+.tiptap-content {
+    & > *:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+}
+
 header {
     position: sticky;
     top: 0;
@@ -955,5 +962,31 @@ form.grid-layout {
     .message {
         display: block;
         grid-column: span 2;
+    }
+}
+
+#pm-history-container {
+    background-color: #eee;
+    margin-top: 1em;
+    padding-inline: 1em;
+    border: 2px solid #000;
+
+    .history-pm {
+        padding-block: 1em;
+    }
+
+    .history-pm:not(.first) {
+        border-top: 1px solid #000;
+
+    }
+
+    .title {
+        font-weight: bold;
+        margin-top: 0;
+    }
+
+    .user {
+        font-size: .8em;
+        line-height: 1em;;
     }
 }
