@@ -1,3 +1,4 @@
+from .forum_factory import ForumFactory
 from .genre_factory import GenreFactory
 from .permission_factory import PermissionFactory
 from .pm_factory import PMFactory
