@@ -17,6 +17,13 @@ async def principal(request: Request) -> User:
 Principal = Annotated[User, Depends(principal)]
 
 
+async def auth(request: Request) -> list[str]:
+    return request.scope["auth"]
+
+
+Auth = Annotated[list[str], Depends(auth)]
+
+
 async def validate_jwt(request: Request, db_session: DBSessionDependency):
     token = request.headers.get("Authorization")
     request.scope["auth"] = None
@@ -35,8 +42,11 @@ async def validate_jwt(request: Request, db_session: DBSessionDependency):
                 await user_repository.update_last_activity(user)
                 request.scope["auth"] = await user.awaitable_attrs.permissions
                 request.scope["user"] = user
+                return
         except (jwt.InvalidSignatureError, jwt.ExpiredSignatureError, jwt.DecodeError):
             pass
+    request.scope["auth"] = []
+    request.scope["user"] = None
 
 
 async def check_authorization(request: Request):
