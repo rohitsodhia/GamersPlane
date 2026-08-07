@@ -118,18 +118,20 @@ function RouteComponent() {
 					&nbsp;
 				</div>
 				<div id="pms-list-container" style={{ marginInline: `${hbMargined.margin}px` }}>
-					{isPending && <div className="loading">Loading...</div>}
-					{data?.pms.map((pm) => (
-						<PMRow
-							key={pm.id}
-							pm={pm}
-							box={box}
-							onDelete={(id) => deletePMMutation.mutate(id)}
-						/>
-					))}
-					{data && data.pms.length === 0 && (
-						<div className="no-results">No messages</div>
-					)}
+					<div>
+						{isPending && <div className="loading">Loading...</div>}
+						{data?.pms.map((pm) => (
+							<PMRow
+								key={pm.id}
+								pm={pm}
+								box={box}
+								onDelete={(id) => deletePMMutation.mutate(id)}
+							/>
+						))}
+						{data && data.pms.length === 0 && (
+							<div className="no-results">No messages</div>
+						)}
+					</div>
 					{data && (
 						<Paginate
 							numItems={data.count}
