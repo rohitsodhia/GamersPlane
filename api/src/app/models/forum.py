@@ -19,13 +19,11 @@ class Forum(Base, SoftDeleteMixin, TimestampMixin):
         CATEGORY = "c", "Category"
 
     __tablename__ = "forums"
-    __table_args__ = (
-        Index("ix_forums_heritage", "heritage", postgresql_using="gin"),
-    )
+    __table_args__ = (Index("ix_forums_heritage", "heritage", postgresql_using="gin"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(200))
-    description: Mapped[str] = mapped_column(Text(), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text(), nullable=True)
     forum_type: Mapped[ForumTypes] = mapped_column(
         LabelEnumType(ForumTypes, String(1)),
         default=ForumTypes.FORUM,
