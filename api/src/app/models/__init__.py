@@ -1,6 +1,6 @@
-# from .forum import Forum
-# from .forum_group import ForumGroup
-# from .game import Game
+from .forum import Forum
+from .game import Game
+from .game_allowed_systems import GameAllowedSystem
 from .genre import Genre
 from .permission import Permission
 from .pm import PM
