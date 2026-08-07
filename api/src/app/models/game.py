@@ -1,5 +1,5 @@
 import datetime
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -21,12 +21,12 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(50))
     system_id: Mapped[str] = mapped_column(ForeignKey("systems.id"))
-    system: Mapped["System"] = relationship()
-    allowed_char_sheets: Mapped[List["System"]] = relationship(
+    system: Mapped[System] = relationship()
+    allowed_char_sheets: Mapped[list[System]] = relationship(
         secondary="game_allowed_systems"
     )
     gm_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    gm: Mapped["User"] = relationship()
+    gm: Mapped[User] = relationship()
     created: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), insert_default=func.now()
     )
@@ -42,9 +42,9 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text(), nullable=True)
     char_gen_info: Mapped[str | None] = mapped_column(Text(), nullable=True)
     root_forum_id: Mapped[int] = mapped_column(ForeignKey("forums.id"))
-    root_forum: Mapped["Forum"] = relationship(foreign_keys=[root_forum_id])
+    root_forum: Mapped[Forum] = relationship(foreign_keys=[root_forum_id])
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
-    role: Mapped["Role"] = relationship()
+    role: Mapped[Role] = relationship()
     status: Mapped[Statuses] = mapped_column(
         LabelEnumType(Statuses, Boolean), default=Statuses.OPEN
     )

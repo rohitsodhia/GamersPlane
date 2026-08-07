@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ARRAY, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -31,9 +31,9 @@ class Forum(Base, SoftDeleteMixin, TimestampMixin):
     parent_id: Mapped[int | None] = mapped_column(
         ForeignKey("forums.id"), index=True, nullable=True
     )
-    parent: Mapped["Forum | None"] = relationship()
-    heritage: Mapped[List[int]] = mapped_column(ARRAY(Integer()))
+    parent: Mapped[Forum | None] = relationship()
+    heritage: Mapped[list[int]] = mapped_column(ARRAY(Integer()))
     order: Mapped[int]
     game_id: Mapped[int | None] = mapped_column(ForeignKey("games.id"), nullable=True)
-    game: Mapped["Game"] = relationship(foreign_keys=[game_id])
+    game: Mapped[Game] = relationship(foreign_keys=[game_id])
     thread_count: Mapped[int] = mapped_column(default=0)

@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import BaseModel
 
 
@@ -17,4 +15,4 @@ class RoleData(BaseModel):
 
 
 class RoleListResponse(BaseModel):
-    roles: List[RoleData]
+    roles: list[RoleData]

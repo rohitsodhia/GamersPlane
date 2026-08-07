@@ -1,5 +1,5 @@
 import datetime
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import bcrypt
 import jwt
@@ -38,15 +38,15 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
     banned: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), nullable=True, init=False
     )
-    roles: Mapped[List["Role"]] = relationship(
+    roles: Mapped[list[Role]] = relationship(
         secondary="user_roles", back_populates="users", default_factory=list
     )
-    meta: Mapped[List["UserMeta"]] = relationship(default_factory=list)
+    meta: Mapped[list[UserMeta]] = relationship(default_factory=list)
 
     MIN_PASSWORD_LENGTH: int = 8
 
     # @property
-    # def permissions(self) -> List[int]:
+    # def permissions(self) -> list[int]:
     #     with connection.cursor() as cursor:
     #         cursor.execute(
     #             "SELECT DISTINCT permission FROM permissions p INNER JOIN role_permissions rp ON rp.permissionId = p.id INNER JOIN roles r ON r.id = rp.roleId INNER JOIN user_roles ur ON ur.roleId = r.id WHERE ur.userId = %s",

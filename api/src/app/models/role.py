@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -18,11 +18,11 @@ class Role(Base, TimestampMixin, SoftDeleteMixin):
     _name: Mapped[str] = mapped_column("name", String(64), unique=True)
     _plural: Mapped[str] = mapped_column("plural", String(64), unique=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    owner: Mapped["User"] = relationship()
-    permissions: Mapped[List["Permission"]] = relationship(
+    owner: Mapped[User] = relationship()
+    permissions: Mapped[list["Permission"]] = relationship(
         secondary="role_permissions", back_populates="roles"
     )
-    users: Mapped[List["User"]] = relationship(
+    users: Mapped[list["User"]] = relationship(
         secondary="user_roles", back_populates="roles"
     )
 

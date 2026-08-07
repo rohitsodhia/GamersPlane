@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -17,8 +17,8 @@ class System(Base, SoftDeleteMixin, TimestampMixin):
     name: Mapped[str] = mapped_column(String(40))
     sort_name: Mapped[str] = mapped_column(String(40))
     publisher_id: Mapped[int] = mapped_column(ForeignKey("publishers.id"))
-    publisher: Mapped["Publisher"] = relationship()
-    genres: Mapped[List["Genre"]] = relationship(secondary="system_genres")
+    publisher: Mapped[Publisher] = relationship()
+    genres: Mapped[list[Genre]] = relationship(secondary="system_genres")
     basics: Mapped[list[dict]] = mapped_column(JSON(), default=list)
     has_char_sheet: Mapped[bool]
     enabled: Mapped[bool]

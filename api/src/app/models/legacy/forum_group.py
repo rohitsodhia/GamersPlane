@@ -16,8 +16,8 @@ class ForumGroup(LegacyBase):
     name: Mapped[str] = mapped_column(String(200))
     status: Mapped[bool] = mapped_column(default=True)
     owner_id: Mapped[int] = mapped_column("ownerID", ForeignKey("users.userID"))
-    owner: Mapped["User"] = relationship()
+    owner: Mapped[User] = relationship()
     game_id: Mapped[int] = mapped_column(
         "gameID", ForeignKey("games.gameID"), nullable=True
     )
-    game: Mapped["Game"] = relationship(foreign_keys=[game_id])
+    game: Mapped[Game] = relationship(foreign_keys=[game_id])
