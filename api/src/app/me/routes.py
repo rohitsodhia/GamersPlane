@@ -9,7 +9,7 @@ from app.configs import configs
 from app.database import DBSessionDependency
 from app.helpers.functions import error_response
 from app.me import schemas
-from app.middleware import AuthedUser
+from app.middleware import Principal
 from app.models import UserMeta
 from app.repositories.pm_repository import PMRepository
 from app.repositories.user_repository import UserRepository
@@ -36,7 +36,7 @@ _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
 
 
 @me.get("", response_model=schemas.UserOutput, response_model_exclude_none=True)
-async def get_current_user(current_user: AuthedUser, full: bool = False):
+async def get_current_user(current_user: Principal, full: bool = False):
     output = {
         "id": current_user.id,
         "username": current_user.username,
@@ -59,7 +59,7 @@ async def get_current_user(current_user: AuthedUser, full: bool = False):
 )
 async def update_current_user(
     profile: schemas.UpdateProfileInput,
-    current_user: AuthedUser,
+    current_user: Principal,
     db_session: DBSessionDependency,
 ):
     user_repo = UserRepository(db_session)
@@ -81,15 +81,13 @@ async def update_current_user(
 
 
 @me.get("/header", response_model=schemas.GetHeaderResponse)
-async def get_header(db_session: DBSessionDependency, authed_user: AuthedUser):
-    pm_repository = PMRepository(db_session, authed_user=authed_user)
+async def get_header(db_session: DBSessionDependency, principal: Principal):
+    pm_repository = PMRepository(db_session, principal=principal)
 
     return {
         "characters": [],
         "games": [],
-        "pmCount": await pm_repository.count_pms(
-            user_id=authed_user.id, state="unread"
-        )
+        "pmCount": await pm_repository.count_pms(user_id=principal.id, state="unread")
         or 0,
     }
 
@@ -99,7 +97,7 @@ async def get_header(db_session: DBSessionDependency, authed_user: AuthedUser):
     response_model=schemas.UpdateAvatarResponse,
 )
 async def update_current_user_avatar(
-    current_user: AuthedUser,
+    current_user: Principal,
     db_session: DBSessionDependency,
     avatar: UploadFile = File(...),
 ):
@@ -156,7 +154,7 @@ async def update_current_user_avatar(
     response_model=schemas.DeleteAvatarResponse,
 )
 async def delete_current_user_avatar(
-    current_user: AuthedUser,
+    current_user: Principal,
     db_session: DBSessionDependency,
 ):
     user_repo = UserRepository(db_session)
@@ -185,7 +183,7 @@ async def delete_current_user_avatar(
 )
 async def update_current_user_password(
     password_details: schemas.UpdatePasswordInput,
-    current_user: AuthedUser,
+    current_user: Principal,
     db_session: DBSessionDependency,
 ):
     if not current_user.check_pass(password_details.oldPassword):

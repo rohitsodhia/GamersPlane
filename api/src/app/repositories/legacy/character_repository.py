@@ -5,16 +5,16 @@ from app.models.legacy.user import User
 
 
 class CharacterRepository:
-    def __init__(self, db_session: DBSessionDependency, authed_user: User):
+    def __init__(self, db_session: DBSessionDependency, principal: User):
         self.db_session = db_session
-        self.authed_user = authed_user
+        self.principal = principal
 
     async def get_header_characters(self):
         characters_result = await self.db_session.execute(
             text(
                 "SELECT DISTINCT characters.characterID, characters.label, characters.system, IF(favorites.userID, 1, 0) isFavorite FROM characters LEFT JOIN characterLibrary_favorites favorites ON characters.characterID = favorites.characterID AND favorites.userID = :userID WHERE characters.userID = :userID AND characters.retired IS NULL ORDER BY isFavorite DESC, characters.label"
             ),
-            {"userID": self.authed_user.id},
+            {"userID": self.principal.id},
         )
 
         characters: list[dict] = []

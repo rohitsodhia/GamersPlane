@@ -10,11 +10,11 @@ from app.models import User
 from app.repositories.user_repository import UserRepository
 
 
-async def authed_user(request: Request) -> User:
+async def principal(request: Request) -> User:
     return request.scope["user"]
 
 
-AuthedUser = Annotated[User, Depends(authed_user)]
+Principal = Annotated[User, Depends(principal)]
 
 
 async def validate_jwt(request: Request, db_session: DBSessionDependency):

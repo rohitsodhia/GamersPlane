@@ -23,13 +23,9 @@ class PMSelfException(Exception):
 
 
 class PMRepository:
-    def __init__(
-        self,
-        db_session: AsyncSession,
-        authed_user: User,
-    ):
+    def __init__(self, db_session: AsyncSession, principal: User):
         self.db_session = db_session
-        self.authed_user = authed_user
+        self.principal = principal
 
     def __filter_by_box(self, box: Box, user_id: int):
         if box == "inbox":
@@ -79,11 +75,11 @@ class PMRepository:
                 PM.id == pm_id,
                 or_(
                     and_(
-                        PM.recipient_id == self.authed_user.id,
+                        PM.recipient_id == self.principal.id,
                         PM.recipient_deleted.is_(None),
                     ),
                     and_(
-                        PM.sender_id == self.authed_user.id,
+                        PM.sender_id == self.principal.id,
                         PM.sender_deleted.is_(None),
                     ),
                 ),
@@ -92,10 +88,7 @@ class PMRepository:
         )
         if not pm:
             raise NotFoundException()
-        elif (
-            self.authed_user.id != pm.recipient.id
-            and self.authed_user.id != pm.sender.id
-        ):
+        elif self.principal.id != pm.recipient.id and self.principal.id != pm.sender.id:
             raise ForbiddenException()
 
         return pm
@@ -110,8 +103,8 @@ class PMRepository:
         history: list[PM] = []
         for pm in pms:
             if (
-                pm.recipient.id == self.authed_user.id
-                or pm.sender.id == self.authed_user.id
+                pm.recipient.id == self.principal.id
+                or pm.sender.id == self.principal.id
             ):
                 history.append(pm)
 
@@ -129,12 +122,12 @@ class PMRepository:
         )
         if not recipient:
             raise NoRecipientException()
-        if recipient.id == self.authed_user.id:
+        if recipient.id == self.principal.id:
             raise PMSelfException()
 
         pm = PM(
             recipient_id=recipient.id,
-            sender_id=self.authed_user.id,
+            sender_id=self.principal.id,
             title=title,
             message=message,
         )
@@ -153,11 +146,11 @@ class PMRepository:
                         PM.id == reply_to_id,
                         or_(
                             and_(
-                                PM.recipient_id == self.authed_user.id,
+                                PM.recipient_id == self.principal.id,
                                 PM.recipient_deleted.is_(None),
                             ),
                             and_(
-                                PM.sender_id == self.authed_user.id,
+                                PM.sender_id == self.principal.id,
                                 PM.sender_deleted.is_(None),
                             ),
                         ),
@@ -176,9 +169,9 @@ class PMRepository:
         pm = await self.get_pm(pm_id)
         if not pm:
             raise NotFoundException()
-        elif self.authed_user.id == pm.recipient.id:
+        elif self.principal.id == pm.recipient.id:
             pm.recipient_deleted = datetime.now(timezone.utc)
-        elif self.authed_user.id == pm.sender.id:
+        elif self.principal.id == pm.sender.id:
             pm.sender_deleted = datetime.now(timezone.utc)
         else:
             raise ForbiddenException()

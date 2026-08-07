@@ -6,11 +6,9 @@ from app.repositories.legacy import ForumRepository
 
 
 class GameRepository:
-    def __init__(
-        self, db_session: DBSessionDependency, authed_user: User | None = None
-    ):
+    def __init__(self, db_session: DBSessionDependency, principal: User | None = None):
         self.db_session = db_session
-        self.authed_user = authed_user
+        self.principal = principal
 
     async def create_game(
         self,
@@ -69,7 +67,7 @@ class GameRepository:
             text(
                 "SELECT games.gameID, games.title, games.forumID, games.retired, IF(players.isGM, players.isGM, FALSE) isGM, IF(players.userID, TRUE, FALSE) isPlayer, IF(favorites.userID, 1, 0) isFavorite FROM games LEFT JOIN players ON games.gameID = players.gameID AND players.userID = :userID LEFT JOIN games_favorites favorites ON games.gameID = favorites.gameID AND favorites.userID = :userID WHERE (players.userID IS NOT NULL OR favorites.userID IS NOT NULL) ORDER BY isFavorite DESC, isGM DESC, isPlayer DESC, games.title"
             ),
-            {"userID": self.authed_user.id},
+            {"userID": self.principal.id},
         )
 
         games: list[dict] = []

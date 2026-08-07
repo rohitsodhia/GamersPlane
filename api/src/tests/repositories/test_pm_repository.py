@@ -20,7 +20,7 @@ class TestPMRepository:
 
     @pytest.fixture
     async def repository(self, db_session, wrap_in_savepoint, alice):
-        return PMRepository(db_session, authed_user=alice)
+        return PMRepository(db_session, principal=alice)
 
     async def test_get_pms_inbox(self, repository, create, alice, bob):
         await create(PMFactory, recipient=alice, sender=bob, title="Hi")
@@ -56,7 +56,9 @@ class TestPMRepository:
 
         assert pms == []
 
-    async def test_get_pms_excludes_sender_deleted(self, repository, create, alice, bob):
+    async def test_get_pms_excludes_sender_deleted(
+        self, repository, create, alice, bob
+    ):
         from datetime import datetime, timezone
 
         await create(
@@ -70,7 +72,9 @@ class TestPMRepository:
 
         assert pms == []
 
-    async def test_get_pms_orders_by_datestamp_desc(self, repository, create, alice, bob):
+    async def test_get_pms_orders_by_datestamp_desc(
+        self, repository, create, alice, bob
+    ):
         from datetime import datetime, timedelta, timezone
 
         now = datetime.now(timezone.utc)
@@ -116,7 +120,7 @@ class TestPMRepository:
 
     async def test_get_pm_as_sender(self, create, alice, bob, db_session):
         pm = await create(PMFactory, recipient=bob, sender=alice)
-        repository = PMRepository(db_session, authed_user=alice)
+        repository = PMRepository(db_session, principal=alice)
 
         found = await repository.get_pm(pm.id)
 
@@ -130,7 +134,7 @@ class TestPMRepository:
         other = await create(UserFactory, username="charlie")
         third = await create(UserFactory, username="dave")
         pm = await create(PMFactory, recipient=bob, sender=other)
-        repository = PMRepository(db_session, authed_user=third)
+        repository = PMRepository(db_session, principal=third)
 
         with pytest.raises(NotFoundException):
             await repository.get_pm(pm.id)
@@ -172,7 +176,7 @@ class TestPMRepository:
         assert pm.title == "Hello"
         assert pm.message == "Hi there"
         assert pm.recipient_id == bob.id
-        assert pm.sender_id == repository.authed_user.id
+        assert pm.sender_id == repository.principal.id
 
     async def test_send_pm_no_recipient(self, repository):
         with pytest.raises(NoRecipientException):
@@ -187,7 +191,7 @@ class TestPMRepository:
             )
 
     async def test_send_pm_with_reply_to_sets_history(self, repository, create, bob):
-        original = await create(PMFactory, recipient=repository.authed_user, sender=bob)
+        original = await create(PMFactory, recipient=repository.principal, sender=bob)
 
         pm = await repository.send_pm(
             recipient_username=bob.username,
@@ -220,7 +224,7 @@ class TestPMRepository:
 
     async def test_delete_pm_as_sender(self, create, alice, bob, db_session):
         pm = await create(PMFactory, recipient=bob, sender=alice)
-        repository = PMRepository(db_session, authed_user=alice)
+        repository = PMRepository(db_session, principal=alice)
 
         await repository.delete_pm(pm.id)
 

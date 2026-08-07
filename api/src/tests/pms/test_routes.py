@@ -161,7 +161,7 @@ class TestGetPM:
         body = response.json()["pm"]
         assert [h["title"] for h in body["history"]] == ["Original"]
 
-    async def test_get_pm_history_excludes_entries_authed_user_is_not_part_of(
+    async def test_get_pm_history_excludes_entries_principal_is_not_part_of(
         self, authed_client, create
     ):
         client, user = authed_client

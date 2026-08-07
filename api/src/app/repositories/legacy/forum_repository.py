@@ -3,11 +3,9 @@ from app.models.legacy import Forum, ForumGroup, User
 
 
 class ForumRepository:
-    def __init__(
-        self, db_session: DBSessionDependency, authed_user: User | None = None
-    ):
+    def __init__(self, db_session: DBSessionDependency, principal: User | None = None):
         self.db_session = db_session
-        self.authed_user = authed_user
+        self.principal = principal
 
     async def create_forum(
         self,
