@@ -1,19 +1,33 @@
-from models import Forum
-from pydantic import BaseModel
+from __future__ import annotations
+
+from app.models.forum import Forum
+from app.schema_base import SchemaBase
 
 
-class CreateForumInput(BaseModel):
+class HeritageForumData(SchemaBase):
+    id: int
     title: str
-    forumType: Forum.ForumTypes
-    parent: int
-    gameId: int | None = None
-    description: str | None = None
 
 
-class UpdateForumInput(BaseModel):
-    title: str | None = None
-    forumType: Forum.ForumTypes | None = None
-    parent: int | None = None
-    gameId: int | None = None
+class ChildForumData(SchemaBase):
+    id: int
+    title: str
     description: str | None = None
-    order: int | None = None
+    forum_type: Forum.ForumTypes
+    children: list[ChildForumData] = []
+
+
+ChildForumData.model_rebuild()
+
+
+class GetForum(SchemaBase):
+    id: int
+    title: str
+    description: str | None
+    forum_type: Forum.ForumTypes
+    parent_id: int | None
+    heritage: list[HeritageForumData]
+    order: int
+    game_id: int | None
+    thread_count: int
+    children: list[ChildForumData] = []
