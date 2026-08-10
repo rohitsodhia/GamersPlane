@@ -1,26 +1,42 @@
-from django.db import models
-from helpers.base_models import SoftDeleteModel, TimestampedModel
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from sqlalchemy import JSON, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.helpers.enums import LabelEnum, LabelEnumType
+from app.models.base import Base, SoftDeleteMixin, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models import Character, Thread, User
 
 
-class Post(SoftDeleteModel, TimestampedModel):
-    class Meta:
-        db_table = "posts"
-
-    class States(models.TextChoices):
+class Post(Base, SoftDeleteMixin, TimestampMixin):
+    class States(LabelEnum):
         DRAFT = "d", "Draft"
         POST = "p", "Post"
         REVISION = "r", "Revision"
 
-    thread = models.ForeignKey(
-        "forums.Thread", on_delete=models.PROTECT, db_column="threadId"
+    __tablename__ = "posts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    thread_id: Mapped[int] = mapped_column(ForeignKey("threads.id"), index=True)
+    thread: Mapped[Thread] = relationship(
+        foreign_keys=[thread_id], back_populates="posts", lazy="joined"
     )
-    title = models.CharField(max_length=50)
-    author = models.ForeignKey(
-        "users.User", on_delete=models.PROTECT, db_column="authorId"
+    title: Mapped[str]
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    author: Mapped[User] = relationship(lazy="joined")
+    body: Mapped[dict] = mapped_column(JSON())
+    state: Mapped[States] = mapped_column(
+        LabelEnumType(States, String(1)), default=States.DRAFT
     )
-    body = models.TextField()
-    state = models.CharField(max_length=1, choices=States.choices, default=States.DRAFT)
-    revisionOf = models.ForeignKey("forums.Post", on_delete=models.PROTECT, null=True)
-    postedAs = models.ForeignKey(
-        "characters.Character", on_delete=models.PROTECT, null=True
+    revision_of_id: Mapped[int | None] = mapped_column(
+        ForeignKey("posts.id"), nullable=True
     )
+    revision_of: Mapped[Post | None] = relationship()
+    posted_as_id: Mapped[int | None] = mapped_column(
+        ForeignKey("characters.id"), nullable=True
+    )
+    posted_as: Mapped[Character | None] = relationship(lazy="joined")

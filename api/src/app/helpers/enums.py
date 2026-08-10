@@ -1,5 +1,6 @@
 from enum import Enum
 
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
 
@@ -35,6 +36,31 @@ class LabelEnumType(TypeDecorator):
 
     def process_result_value(self, value, dialect):
         return None if value is None else self.enum_class(value)
+
+
+class LabelEnumArrayType(TypeDecorator):
+    """Stores a list of LabelEnum members as their raw `.value`s and reads them back as enum members."""
+
+    cache_ok = True
+    impl = TypeEngine
+
+    def __init__(self, enum_class, impl, **kwargs):
+        super().__init__(**kwargs)
+        self.enum_class = enum_class
+        self._underlying = ARRAY(impl() if isinstance(impl, type) else impl)
+
+    def load_dialect_impl(self, dialect):
+        return dialect.type_descriptor(self._underlying)
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return [v.value if isinstance(v, self.enum_class) else v for v in value]
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return [self.enum_class(v) for v in value]
 
 
 # from enum import Enum
