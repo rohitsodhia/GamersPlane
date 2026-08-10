@@ -7,6 +7,7 @@ from app.database import DBSessionDependency
 from app.helpers.functions import error_response
 from app.middleware import Principal
 from app.pms import schemas
+from app.pms.functions import build_pm_data
 from app.repositories.pm_repository import (
     NoRecipientException,
     PMRepository,
@@ -39,24 +40,7 @@ async def get_pms(
         page=page,
         limit=limit,
     )
-    pm_response: list[dict] = []
-    for pm in pms:
-        model = schemas.PM(
-            id=pm.id,
-            recipient=schemas.UserDetails(
-                id=pm.recipient.id,
-                username=pm.recipient.username,
-                read=pm.recipient_read,
-            ),
-            sender=schemas.UserDetails(
-                id=pm.sender.id, username=pm.sender.username, read=pm.sender_read
-            ),
-            title=pm.title,
-            message=pm.message,
-            datestamp=str(pm.datestamp),
-            reply_to_id=pm.reply_to_id,
-        )
-        pm_response.append(model.model_dump())
+    pm_response: list[dict] = [build_pm_data(pm).model_dump() for pm in pms]
 
     pm_count = await pm_repository.count_pms(user_id=principal.id, box=box)
 
@@ -79,42 +63,9 @@ async def get_pm(
     elif principal.id == pm.sender.id:
         pm.sender_read = True
 
-    model = schemas.PMWithHistory(
-        id=pm.id,
-        recipient=schemas.UserDetails(
-            id=pm.recipient.id,
-            username=pm.recipient.username,
-            read=pm.recipient_read,
-        ),
-        sender=schemas.UserDetails(
-            id=pm.sender.id, username=pm.sender.username, read=pm.sender_read
-        ),
-        title=pm.title,
-        message=pm.message,
-        datestamp=str(pm.datestamp),
-        reply_to_id=pm.reply_to_id,
-    )
+    model = schemas.PMWithHistory(**build_pm_data(pm).model_dump())
 
-    history = []
-
-    for pm in await pm_repository.get_pm_history(pm):
-        history.append(
-            schemas.PM(
-                id=pm.id,
-                recipient=schemas.UserDetails(
-                    id=pm.recipient.id,
-                    username=pm.recipient.username,
-                    read=pm.recipient_read,
-                ),
-                sender=schemas.UserDetails(
-                    id=pm.sender.id, username=pm.sender.username, read=pm.sender_read
-                ),
-                title=pm.title,
-                message=pm.message,
-                datestamp=str(pm.datestamp),
-                reply_to_id=pm.reply_to_id,
-            )
-        )
+    history = [build_pm_data(pm) for pm in await pm_repository.get_pm_history(pm)]
 
     if include_self_history:
         history.insert(
