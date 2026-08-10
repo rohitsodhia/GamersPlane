@@ -89,7 +89,7 @@ async def send_pm(
 ):
     pm_repository = PMRepository(db_session, principal=principal)
     try:
-        pm = await pm_repository.send_pm(
+        await pm_repository.send_pm(
             recipient_username=new_pm.username,
             title=new_pm.title,
             message=new_pm.message,

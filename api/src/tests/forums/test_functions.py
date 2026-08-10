@@ -46,6 +46,7 @@ class TestBuildForumTree:
             parent_id=parent_id,
             heritage=[],
             order=1,
+            thread_count=0,
         )
 
     def test_build_forum_tree_empty(self):
