@@ -59,3 +59,44 @@ class TestGetThreads:
 
         assert response.status_code == 200
         assert response.json()["threads"] == []
+
+    async def test_get_threads_returns_count_and_page(
+        self, client, create, db_session
+    ):
+        forum = await create(ForumFactory, heritage=[])
+        await create_thread(create, db_session, forum=forum)
+
+        response = await client.get("/threads", params={"forum_id": forum.id})
+
+        body = response.json()
+        assert body["count"] == 1
+        assert body["page"] == 1
+
+    async def test_get_threads_second_page_empty_within_first_page_limit(
+        self, client, create, db_session
+    ):
+        forum = await create(ForumFactory, heritage=[])
+        await create_thread(create, db_session, forum=forum)
+
+        response = await client.get(
+            "/threads", params={"forum_id": forum.id, "page": 2}
+        )
+
+        body = response.json()
+        assert body["threads"] == []
+        assert body["page"] == 2
+        assert body["count"] == 1
+
+    async def test_get_threads_defaults_to_page_one_when_page_below_one(
+        self, client, create, db_session
+    ):
+        forum = await create(ForumFactory, heritage=[])
+        thread, _first_post = await create_thread(create, db_session, forum=forum)
+
+        response = await client.get(
+            "/threads", params={"forum_id": forum.id, "page": 0}
+        )
+
+        body = response.json()
+        assert body["page"] == 1
+        assert [t["id"] for t in body["threads"]] == [thread.id]

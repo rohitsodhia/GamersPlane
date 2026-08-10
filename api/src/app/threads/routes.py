@@ -13,14 +13,19 @@ threads = APIRouter(prefix="/threads")
 
 @threads.get("", response_model=schemas.GetThreads)
 @public
-async def get_threads(forum_id: int, db_session: DBSessionDependency, auth: Auth):
+async def get_threads(
+    db_session: DBSessionDependency, auth: Auth, forum_id: int, page: int = 1
+):
+    if page < 1:
+        page = 1
+
     forum_repository = ForumRepository(db_session, auth=auth)
     forum = await forum_repository.get(forum_id)
     if forum is None:
         raise NotFoundException("Forum not found")
 
     thread_repository = ThreadRepository(db_session, auth=auth)
-    threads = await thread_repository.get_all(forum_id) or []
+    threads = await thread_repository.get_all(forum_id, page=page) or []
 
     threads_data = []
     for thread in threads:
@@ -37,4 +42,8 @@ async def get_threads(forum_id: int, db_session: DBSessionDependency, auth: Auth
             )
         )
 
-    return schemas.GetThreads(threads=threads_data)
+    return schemas.GetThreads(
+        threads=threads_data,
+        count=await thread_repository.count_by_forum(forum_id),
+        page=page,
+    )

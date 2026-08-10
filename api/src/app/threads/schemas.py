@@ -27,3 +27,5 @@ class ThreadData(SchemaBase):
 
 class GetThreads(SchemaBase):
     threads: list[ThreadData]
+    count: int
+    page: int
