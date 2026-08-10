@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useResizeObserver } from "#/lib/use-resize-observer";
 
 /**
  * Measures a .headerbar element's doubled margin-inline-start, in resolved
@@ -8,24 +9,14 @@ import { useLayoutEffect, useRef, useState } from "react";
  * or marginInline for both), regardless of their position relative to it.
  */
 export function useHbMargined<T extends HTMLElement>() {
-	const ref = useRef<T>(null);
 	const [margin, setMargin] = useState(0);
+	const [overPadding, setOverPadding] = useState(0);
 
-	useLayoutEffect(() => {
-		const el = ref.current;
-		if (!el) return;
+	const ref = useResizeObserver<T>((el) => {
+		const cs = getComputedStyle(el);
+		setMargin(parseFloat(cs.marginInlineStart) * 2);
+		setOverPadding(parseFloat(cs.marginInlineStart) - parseFloat(cs.marginInlineStart));
+	});
 
-		const measure = () => {
-			const cs = getComputedStyle(el);
-			setMargin(parseFloat(cs.marginInlineStart) * 2);
-		};
-
-		measure();
-
-		const observer = new ResizeObserver(measure);
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, []);
-
-	return { ref, margin };
+	return { ref, margin, overPadding };
 }

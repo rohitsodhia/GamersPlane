@@ -13,6 +13,10 @@ export type ChildForum = {
 	title: string;
 	description: string | null;
 	forum_type: ForumType;
+	parent_id: number | null;
+	order: number;
+	thread_count: number;
+	post_count: number;
 	children: ChildForum[];
 };
 

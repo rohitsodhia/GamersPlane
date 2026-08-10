@@ -21,6 +21,7 @@ import { Route as RegisterResendRouteImport } from './routes/register/resend'
 import { Route as PmsSendRouteImport } from './routes/pms/send'
 import { Route as PmsReplyRouteImport } from './routes/pms/reply'
 import { Route as PmsPmIDRouteImport } from './routes/pms/$pmID'
+import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
 
 const SystemsRoute = SystemsRouteImport.update({
   id: '/systems',
@@ -82,6 +83,12 @@ const PmsPmIDRoute = PmsPmIDRouteImport.update({
   path: '/pms/$pmID',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForumsChar123ForumIdChar125Route =
+  ForumsChar123ForumIdChar125RouteImport.update({
+    id: '/forums/{-$forumId}',
+    path: '/forums/{-$forumId}',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
+  '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/pms/$pmID': typeof PmsPmIDRoute
   '/pms/reply': typeof PmsReplyRoute
   '/pms/send': typeof PmsSendRoute
@@ -103,6 +111,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
+  '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/pms/$pmID': typeof PmsPmIDRoute
   '/pms/reply': typeof PmsReplyRoute
   '/pms/send': typeof PmsSendRoute
@@ -118,6 +127,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
+  '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/pms/$pmID': typeof PmsPmIDRoute
   '/pms/reply': typeof PmsReplyRoute
   '/pms/send': typeof PmsSendRoute
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/systems'
+    | '/forums/{-$forumId}'
     | '/pms/$pmID'
     | '/pms/reply'
     | '/pms/send'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/systems'
+    | '/forums/{-$forumId}'
     | '/pms/$pmID'
     | '/pms/reply'
     | '/pms/send'
@@ -162,6 +174,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/systems'
+    | '/forums/{-$forumId}'
     | '/pms/$pmID'
     | '/pms/reply'
     | '/pms/send'
@@ -177,6 +190,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
+  ForumsChar123ForumIdChar125Route: typeof ForumsChar123ForumIdChar125Route
   PmsPmIDRoute: typeof PmsPmIDRoute
   PmsReplyRoute: typeof PmsReplyRoute
   PmsSendRoute: typeof PmsSendRoute
@@ -272,6 +286,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PmsPmIDRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forums/{-$forumId}': {
+      id: '/forums/{-$forumId}'
+      path: '/forums/{-$forumId}'
+      fullPath: '/forums/{-$forumId}'
+      preLoaderRoute: typeof ForumsChar123ForumIdChar125RouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -281,6 +302,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,
+  ForumsChar123ForumIdChar125Route: ForumsChar123ForumIdChar125Route,
   PmsPmIDRoute: PmsPmIDRoute,
   PmsReplyRoute: PmsReplyRoute,
   PmsSendRoute: PmsSendRoute,
