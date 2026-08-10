@@ -9,11 +9,21 @@ class HeritageForumData(SchemaBase):
     title: str
 
 
+class LastPostDetails(SchemaBase):
+    id: int
+    title: str
+
+
 class ChildForumData(SchemaBase):
     id: int
     title: str
-    description: str | None = None
+    description: str | None
     forum_type: Forum.ForumTypes
+    parent_id: int | None
+    order: int
+    thread_count: int
+    post_count: int
+    # last_post: LastPostDetails
     children: list[ChildForumData] = []
 
 

@@ -33,6 +33,10 @@ def build_forum_tree(
                 title=forum.title,
                 description=forum.description,
                 forum_type=forum.forum_type,
+                parent_id=forum.parent_id,
+                order=forum.order,
+                thread_count=forum.thread_count,
+                post_count=0,
                 children=build(forum.id),
             )
             for forum in children_by_parent.get(parent_id, [])
