@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useNavigate } from "@tanstack/react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import Paginate from "./Paginate";
 
 vi.mock("@tanstack/react-router", () => ({
@@ -82,14 +82,16 @@ describe("Paginate", () => {
 	});
 
 	describe("default itemsPerPage", () => {
-		afterEach(() => {
-			vi.unstubAllEnvs();
-		});
+		it("falls back to PAGINATE_PER_PAGE when itemsPerPage is not provided", async () => {
+			vi.resetModules();
+			vi.doMock("#/lib/config", () => ({ PAGINATE_PER_PAGE: 20 }));
+			const { default: PaginateWithMockedConfig } = await import("./Paginate");
 
-		it("falls back to VITE_PAGINATE_PER_PAGE when itemsPerPage is not provided", () => {
-			vi.stubEnv("VITE_PAGINATE_PER_PAGE", "20");
-			render(<Paginate numItems={100} current={1} onPageChange={vi.fn()} />);
+			render(<PaginateWithMockedConfig numItems={100} current={1} onPageChange={vi.fn()} />);
 			expect(screen.getByText("1 of 5", { exact: false })).toBeInTheDocument();
+
+			vi.doUnmock("#/lib/config");
+			vi.resetModules();
 		});
 	});
 });

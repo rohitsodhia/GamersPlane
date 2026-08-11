@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import { PAGINATE_PER_PAGE } from "#/lib/config";
 
 interface PaginateProps {
 	numItems: number;
@@ -10,7 +11,7 @@ interface PaginateProps {
 
 function Paginate({
 	numItems,
-	itemsPerPage = Number(import.meta.env.VITE_PAGINATE_PER_PAGE),
+	itemsPerPage = PAGINATE_PER_PAGE,
 	current,
 	onPageChange,
 	updateUrl = false,
