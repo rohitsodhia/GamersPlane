@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useNavigate } from "@tanstack/react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Paginate from "./Paginate";
 
 vi.mock("@tanstack/react-router", () => ({
@@ -79,5 +79,17 @@ describe("Paginate", () => {
 	it("disables the button for the current page", () => {
 		render(<Paginate numItems={50} itemsPerPage={10} current={3} onPageChange={vi.fn()} />);
 		expect(screen.getByRole("button", { name: "3" })).toBeDisabled();
+	});
+
+	describe("default itemsPerPage", () => {
+		afterEach(() => {
+			vi.unstubAllEnvs();
+		});
+
+		it("falls back to VITE_PAGINATE_PER_PAGE when itemsPerPage is not provided", () => {
+			vi.stubEnv("VITE_PAGINATE_PER_PAGE", "20");
+			render(<Paginate numItems={100} current={1} onPageChange={vi.fn()} />);
+			expect(screen.getByText("1 of 5", { exact: false })).toBeInTheDocument();
+		});
 	});
 });
