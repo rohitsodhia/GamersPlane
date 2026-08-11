@@ -2,10 +2,13 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import DieIcon from "#/components/DieIcon";
+import LockIcon from "#/components/LockIcon";
+import PinIcon from "#/components/PinIcon";
 import RAIcon from "#/components/RAIcon";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { useResizeObserver } from "#/lib/use-resize-observer";
 import { type ChildForum, type Forum, forumQueryOptions } from "#/queries/forums";
+import { type Thread as ThreadType, threadsQueryOptions } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
 import { Breadcrumbs } from "./-breadcrumbs";
 
@@ -17,7 +20,10 @@ export const Route = createFileRoute("/forums/{-$forumId}")({
 		if (Number.isNaN(params.forumId)) throw notFound();
 	},
 	loader: ({ context, params }) =>
-		context.queryClient.ensureQueryData(forumQueryOptions(params.forumId)),
+		Promise.all([
+			context.queryClient.ensureQueryData(forumQueryOptions(params.forumId)),
+			context.queryClient.ensureQueryData(threadsQueryOptions(params.forumId)),
+		]),
 	component: RouteComponent,
 });
 
@@ -55,7 +61,7 @@ function CategoryGroup({ title, forums }: { title: string; forums: ChildForum[] 
 				}
 			>
 				<div></div>
-				<div>Forum</div>
+				<div className="forum-info">Forum</div>
 				<div># of Threads</div>
 				<div># of Posts</div>
 				<div>Last Post</div>
@@ -90,15 +96,23 @@ function CategoryForum({ forum }: { forum: ChildForum }) {
 	);
 }
 
+function Thread({ thread }: { thread: ThreadType }) {
+	return <div>{thread.title}</div>;
+}
+
 function RouteComponent() {
 	const loggedIn = useAuthStore((state) => !!state.token);
 
 	const { forumId } = Route.useParams();
 	const { data: forum } = useSuspenseQuery(forumQueryOptions(forumId));
+	const {
+		data: { threads, count, page },
+	} = useSuspenseQuery(threadsQueryOptions(forumId));
 
 	const rootForum = getRootForum(forum);
 
 	const hbMarginedHeader = useHbMargined<HTMLHeadingElement>();
+	const hbMarginedThreadHeader = useHbMargined<HTMLDivElement>();
 
 	const categories = forum.children.filter((child) => child.forum_type === "c");
 	const uncategorizedForums = forum.children.filter(
@@ -155,6 +169,29 @@ function RouteComponent() {
 			{uncategorizedForums.length > 0 && (
 				<CategoryGroup title="Subforums" forums={uncategorizedForums} />
 			)}
+
+			<div id="forum_threads">
+				<div style={{ marginLeft: hbMarginedThreadHeader.margin }}>
+					<button type="button" className="skew-btn">
+						New Thread
+					</button>
+				</div>
+				<div
+					className="headerbar hb-dark column-titles"
+					ref={hbMarginedThreadHeader.ref}
+				>
+					<div></div>
+					<div>Thread</div>
+					<div># of Posts</div>
+					<div>Last Post</div>
+				</div>
+				<div id="thread-list" style={{ marginInline: hbMarginedThreadHeader.margin }}>
+					{threads.map((thread) => (
+						<Thread key={thread.id} thread={thread} />
+					))}
+					{threads.length === 0 && <div id="no-threads">No threads</div>}
+				</div>
+			</div>
 
 			<div id="forums_bottom-nav" style={{ marginInline: hbMarginedHeader.margin }}>
 				<p>

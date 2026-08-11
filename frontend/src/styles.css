@@ -178,7 +178,12 @@ h1.headerbar,
 h2.headerbar {
 	font-family: "AgencyFB";
 	margin-block: 0.7em;
-	padding-inline: calc(var(--hb-height-resolved) * 0.5 * tan(var(--skew-angle)) + .2em);
+	padding-inline: calc(
+		var(--hb-height-resolved) *
+		0.5 *
+		tan(var(--skew-angle)) +
+		0.2em
+	);
 }
 
 h1.headerbar {
@@ -303,11 +308,6 @@ h2.headerbar {
 		margin-bottom: 0;
 		padding-bottom: 0;
 	}
-}
-
-.die-icon {
-	width: 26px;
-	height: 30.5px;
 }
 
 header {
@@ -913,8 +913,10 @@ form.grid-layout {
 	}
 }
 
-#pms-list-header {
+#pms-list-header,
+#forum-page .column-titles {
 	--line-height: 2.5em;
+	font-size: 0.85em;
 }
 
 #pms-list-container {
@@ -1013,6 +1015,11 @@ form.grid-layout {
 	}
 }
 
+.forum-icon {
+	width: 26px;
+	height: auto;
+}
+
 #forums_top-nav-links {
 	display: flex;
 	justify-content: space-between;
@@ -1041,24 +1048,18 @@ form.grid-layout {
 		display: grid;
 		grid-column: 1 / -1;
 		grid-template-columns: subgrid;
-		border: 2px solid var(--text);
 		min-height: 3.5em;
-		border-top: none;
 		align-items: center;
-	}
 
-	.column-titles {
-		font-size: 0.85em;
+		& > div {
+			padding-block: 0.5em;
+		}
 	}
 
 	.column-titles,
 	.forum-category-forum {
 		& > *:not(:nth-child(2)) {
 			justify-self: center;
-		}
-
-		& > div {
-			padding-block: 0.5em;
 		}
 	}
 
@@ -1071,8 +1072,31 @@ form.grid-layout {
 	}
 
 	.forum-info {
-		padding-inline: 0.5em;
+		padding-inline: 8px;
 	}
+}
+
+.forum-category-forum,
+#thread-list {
+	border: 2px solid var(--text);
+	border-top: none;
+}
+
+#forum_threads {
+	margin-top: 1em;
+
+	.column-titles {
+		display: grid;
+		grid-template-columns: 50px 1fr 120px 180px;
+	}
+}
+
+#thread-list {
+}
+
+#no-threads {
+	text-align: center;
+	padding-block: 0.5em;
 }
 
 #forums_bottom-nav {
