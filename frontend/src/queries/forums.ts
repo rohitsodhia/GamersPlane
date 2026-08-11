@@ -41,5 +41,6 @@ export function forumQueryOptions(id: number) {
 			if (!res.ok) throw new Error("Failed to fetch forum");
 			return res.json();
 		},
+		staleTime: 1000 * 60,
 	});
 }
