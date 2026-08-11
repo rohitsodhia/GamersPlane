@@ -135,7 +135,7 @@ function RouteComponent() {
 				<div id="forums_top-nav-links">
 					<div>
 						Be sure to read and follow the{" "}
-						<a href="/community_guidelines/">community guidelines</a>.
+						<Link to="/community_guidelines">community guidelines</Link>.
 					</div>
 					<div>
 						{forum.id === 0 && (
@@ -172,9 +172,13 @@ function RouteComponent() {
 
 			<div id="forum_threads">
 				<div style={{ marginLeft: hbMarginedThreadHeader.margin }}>
-					<button type="button" className="skew-btn">
+					<Link
+						to="/forums/new-thread/$forumId"
+						params={{ forumId: forum.id }}
+						className="skew-btn"
+					>
 						New Thread
-					</button>
+					</Link>
 				</div>
 				<div
 					className="headerbar hb-dark column-titles"
