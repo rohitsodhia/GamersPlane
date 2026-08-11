@@ -10,14 +10,14 @@ import { PmForm } from "#/routes/pms/-pm-form";
 export const Route = createFileRoute("/pms/reply")({
 	beforeLoad: requireAuth,
 	validateSearch: z.object({
-		pmID: z.number(),
+		pmId: z.number(),
 	}),
-	loaderDeps: ({ search }) => ({ pmID: search.pmID }),
+	loaderDeps: ({ search }) => ({ pmId: search.pmId }),
 	loader: async ({ context, deps }) => {
 		try {
 			await Promise.all([
 				context.queryClient.ensureQueryData(
-					pmQueryOptions(deps.pmID, { includeSelfHistory: true }),
+					pmQueryOptions(deps.pmId, { includeSelfHistory: true }),
 				),
 				context.queryClient.ensureQueryData(meQueryOptions),
 			]);
@@ -29,9 +29,9 @@ export const Route = createFileRoute("/pms/reply")({
 });
 
 function RouteComponent() {
-	const { pmID } = Route.useSearch();
+	const { pmId } = Route.useSearch();
 	const { data: pm } = useSuspenseQuery(
-		pmQueryOptions(pmID, { includeSelfHistory: true }),
+		pmQueryOptions(pmId, { includeSelfHistory: true }),
 	);
 	const { data: me } = useSuspenseQuery(meQueryOptions);
 

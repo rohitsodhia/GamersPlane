@@ -38,7 +38,7 @@ function PMRow({
 			</div>
 			<div className="info">
 				<div className="title">
-					<Link to="/pms/$id" params={{ id: String(pm.id) }}>
+					<Link to="/pms/$pmId" params={{ pmId: String(pm.id) }}>
 						{pm.title}
 					</Link>
 				</div>
