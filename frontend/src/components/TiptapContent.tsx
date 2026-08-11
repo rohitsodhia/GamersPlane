@@ -11,7 +11,9 @@ import { Typography } from "@tiptap/extension-typography";
 import { StarterKit } from "@tiptap/starter-kit";
 import clsx from "clsx";
 import { useMemo } from "react";
+import { trimTrailingEmptyParagraph } from "#/components/Editor";
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
+import { Note } from "#/components/tiptap/tiptap-node/note-node/note-node-extension";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
@@ -19,6 +21,7 @@ import "#/components/tiptap/tiptap-node/list-node/list-node.scss";
 import "#/components/tiptap/tiptap-node/image-node/image-node.scss";
 import "#/components/tiptap/tiptap-node/heading-node/heading-node.scss";
 import "#/components/tiptap/tiptap-node/paragraph-node/paragraph-node.scss";
+import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
 
 // Mirrors the node/mark extensions registered in #/components/Editor.tsx so
 // read-only content renders identically to how it was authored, without the
@@ -32,6 +35,7 @@ const extensions = [
 		},
 	}),
 	HorizontalRule,
+	Note,
 	TextAlign.configure({ types: ["heading", "paragraph"] }),
 	TaskList,
 	TaskItem.configure({ nested: true }),
@@ -50,7 +54,10 @@ export function TiptapContent({
 	content: JSONContent;
 	className?: string;
 }) {
-	const html = useMemo(() => generateHTML(content, extensions), [content]);
+	const html = useMemo(
+		() => generateHTML(trimTrailingEmptyParagraph(content), extensions),
+		[content],
+	);
 
 	return (
 		<div

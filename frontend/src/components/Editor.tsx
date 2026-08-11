@@ -9,6 +9,7 @@ import { TextAlign } from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Typography } from "@tiptap/extension-typography";
 import { Selection } from "@tiptap/extensions";
+import { AllSelection } from "@tiptap/pm/state";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
@@ -19,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // --- Tiptap node styles ---
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
+import { Note } from "#/components/tiptap/tiptap-node/note-node/note-node-extension";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
@@ -26,11 +28,13 @@ import "#/components/tiptap/tiptap-node/list-node/list-node.scss";
 import "#/components/tiptap/tiptap-node/image-node/image-node.scss";
 import "#/components/tiptap/tiptap-node/heading-node/heading-node.scss";
 import "#/components/tiptap/tiptap-node/paragraph-node/paragraph-node.scss";
+import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
 
 // --- Icons ---
 import { ArrowLeftIcon } from "#/components/tiptap/tiptap-icons/arrow-left-icon";
 import { CaseSensitiveIcon } from "#/components/tiptap/tiptap-icons/case-sensitive-icon";
 import { CornerDownLeftIcon } from "#/components/tiptap/tiptap-icons/corner-down-left-icon";
+import { HorizontalRuleIcon } from "#/components/tiptap/tiptap-icons/horizontal-rule-icon";
 import { ImagePlusIcon } from "#/components/tiptap/tiptap-icons/image-plus-icon";
 import { LinkIcon } from "#/components/tiptap/tiptap-icons/link-icon";
 // --- Tiptap UI ---
@@ -80,6 +84,20 @@ export function isContentEmpty(content: JSONContent | null | undefined): boolean
 	return (content.content ?? []).every(isContentEmpty);
 }
 
+// StarterKit's TrailingNode extension appends an empty paragraph after a
+// document-final node that can't otherwise be typed into directly (e.g. our
+// isolating Note node), purely so there's somewhere to click while editing.
+// It carries no meaning outside the editor, so read-only rendering should
+// drop it rather than showing a stray empty line.
+export function trimTrailingEmptyParagraph(content: JSONContent): JSONContent {
+	const nodes = content.content ?? [];
+	const last = nodes[nodes.length - 1];
+	if (nodes.length <= 1 || last?.type !== "paragraph" || !isContentEmpty(last)) {
+		return content;
+	}
+	return { ...content, content: nodes.slice(0, -1) };
+}
+
 const SEARCH_AND_REPLACE_SCROLL_OPTIONS: ScrollIntoViewOptions = {
 	block: "center",
 };
@@ -99,6 +117,42 @@ function LineBreakButton({ editor }: { editor: TiptapEditor | null }) {
 			onClick={() => editor.chain().focus().setHardBreak().run()}
 		>
 			<CornerDownLeftIcon className="tiptap-button-icon" />
+		</Button>
+	);
+}
+
+// No dedicated horizontal rule button ships with the tiptap templates either;
+// wire up the custom HorizontalRule extension's command directly.
+function HorizontalRuleButton({ editor }: { editor: TiptapEditor | null }) {
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Horizontal break"
+			aria-label="Horizontal rule"
+			onClick={() => editor.chain().focus().setHorizontalRule().run()}
+		>
+			<HorizontalRuleIcon className="tiptap-button-icon" />
+		</Button>
+	);
+}
+
+// No dedicated note button ships with the tiptap templates either; wire up
+// the custom Note extension's command directly, same as the horizontal rule.
+function NoteButton({ editor }: { editor: TiptapEditor | null }) {
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Note"
+			aria-label="Note"
+			onClick={() => editor.chain().focus().setNote().run()}
+		>
+			Note
 		</Button>
 	);
 }
@@ -181,8 +235,9 @@ const MainToolbarContent = ({
 					<TextColorPopoverButton onClick={onTextColorClick} />
 				)}
 				{!isMobile ? <LinkPopover /> : <LinkButton onClick={onLinkClick} />}
-				<LineBreakButton editor={editor} />
 				<ImageUrlButton editor={editor} />
+				<HorizontalRuleButton editor={editor} />
+				<NoteButton editor={editor} />
 			</ToolbarGroup>
 
 			<ToolbarSeparator />
@@ -288,12 +343,14 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 		extensions: [
 			StarterKit.configure({
 				horizontalRule: false,
+				hardBreak: false,
 				link: {
 					openOnClick: false,
 					enableClickSelection: true,
 				},
 			}),
 			HorizontalRule,
+			Note,
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			TaskList,
 			TaskItem.configure({ nested: true }),
@@ -315,6 +372,15 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 		},
 		onBlur: () => {
 			onBlur?.();
+		},
+		// Clicking into (or tabbing into) an editor whose doc has no real
+		// content resolves to an AllSelection covering the whole (empty) doc
+		// instead of a collapsed cursor, which visually looks like the empty
+		// area got ctrl+a'd. Collapse it to a normal cursor at the start.
+		onFocus: ({ editor }) => {
+			if (editor.state.selection instanceof AllSelection) {
+				editor.commands.setTextSelection(0);
+			}
 		},
 		editorProps: {
 			attributes: {
