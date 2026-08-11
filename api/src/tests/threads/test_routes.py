@@ -154,7 +154,7 @@ class TestCreateThread:
         list_response = await client.get("/threads", params={"forum_id": forum.id})
         thread = list_response.json()["threads"][0]
         assert thread["id"] == thread_id
-        assert thread["title"] == "Hello"
+        assert thread["first_post"]["title"] == "Hello"
         assert thread["post_count"] == 1
         assert thread["first_post"]["id"] == thread["last_post"]["id"]
         assert thread["first_post"]["author"]["id"] == user.id

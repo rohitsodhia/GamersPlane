@@ -134,12 +134,7 @@ function RouteComponent() {
 						)}
 					</div>
 					{data && (
-						<Paginate
-							numItems={data.count}
-							itemsPerPage={1}
-							current={page}
-							onPageChange={setPage}
-						/>
+						<Paginate numItems={data.count} current={page} onPageChange={setPage} />
 					)}
 				</div>
 			</div>

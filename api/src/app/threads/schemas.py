@@ -6,7 +6,7 @@ from app.schema_base import SchemaBase, filtered_str
 
 class AuthorData(SchemaBase):
     id: int
-    name: str
+    username: str
 
 
 class PostData(SchemaBase):
@@ -18,7 +18,6 @@ class PostData(SchemaBase):
 
 class ThreadData(SchemaBase):
     id: int
-    title: str
     first_post: PostData
     last_post: PostData
     options: list[Thread.ThreadOptions]

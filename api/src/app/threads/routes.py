@@ -34,7 +34,6 @@ async def get_threads(
         threads_data.append(
             schemas.ThreadData(
                 id=thread.id,
-                title=thread.first_post.title,
                 first_post=build_post_data(thread.first_post),
                 last_post=build_post_data(thread.last_post),
                 options=thread.options,

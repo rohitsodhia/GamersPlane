@@ -7,5 +7,5 @@ def build_post_data(post: Post) -> schemas.PostData:
         id=post.id,
         title=post.title,
         datestamp=str(post.created_at),
-        author=schemas.AuthorData(id=post.author.id, name=post.author.username),
+        author=schemas.AuthorData(id=post.author.id, username=post.author.username),
     )
