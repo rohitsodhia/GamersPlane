@@ -388,7 +388,7 @@ function RouteComponent() {
 				<profileSettingsForm.Subscribe selector={(state) => state.canSubmit}>
 					{(canSubmit) => (
 						<div className="is-container center">
-							<button type="submit" disabled={!canSubmit} className="trap-btn">
+							<button type="submit" disabled={!canSubmit} className="skew-btn">
 								Save
 							</button>
 						</div>
@@ -520,7 +520,7 @@ function RouteComponent() {
 				<securityForm.Subscribe selector={(state) => state.canSubmit}>
 					{(canSubmit) => (
 						<div className="is-container center">
-							<button type="submit" disabled={!canSubmit} className="trap-btn">
+							<button type="submit" disabled={!canSubmit} className="skew-btn">
 								Save
 							</button>
 						</div>

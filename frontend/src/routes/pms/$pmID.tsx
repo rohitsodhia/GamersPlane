@@ -42,12 +42,12 @@ function RouteComponent() {
 			</h1>
 
 			<div>
-				<Link to="/pms/reply" search={{ pmID: pm.id }} className="trap-btn">
+				<Link to="/pms/reply" search={{ pmID: pm.id }} className="skew-btn">
 					Reply
 				</Link>
 				<button
 					type="button"
-					className="trap-btn delete-pm"
+					className="skew-btn delete-pm"
 					onClick={() => deletePMMutation.mutate(pm.id)}
 				>
 					Delete

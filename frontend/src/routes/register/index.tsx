@@ -218,7 +218,7 @@ function Register() {
 				<form.Subscribe selector={(state) => state.canSubmit}>
 					{(canSubmit) => (
 						<div>
-							<button type="submit" disabled={!canSubmit} className="trap-btn">
+							<button type="submit" disabled={!canSubmit} className="skew-btn">
 								Register
 							</button>
 						</div>

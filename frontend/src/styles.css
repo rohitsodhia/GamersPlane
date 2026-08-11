@@ -129,14 +129,13 @@ p {
 }
 
 .headerbar,
-.trap-btn {
+.skew-btn {
 	--line-height: 1.7em;
 	--hb-height-resolved: var(--hb-height, var(--line-height));
 
 	/* clip-path: polygon(1em 0%, 100% 0%, calc(100% - 1em) 100%, 0% 100%); */
 	position: relative;
 	margin-inline: calc(var(--hb-height-resolved) * 0.5 * tan(var(--skew-angle)));
-	padding-inline: calc(var(--hb-height-resolved) * 0.5 * tan(var(--skew-angle)));
 	line-height: var(--line-height);
 	color: #fff;
 
@@ -150,14 +149,18 @@ p {
 }
 
 .headerbar,
-.trap-btn,
-.trap-btn:visited {
+.skew-btn,
+.skew-btn:visited {
 	color: #fff;
 }
 
-.trap-btn:hover {
-	color: #ccc;
-	text-decoration: none;
+.skew-btn {
+	padding-inline: calc(var(--hb-height-resolved) * tan(var(--skew-angle)));
+
+	&:hover {
+		color: #ccc;
+		text-decoration: none;
+	}
 }
 
 .headerbar {
@@ -175,7 +178,7 @@ h1.headerbar,
 h2.headerbar {
 	font-family: "AgencyFB";
 	margin-block: 0.7em;
-	padding-inline: calc(var(--hb-height-resolved) * 0.5 * tan(var(--skew-angle)) + 6px);
+	padding-inline: calc(var(--hb-height-resolved) * 0.5 * tan(var(--skew-angle)) + .2em);
 }
 
 h1.headerbar {
@@ -195,7 +198,7 @@ h2.headerbar {
 	}
 }
 
-.trap-btn {
+.skew-btn {
 	display: inline-block;
 	background: transparent;
 	font-family: Neuropol;
@@ -220,7 +223,7 @@ h2.headerbar {
 
 	position: relative;
 	line-height: var(--trap-height);
-	padding-inline: calc(var(--trap-slant) + 0.5em);
+	padding-inline: calc(var(--trap-slant) + 0.3em);
 
 	&::before {
 		content: "";
@@ -868,7 +871,6 @@ form.grid-layout {
 
 	.trapezoid {
 		--trap-height: 2em;
-		padding: 0.2em;
 
 		& > button {
 			padding-inline: 1em;
@@ -912,7 +914,7 @@ form.grid-layout {
 }
 
 #pms-list-header {
-	--hb-height: 2.5em;
+	--line-height: 2.5em;
 }
 
 #pms-list-container {
