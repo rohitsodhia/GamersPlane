@@ -3,15 +3,15 @@ from fastapi import APIRouter
 from app.database import DBSessionDependency
 from app.exceptions import NotFoundException
 from app.helpers.decorators import public
-from app.middleware import Auth
-from app.repositories import ForumRepository, ThreadRepository
+from app.middleware import Auth, Principal
+from app.repositories import ForumRepository, PostRepository, ThreadRepository
 from app.threads import schemas
 from app.threads.functions import build_post_data
 
 threads = APIRouter(prefix="/threads")
 
 
-@threads.get("", response_model=schemas.GetThreads)
+@threads.get("", response_model=schemas.GetThreadsResponse)
 @public
 async def get_threads(
     db_session: DBSessionDependency, auth: Auth, forum_id: int, page: int = 1
@@ -42,8 +42,35 @@ async def get_threads(
             )
         )
 
-    return schemas.GetThreads(
+    return schemas.GetThreadsResponse(
         threads=threads_data,
         count=await thread_repository.count_by_forum(forum_id),
         page=page,
     )
+
+
+@threads.post("", response_model=schemas.NewThreadResponse)
+async def create_thread(
+    db_session: DBSessionDependency,
+    auth: Auth,
+    principal: Principal,
+    thread_data: schemas.NewThreadInput,
+):
+    forum_repository = ForumRepository(db_session, auth=auth)
+    forum = await forum_repository.get(thread_data.forum_id)
+    if forum is None:
+        raise NotFoundException("Forum not found")
+
+    thread_repository = ThreadRepository(db_session, auth=auth)
+    thread = await thread_repository.create(
+        thread_data.forum_id,
+        thread_data.options,
+    )
+
+    post_repository = PostRepository(db_session, auth=auth)
+    post = await post_repository.create(
+        thread.id, principal.id, thread_data.title, thread_data.body
+    )
+    await thread_repository.attach_new_post(thread, post)
+
+    return schemas.NewThreadResponse(id=thread.id)

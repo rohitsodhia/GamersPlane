@@ -1,4 +1,5 @@
-from tests.factories import ForumFactory, PostFactory, ThreadFactory
+from app.models import Thread
+from tests.factories import ForumFactory, PostFactory, ThreadFactory, prose_doc
 
 
 async def create_thread(create, db_session, **thread_kwargs):
@@ -60,9 +61,7 @@ class TestGetThreads:
         assert response.status_code == 200
         assert response.json()["threads"] == []
 
-    async def test_get_threads_returns_count_and_page(
-        self, client, create, db_session
-    ):
+    async def test_get_threads_returns_count_and_page(self, client, create, db_session):
         forum = await create(ForumFactory, heritage=[])
         await create_thread(create, db_session, forum=forum)
 
@@ -100,3 +99,91 @@ class TestGetThreads:
         body = response.json()
         assert body["page"] == 1
         assert [t["id"] for t in body["threads"]] == [thread.id]
+
+
+def new_thread_payload(**overrides):
+    payload = {
+        "forum_id": None,
+        "title": "Hello",
+        "body": prose_doc("Hi there"),
+        "options": [],
+    }
+    payload.update(overrides)
+    return payload
+
+
+class TestCreateThread:
+    async def test_create_thread_requires_auth(self, client, create):
+        forum = await create(ForumFactory, heritage=[])
+
+        response = await client.post(
+            "/threads", json=new_thread_payload(forum_id=forum.id)
+        )
+
+        assert response.status_code == 403
+
+    async def test_create_thread(self, authed_client, create):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[])
+
+        response = await client.post(
+            "/threads", json=new_thread_payload(forum_id=forum.id)
+        )
+
+        assert response.status_code == 200
+        assert "id" in response.json()
+
+    async def test_create_thread_unknown_forum_returns_404(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post(
+            "/threads", json=new_thread_payload(forum_id=999999)
+        )
+
+        assert response.status_code == 404
+
+    async def test_create_thread_creates_first_post(self, authed_client, create):
+        client, user = authed_client
+        forum = await create(ForumFactory, heritage=[])
+
+        response = await client.post(
+            "/threads", json=new_thread_payload(forum_id=forum.id)
+        )
+        thread_id = response.json()["id"]
+
+        list_response = await client.get("/threads", params={"forum_id": forum.id})
+        thread = list_response.json()["threads"][0]
+        assert thread["id"] == thread_id
+        assert thread["title"] == "Hello"
+        assert thread["post_count"] == 1
+        assert thread["first_post"]["id"] == thread["last_post"]["id"]
+        assert thread["first_post"]["author"]["id"] == user.id
+
+    async def test_create_thread_sets_options(self, authed_client, create):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[])
+
+        response = await client.post(
+            "/threads",
+            json=new_thread_payload(
+                forum_id=forum.id, options=[Thread.ThreadOptions.STICKY.value]
+            ),
+        )
+        thread_id = response.json()["id"]
+
+        list_response = await client.get("/threads", params={"forum_id": forum.id})
+        thread = next(
+            t for t in list_response.json()["threads"] if t["id"] == thread_id
+        )
+        assert thread["options"] == [Thread.ThreadOptions.STICKY.value]
+
+    async def test_create_thread_rejects_unknown_option(self, authed_client, create):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[])
+
+        response = await client.post(
+            "/threads",
+            json=new_thread_payload(forum_id=forum.id, options=["not-a-real-option"]),
+        )
+
+        assert response.status_code == 422

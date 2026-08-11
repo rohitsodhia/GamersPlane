@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.models import Thread
-from app.schema_base import SchemaBase
+from app.schema_base import SchemaBase, filtered_str
 
 
 class AuthorData(SchemaBase):
@@ -25,7 +25,18 @@ class ThreadData(SchemaBase):
     post_count: int
 
 
-class GetThreads(SchemaBase):
+class GetThreadsResponse(SchemaBase):
     threads: list[ThreadData]
     count: int
     page: int
+
+
+class NewThreadInput(SchemaBase):
+    forum_id: int
+    title: str = filtered_str()
+    body: dict
+    options: list[Thread.ThreadOptions]
+
+
+class NewThreadResponse(SchemaBase):
+    id: int

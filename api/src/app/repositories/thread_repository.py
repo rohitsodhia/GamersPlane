@@ -2,7 +2,7 @@ from sqlalchemy import ScalarResult, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.configs import configs
-from app.models import Thread
+from app.models import Post, Thread
 
 
 class ThreadRepository:
@@ -28,3 +28,21 @@ class ThreadRepository:
             .offset((page - 1) * limit)
         )
         return threads
+
+    async def create(
+        self,
+        forum_id: int,
+        options: list[Thread.ThreadOptions],
+    ) -> Thread:
+        thread = Thread(forum_id=forum_id, options=options)
+        self.db_session.add(thread)
+        await self.db_session.flush()
+        return thread
+
+    async def attach_new_post(self, thread: Thread, post: Post) -> Thread:
+        if thread.first_post_id is None:
+            thread.first_post_id = post.id
+        thread.last_post_id = post.id
+        thread.post_count += 1
+        await self.db_session.flush()
+        return thread

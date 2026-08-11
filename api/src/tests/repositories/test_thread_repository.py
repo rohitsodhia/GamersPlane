@@ -1,7 +1,8 @@
 import pytest
 
+from app.models import Thread
 from app.repositories.thread_repository import ThreadRepository
-from tests.factories import ForumFactory, ThreadFactory
+from tests.factories import ForumFactory, PostFactory, ThreadFactory
 
 
 class TestThreadRepository:
@@ -13,9 +14,7 @@ class TestThreadRepository:
     async def repository(self, db_session, wrap_in_savepoint):
         return ThreadRepository(db_session, auth=[])
 
-    async def test_get_all_returns_threads_for_forum(
-        self, repository, create, forum
-    ):
+    async def test_get_all_returns_threads_for_forum(self, repository, create, forum):
         thread = await create(ThreadFactory, forum=forum)
 
         threads = list(await repository.get_all(forum.id))
@@ -68,3 +67,40 @@ class TestThreadRepository:
         count = await repository.count_by_forum(forum.id)
 
         assert count == 0
+
+    async def test_create_creates_thread_for_forum(self, repository, forum):
+        thread = await repository.create(forum.id, [])
+
+        assert thread.id is not None
+        assert thread.forum_id == forum.id
+
+    async def test_create_sets_options(self, repository, forum):
+        thread = await repository.create(forum.id, [Thread.ThreadOptions.STICKY])
+
+        assert thread.options == [Thread.ThreadOptions.STICKY]
+
+    async def test_attach_new_post_sets_first_and_last_post(
+        self, repository, create, forum
+    ):
+        thread = await repository.create(forum.id, [])
+        post = await create(PostFactory, thread=thread)
+
+        await repository.attach_new_post(thread, post)
+
+        assert thread.first_post_id == post.id
+        assert thread.last_post_id == post.id
+        assert thread.post_count == 1
+
+    async def test_attach_new_post_keeps_first_post_and_updates_last_post(
+        self, repository, create, forum
+    ):
+        thread = await repository.create(forum.id, [])
+        first_post = await create(PostFactory, thread=thread)
+        await repository.attach_new_post(thread, first_post)
+        second_post = await create(PostFactory, thread=thread)
+
+        await repository.attach_new_post(thread, second_post)
+
+        assert thread.first_post_id == first_post.id
+        assert thread.last_post_id == second_post.id
+        assert thread.post_count == 2
