@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
-import { apiFetch } from "#/lib/api";
+import type { JSONContent } from "@tiptap/core";
+import { ApiError, apiFetch } from "#/lib/api";
 
 export type ThreadOption = "sticky" | "locked" | "allowRolls" | "allowDraws";
 
@@ -40,3 +41,20 @@ export function threadsQueryOptions(forumId: number, page = 1) {
 		},
 	});
 }
+
+export const createThread = async (data: {
+	forum_id: number;
+	title: string;
+	body: JSONContent;
+	options?: ThreadOption[];
+}) => {
+	const res = await apiFetch("/threads", {
+		method: "POST",
+		body: JSON.stringify({ options: [], ...data }),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};

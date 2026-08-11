@@ -1102,3 +1102,7 @@ form.grid-layout {
 #forums_bottom-nav {
 	margin-top: 1.5em;
 }
+
+#new-thread-page h1 {
+	margin-bottom: 0.3em;
+}
