@@ -6,7 +6,7 @@ export type ThreadOption = "sticky" | "locked" | "allowRolls" | "allowDraws";
 
 type Author = {
 	id: number;
-	name: string;
+	username: string;
 };
 
 type Post = {
@@ -18,7 +18,6 @@ type Post = {
 
 export type Thread = {
 	id: number;
-	title: string;
 	first_post: Post;
 	last_post: Post;
 	options: ThreadOption[];
@@ -47,7 +46,7 @@ export const createThread = async (data: {
 	title: string;
 	body: JSONContent;
 	options?: ThreadOption[];
-}) => {
+}): Promise<{ id: number }> => {
 	const res = await apiFetch("/threads", {
 		method: "POST",
 		body: JSON.stringify({ options: [], ...data }),

@@ -3,12 +3,19 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import DieIcon from "#/components/DieIcon";
 import LockIcon from "#/components/LockIcon";
+import Paginate from "#/components/Paginate";
 import PinIcon from "#/components/PinIcon";
 import RAIcon from "#/components/RAIcon";
+import { PAGINATE_PER_PAGE } from "#/lib/config";
+import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { useResizeObserver } from "#/lib/use-resize-observer";
 import { type ChildForum, type Forum, forumQueryOptions } from "#/queries/forums";
-import { type Thread as ThreadType, threadsQueryOptions } from "#/queries/threads";
+import {
+	type ThreadOption,
+	type Thread as ThreadType,
+	threadsQueryOptions,
+} from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
 import { Breadcrumbs } from "./-breadcrumbs";
 
@@ -97,7 +104,95 @@ function CategoryForum({ forum }: { forum: ChildForum }) {
 }
 
 function Thread({ thread }: { thread: ThreadType }) {
-	return <div>{thread.title}</div>;
+	return (
+		<div>
+			<ThreadStatusIcon options={thread.options} />
+			<div className="thread-info">
+				<Link
+					to="/thread/$threadId?view=new-post"
+					params={{ threadId: thread.id }}
+					className="thread-title"
+				>
+					<img src="/images/icons/new-post.svg" alt="New Post" />
+				</Link>
+				<Link
+					to="/thread/$threadId"
+					params={{ threadId: thread.id }}
+					className="thread-title"
+				>
+					{thread.first_post.title}
+				</Link>
+				<div className="latest-posts">
+					<InlineThreadPagination threadId={thread.id} postCount={thread.post_count} />
+					<Link
+						to="/thread/$threadId?view=last-post"
+						params={{ threadId: thread.id }}
+						className="thread-title"
+					>
+						<img src="/images/icons/down-arrow.svg" alt="Last Post" />
+					</Link>
+				</div>
+				<div></div>
+				<div className="thread-author">
+					by{" "}
+					<Link
+						to="/user/$id"
+						params={{ id: String(thread.first_post.author.id) }}
+						className="username"
+					>
+						{thread.first_post.author.username}
+					</Link>{" "}
+					on <span>{formatDateTime(thread.first_post.datestamp)}</span>
+				</div>
+			</div>
+			<div>{thread.post_count}</div>
+			<div className="last-post-info">
+				<Link
+					to="/user/$id"
+					params={{ id: String(thread.last_post.author.id) }}
+					className="username"
+				>
+					{thread.last_post.author.username}
+				</Link>
+				<span>{formatDateTime(thread.last_post.datestamp)}</span>
+			</div>
+		</div>
+	);
+}
+
+function ThreadStatusIcon({ options }: { options: ThreadOption[] }) {
+	const props = { className: "forum-status-icon" };
+	if (options.includes("sticky")) {
+		return <PinIcon {...props} title="Thread Status - Sticky" />;
+	}
+	if (options.includes("locked")) {
+		return <LockIcon {...props} title="Thread Status - Locked" />;
+	}
+	return <DieIcon {...props} title="Forum Status - Unread" />;
+}
+
+function InlineThreadPagination({
+	threadId,
+	postCount,
+}: {
+	threadId: number;
+	postCount: number;
+}) {
+	// const maxPages = Math.ceil(postCount / PAGINATE_PER_PAGE);
+	const maxPages = 3;
+	if (maxPages <= 1) return null;
+
+	const pages = maxPages < 3 ? [1, 2] : [maxPages - 2, maxPages - 1, maxPages];
+
+	return (
+		<>
+			{pages.map((page) => (
+				<Link key={page} to={`/thread/$threadId?page=${page}`} params={{ threadId }}>
+					{page}
+				</Link>
+			))}
+		</>
+	);
 }
 
 function RouteComponent() {
@@ -105,9 +200,10 @@ function RouteComponent() {
 
 	const { forumId } = Route.useParams();
 	const { data: forum } = useSuspenseQuery(forumQueryOptions(forumId));
+	const [page, setPage] = useState(1);
 	const {
-		data: { threads, count, page },
-	} = useSuspenseQuery(threadsQueryOptions(forumId));
+		data: { threads, count },
+	} = useSuspenseQuery(threadsQueryOptions(forumId, page));
 
 	const rootForum = getRootForum(forum);
 
@@ -171,7 +267,10 @@ function RouteComponent() {
 			)}
 
 			<div id="forum_threads">
-				<div style={{ marginLeft: hbMarginedThreadHeader.margin }}>
+				<div
+					className="forum-threads-header"
+					style={{ marginLeft: hbMarginedThreadHeader.margin }}
+				>
 					<Link
 						to="/forums/new-thread/$forumId"
 						params={{ forumId: forum.id }}
@@ -179,13 +278,20 @@ function RouteComponent() {
 					>
 						New Thread
 					</Link>
+
+					<div
+						className="thread-pagination"
+						style={{ marginInline: hbMarginedThreadHeader.margin }}
+					>
+						<Paginate numItems={count} current={page} onPageChange={setPage} />
+					</div>
 				</div>
 				<div
 					className="headerbar hb-dark column-titles"
 					ref={hbMarginedThreadHeader.ref}
 				>
 					<div></div>
-					<div>Thread</div>
+					<div className="thread-info">Thread</div>
 					<div># of Posts</div>
 					<div>Last Post</div>
 				</div>
@@ -194,6 +300,12 @@ function RouteComponent() {
 						<Thread key={thread.id} thread={thread} />
 					))}
 					{threads.length === 0 && <div id="no-threads">No threads</div>}
+				</div>
+				<div
+					className="thread-pagination"
+					style={{ marginInline: hbMarginedThreadHeader.margin }}
+				>
+					<Paginate numItems={count} current={page} onPageChange={setPage} />
 				</div>
 			</div>
 

@@ -61,8 +61,8 @@ function RouteComponent() {
 		onSubmit: async ({ value }) => {
 			setApiErrors([]);
 			try {
-				await mutation.mutateAsync({ forum_id: forumId, ...value });
-				navigate({ to: "/forums/{-$forumId}", params: { forumId } });
+				const thread = await mutation.mutateAsync({ forum_id: forumId, ...value });
+				navigate({ to: "/thread/$threadId", params: { threadId: thread.id } });
 			} catch (exception) {
 				if (exception instanceof ApiError) {
 					setApiErrors(exception.errors.map((e) => e.detail));

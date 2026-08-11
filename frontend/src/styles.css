@@ -136,6 +136,7 @@ p {
 	/* clip-path: polygon(1em 0%, 100% 0%, calc(100% - 1em) 100%, 0% 100%); */
 	position: relative;
 	margin-inline: calc(var(--hb-height-resolved) * 0.5 * tan(var(--skew-angle)));
+	padding-inline: calc(var(--hb-height-resolved) * 0.5 * tan(var(--skew-angle)));
 	line-height: var(--line-height);
 	color: #fff;
 
@@ -1050,10 +1051,6 @@ form.grid-layout {
 		grid-template-columns: subgrid;
 		min-height: 3.5em;
 		align-items: center;
-
-		& > div {
-			padding-block: 0.5em;
-		}
 	}
 
 	.column-titles,
@@ -1062,8 +1059,14 @@ form.grid-layout {
 			justify-self: center;
 		}
 	}
+}
 
-	svg {
+.forum-category-forum,
+#thread-list {
+	border: 2px solid var(--text);
+	border-top: none;
+
+	.forum-icon {
 		color: var(--gp-red);
 	}
 
@@ -1071,27 +1074,89 @@ form.grid-layout {
 		color: #bbb;
 	}
 
-	.forum-info {
-		padding-inline: 8px;
+	.forum-info,
+	.thread-info {
+		padding: 0.5em 8px;
 	}
-}
-
-.forum-category-forum,
-#thread-list {
-	border: 2px solid var(--text);
-	border-top: none;
 }
 
 #forum_threads {
 	margin-top: 1em;
 
-	.column-titles {
+	.forum-threads-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.column-titles,
+	#thread-list {
 		display: grid;
-		grid-template-columns: 50px 1fr 120px 180px;
+		grid-template-columns: 50px 1fr 120px 200px;
+		align-items: center;
+	}
+
+	.column-titles {
+		& > *:not(:nth-child(2)) {
+			justify-self: center;
+		}
+	}
+
+	& > .thread-pagination .paginate-container {
+		justify-content: flex-end;
 	}
 }
 
 #thread-list {
+	margin-bottom: 0.5em;
+
+	& > div {
+		display: grid;
+		grid-column: 1 / -1;
+		grid-template-columns: subgrid;
+		align-items: center;
+		border-top: 2px solid var(--text);
+
+		&:first-child {
+			border-top: none;
+		}
+
+		& > *:not(:nth-child(2)) {
+			justify-self: center;
+		}
+	}
+
+	.thread-info {
+		display: grid;
+		grid-template-columns: 1.5em 1fr max-content;
+	}
+
+	.thread-author,
+	.last-post-info span {
+		font-size: 0.85em;
+	}
+
+	.last-post-info {
+		display: flex;
+		flex-direction: column;
+		text-align: center;
+	}
+
+	.latest-posts {
+		display: flex;
+		align-items: center;
+		gap: 0.2em;
+
+		a {
+			padding-inline: 0.3em;
+		}
+
+		img {
+			height: 1em;
+			width: auto;
+			margin-left: 0.2em;
+		}
+	}
 }
 
 #no-threads {
