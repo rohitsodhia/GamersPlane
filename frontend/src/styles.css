@@ -1078,9 +1078,6 @@ h1 .forum-icon {
 	border: 2px solid var(--text);
 	border-top: none;
 
-	.forum-icon {
-	}
-
 	.read svg {
 		color: #bbb;
 	}
@@ -1103,7 +1100,7 @@ h1 .forum-icon {
 	.column-titles,
 	#thread-list {
 		display: grid;
-		grid-template-columns: 50px 1fr 120px 200px;
+		grid-template-columns: 50px 1fr 120px 220px;
 		align-items: center;
 	}
 

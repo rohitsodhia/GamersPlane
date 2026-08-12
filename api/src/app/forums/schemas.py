@@ -9,9 +9,16 @@ class HeritageForumData(SchemaBase):
     title: str
 
 
+class AuthorData(SchemaBase):
+    id: int
+    username: str
+
+
 class LastPostDetails(SchemaBase):
     id: int
     title: str
+    datestamp: str
+    author: AuthorData
 
 
 class ChildForumData(SchemaBase):
@@ -23,7 +30,7 @@ class ChildForumData(SchemaBase):
     order: int
     thread_count: int
     post_count: int
-    # last_post: LastPostDetails
+    last_post: LastPostDetails | None
     children: list[ChildForumData] = []
 
 

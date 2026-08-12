@@ -98,7 +98,28 @@ function CategoryForum({ forum }: { forum: ChildForum }) {
 			</div>
 			<div>{forum.thread_count}</div>
 			<div>{forum.post_count}</div>
-			<div>{forum.post_count}</div>
+			<LastPostInfo lastPost={forum.last_post} />
+		</div>
+	);
+}
+
+function LastPostInfo({
+	lastPost,
+}: {
+	lastPost: { datestamp: string; author: { id: number; username: string } } | null;
+}) {
+	if (!lastPost) return <div className="last-post-info">No Posts Yet!</div>;
+
+	return (
+		<div className="last-post-info">
+			<Link
+				to="/user/$id"
+				params={{ id: String(lastPost.author.id) }}
+				className="username"
+			>
+				{lastPost.author.username}
+			</Link>
+			<span>{formatDateTime(lastPost.datestamp)}</span>
 		</div>
 	);
 }
@@ -146,16 +167,7 @@ function Thread({ thread }: { thread: ThreadType }) {
 				</div>
 			</div>
 			<div>{thread.post_count}</div>
-			<div className="last-post-info">
-				<Link
-					to="/user/$id"
-					params={{ id: String(thread.last_post.author.id) }}
-					className="username"
-				>
-					{thread.last_post.author.username}
-				</Link>
-				<span>{formatDateTime(thread.last_post.datestamp)}</span>
-			</div>
+			<LastPostInfo lastPost={thread.last_post} />
 		</div>
 	);
 }

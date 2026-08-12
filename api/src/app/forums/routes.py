@@ -6,7 +6,7 @@ from app.forums import schemas
 from app.forums.functions import build_forum_tree, get_heritage
 from app.helpers.decorators import public
 from app.middleware import Auth
-from app.repositories import ForumRepository
+from app.repositories import ForumRepository, ThreadRepository
 
 forums = APIRouter(prefix="/forums")
 
@@ -25,8 +25,16 @@ async def get_forum(forum_id: int, db_session: DBSessionDependency, auth: Auth):
         for heritage_forum in heritage_forums
     ]
 
-    descendants = await forum_repository.get_descendants(forum_id)
-    children_forums_data = build_forum_tree(list(descendants), forum_id)
+    descendants = list(await forum_repository.get_descendants(forum_id))
+
+    thread_repository = ThreadRepository(db_session, auth=auth)
+    last_posts_by_forum_id = await thread_repository.get_last_posts_by_forum_ids(
+        [descendant.id for descendant in descendants]
+    )
+
+    children_forums_data = build_forum_tree(
+        descendants, forum_id, last_posts_by_forum_id
+    )
 
     return schemas.GetForum(
         id=forum.id,

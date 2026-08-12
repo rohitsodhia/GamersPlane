@@ -50,3 +50,15 @@ class ThreadRepository:
         thread.post_count += 1
         await self.db_session.flush()
         return thread
+
+    async def get_last_posts_by_forum_ids(
+        self, forum_ids: list[int]
+    ) -> dict[int, Post]:
+        threads = await self.db_session.scalars(
+            select(Thread)
+            .join(Post, Thread.last_post_id == Post.id)
+            .where(Thread.forum_id.in_(forum_ids), Thread.last_post_id.isnot(None))
+            .order_by(Thread.forum_id, Post.created_at.desc())
+            .distinct(Thread.forum_id)
+        )
+        return {thread.forum_id: thread.last_post for thread in threads}

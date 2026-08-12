@@ -8,6 +8,18 @@ type HeritageForum = {
 	title: string;
 };
 
+type LastPostAuthor = {
+	id: number;
+	username: string;
+};
+
+export type LastPost = {
+	id: number;
+	title: string;
+	datestamp: string;
+	author: LastPostAuthor;
+};
+
 export type ChildForum = {
 	id: number;
 	title: string;
@@ -17,6 +29,7 @@ export type ChildForum = {
 	order: number;
 	thread_count: number;
 	post_count: number;
+	last_post: LastPost | null;
 	children: ChildForum[];
 };
 

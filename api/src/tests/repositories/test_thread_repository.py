@@ -156,3 +156,55 @@ class TestThreadRepository:
         assert thread.first_post_id == first_post.id
         assert thread.last_post_id == second_post.id
         assert thread.post_count == 2
+
+    async def test_get_last_posts_by_forum_ids_returns_latest_post_per_forum(
+        self, repository, create, forum
+    ):
+        thread = await create(ThreadFactory, forum=forum)
+        older_post = await create(PostFactory, thread=thread)
+        await repository.attach_new_post(thread, older_post)
+        newer_post = await create(PostFactory, thread=thread)
+        await repository.attach_new_post(thread, newer_post)
+
+        last_posts = await repository.get_last_posts_by_forum_ids([forum.id])
+
+        assert last_posts[forum.id].id == newer_post.id
+
+    async def test_get_last_posts_by_forum_ids_across_multiple_threads(
+        self, repository, create, forum
+    ):
+        older_thread = await create(ThreadFactory, forum=forum)
+        older_post = await create(
+            PostFactory, thread=older_thread, created_at=datetime(2026, 1, 1)
+        )
+        await repository.attach_new_post(older_thread, older_post)
+
+        newer_thread = await create(ThreadFactory, forum=forum)
+        newer_post = await create(
+            PostFactory, thread=newer_thread, created_at=datetime(2026, 2, 1)
+        )
+        await repository.attach_new_post(newer_thread, newer_post)
+
+        last_posts = await repository.get_last_posts_by_forum_ids([forum.id])
+
+        assert last_posts[forum.id].id == newer_post.id
+
+    async def test_get_last_posts_by_forum_ids_excludes_other_forums(
+        self, repository, create, forum
+    ):
+        other_forum = await create(ForumFactory, heritage=[])
+        other_thread = await create(ThreadFactory, forum=other_forum)
+        other_post = await create(PostFactory, thread=other_thread)
+        await repository.attach_new_post(other_thread, other_post)
+
+        last_posts = await repository.get_last_posts_by_forum_ids([forum.id])
+
+        assert forum.id not in last_posts
+        assert other_forum.id not in last_posts
+
+    async def test_get_last_posts_by_forum_ids_omits_forums_without_posts(
+        self, repository, forum
+    ):
+        last_posts = await repository.get_last_posts_by_forum_ids([forum.id])
+
+        assert last_posts == {}
