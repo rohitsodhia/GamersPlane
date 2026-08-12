@@ -1121,7 +1121,7 @@ h1 .forum-icon {
 #thread-list {
 	margin-bottom: 0.5em;
 
-	& > div {
+	& > div:not(#no-threads) {
 		display: grid;
 		grid-column: 1 / -1;
 		grid-template-columns: subgrid;
@@ -1171,6 +1171,7 @@ h1 .forum-icon {
 }
 
 #no-threads {
+	grid-column: span 4;
 	text-align: center;
 	padding-block: 0.5em;
 }
