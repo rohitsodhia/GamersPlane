@@ -46,7 +46,7 @@ async def register_user(
         UserMeta(key=UserMeta.MetaKeys.NEW_GAME_MAIL.value, value=True)
     )
     new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.PM_MAIL.value, value=True))
-    new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.POST_SIDE.value, value="l"))
+    new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.POST_SIDE.value, value="r"))
     new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.SHOW_AVATARS.value, value=True))
 
     db_session.add(new_user)

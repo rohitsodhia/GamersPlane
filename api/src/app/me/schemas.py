@@ -23,7 +23,7 @@ class UserOutput(BaseModel):
     pmMail: bool | None = None
     newGameMail: bool | None = None
     gmMail: bool | None = None
-    postSide: PostSide = "l"
+    postSide: PostSide = "r"
     lookingForAGame: bool | None = None
     games: str | None = filtered_str(pipelines=[strip_whitespace])
 
@@ -36,7 +36,7 @@ class UpdateProfileInput(SchemaBase):
     pmMail: bool | None = None
     newGameMail: bool | None = None
     gmMail: bool | None = None
-    postSide: PostSide = "l"
+    postSide: PostSide = "r"
     lookingForAGame: bool | None = None
     games: str | None = filtered_str(pipelines=[strip_whitespace])
 

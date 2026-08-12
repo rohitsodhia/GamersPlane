@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationshi
 
 from app.configs import configs
 from app.models.base import Base
-from app.models.user_meta import UserMeta
+from app.models.user_meta import PostSide, UserMeta
 from app.schemas import ErrorItem
 
 if TYPE_CHECKING:
