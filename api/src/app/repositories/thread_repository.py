@@ -1,4 +1,4 @@
-from sqlalchemy import ScalarResult, func, select
+from sqlalchemy import ScalarResult, false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.configs import configs
@@ -25,7 +25,8 @@ class ThreadRepository:
             select(Thread)
             .where(Thread.forum_id == forum_id)
             .order_by(
-                Thread.options["sticky"].as_boolean().desc(), Thread.created_at.desc()
+                func.coalesce(Thread.options["sticky"].as_boolean(), false()).desc(),
+                Thread.created_at.desc(),
             )
             .limit(limit)
             .offset((page - 1) * limit)

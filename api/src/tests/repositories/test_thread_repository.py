@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy import text
 
 from app.models import Thread
 from app.repositories.thread_repository import ThreadRepository
@@ -72,6 +73,28 @@ class TestThreadRepository:
         threads = list(await repository.get_all(forum.id))
 
         assert [t.id for t in threads] == [older_sticky.id, newer.id]
+
+    async def test_get_all_treats_missing_sticky_key_as_not_sticky(
+        self, repository, create, forum, db_session
+    ):
+        now = datetime.now(timezone.utc)
+        stale = await create(
+            ThreadFactory, forum=forum, created_at=now - timedelta(days=1)
+        )
+        await db_session.execute(
+            text("UPDATE threads SET options = '{}' WHERE id = :id"),
+            {"id": stale.id},
+        )
+        newer_sticky = await create(
+            ThreadFactory,
+            forum=forum,
+            created_at=now,
+            options=Thread.Options(sticky=True),
+        )
+
+        threads = list(await repository.get_all(forum.id))
+
+        assert [t.id for t in threads] == [newer_sticky.id, stale.id]
 
     async def test_count_by_forum(self, repository, create, forum):
         await create(ThreadFactory, forum=forum)
