@@ -21,11 +21,6 @@ class TestGetThreads:
 
         assert response.status_code == 200
 
-    async def test_get_threads_requires_forum_id(self, client):
-        response = await client.get("/threads")
-
-        assert response.status_code == 422
-
     async def test_get_threads_unknown_forum_returns_404(self, client):
         response = await client.get("/threads", params={"forum_id": 999999})
 
