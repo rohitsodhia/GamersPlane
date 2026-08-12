@@ -11,6 +11,31 @@ from app.repositories import ForumRepository, ThreadRepository
 forums = APIRouter(prefix="/forums")
 
 
+@forums.get(
+    "/{forum_id}/breadcrumbs", response_model=schemas.GetForumBreadcrumbsResponse
+)
+@public
+async def get_forum_breadcrumbs(
+    forum_id: int, db_session: DBSessionDependency, auth: Auth
+):
+    forum_repository = ForumRepository(db_session, auth=auth)
+    forum = await forum_repository.get(forum_id)
+    if forum is None:
+        raise NotFoundException("Forum not found")
+
+    heritage_forums = await get_heritage(forum_repository, forum.heritage)
+    heritage_forums_data = [
+        schemas.HeritageForumData(id=heritage_forum.id, title=heritage_forum.title)
+        for heritage_forum in heritage_forums
+    ]
+
+    return schemas.GetForumBreadcrumbsResponse(
+        id=forum.id,
+        title=forum.title,
+        heritage=heritage_forums_data,
+    )
+
+
 @forums.get("/{forum_id}")
 @public
 async def get_forum(forum_id: int, db_session: DBSessionDependency, auth: Auth):

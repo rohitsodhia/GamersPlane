@@ -37,6 +37,12 @@ class ChildForumData(SchemaBase):
 ChildForumData.model_rebuild()
 
 
+class GetForumBreadcrumbsResponse(SchemaBase):
+    id: int
+    title: str
+    heritage: list[HeritageForumData]
+
+
 class GetForum(SchemaBase):
     id: int
     title: str
