@@ -30,6 +30,13 @@ class GetThreadsResponse(SchemaBase):
     page: int
 
 
+class GetThreadResponse(SchemaBase):
+    id: int
+    forum_id: int
+    title: str
+    options: Thread.Options
+
+
 class NewThreadInput(SchemaBase):
     forum_id: int
     title: str = filtered_str()

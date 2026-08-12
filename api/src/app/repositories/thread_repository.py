@@ -18,6 +18,10 @@ class ThreadRepository:
             or 0
         )
 
+    async def get(self, thread_id: int) -> Thread | None:
+        thread = await self.db_session.get(Thread, thread_id)
+        return thread
+
     async def get_all(
         self, forum_id: int, page: int = 1, limit: int = configs.PAGINATE_PER_PAGE
     ) -> ScalarResult[Thread] | None:
@@ -53,7 +57,7 @@ class ThreadRepository:
 
     async def get_last_posts_by_forum_ids(
         self, forum_ids: list[int]
-    ) -> dict[int, Post]:
+    ) -> dict[int, Post | None]:
         threads = await self.db_session.scalars(
             select(Thread)
             .join(Post, Thread.last_post_id == Post.id)

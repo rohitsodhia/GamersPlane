@@ -16,4 +16,4 @@ class PostFactory(SQLAlchemyModelFactory):
     title = Sequence(lambda n: f"Post Title {n}")
     author = SubFactory(UserFactory)
     body = Sequence(lambda n: prose_doc(f"Post Body {n}"))
-    state = Post.States.POST
+    state = Post.States.PUBLISHED

@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 class Post(Base, SoftDeleteMixin, TimestampMixin):
     class States(LabelEnum):
         DRAFT = "d", "Draft"
-        POST = "p", "Post"
-        REVISION = "r", "Revision"
+        PUBLISHED = "p", "Published"
+        REVISED = "r", "Revised"
 
     __tablename__ = "posts"
 

@@ -23,6 +23,7 @@ from app.me.legacy_routes import me as legacy_me
 from app.me.routes import me
 from app.pms.legacy_routes import pms as legacy_pms
 from app.pms.routes import pms
+from app.posts.routes import posts
 from app.referral_links.routes import referral_links
 from app.schemas import ErrorItem
 from app.systems.legacy_routes import systems as legacy_systems
@@ -140,5 +141,6 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(pms)
     app.include_router(forums)
     app.include_router(threads)
+    app.include_router(posts)
 
     return app

@@ -4,6 +4,7 @@ from app.database import DBSessionDependency
 from app.exceptions import NotFoundException
 from app.helpers.decorators import public
 from app.middleware import Auth, Principal
+from app.models import Post
 from app.repositories import ForumRepository, PostRepository, ThreadRepository
 from app.threads import schemas
 from app.threads.functions import build_post_data
@@ -48,6 +49,23 @@ async def get_threads(
     )
 
 
+@threads.get("/{thread_id}", response_model=schemas.GetThreadResponse)
+@public
+async def get_thread(db_session: DBSessionDependency, auth: Auth, thread_id: int):
+    thread_repository = ThreadRepository(db_session, auth=auth)
+    thread = await thread_repository.get(thread_id)
+    if thread is None:
+        raise NotFoundException("Thread not found")
+    assert thread.first_post is not None
+
+    return schemas.GetThreadResponse(
+        id=thread.id,
+        forum_id=thread.forum_id,
+        title=thread.first_post.title,
+        options=thread.options,
+    )
+
+
 @threads.post("", response_model=schemas.NewThreadResponse)
 async def create_thread(
     db_session: DBSessionDependency,
@@ -68,7 +86,11 @@ async def create_thread(
 
     post_repository = PostRepository(db_session, auth=auth)
     post = await post_repository.create(
-        thread.id, principal.id, thread_data.title, thread_data.body
+        thread.id,
+        principal.id,
+        thread_data.title,
+        thread_data.body,
+        state=Post.States.PUBLISHED,
     )
     await thread_repository.attach_new_post(thread, post)
 
