@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { Fragment } from "react";
-import type { Forum } from "#/queries/forums";
+import type { ForumBreadcrumbs } from "#/queries/forums";
 
-export function Breadcrumbs({ forum }: { forum: Forum }) {
+export function Breadcrumbs({ forum }: { forum: ForumBreadcrumbs }) {
 	if (!forum.heritage.length) return null;
 
 	return (

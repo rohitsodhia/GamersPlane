@@ -130,14 +130,15 @@ function Thread({ thread }: { thread: ThreadType }) {
 			<ThreadStatusIcon options={thread.options} />
 			<div className="thread-info">
 				<Link
-					to="/thread/$threadId?view=new-post"
+					to="/forums/thread/$threadId"
 					params={{ threadId: thread.id }}
+					search={{ view: "new-post" }}
 					className="thread-title"
 				>
 					<img src="/images/icons/new-post.svg" alt="New Post" />
 				</Link>
 				<Link
-					to="/thread/$threadId"
+					to="/forums/thread/$threadId"
 					params={{ threadId: thread.id }}
 					className="thread-title"
 				>
@@ -146,8 +147,9 @@ function Thread({ thread }: { thread: ThreadType }) {
 				<div className="latest-posts">
 					<InlineThreadPagination threadId={thread.id} postCount={thread.post_count} />
 					<Link
-						to="/thread/$threadId?view=last-post"
+						to="/forums/thread/$threadId"
 						params={{ threadId: thread.id }}
+						search={{ view: "last-post" }}
 						className="thread-title"
 					>
 						<img src="/images/icons/down-arrow.svg" alt="Last Post" />
@@ -198,7 +200,12 @@ function InlineThreadPagination({
 	return (
 		<>
 			{pages.map((page) => (
-				<Link key={page} to={`/thread/$threadId?page=${page}`} params={{ threadId }}>
+				<Link
+					key={page}
+					to="/forums/thread/$threadId"
+					params={{ threadId }}
+					search={{ page }}
+				>
 					{page}
 				</Link>
 			))}

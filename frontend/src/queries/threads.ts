@@ -37,12 +37,30 @@ type ThreadsResponse = {
 	page: number;
 };
 
+export type ThreadDetails = {
+	id: number;
+	forum_id: number;
+	title: string;
+	options: ThreadOptions;
+};
+
 export function threadsQueryOptions(forumId: number, page = 1) {
 	return queryOptions({
 		queryKey: ["threads", forumId, page],
 		queryFn: async (): Promise<ThreadsResponse> => {
 			const res = await apiFetch(`/threads?forum_id=${forumId}&page=${page}`);
 			if (!res.ok) throw new Error("Failed to fetch threads");
+			return res.json();
+		},
+	});
+}
+
+export function threadQueryOptions(threadId: number) {
+	return queryOptions({
+		queryKey: ["threads", threadId, "details"],
+		queryFn: async (): Promise<ThreadDetails> => {
+			const res = await apiFetch(`/threads/${threadId}`);
+			if (!res.ok) throw new Error("Failed to fetch thread");
 			return res.json();
 		},
 	});

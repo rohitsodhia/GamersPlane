@@ -1,7 +1,7 @@
 import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import { ApiError, apiFetch } from "#/lib/api";
 
-type PostSide = "l" | "r" | "c";
+export type PostSide = "r" | "l" | "c";
 
 type MeResponse = {
 	id: number;

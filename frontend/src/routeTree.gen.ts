@@ -22,6 +22,7 @@ import { Route as PmsSendRouteImport } from './routes/pms/send'
 import { Route as PmsReplyRouteImport } from './routes/pms/reply'
 import { Route as PmsPmIdRouteImport } from './routes/pms/$pmId'
 import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
+import { Route as ForumsThreadThreadIdRouteImport } from './routes/forums/thread.$threadId'
 import { Route as ForumsNewThreadForumIdRouteImport } from './routes/forums/new-thread.$forumId'
 
 const SystemsRoute = SystemsRouteImport.update({
@@ -90,6 +91,11 @@ const ForumsChar123ForumIdChar125Route =
     path: '/forums/{-$forumId}',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ForumsThreadThreadIdRoute = ForumsThreadThreadIdRouteImport.update({
+  id: '/forums/thread/$threadId',
+  path: '/forums/thread/$threadId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ForumsNewThreadForumIdRoute = ForumsNewThreadForumIdRouteImport.update({
   id: '/forums/new-thread/$forumId',
   path: '/forums/new-thread/$forumId',
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
+  '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByTo {
   '/pms': typeof PmsIndexRoute
   '/register': typeof RegisterIndexRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
+  '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
+  '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/pms/'
     | '/register/'
     | '/forums/new-thread/$forumId'
+    | '/forums/thread/$threadId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/pms'
     | '/register'
     | '/forums/new-thread/$forumId'
+    | '/forums/thread/$threadId'
   id:
     | '__root__'
     | '/'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/pms/'
     | '/register/'
     | '/forums/new-thread/$forumId'
+    | '/forums/thread/$threadId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -211,6 +223,7 @@ export interface RootRouteChildren {
   PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
   ForumsNewThreadForumIdRoute: typeof ForumsNewThreadForumIdRoute
+  ForumsThreadThreadIdRoute: typeof ForumsThreadThreadIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -306,6 +319,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForumsChar123ForumIdChar125RouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forums/thread/$threadId': {
+      id: '/forums/thread/$threadId'
+      path: '/forums/thread/$threadId'
+      fullPath: '/forums/thread/$threadId'
+      preLoaderRoute: typeof ForumsThreadThreadIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forums/new-thread/$forumId': {
       id: '/forums/new-thread/$forumId'
       path: '/forums/new-thread/$forumId'
@@ -331,6 +351,7 @@ const rootRouteChildren: RootRouteChildren = {
   PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
   ForumsNewThreadForumIdRoute: ForumsNewThreadForumIdRoute,
+  ForumsThreadThreadIdRoute: ForumsThreadThreadIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

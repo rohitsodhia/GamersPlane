@@ -314,15 +314,6 @@ function RouteComponent() {
 							<div>Post side</div>
 							<div>
 								<input
-									id="edit-settings_post-side-left"
-									type="radio"
-									name={field.name}
-									value="l"
-									checked={field.state.value === "l"}
-									onChange={() => field.handleChange("l")}
-								/>
-								<label htmlFor="edit-settings_post-side-left">Left</label>
-								<input
 									id="edit-settings_post-side-right"
 									type="radio"
 									name={field.name}
@@ -331,6 +322,15 @@ function RouteComponent() {
 									onChange={() => field.handleChange("r")}
 								/>
 								<label htmlFor="edit-settings_post-side-right">Right</label>
+								<input
+									id="edit-settings_post-side-left"
+									type="radio"
+									name={field.name}
+									value="l"
+									checked={field.state.value === "l"}
+									onChange={() => field.handleChange("l")}
+								/>
+								<label htmlFor="edit-settings_post-side-left">Left</label>
 								<input
 									id="edit-settings_post-side-conversation"
 									type="radio"
