@@ -20,7 +20,7 @@ class ThreadData(SchemaBase):
     id: int
     first_post: PostData
     last_post: PostData
-    options: list[Thread.ThreadOptions]
+    options: Thread.Options
     post_count: int
 
 
@@ -34,7 +34,7 @@ class NewThreadInput(SchemaBase):
     forum_id: int
     title: str = filtered_str()
     body: dict
-    options: list[Thread.ThreadOptions]
+    options: Thread.Options = Thread.Options()
 
 
 class NewThreadResponse(SchemaBase):

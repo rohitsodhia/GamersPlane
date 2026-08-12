@@ -69,7 +69,7 @@ def upgrade() -> None:
         "threads",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("forum_id", sa.Integer(), nullable=False),
-        sa.Column("options", sa.ARRAY(sa.String()), nullable=False),
+        sa.Column("options", sa.JSON(), nullable=False),
         sa.Column("first_post_id", sa.Integer(), nullable=True),
         sa.Column("last_post_id", sa.Integer(), nullable=True),
         sa.Column("post_count", sa.Integer(), nullable=False),

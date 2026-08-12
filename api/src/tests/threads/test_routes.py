@@ -106,7 +106,7 @@ def new_thread_payload(**overrides):
         "forum_id": None,
         "title": "Hello",
         "body": prose_doc("Hi there"),
-        "options": [],
+        "options": {},
     }
     payload.update(overrides)
     return payload
@@ -165,9 +165,7 @@ class TestCreateThread:
 
         response = await client.post(
             "/threads",
-            json=new_thread_payload(
-                forum_id=forum.id, options=[Thread.ThreadOptions.STICKY.value]
-            ),
+            json=new_thread_payload(forum_id=forum.id, options={"sticky": True}),
         )
         thread_id = response.json()["id"]
 
@@ -175,7 +173,9 @@ class TestCreateThread:
         thread = next(
             t for t in list_response.json()["threads"] if t["id"] == thread_id
         )
-        assert thread["options"] == [Thread.ThreadOptions.STICKY.value]
+        assert thread["options"] == Thread.Options(sticky=True).model_dump(
+            mode="json"
+        )
 
     async def test_create_thread_rejects_unknown_option(self, authed_client, create):
         client, _user = authed_client
@@ -183,7 +183,9 @@ class TestCreateThread:
 
         response = await client.post(
             "/threads",
-            json=new_thread_payload(forum_id=forum.id, options=["not-a-real-option"]),
+            json=new_thread_payload(
+                forum_id=forum.id, options={"not_a_real_option": True}
+            ),
         )
 
         assert response.status_code == 422

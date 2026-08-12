@@ -24,6 +24,9 @@ class ThreadRepository:
         threads = await self.db_session.scalars(
             select(Thread)
             .where(Thread.forum_id == forum_id)
+            .order_by(
+                Thread.options["sticky"].as_boolean().desc(), Thread.created_at.desc()
+            )
             .limit(limit)
             .offset((page - 1) * limit)
         )
@@ -32,7 +35,7 @@ class ThreadRepository:
     async def create(
         self,
         forum_id: int,
-        options: list[Thread.ThreadOptions],
+        options: Thread.Options,
     ) -> Thread:
         thread = Thread(forum_id=forum_id, options=options)
         self.db_session.add(thread)

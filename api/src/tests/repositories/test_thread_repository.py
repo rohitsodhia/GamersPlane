@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from app.models import Thread
@@ -44,6 +46,33 @@ class TestThreadRepository:
 
         assert [t.id for t in page_two] == [threads[2].id]
 
+    async def test_get_all_orders_by_created_at_descending(
+        self, repository, create, forum
+    ):
+        now = datetime.now(timezone.utc)
+        older = await create(
+            ThreadFactory, forum=forum, created_at=now - timedelta(days=1)
+        )
+        newer = await create(ThreadFactory, forum=forum, created_at=now)
+
+        threads = list(await repository.get_all(forum.id))
+
+        assert [t.id for t in threads] == [newer.id, older.id]
+
+    async def test_get_all_sorts_sticky_threads_first(self, repository, create, forum):
+        now = datetime.now(timezone.utc)
+        newer = await create(ThreadFactory, forum=forum, created_at=now)
+        older_sticky = await create(
+            ThreadFactory,
+            forum=forum,
+            created_at=now - timedelta(days=1),
+            options=Thread.Options(sticky=True),
+        )
+
+        threads = list(await repository.get_all(forum.id))
+
+        assert [t.id for t in threads] == [older_sticky.id, newer.id]
+
     async def test_count_by_forum(self, repository, create, forum):
         await create(ThreadFactory, forum=forum)
         await create(ThreadFactory, forum=forum)
@@ -69,20 +98,20 @@ class TestThreadRepository:
         assert count == 0
 
     async def test_create_creates_thread_for_forum(self, repository, forum):
-        thread = await repository.create(forum.id, [])
+        thread = await repository.create(forum.id, Thread.Options())
 
         assert thread.id is not None
         assert thread.forum_id == forum.id
 
     async def test_create_sets_options(self, repository, forum):
-        thread = await repository.create(forum.id, [Thread.ThreadOptions.STICKY])
+        thread = await repository.create(forum.id, Thread.Options(sticky=True))
 
-        assert thread.options == [Thread.ThreadOptions.STICKY]
+        assert thread.options == Thread.Options(sticky=True)
 
     async def test_attach_new_post_sets_first_and_last_post(
         self, repository, create, forum
     ):
-        thread = await repository.create(forum.id, [])
+        thread = await repository.create(forum.id, Thread.Options())
         post = await create(PostFactory, thread=thread)
 
         await repository.attach_new_post(thread, post)
@@ -94,7 +123,7 @@ class TestThreadRepository:
     async def test_attach_new_post_keeps_first_post_and_updates_last_post(
         self, repository, create, forum
     ):
-        thread = await repository.create(forum.id, [])
+        thread = await repository.create(forum.id, Thread.Options())
         first_post = await create(PostFactory, thread=thread)
         await repository.attach_new_post(thread, first_post)
         second_post = await create(PostFactory, thread=thread)

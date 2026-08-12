@@ -11,5 +11,5 @@ class ThreadFactory(SQLAlchemyModelFactory):
         model = Thread
 
     forum = SubFactory(ForumFactory, heritage=[])
-    options = LazyFunction(list)
+    options = LazyFunction(Thread.Options)
     post_count = 0

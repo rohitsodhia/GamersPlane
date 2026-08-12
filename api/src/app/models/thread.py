@@ -2,30 +2,35 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.helpers.enums import LabelEnum, LabelEnumArrayType
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin
+from app.models.types import ClassWrappedJSON
 
 if TYPE_CHECKING:
     from app.models import Forum, Post
 
 
 class Thread(Base, SoftDeleteMixin, TimestampMixin):
-    class ThreadOptions(LabelEnum):
-        STICKY = "sticky", "Sticky"
-        LOCKED = "locked", "Locked"
-        ALLOW_ROLLS = "allowRolls", "Allow Rolls"
-        ALLOW_DRAWS = "allowDraws", "Allow Draws"
+    class Options(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+
+        sticky: bool = False
+        locked: bool = False
+        allow_public_posting: bool = False
+        allow_rolls: bool = False
+        allow_draws: bool = False
+        discord_webhook: str | None = None
 
     __tablename__ = "threads"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     forum_id: Mapped[int] = mapped_column(ForeignKey("forums.id"), index=True)
     forum: Mapped[Forum] = relationship(lazy="joined")
-    options: Mapped[list[ThreadOptions]] = mapped_column(
-        LabelEnumArrayType(ThreadOptions, String()), default=list
+    options: Mapped[Options] = mapped_column(
+        ClassWrappedJSON(Options), default=Options
     )
     first_post_id: Mapped[int | None] = mapped_column(
         ForeignKey("posts.id"), nullable=True
