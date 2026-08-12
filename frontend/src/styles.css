@@ -227,6 +227,7 @@ h2.headerbar {
 	--trap-height: 1.5em;
 	--trap-slant: calc(var(--trap-height) * tan(var(--skew-angle)));
 
+	display: inline-flex;
 	position: relative;
 	line-height: var(--trap-height);
 	padding-inline: calc(var(--trap-slant) + 0.3em);
@@ -246,7 +247,9 @@ h2.headerbar {
 	}
 
 	& > * {
-		height: var(--trap-height);
+		display: flex;
+		align-items: center;
+		height: 100%;
 		color: #fff;
 	}
 
@@ -862,7 +865,7 @@ form.grid-layout {
 	}
 }
 
-#pms-controls-container {
+.controls-container {
 	display: flex;
 
 	& > div {
@@ -1018,7 +1021,16 @@ form.grid-layout {
 
 .forum-icon {
 	width: 26px;
-	height: auto;
+	max-height: 30px;
+	color: var(--gp-red);
+
+	&.read {
+		color: #ccc;
+	}
+}
+
+h1 .forum-icon {
+	color: #fff;
 }
 
 #forums_top-nav-links {
@@ -1067,7 +1079,6 @@ form.grid-layout {
 	border-top: none;
 
 	.forum-icon {
-		color: var(--gp-red);
 	}
 
 	.read svg {
@@ -1168,6 +1179,35 @@ form.grid-layout {
 	margin-top: 1.5em;
 }
 
-#new-thread-page h1 {
-	margin-bottom: 0.3em;
+#new-thread-page {
+	h1 {
+		margin-bottom: 0.3em;
+	}
+
+	form {
+		display: grid;
+		grid-template-columns: 60px 1fr;
+		gap: 0.5em 1em;
+		margin-top: 1em;
+		align-items: center;
+	}
+
+	input.input-field {
+		width: 100%;
+	}
+
+	.tiptap-editor,
+	form > div:last-child {
+		grid-column: span 2;
+	}
+
+	form > div:last-child {
+		margin-top: 0.5em;
+		text-align: center;
+	}
+
+	h2 {
+		margin-top: 0;
+		margin-bottom: 0.5em;
+	}
 }

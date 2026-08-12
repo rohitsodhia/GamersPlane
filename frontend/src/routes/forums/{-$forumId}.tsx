@@ -12,7 +12,7 @@ import { useHbMargined } from "#/lib/use-hb-margined";
 import { useResizeObserver } from "#/lib/use-resize-observer";
 import { type ChildForum, type Forum, forumQueryOptions } from "#/queries/forums";
 import {
-	type ThreadOption,
+	type ThreadOptions,
 	type Thread as ThreadType,
 	threadsQueryOptions,
 } from "#/queries/threads";
@@ -160,12 +160,12 @@ function Thread({ thread }: { thread: ThreadType }) {
 	);
 }
 
-function ThreadStatusIcon({ options }: { options: ThreadOption[] }) {
+function ThreadStatusIcon({ options }: { options: ThreadOptions }) {
 	const props = { className: "forum-status-icon" };
-	if (options.includes("sticky")) {
+	if (options.sticky) {
 		return <PinIcon {...props} title="Thread Status - Sticky" />;
 	}
-	if (options.includes("locked")) {
+	if (options.locked) {
 		return <LockIcon {...props} title="Thread Status - Locked" />;
 	}
 	return <DieIcon {...props} title="Forum Status - Unread" />;
@@ -178,8 +178,7 @@ function InlineThreadPagination({
 	threadId: number;
 	postCount: number;
 }) {
-	// const maxPages = Math.ceil(postCount / PAGINATE_PER_PAGE);
-	const maxPages = 3;
+	const maxPages = Math.ceil(postCount / PAGINATE_PER_PAGE);
 	if (maxPages <= 1) return null;
 
 	const pages = maxPages < 3 ? [1, 2] : [maxPages - 2, maxPages - 1, maxPages];

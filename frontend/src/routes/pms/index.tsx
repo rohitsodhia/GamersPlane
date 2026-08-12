@@ -88,7 +88,7 @@ function RouteComponent() {
 			</h1>
 
 			<div
-				id="pms-controls-container"
+				className="controls-container"
 				style={{ marginInlineStart: `${hbMargined.margin}px` }}
 			>
 				<Link to="/pms/send/" className="skew-btn">

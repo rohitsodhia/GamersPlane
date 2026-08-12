@@ -36,6 +36,14 @@ export const Route = createFileRoute("/forums/new-thread/$forumId")({
 	component: RouteComponent,
 });
 
+const optionCheckboxes = [
+	{ name: "options.sticky", label: "Sticky thread" },
+	{ name: "options.locked", label: "Lock thread" },
+	{ name: "options.allow_public_posting", label: "Allow public posting" },
+	{ name: "options.allow_rolls", label: "Allow adding rolls to posts" },
+	{ name: "options.allow_draws", label: "Allow adding draws to posts" },
+] as const;
+
 function RouteComponent() {
 	const { forumId } = Route.useParams();
 	const { data: forum } = useSuspenseQuery(forumQueryOptions(forumId));
@@ -43,8 +51,12 @@ function RouteComponent() {
 	const queryClient = useQueryClient();
 
 	const hbMarginedHeader = useHbMargined<HTMLHeadingElement>();
+	const hbMarginedOptions = useHbMargined<HTMLHeadingElement>();
 
 	const [apiErrors, setApiErrors] = useState<string[]>([]);
+	const [optionsState, setOptionsState] = useState<"options" | "poll" | "dice_decks">(
+		"options",
+	);
 
 	const mutation = useMutation({
 		mutationFn: createThread,
@@ -57,6 +69,14 @@ function RouteComponent() {
 		defaultValues: {
 			title: "",
 			body: emptyContent,
+			options: {
+				sticky: false,
+				locked: false,
+				allow_public_posting: false,
+				allow_rolls: false,
+				allow_draws: false,
+				discord_webhook: "",
+			},
 		},
 		onSubmit: async ({ value }) => {
 			setApiErrors([]);
@@ -70,6 +90,51 @@ function RouteComponent() {
 			}
 		},
 	});
+
+	function Options() {
+		return (
+			<div>
+				{optionCheckboxes.map(({ name, label }) => (
+					<form.Field key={name} name={name}>
+						{(field) => (
+							<div>
+								<input
+									type="checkbox"
+									id={field.name}
+									checked={field.state.value}
+									onChange={(e) => field.handleChange(e.target.checked)}
+								/>{" "}
+								<label htmlFor={field.name}>{label}</label>
+							</div>
+						)}
+					</form.Field>
+				))}
+				<hr />
+				<form.Field name="options.discord_webhook">
+					{(field) => (
+						<>
+							<label htmlFor={field.name}>Discord Webhook</label>
+							<input
+								type="text"
+								id={field.name}
+								value={field.state.value ?? ""}
+								onBlur={field.handleBlur}
+								onChange={(e) => field.handleChange(e.target.value)}
+							/>
+						</>
+					)}
+				</form.Field>
+			</div>
+		);
+	}
+
+	function Poll() {
+		return <div>Poll</div>;
+	}
+
+	function DiceDecks() {
+		return <div>Dice Decks</div>;
+	}
 
 	return (
 		<div id="new-thread-page">
@@ -107,10 +172,8 @@ function RouteComponent() {
 						}}
 					>
 						{(field) => (
-							<div>
-								<label htmlFor={field.name} className="push-down">
-									Title:
-								</label>
+							<>
+								<label htmlFor={field.name}>Title:</label>
 								<div>
 									<input
 										id={field.name}
@@ -131,7 +194,7 @@ function RouteComponent() {
 										</div>
 									)}
 								</div>
-							</div>
+							</>
 						)}
 					</form.Field>
 
@@ -143,28 +206,19 @@ function RouteComponent() {
 						}}
 					>
 						{(field) => (
-							<div>
-								<div>
-									<Editor
-										id={field.name}
-										value={field.state.value}
-										onBlur={field.handleBlur}
-										onChange={(value) => field.handleChange(value)}
-										className={field.state.meta.isValid ? "" : "field-invalid"}
-									/>
-									{field.state.meta.errors[0] && (
-										<p className="error">
-											<FieldError message={field.state.meta.errors[0]} />
-										</p>
-									)}
-								</div>
-							</div>
+							<Editor
+								id={field.name}
+								value={field.state.value}
+								onBlur={field.handleBlur}
+								onChange={(value) => field.handleChange(value)}
+								className={field.state.meta.isValid ? "" : "field-invalid"}
+							/>
 						)}
 					</form.Field>
 
 					<form.Subscribe selector={(state) => state.canSubmit}>
 						{(canSubmit) => (
-							<div className="is-container">
+							<div>
 								<button
 									type="submit"
 									name="submit"
@@ -177,6 +231,40 @@ function RouteComponent() {
 						)}
 					</form.Subscribe>
 				</form>
+			</div>
+
+			<div className="controls-container">
+				<div className="trapezoid">
+					<button
+						type="button"
+						onClick={() => setOptionsState("options")}
+						className={optionsState === "options" ? "current" : ""}
+					>
+						Options
+					</button>
+					<button
+						type="button"
+						onClick={() => setOptionsState("poll")}
+						className={optionsState === "poll" ? "current" : ""}
+					>
+						Poll
+					</button>
+					<button
+						type="button"
+						onClick={() => setOptionsState("dice_decks")}
+						className={optionsState === "dice_decks" ? "current" : ""}
+					>
+						Rolls and Decks
+					</button>
+				</div>
+			</div>
+			<h2 className="headerbar hb-dark" ref={hbMarginedOptions.ref}>
+				Thread Options
+			</h2>
+			<div style={{ marginInline: `${hbMarginedOptions.margin}px` }}>
+				{optionsState === "options" && <Options />}
+				{optionsState === "poll" && <Poll />}
+				{optionsState === "dice_decks" && <DiceDecks />}
 			</div>
 		</div>
 	);
