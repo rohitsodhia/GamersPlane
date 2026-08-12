@@ -110,3 +110,7 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
             if meta.key == UserMeta.MetaKeys.AVATAR_EXT.value:
                 return f"{self.id}.{meta.value}"
         return "avatar.png"
+
+    @property
+    def avatar_url(self) -> str:
+        return f"{configs.AVATARS_ROOT}/{self.avatar}"

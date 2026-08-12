@@ -40,7 +40,7 @@ async def get_current_user(current_user: Principal, full: bool = False):
     output = {
         "id": current_user.id,
         "username": current_user.username,
-        "avatar": f"{configs.AVATARS_ROOT}/{current_user.avatar}",
+        "avatar": current_user.avatar_url,
     }
     if full:
         output["joinDate"] = current_user.join_date
