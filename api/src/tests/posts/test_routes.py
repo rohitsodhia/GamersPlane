@@ -172,3 +172,77 @@ class TestCreatePost:
         )
 
         assert response.status_code == 403
+
+
+def edit_post_payload(**overrides):
+    payload = {
+        "title": "Updated Title",
+        "body": prose_doc("Updated body"),
+    }
+    payload.update(overrides)
+    return payload
+
+
+class TestEditPost:
+    async def test_edit_post_requires_auth(self, client, create):
+        thread = await create(ThreadFactory)
+        post = await create(PostFactory, thread=thread)
+
+        response = await client.patch(
+            f"/posts/{post.id}", json=edit_post_payload()
+        )
+
+        assert response.status_code == 403
+
+    async def test_edit_post_updates_title_and_body(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread = await create(ThreadFactory)
+        post = await create(PostFactory, thread=thread, author=user)
+        new_body = prose_doc("New body content")
+
+        response = await client.patch(
+            f"/posts/{post.id}",
+            json=edit_post_payload(title="New Title", body=new_body),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["id"] == post.id
+        await db_session.refresh(post)
+        assert post.title == "New Title"
+        assert post.body == new_body
+
+    async def test_edit_post_unknown_post_returns_404(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.patch(
+            "/posts/999999", json=edit_post_payload()
+        )
+
+        assert response.status_code == 404
+
+    async def test_edit_post_not_author_returns_403(self, authed_client, create):
+        client, _user = authed_client
+        thread = await create(ThreadFactory)
+        other_author = await create(UserFactory)
+        post = await create(PostFactory, thread=thread, author=other_author)
+
+        response = await client.patch(
+            f"/posts/{post.id}", json=edit_post_payload()
+        )
+
+        assert response.status_code == 403
+
+    async def test_edit_post_on_locked_thread_returns_403(
+        self, authed_client, create
+    ):
+        client, user = authed_client
+        thread = await create(ThreadFactory, options=Thread.Options(locked=True))
+        post = await create(PostFactory, thread=thread, author=user)
+
+        response = await client.patch(
+            f"/posts/{post.id}", json=edit_post_payload()
+        )
+
+        assert response.status_code == 403

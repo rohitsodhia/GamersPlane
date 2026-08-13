@@ -33,3 +33,12 @@ class NewPostInput(SchemaBase):
 
 class NewPostResponse(SchemaBase):
     id: int
+
+
+class EditPostInput(SchemaBase):
+    title: str = filtered_str()
+    body: dict
+
+
+class EditPostResponse(SchemaBase):
+    id: int

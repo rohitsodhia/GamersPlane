@@ -75,3 +75,25 @@ async def create_post(
     await thread_repository.attach_new_post(thread, post)
 
     return schemas.NewPostResponse(id=post.id)
+
+
+@posts.patch("/{post_id}", response_model=schemas.EditPostResponse)
+async def edit_post(
+    db_session: DBSessionDependency,
+    auth: Auth,
+    principal: Principal,
+    post_id: int,
+    post_data: schemas.EditPostInput,
+):
+    post_repository = PostRepository(db_session, auth=auth)
+    post = await post_repository.get(post_id)
+    if post is None:
+        raise NotFoundException("Post not found")
+    if post.thread.options.locked:
+        raise ForbiddenException("Thread is locked")
+    if post.author_id != principal.id:
+        raise ForbiddenException("You are not the author of this post")
+
+    await post_repository.update(post, post_data.title, post_data.body)
+
+    return schemas.EditPostResponse(id=post.id)

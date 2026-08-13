@@ -21,6 +21,10 @@ class PostRepository:
             or 0
         )
 
+    async def get(self, post_id: int) -> Post | None:
+        post = await self.db_session.get(Post, post_id)
+        return post
+
     async def get_all(
         self, thread_id: int, page: int = 1, limit: int = configs.PAGINATE_PER_PAGE
     ) -> ScalarResult[Post]:
@@ -48,6 +52,13 @@ class PostRepository:
             body=body,
             state=state,
         )
+        self.db_session.add(post)
+        await self.db_session.flush()
+        return post
+
+    async def update(self, post: Post, title: str, body: dict) -> Post:
+        post.title = title
+        post.body = body
         self.db_session.add(post)
         await self.db_session.flush()
         return post
