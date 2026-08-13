@@ -6,10 +6,15 @@ import {
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import type { JSONContent } from "@tiptap/core";
+import { useRef, useState } from "react";
 import { z } from "zod";
 import ChatPoint from "#/components/ChatPoint";
-import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
+import Editor, {
+	emptyContent,
+	isContentEmpty,
+	trimTrailingEmptyParagraph,
+} from "#/components/Editor";
 import Paginate from "#/components/Paginate";
 import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
@@ -60,10 +65,12 @@ function PostItem({
 	post,
 	sideClass,
 	threadId,
+	onQuote,
 }: {
 	post: Post;
 	sideClass: string;
 	threadId: number;
+	onQuote: (post: Post) => void;
 }) {
 	return (
 		<div className={`post ${sideClass}`}>
@@ -97,7 +104,7 @@ function PostItem({
 					<TiptapContent content={post.body} className="post-body" />
 				</div>
 				<div className="post-actions">
-					<button type="button" className="quote-post" disabled title="Coming soon">
+					<button type="button" className="quote-post" onClick={() => onQuote(post)}>
 						Quote
 					</button>
 					<Link
@@ -147,6 +154,8 @@ function RouteComponent() {
 		},
 	});
 
+	const quickReplyRef = useRef<HTMLFormElement>(null);
+
 	const replyTitle = thread.title.startsWith("Re: ")
 		? thread.title
 		: `Re: ${thread.title}`;
@@ -170,6 +179,31 @@ function RouteComponent() {
 			}
 		},
 	});
+
+	const handleQuote = (post: Post) => {
+		const quotedBody = trimTrailingEmptyParagraph(post.body);
+		const quoteNode: JSONContent = {
+			type: "quote",
+			attrs: { quotee: post.author.username },
+			content:
+				quotedBody.content && quotedBody.content.length > 0
+					? quotedBody.content
+					: [{ type: "paragraph" }],
+		};
+
+		replyForm.setFieldValue("body", (current) => {
+			const base = isContentEmpty(current) ? emptyContent : current;
+			// Always follow the quote with a real (not just tiptap's implicit
+			// trailing-node) empty paragraph so there's a normal text position
+			// to place the cursor at, outside the quote's isolating boundary.
+			return {
+				...base,
+				content: [...(base.content ?? []), quoteNode, { type: "paragraph" }],
+			};
+		});
+
+		quickReplyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+	};
 
 	return (
 		<div id="thread-page">
@@ -195,6 +229,7 @@ function RouteComponent() {
 							post={post}
 							sideClass={getPostSideClass(postSide, index)}
 							threadId={threadId}
+							onQuote={handleQuote}
 						/>
 					))}
 				</div>
@@ -209,6 +244,7 @@ function RouteComponent() {
 			</h2>
 			<form
 				id="quick-reply-form"
+				ref={quickReplyRef}
 				style={{ marginInline: hbMarginedReply.margin }}
 				onSubmit={(e) => {
 					e.preventDefault();

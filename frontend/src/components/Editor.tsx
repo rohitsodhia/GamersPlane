@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // --- Tiptap node styles ---
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
 import { Note } from "#/components/tiptap/tiptap-node/note-node/note-node-extension";
+import { Quote } from "#/components/tiptap/tiptap-node/quote-node/quote-node-extension";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
@@ -28,6 +29,7 @@ import "#/components/tiptap/tiptap-node/image-node/image-node.scss";
 import "#/components/tiptap/tiptap-node/heading-node/heading-node.scss";
 import "#/components/tiptap/tiptap-node/paragraph-node/paragraph-node.scss";
 import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
+import "#/components/tiptap/tiptap-node/quote-node/quote-node.scss";
 
 // --- Icons ---
 import { ArrowLeftIcon } from "#/components/tiptap/tiptap-icons/arrow-left-icon";
@@ -176,6 +178,24 @@ function NoteButton({ editor }: { editor: TiptapEditor | null }) {
 	);
 }
 
+// No dedicated quote button ships with the tiptap templates either; wire up
+// the custom Quote extension's command directly, same as the note button.
+function QuoteButton({ editor }: { editor: TiptapEditor | null }) {
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Quote"
+			aria-label="Quote"
+			onClick={() => editor.chain().focus().setQuote().run()}
+		>
+			Quote
+		</Button>
+	);
+}
+
 // The template's ImageUploadButton needs a real upload endpoint we don't have
 // yet. Inserting by URL needs no backend, so wire that up with the installed
 // Image extension instead, matching markItUp's "By URL..." option.
@@ -237,6 +257,7 @@ const MainToolbarContent = ({
 					types={["bulletList", "orderedList", "taskList"]}
 				/>
 				<BlockquoteButton />
+				<QuoteButton editor={editor} />
 				<CodeBlockButton />
 			</ToolbarGroup>
 
@@ -346,6 +367,7 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 			}),
 			HorizontalRule,
 			Note,
+			Quote,
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			TaskList,
 			TaskItem.configure({ nested: true }),
@@ -411,6 +433,13 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 		const next = JSON.stringify(value ?? emptyContent);
 		if (current !== next) {
 			editor.commands.setContent(value ?? emptyContent);
+			// setContent doesn't remap the old selection onto the new doc in a
+			// useful way — left alone it can resolve to an AllSelection or a
+			// NodeSelection wrapping an isolating node (e.g. Quote) rather than a
+			// normal text cursor, which breaks click-to-place and arrow-key
+			// navigation until the user manually reselects. Put the cursor at a
+			// definite, normal spot instead.
+			editor.commands.setTextSelection(editor.state.doc.content.size);
 		}
 	}, [editor, value]);
 
