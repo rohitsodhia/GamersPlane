@@ -19,6 +19,10 @@ class PostData(SchemaBase):
     body: dict
 
 
+class GetPostResponse(PostData):
+    datestamp: datetime | None
+
+
 class GetPostsResponse(SchemaBase):
     posts: list[PostData]
     count: int

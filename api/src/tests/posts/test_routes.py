@@ -1,5 +1,5 @@
 from app.configs import configs
-from app.models import Thread
+from app.models import Post, Thread
 from tests.factories import PostFactory, ThreadFactory, UserFactory, prose_doc
 
 
@@ -86,6 +86,59 @@ class TestGetPosts:
         assert author["id"] == user.id
         assert author["username"] == "Alice"
         assert author["avatar"] == f"{configs.AVATARS_ROOT}/avatar.png"
+
+
+class TestGetPost:
+    async def test_get_post_requires_auth(self, client, create):
+        thread = await create(ThreadFactory)
+        post = await create(PostFactory, thread=thread)
+
+        response = await client.get(f"/posts/{post.id}")
+
+        assert response.status_code == 403
+
+    async def test_get_post_unknown_post_returns_404(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.get("/posts/999999")
+
+        assert response.status_code == 404
+
+    async def test_get_post_returns_post(self, authed_client, create):
+        client, _user = authed_client
+        thread = await create(ThreadFactory)
+        post = await create(PostFactory, thread=thread, title="Hello")
+
+        response = await client.get(f"/posts/{post.id}")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == post.id
+        assert body["title"] == "Hello"
+        assert body["body"] == post.body
+
+    async def test_get_post_returns_datestamp_for_published_post(
+        self, authed_client, create
+    ):
+        client, _user = authed_client
+        thread = await create(ThreadFactory)
+        post = await create(PostFactory, thread=thread)
+
+        response = await client.get(f"/posts/{post.id}")
+
+        assert response.json()["datestamp"] is not None
+
+    async def test_get_post_returns_null_datestamp_for_draft_post(
+        self, authed_client, create
+    ):
+        client, _user = authed_client
+        thread = await create(ThreadFactory)
+        post = await create(PostFactory, thread=thread, state=Post.States.DRAFT)
+
+        response = await client.get(f"/posts/{post.id}")
+
+        assert response.status_code == 200
+        assert response.json()["datestamp"] is None
 
 
 def new_post_payload(**overrides):
@@ -188,9 +241,7 @@ class TestEditPost:
         thread = await create(ThreadFactory)
         post = await create(PostFactory, thread=thread)
 
-        response = await client.patch(
-            f"/posts/{post.id}", json=edit_post_payload()
-        )
+        response = await client.patch(f"/posts/{post.id}", json=edit_post_payload())
 
         assert response.status_code == 403
 
@@ -216,9 +267,7 @@ class TestEditPost:
     async def test_edit_post_unknown_post_returns_404(self, authed_client):
         client, _user = authed_client
 
-        response = await client.patch(
-            "/posts/999999", json=edit_post_payload()
-        )
+        response = await client.patch("/posts/999999", json=edit_post_payload())
 
         assert response.status_code == 404
 
@@ -228,21 +277,15 @@ class TestEditPost:
         other_author = await create(UserFactory)
         post = await create(PostFactory, thread=thread, author=other_author)
 
-        response = await client.patch(
-            f"/posts/{post.id}", json=edit_post_payload()
-        )
+        response = await client.patch(f"/posts/{post.id}", json=edit_post_payload())
 
         assert response.status_code == 403
 
-    async def test_edit_post_on_locked_thread_returns_403(
-        self, authed_client, create
-    ):
+    async def test_edit_post_on_locked_thread_returns_403(self, authed_client, create):
         client, user = authed_client
         thread = await create(ThreadFactory, options=Thread.Options(locked=True))
         post = await create(PostFactory, thread=thread, author=user)
 
-        response = await client.patch(
-            f"/posts/{post.id}", json=edit_post_payload()
-        )
+        response = await client.patch(f"/posts/{post.id}", json=edit_post_payload())
 
         assert response.status_code == 403

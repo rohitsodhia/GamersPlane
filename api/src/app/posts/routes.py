@@ -29,6 +29,7 @@ async def get_posts(
 
     posts_data = []
     for post in posts:
+        assert post.published_at
         posts_data.append(
             schemas.PostData(
                 id=post.id,
@@ -47,6 +48,27 @@ async def get_posts(
         posts=posts_data,
         count=await post_repository.count_by_thread(thread_id),
         page=page,
+    )
+
+
+@posts.get("/{post_id}", response_model=schemas.GetPostResponse)
+async def get_post(db_session: DBSessionDependency, auth: Auth, post_id: int):
+
+    post_repository = PostRepository(db_session, auth=auth)
+    post = await post_repository.get(post_id)
+    if post is None:
+        raise NotFoundException("Post not found")
+
+    return schemas.GetPostResponse(
+        id=post.id,
+        title=post.title,
+        datestamp=post.published_at,
+        author=schemas.AuthorData(
+            id=post.author.id,
+            username=post.author.username,
+            avatar=post.author.avatar_url,
+        ),
+        body=post.body,
     )
 
 
