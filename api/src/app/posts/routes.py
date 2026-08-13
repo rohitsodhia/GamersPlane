@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 
 from app.database import DBSessionDependency
-from app.exceptions import NotFoundException
+from app.exceptions import ForbiddenException, NotFoundException
 from app.helpers.decorators import public
-from app.middleware import Auth
+from app.middleware import Auth, Principal
+from app.models import Post
 from app.posts import schemas
 from app.repositories import PostRepository, ThreadRepository
 
@@ -20,7 +21,6 @@ async def get_posts(
 
     thread_repository = ThreadRepository(db_session, auth=auth)
     thread = await thread_repository.get(thread_id)
-
     if thread is None:
         raise NotFoundException("Thread not found")
 
@@ -50,28 +50,28 @@ async def get_posts(
     )
 
 
-# @posts.post("", response_model=schemas.NewThreadResponse)
-# async def create_thread(
-#     db_session: DBSessionDependency,
-#     auth: Auth,
-#     principal: Principal,
-#     thread_data: schemas.NewThreadInput,
-# ):
-#     forum_repository = ForumRepository(db_session, auth=auth)
-#     forum = await forum_repository.get(thread_data.forum_id)
-#     if forum is None:
-#         raise NotFoundException("Forum not found")
+@posts.post("", response_model=schemas.NewPostResponse)
+async def create_post(
+    db_session: DBSessionDependency,
+    auth: Auth,
+    principal: Principal,
+    post_data: schemas.NewPostInput,
+):
+    thread_repository = ThreadRepository(db_session, auth=auth)
+    thread = await thread_repository.get(post_data.thread_id)
+    if thread is None:
+        raise NotFoundException("Thread not found")
+    if thread.options.locked:
+        raise ForbiddenException("Thread is locked")
 
-#     thread_repository = ThreadRepository(db_session, auth=auth)
-#     thread = await thread_repository.create(
-#         thread_data.forum_id,
-#         thread_data.options,
-#     )
+    post_repository = PostRepository(db_session, auth=auth)
+    post = await post_repository.create(
+        thread.id,
+        principal.id,
+        post_data.title,
+        post_data.body,
+        state=Post.States.PUBLISHED,
+    )
+    await thread_repository.attach_new_post(thread, post)
 
-#     post_repository = PostRepository(db_session, auth=auth)
-#     post = await post_repository.create(
-#         thread.id, principal.id, thread_data.title, thread_data.body
-#     )
-#     await thread_repository.attach_new_post(thread, post)
-
-#     return schemas.NewThreadResponse(id=thread.id)
+    return schemas.NewPostResponse(id=post.id)
