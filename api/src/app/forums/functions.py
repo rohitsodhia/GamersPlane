@@ -21,12 +21,12 @@ async def get_heritage(
 
 def cascade_last_posts(
     descendants: list[Forum], last_posts_by_forum_id: dict[int, Post]
-) -> dict[int, Post]:
+) -> dict[int, Post | None]:
     children_by_parent: dict[int | None, list[Forum]] = {}
     for forum in descendants:
         children_by_parent.setdefault(forum.parent_id, []).append(forum)
 
-    cascaded: dict[int, Post] = {}
+    cascaded: dict[int, Post | None] = {}
 
     def visit(forum_id: int) -> Post | None:
         if forum_id in cascaded:
