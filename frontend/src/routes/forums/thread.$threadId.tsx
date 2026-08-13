@@ -2,6 +2,7 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
+import ChatPoint from "#/components/ChatPoint";
 import Paginate from "#/components/Paginate";
 import { TiptapContent } from "#/components/TiptapContent";
 import { formatDateTime } from "#/lib/format-date";
@@ -44,7 +45,7 @@ export const Route = createFileRoute("/forums/thread/$threadId")({
 
 function getPostSideClass(postSide: PostSide, index: number) {
 	const side = postSide === "c" ? (index % 2 === 0 ? "l" : "r") : postSide;
-	return `post-side-${side}`;
+	return side === "l" ? "post-left" : "post-right";
 }
 
 function PostItem({
@@ -57,9 +58,19 @@ function PostItem({
 	threadId: number;
 }) {
 	return (
-		<div className={`thread-post ${sideClass}`}>
-			<div className="thread-post-author">
-				<img src={post.author.avatar} alt={post.author.username} />
+		<div className={`post ${sideClass}`}>
+			<div className="post-author">
+				<Link
+					to="/user/$id"
+					params={{ id: String(post.author.id) }}
+					className="username"
+				>
+					<img
+						src={post.author.avatar}
+						alt={post.author.username}
+						className="user-avatar"
+					/>
+				</Link>
 				<Link
 					to="/user/$id"
 					params={{ id: String(post.author.id) }}
@@ -68,13 +79,16 @@ function PostItem({
 					{post.author.username}
 				</Link>
 			</div>
-			<div className="thread-post-body">
-				<div className="thread-post-header">
-					<span>{post.title}</span>
-					<span>{formatDateTime(post.datestamp)}</span>
+			<div className="post-content">
+				<ChatPoint />
+				<div className="post-bubble">
+					<div className="post-header">
+						<span className="post-title">{post.title}</span>
+						<span className="post-datestamp">{formatDateTime(post.datestamp)}</span>
+					</div>
+					<TiptapContent content={post.body} className="post-body" />
 				</div>
-				<TiptapContent content={post.body} className="thread-post-content" />
-				<div className="thread-post-actions">
+				<div className="post-actions">
 					<button type="button" className="quote-post" disabled title="Coming soon">
 						Quote
 					</button>
@@ -122,25 +136,29 @@ function RouteComponent() {
 
 			<div style={{ marginInline: hbMarginedHeader.margin }}>
 				<Breadcrumbs forum={breadcrumbs} />
-			</div>
+				<div>
+					Be sure to read and follow the{" "}
+					<Link to="/community_guidelines">community guidelines</Link>.
+				</div>
 
-			<div className="thread-pagination">
-				<Paginate numItems={count} current={page} onPageChange={setPage} />
-			</div>
+				<div className="thread-pagination">
+					<Paginate numItems={count} current={page} onPageChange={setPage} />
+				</div>
 
-			<div id="thread-posts">
-				{posts.map((post, index) => (
-					<PostItem
-						key={post.id}
-						post={post}
-						sideClass={getPostSideClass(postSide, index)}
-						threadId={threadId}
-					/>
-				))}
-			</div>
+				<div id="thread-posts">
+					{posts.map((post, index) => (
+						<PostItem
+							key={post.id}
+							post={post}
+							sideClass={getPostSideClass(postSide, index)}
+							threadId={threadId}
+						/>
+					))}
+				</div>
 
-			<div className="thread-pagination">
-				<Paginate numItems={count} current={page} onPageChange={setPage} />
+				<div className="thread-pagination">
+					<Paginate numItems={count} current={page} onPageChange={setPage} />
+				</div>
 			</div>
 		</div>
 	);
