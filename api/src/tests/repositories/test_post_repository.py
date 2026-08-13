@@ -49,6 +49,39 @@ class TestPostRepository:
 
         assert post.state == Post.States.PUBLISHED
 
+    async def test_get_returns_post_by_id(self, repository, create, thread):
+        post = await create(PostFactory, thread=thread)
+
+        found = await repository.get(post.id)
+
+        assert found.id == post.id
+
+    async def test_get_returns_none_when_not_found(self, repository):
+        found = await repository.get(999999)
+
+        assert found is None
+
+    async def test_update_updates_title_and_body(self, repository, create, thread):
+        post = await create(PostFactory, thread=thread, title="Old Title")
+        new_body = prose_doc("New body")
+
+        updated = await repository.update(post, "New Title", new_body)
+
+        assert updated.title == "New Title"
+        assert updated.body == new_body
+
+    async def test_update_persists_changes(
+        self, repository, create, thread, db_session
+    ):
+        post = await create(PostFactory, thread=thread, title="Old Title")
+        new_body = prose_doc("New body")
+
+        await repository.update(post, "New Title", new_body)
+        await db_session.refresh(post)
+
+        assert post.title == "New Title"
+        assert post.body == new_body
+
     async def test_get_all_returns_published_posts_for_thread(
         self, repository, create, thread
     ):
