@@ -80,17 +80,17 @@ class TestPostRepository:
 
         assert posts == []
 
-    async def test_get_all_orders_by_created_at_ascending(
+    async def test_get_all_orders_by_published_at_ascending(
         self, repository, create, thread
     ):
         now = datetime.now(timezone.utc)
         newer = await create(
-            PostFactory, thread=thread, created_at=now, title="Newer"
+            PostFactory, thread=thread, published_at=now, title="Newer"
         )
         older = await create(
             PostFactory,
             thread=thread,
-            created_at=now - timedelta(days=1),
+            published_at=now - timedelta(days=1),
             title="Older",
         )
 

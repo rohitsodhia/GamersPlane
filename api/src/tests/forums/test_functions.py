@@ -91,7 +91,7 @@ class TestBuildForumTree:
 
         assert [forum.id for forum in tree] == [2]
 
-    def make_post(self, id, title, created_at, username="author"):
+    def make_post(self, id, title, published_at, username="author"):
         author = User(username=username, email=f"{username}@example.com")
         author.id = 1
         return Post(
@@ -99,7 +99,7 @@ class TestBuildForumTree:
             thread_id=1,
             title=title,
             body={},
-            created_at=created_at,
+            published_at=published_at,
             author=author,
         )
 
@@ -138,3 +138,26 @@ class TestBuildForumTree:
         tree = build_forum_tree(descendants, 1, {2: newer_post, 3: older_post})
 
         assert tree[0].last_post.id == 10
+
+    def test_build_forum_tree_ignores_unpublished_descendant_post(self):
+        descendants = [
+            self.make_forum(2, 1, "Child"),
+            self.make_forum(3, 2, "Grandchild"),
+        ]
+        published_post = self.make_post(10, "Published post", datetime(2026, 1, 1))
+        unpublished_post = self.make_post(11, "Unpublished post", None)
+
+        tree = build_forum_tree(
+            descendants, 1, {2: published_post, 3: unpublished_post}
+        )
+
+        assert tree[0].last_post.id == 10
+        assert tree[0].children[0].last_post is None
+
+    def test_build_forum_tree_ignores_own_unpublished_post(self):
+        descendants = [self.make_forum(2, 1, "Child")]
+        unpublished_post = self.make_post(11, "Unpublished post", None)
+
+        tree = build_forum_tree(descendants, 1, {2: unpublished_post})
+
+        assert tree[0].last_post is None

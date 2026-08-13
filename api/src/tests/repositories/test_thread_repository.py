@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import text
 
-from app.models import Thread
+from app.models import Post, Thread
 from app.repositories.thread_repository import ThreadRepository
 from tests.factories import ForumFactory, PostFactory, ThreadFactory
 
@@ -157,6 +157,15 @@ class TestThreadRepository:
         assert thread.last_post_id == second_post.id
         assert thread.post_count == 2
 
+    async def test_attach_new_post_rejects_unpublished_post(
+        self, repository, create, forum
+    ):
+        thread = await repository.create(forum.id, Thread.Options())
+        draft_post = await create(PostFactory, thread=thread, state=Post.States.DRAFT)
+
+        with pytest.raises(AssertionError):
+            await repository.attach_new_post(thread, draft_post)
+
     async def test_get_last_posts_by_forum_ids_returns_latest_post_per_forum(
         self, repository, create, forum
     ):
@@ -175,13 +184,13 @@ class TestThreadRepository:
     ):
         older_thread = await create(ThreadFactory, forum=forum)
         older_post = await create(
-            PostFactory, thread=older_thread, created_at=datetime(2026, 1, 1)
+            PostFactory, thread=older_thread, published_at=datetime(2026, 1, 1)
         )
         await repository.attach_new_post(older_thread, older_post)
 
         newer_thread = await create(ThreadFactory, forum=forum)
         newer_post = await create(
-            PostFactory, thread=newer_thread, created_at=datetime(2026, 2, 1)
+            PostFactory, thread=newer_thread, published_at=datetime(2026, 2, 1)
         )
         await repository.attach_new_post(newer_thread, newer_post)
 

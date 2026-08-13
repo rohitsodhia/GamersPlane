@@ -1,5 +1,6 @@
 from app.configs import configs
-from tests.factories import PostFactory, ThreadFactory, UserFactory
+from app.models import Thread
+from tests.factories import PostFactory, ThreadFactory, UserFactory, prose_doc
 
 
 class TestGetPosts:
@@ -85,3 +86,89 @@ class TestGetPosts:
         assert author["id"] == user.id
         assert author["username"] == "Alice"
         assert author["avatar"] == f"{configs.AVATARS_ROOT}/avatar.png"
+
+
+def new_post_payload(**overrides):
+    payload = {
+        "thread_id": None,
+        "title": "Hello",
+        "body": prose_doc("Hi there"),
+    }
+    payload.update(overrides)
+    return payload
+
+
+class TestCreatePost:
+    async def test_create_post_requires_auth(self, client, create):
+        thread = await create(ThreadFactory)
+
+        response = await client.post(
+            "/posts", json=new_post_payload(thread_id=thread.id)
+        )
+
+        assert response.status_code == 403
+
+    async def test_create_post(self, authed_client, create):
+        client, _user = authed_client
+        thread = await create(ThreadFactory)
+
+        response = await client.post(
+            "/posts", json=new_post_payload(thread_id=thread.id)
+        )
+
+        assert response.status_code == 200
+        assert "id" in response.json()
+
+    async def test_create_post_unknown_thread_returns_404(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post("/posts", json=new_post_payload(thread_id=999999))
+
+        assert response.status_code == 404
+
+    async def test_create_post_is_published_and_returned_by_get_posts(
+        self, authed_client, create
+    ):
+        client, user = authed_client
+        thread = await create(ThreadFactory)
+
+        response = await client.post(
+            "/posts", json=new_post_payload(thread_id=thread.id, title="A reply")
+        )
+        post_id = response.json()["id"]
+
+        list_response = await client.get("/posts", params={"thread_id": thread.id})
+
+        body = list_response.json()
+        assert [p["id"] for p in body["posts"]] == [post_id]
+        assert body["posts"][0]["title"] == "A reply"
+        assert body["posts"][0]["author"]["id"] == user.id
+        assert body["count"] == 1
+
+    async def test_create_post_attaches_to_thread(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        thread = await create(ThreadFactory)
+
+        response = await client.post(
+            "/posts", json=new_post_payload(thread_id=thread.id)
+        )
+        post_id = response.json()["id"]
+
+        await db_session.refresh(thread)
+        assert thread.first_post_id == post_id
+        assert thread.last_post_id == post_id
+        assert thread.post_count == 1
+
+    async def test_create_post_on_locked_thread_returns_403(
+        self, authed_client, create
+    ):
+        client, _user = authed_client
+        thread = await create(ThreadFactory, options=Thread.Options(locked=True))
+
+        response = await client.post(
+            "/posts", json=new_post_payload(thread_id=thread.id)
+        )
+
+        assert response.status_code == 403
