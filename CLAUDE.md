@@ -95,7 +95,7 @@ Biome uses tabs for indentation and double quotes for JS/TS strings. The `routeT
 
 - `src/app/main.py` — `create_app()` factory; wires middleware, CORS, and routers
 - `src/app/configs.py` — `ConfigStore` singleton loaded from env vars via `configs.from_env()`
-- `src/app/database.py` — `DatabaseSessionManager` with optional SSH tunnel support for remote DB; `DBSessionDependency` is the FastAPI dependency type alias
+- `src/app/database.py` — `DatabaseSessionManager` with optional SSH tunnel support for remote DB; `DBSessionDependency` is the FastAPI dependency type alias. It commits the session after the request handler returns (and rolls back on exception) — routes and repositories should only `flush()`, never `commit()` or `rollback()` themselves.
 - `src/app/middleware.py` — cookie-based auth (`loginHash` cookie) and JWT auth (Bearer token); `AuthedUser` dependency for getting the current user in route handlers
 - `src/app/schema_base.py` — `SchemaBase` (Pydantic base class) with a pipeline system for transforming string fields (strip whitespace, nl2br, escape HTML) via `filtered_str()`
 
