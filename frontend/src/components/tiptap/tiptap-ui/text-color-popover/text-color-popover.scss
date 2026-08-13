@@ -1,0 +1,15 @@
+.tiptap-text-color-picker {
+  width: 100%;
+
+  .react-colorful__saturation {
+    border-radius: var(--tt-radius-md) var(--tt-radius-md) 0 0;
+  }
+
+  .react-colorful__hue {
+    border-radius: 0 0 var(--tt-radius-md) var(--tt-radius-md);
+  }
+}
+
+.tiptap-text-color-hex-input {
+  text-transform: uppercase;
+}

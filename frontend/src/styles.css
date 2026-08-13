@@ -19,6 +19,7 @@
 	--gp-orange: oklch(0.62 0.16 53.46);
 	--gp-light-blue: #06f;
 
+	--font-size-sm: 0.8em;
 	--line-height: 1.5em;
 
 	--skew-angle: 20deg;
@@ -293,6 +294,10 @@ h2.headerbar {
 
 .align-right {
 	text-align: right;
+}
+
+.align-center {
+	text-align: center;
 }
 
 .visually-hidden {
@@ -860,7 +865,7 @@ form.grid-layout {
 		margin-block: 0.5em;
 	}
 	p {
-		font-size: 0.85em;
+		font-size: var(--font-size-sm);
 		margin-bottom: 0;
 	}
 }
@@ -878,7 +883,7 @@ form.grid-layout {
 
 		& > button {
 			padding-inline: 1em;
-			font-size: 0.85em;
+			font-size: var(--font-size-sm);
 		}
 
 		.current,
@@ -913,14 +918,14 @@ form.grid-layout {
 	}
 
 	.details {
-		font-size: 0.85em;
+		font-size: var(--font-size-sm);
 	}
 }
 
 #pms-list-header,
 #forum-page .column-titles {
 	--line-height: 2.5em;
-	font-size: 0.85em;
+	font-size: var(--font-size-sm);
 }
 
 #pms-list-container {
@@ -976,7 +981,7 @@ form.grid-layout {
 		display: contents;
 
 		&:not(.message) > *:first-child {
-			font-size: 0.85em;
+			font-size: var(--font-size-sm);
 			font-weight: bold;
 			text-transform: uppercase;
 		}
@@ -1031,6 +1036,16 @@ form.grid-layout {
 
 h1 .forum-icon {
 	color: #fff;
+}
+
+.last-post-info {
+	display: flex;
+	flex-direction: column;
+	text-align: center;
+
+	span {
+		font-size: var(--font-size-sm);
+	}
 }
 
 #forums_top-nav-links {
@@ -1139,15 +1154,8 @@ h1 .forum-icon {
 		grid-template-columns: 1.5em 1fr max-content;
 	}
 
-	.thread-author,
-	.last-post-info span {
-		font-size: 0.85em;
-	}
-
-	.last-post-info {
-		display: flex;
-		flex-direction: column;
-		text-align: center;
+	.thread-author {
+		font-size: var(--font-size-sm);
 	}
 
 	.latest-posts {
@@ -1221,6 +1229,10 @@ h1 .forum-icon {
 
 	.post {
 		display: flex;
+
+		&:not(:first-child) {
+			margin-top: 1.5em;
+		}
 	}
 
 	.post-author {
@@ -1279,7 +1291,7 @@ h1 .forum-icon {
 
 	.post-datestamp {
 		width: fit-content;
-		font-size: 0.85em;
+		font-size: var(--font-size-sm);
 		flex-shrink: 0;
 	}
 
@@ -1289,7 +1301,7 @@ h1 .forum-icon {
 		gap: 1em;
 		margin-top: 0.5em;
 		margin-right: 1em;
-		font-size: 0.85em;
+		font-size: var(--font-size-sm);
 
 		button {
 			color: var(--gp-light-red);
@@ -1298,5 +1310,11 @@ h1 .forum-icon {
 				text-decoration: underline;
 			}
 		}
+	}
+}
+
+#quick-reply-form {
+	.align-center {
+		margin-top: 0.5em;
 	}
 }

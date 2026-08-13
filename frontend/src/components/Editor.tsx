@@ -2,6 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import { Color } from "@tiptap/extension-color";
 import { FindAndReplace } from "@tiptap/extension-find-and-replace";
 import { Image } from "@tiptap/extension-image";
+import { Link } from "@tiptap/extension-link";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Subscript } from "@tiptap/extension-subscript";
 import { Superscript } from "@tiptap/extension-superscript";
@@ -12,10 +13,8 @@ import { Selection } from "@tiptap/extensions";
 import { AllSelection } from "@tiptap/pm/state";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
-import { BubbleMenu } from "@tiptap/react/menus";
 import { StarterKit } from "@tiptap/starter-kit";
 import clsx from "clsx";
-import type { ComponentProps } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // --- Tiptap node styles ---
@@ -75,6 +74,26 @@ import { useWindowSize } from "#/hooks/use-window-size";
 
 // --- Styles ---
 import "#/components/tiptap/tiptap-templates/simple/simple-editor.scss";
+
+// The default Link extension marks itself inclusive (tied to the `autolink`
+// option), which extends the link mark to the cursor placed right after a
+// link. That makes it impossible to type plain text immediately after a
+// link, so it's overridden here to behave like a normal exclusive mark.
+const NonInclusiveLink = Link.extend({
+	inclusive() {
+		return false;
+	},
+});
+
+// TextStyle (used to carry the text color mark) is inclusive by default,
+// which extends the color to text typed right after a colored run. Make it
+// exclusive so typing after colored text doesn't inherit the color, same as
+// NonInclusiveLink above.
+const NonInclusiveTextStyle = TextStyle.extend({
+	inclusive() {
+		return false;
+	},
+});
 
 export const emptyContent: JSONContent = { type: "doc", content: [] };
 
@@ -297,31 +316,6 @@ const MobileToolbarContent = ({
 	</>
 );
 
-// Tiptap's default shouldShow only treats a `TextSelection` as "empty text",
-// but clicking into an empty document produces an `AllSelection` instead
-// (from 0 to the size of the empty paragraph), which slips past that check
-// and shows the bubble menu with nothing highlighted. Checking the selected
-// text length directly covers every selection type.
-const bubbleMenuShouldShow: NonNullable<
-	ComponentProps<typeof BubbleMenu>["shouldShow"]
-> = ({ editor, state, from, to }) => {
-	if (!editor.isEditable || state.selection.empty) return false;
-	return state.doc.textBetween(from, to).length > 0;
-};
-
-// Selection-driven inline formatting, shown next to highlighted text.
-const BubbleMenuContent = () => (
-	<Toolbar variant="floating">
-		<ToolbarGroup>
-			<MarkButton type="bold" />
-			<MarkButton type="italic" />
-			<MarkButton type="underline" />
-			<MarkButton type="strike" />
-			<LinkPopover />
-		</ToolbarGroup>
-	</Toolbar>
-);
-
 type EditorProps = {
 	id?: string;
 	value: JSONContent | null | undefined;
@@ -344,17 +338,18 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 			StarterKit.configure({
 				horizontalRule: false,
 				hardBreak: false,
-				link: {
-					openOnClick: false,
-					enableClickSelection: true,
-				},
+				link: false,
+			}),
+			NonInclusiveLink.configure({
+				openOnClick: false,
+				enableClickSelection: false,
 			}),
 			HorizontalRule,
 			Note,
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			TaskList,
 			TaskItem.configure({ nested: true }),
-			TextStyle,
+			NonInclusiveTextStyle,
 			Color,
 			Image,
 			Typography,
@@ -378,7 +373,7 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 		// instead of a collapsed cursor, which visually looks like the empty
 		// area got ctrl+a'd. Collapse it to a normal cursor at the start.
 		onFocus: ({ editor }) => {
-			if (editor.state.selection instanceof AllSelection) {
+			if (editor.isEmpty && editor.state.selection instanceof AllSelection) {
 				editor.commands.setTextSelection(0);
 			}
 		},
@@ -480,15 +475,6 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 					role="presentation"
 					className={clsx("simple-editor-content", className)}
 				/>
-
-				{editor && (
-					<BubbleMenu
-						className="simple-editor-bubble-menu"
-						shouldShow={bubbleMenuShouldShow}
-					>
-						<BubbleMenuContent />
-					</BubbleMenu>
-				)}
 			</EditorContext.Provider>
 		</div>
 	);

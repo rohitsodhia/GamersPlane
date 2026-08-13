@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
-import { apiFetch } from "#/lib/api";
+import { ApiError, apiFetch } from "#/lib/api";
 
 type Author = {
 	id: number;
@@ -32,3 +32,19 @@ export function postsQueryOptions(threadId: number, page = 1) {
 		},
 	});
 }
+
+export const createPost = async (data: {
+	thread_id: number;
+	title: string;
+	body: JSONContent;
+}): Promise<{ id: number }> => {
+	const res = await apiFetch("/posts", {
+		method: "POST",
+		body: JSON.stringify(data),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};

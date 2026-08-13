@@ -440,7 +440,7 @@ function RouteComponent() {
 								/>
 								{updatePasswordMutation.error instanceof ApiError &&
 									updatePasswordMutation.error.errors.some(
-										(err) => err.code === "invalid-old-password",
+										(err) => err.code === "invalid_old_password",
 									) && <div className="error">Your old password is wrong</div>}
 							</div>
 						</div>

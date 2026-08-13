@@ -146,6 +146,12 @@ export function useLinkHandler(props: LinkHandlerProps) {
 
 		chain.run();
 
+		// Collapse the selection to the end of the link so the cursor lands
+		// after the link text instead of leaving it selected (which would
+		// keep the link mark "active" and re-trigger the popover to reopen).
+		const { to } = editor.state.selection;
+		editor.chain().setTextSelection(to).run();
+
 		setUrl(null);
 
 		onSetLink?.();

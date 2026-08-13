@@ -1,15 +1,23 @@
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useForm } from "@tanstack/react-form";
+import {
+	useMutation,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import ChatPoint from "#/components/ChatPoint";
+import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
 import Paginate from "#/components/Paginate";
 import { TiptapContent } from "#/components/TiptapContent";
+import { ApiError } from "#/lib/api";
 import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { forumBreadcrumbsQueryOptions } from "#/queries/forums";
 import { meFullQueryOptions, type PostSide } from "#/queries/me";
-import { type Post, postsQueryOptions } from "#/queries/posts";
+import { createPost, type Post, postsQueryOptions } from "#/queries/posts";
 import { threadQueryOptions } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
 import { Breadcrumbs } from "./-breadcrumbs";
@@ -121,12 +129,47 @@ function RouteComponent() {
 	const {
 		data: { posts, count },
 	} = useSuspenseQuery(postsQueryOptions(threadId, page));
+	const queryClient = useQueryClient();
 
 	const loggedIn = useAuthStore((state) => !!state.token);
 	const { data: me } = useQuery({ ...meFullQueryOptions, enabled: loggedIn });
 	const postSide: PostSide = me?.postSide ?? "r";
 
 	const hbMarginedHeader = useHbMargined<HTMLHeadingElement>();
+	const hbMarginedReply = useHbMargined<HTMLHeadingElement>();
+
+	const [replyErrors, setReplyErrors] = useState<string[]>([]);
+
+	const replyMutation = useMutation({
+		mutationFn: createPost,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["posts", threadId] });
+		},
+	});
+
+	const replyTitle = thread.title.startsWith("Re: ")
+		? thread.title
+		: `Re: ${thread.title}`;
+	const replyForm = useForm({
+		defaultValues: {
+			body: emptyContent,
+		},
+		onSubmit: async ({ value, formApi }) => {
+			setReplyErrors([]);
+			try {
+				await replyMutation.mutateAsync({
+					thread_id: threadId,
+					title: replyTitle,
+					body: value.body,
+				});
+				formApi.reset();
+			} catch (exception) {
+				if (exception instanceof ApiError) {
+					setReplyErrors(exception.errors.map((e) => e.detail));
+				}
+			}
+		},
+	});
 
 	return (
 		<div id="thread-page">
@@ -160,6 +203,60 @@ function RouteComponent() {
 					<Paginate numItems={count} current={page} onPageChange={setPage} />
 				</div>
 			</div>
+
+			<h2 className="headerbar hb-dark" ref={hbMarginedReply.ref}>
+				Quick Reply
+			</h2>
+			<form
+				id="quick-reply-form"
+				style={{ marginInline: hbMarginedReply.margin }}
+				onSubmit={(e) => {
+					e.preventDefault();
+					replyForm.handleSubmit();
+				}}
+			>
+				{replyErrors.length > 0 && (
+					<div className="banner error-banner">
+						<ul>
+							{replyErrors.map((error) => (
+								<li key={error}>{error}</li>
+							))}
+						</ul>
+					</div>
+				)}
+
+				<replyForm.Field
+					name="body"
+					validators={{
+						onBlur: ({ value }) =>
+							isContentEmpty(value) ? "Message required!" : undefined,
+					}}
+				>
+					{(field) => (
+						<Editor
+							id={field.name}
+							value={field.state.value}
+							onBlur={field.handleBlur}
+							onChange={(value) => field.handleChange(value)}
+							className={field.state.meta.isValid ? "" : "field-invalid"}
+						/>
+					)}
+				</replyForm.Field>
+
+				<replyForm.Subscribe selector={(state) => state.canSubmit}>
+					{(canSubmit) => (
+						<div className="align-center">
+							<button
+								type="submit"
+								disabled={!canSubmit || replyMutation.isPending}
+								className="skew-btn"
+							>
+								Post
+							</button>
+						</div>
+					)}
+				</replyForm.Subscribe>
+			</form>
 		</div>
 	);
 }
