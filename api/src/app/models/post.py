@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import JSON, DateTime, ForeignKey, String
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+    validates,
+)
 
 from app.helpers.enums import LabelEnum, LabelEnumType
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin
@@ -32,6 +38,9 @@ class Post(Base, SoftDeleteMixin, TimestampMixin):
     state: Mapped[States] = mapped_column(
         LabelEnumType(States, String(1)), default=States.DRAFT
     )
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     revision_of_id: Mapped[int | None] = mapped_column(
         ForeignKey("posts.id"), nullable=True
     )
@@ -40,3 +49,9 @@ class Post(Base, SoftDeleteMixin, TimestampMixin):
         ForeignKey("characters.id"), nullable=True
     )
     posted_as: Mapped[Character | None] = relationship(lazy="joined")
+
+    @validates("state")
+    def _validate_state(self, key: str, state: States) -> States:
+        if state == self.States.PUBLISHED and self.published_at is None:
+            self.published_at = datetime.now(UTC)
+        return state

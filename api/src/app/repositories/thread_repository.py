@@ -48,6 +48,7 @@ class ThreadRepository:
         return thread
 
     async def attach_new_post(self, thread: Thread, post: Post) -> Thread:
+        assert post.state == Post.States.PUBLISHED
         if thread.first_post_id is None:
             thread.first_post_id = post.id
         thread.last_post_id = post.id
@@ -62,7 +63,7 @@ class ThreadRepository:
             select(Thread)
             .join(Post, Thread.last_post_id == Post.id)
             .where(Thread.forum_id.in_(forum_ids), Thread.last_post_id.isnot(None))
-            .order_by(Thread.forum_id, Post.created_at.desc())
+            .order_by(Thread.forum_id, Post.published_at.desc())
             .distinct(Thread.forum_id)
         )
         return {thread.forum_id: thread.last_post for thread in threads}

@@ -32,11 +32,15 @@ def cascade_last_posts(
         if forum_id in cascaded:
             return cascaded[forum_id]
 
-        last_post = last_posts_by_forum_id.get(forum_id)
+        own_last_post = last_posts_by_forum_id.get(forum_id)
+        last_post = (
+            own_last_post if own_last_post and own_last_post.published_at else None
+        )
         for child in children_by_parent.get(forum_id, []):
             child_last_post = visit(child.id)
             if child_last_post and (
-                last_post is None or child_last_post.created_at > last_post.created_at
+                last_post is None
+                or child_last_post.published_at > last_post.published_at
             ):
                 last_post = child_last_post
         cascaded[forum_id] = last_post
@@ -55,7 +59,7 @@ def build_last_post_details(post: Post | None) -> schemas.LastPostDetails | None
     return schemas.LastPostDetails(
         id=post.id,
         title=post.title,
-        datestamp=str(post.created_at),
+        datestamp=str(post.published_at),
         author=schemas.AuthorData(id=post.author.id, username=post.author.username),
     )
 

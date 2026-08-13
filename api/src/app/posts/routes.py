@@ -33,7 +33,7 @@ async def get_posts(
             schemas.PostData(
                 id=post.id,
                 title=post.title,
-                datestamp=post.created_at,
+                datestamp=post.published_at,
                 author=schemas.AuthorData(
                     id=post.author.id,
                     username=post.author.username,

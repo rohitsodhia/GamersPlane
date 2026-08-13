@@ -45,6 +45,7 @@ def upgrade() -> None:
         sa.Column("author_id", sa.Integer(), nullable=False),
         sa.Column("body", sa.JSON(), nullable=False),
         sa.Column("state", sa.String(length=1), nullable=False),
+        sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("revision_of_id", sa.Integer(), nullable=True),
         sa.Column("posted_as_id", sa.Integer(), nullable=True),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),

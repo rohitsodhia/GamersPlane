@@ -28,7 +28,7 @@ class PostRepository:
             select(Post)
             .where(Post.thread_id == thread_id, Post.state == Post.States.PUBLISHED)
             .options(selectinload(Post.author).selectinload(User.meta))
-            .order_by(Post.created_at)
+            .order_by(Post.published_at)
             .limit(limit)
             .offset((page - 1) * limit)
         )
