@@ -1318,6 +1318,29 @@ h1 .forum-icon {
 	}
 }
 
+.confirm-popover {
+	position: fixed;
+	inset: 0;
+	margin: auto;
+	max-width: min(360px, calc(100vw - 2rem));
+	padding: 1.2em;
+	background: var(--bg);
+	color: var(--text);
+	border: 1px solid var(--text);
+	border-radius: 0.3em;
+
+	&::backdrop {
+		background: rgba(0, 0, 0, 0.5);
+	}
+}
+
+.confirm-popover-actions {
+	display: flex;
+	justify-content: center;
+	gap: 1em;
+	margin-top: 1em;
+}
+
 #quick-reply-form {
 	.align-center {
 		margin-top: 0.5em;

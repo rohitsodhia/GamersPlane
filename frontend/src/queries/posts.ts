@@ -67,6 +67,14 @@ export const createPost = async (data: {
 	return res.json();
 };
 
+export const deletePost = async (postId: number): Promise<void> => {
+	const res = await apiFetch(`/posts/${postId}`, { method: "DELETE" });
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
 export const editPost = async (data: {
 	post_id: number;
 	title: string;

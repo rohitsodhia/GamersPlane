@@ -42,6 +42,7 @@ export type ThreadDetails = {
 	forum_id: number;
 	title: string;
 	options: ThreadOptions;
+	first_post_id: number;
 };
 
 export function threadsQueryOptions(forumId: number, page = 1) {

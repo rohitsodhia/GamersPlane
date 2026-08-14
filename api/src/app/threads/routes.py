@@ -63,6 +63,7 @@ async def get_thread(db_session: DBSessionDependency, auth: Auth, thread_id: int
         forum_id=thread.forum_id,
         title=thread.first_post.title,
         options=thread.options,
+        first_post_id=thread.first_post.id,
     )
 
 

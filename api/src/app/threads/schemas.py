@@ -35,6 +35,7 @@ class GetThreadResponse(SchemaBase):
     forum_id: int
     title: str
     options: Thread.Options
+    first_post_id: int
 
 
 class NewThreadInput(SchemaBase):

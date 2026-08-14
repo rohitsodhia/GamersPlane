@@ -5,7 +5,7 @@ import {
 	useQueryClient,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import type { JSONContent } from "@tiptap/core";
 import { useRef, useState } from "react";
 import { z } from "zod";
@@ -23,7 +23,7 @@ import { useHbMargined } from "#/lib/use-hb-margined";
 import { useScrollToHash } from "#/lib/use-scroll-to-hash";
 import { forumBreadcrumbsQueryOptions } from "#/queries/forums";
 import { meFullQueryOptions, type PostSide } from "#/queries/me";
-import { createPost, type Post, postsQueryOptions } from "#/queries/posts";
+import { createPost, deletePost, type Post, postsQueryOptions } from "#/queries/posts";
 import { threadQueryOptions } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
 import { Breadcrumbs } from "./-breadcrumbs";
@@ -67,14 +67,19 @@ function PostItem({
 	sideClass,
 	threadId,
 	page,
+	isFirstPost,
 	onQuote,
+	onDelete,
 }: {
 	post: Post;
 	sideClass: string;
 	threadId: number;
 	page: number;
+	isFirstPost: boolean;
 	onQuote: (post: Post) => void;
+	onDelete: (post: Post) => void;
 }) {
+	const deleteConfirmId = `delete-post-confirm-${post.id}`;
 	return (
 		<div id={`post-${post.id}`} className={`post ${sideClass}`}>
 			<div className="post-author">
@@ -126,9 +131,33 @@ function PostItem({
 					>
 						Edit
 					</Link>
-					<button type="button" className="delete-post" disabled title="Coming soon">
+					<button type="button" className="delete-post" popoverTarget={deleteConfirmId}>
 						Delete
 					</button>
+				</div>
+			</div>
+			{/* biome-ignore lint/a11y/useKeyWithClickEvents: delegated click handler catches bubbled clicks from interactive <button> children, which already fire click on keyboard activation */}
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: delegated click handler catches bubbled clicks from interactive <button> children */}
+			<div
+				id={deleteConfirmId}
+				popover="auto"
+				className="confirm-popover"
+				onClick={(e) => {
+					if (e.target instanceof HTMLElement) {
+						e.currentTarget.hidePopover();
+					}
+				}}
+			>
+				<p>
+					{isFirstPost
+						? "Are you sure you want to delete this thread? This will delete the entire thread and all of its posts."
+						: "Are you sure you want to delete this post?"}
+				</p>
+				<div className="confirm-popover-actions">
+					<button type="button" className="skew-btn" onClick={() => onDelete(post)}>
+						Yes
+					</button>
+					<button type="button">No</button>
 				</div>
 			</div>
 		</div>
@@ -147,7 +176,19 @@ function RouteComponent() {
 		data: { posts, count },
 	} = useSuspenseQuery(postsQueryOptions(threadId, page));
 	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 	useScrollToHash([posts]);
+
+	const deleteMutation = useMutation({
+		mutationFn: deletePost,
+		onSuccess: (_data, postId) => {
+			if (postId === thread.first_post_id) {
+				navigate({ to: "/forums/{-$forumId}", params: { forumId: thread.forum_id } });
+			} else {
+				queryClient.invalidateQueries({ queryKey: ["posts", threadId] });
+			}
+		},
+	});
 
 	const loggedIn = useAuthStore((state) => !!state.token);
 	const { data: me } = useQuery({ ...meFullQueryOptions, enabled: loggedIn });
@@ -241,7 +282,9 @@ function RouteComponent() {
 							sideClass={getPostSideClass(postSide, index)}
 							threadId={threadId}
 							page={page}
+							isFirstPost={post.id === thread.first_post_id}
 							onQuote={handleQuote}
+							onDelete={(post) => deleteMutation.mutate(post.id)}
 						/>
 					))}
 				</div>
