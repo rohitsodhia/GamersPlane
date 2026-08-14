@@ -22,6 +22,9 @@ class PostData(SchemaBase):
 class GetPostResponse(PostData):
     datestamp: datetime | None
     is_first_post: bool = False
+    thread_id: int
+    forum_id: int
+    page: int
 
 
 class GetPostsResponse(SchemaBase):

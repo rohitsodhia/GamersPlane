@@ -180,3 +180,73 @@ class TestPostRepository:
         count = await repository.count_by_thread(thread.id)
 
         assert count == 0
+
+    async def test_get_page_number_returns_one_for_draft_post(
+        self, repository, create, thread
+    ):
+        post = await create(PostFactory, thread=thread, state=Post.States.DRAFT)
+
+        page = await repository.get_page_number(post)
+
+        assert page == 1
+
+    async def test_get_page_number_returns_one_for_first_post(
+        self, repository, create, thread
+    ):
+        post = await create(PostFactory, thread=thread)
+
+        page = await repository.get_page_number(post)
+
+        assert page == 1
+
+    async def test_get_page_number_returns_one_when_within_first_page(
+        self, repository, create, thread
+    ):
+        now = datetime.now(timezone.utc)
+        await create(PostFactory, thread=thread, published_at=now - timedelta(days=1))
+        post = await create(PostFactory, thread=thread, published_at=now)
+
+        page = await repository.get_page_number(post, limit=2)
+
+        assert page == 1
+
+    async def test_get_page_number_returns_second_page_when_limit_exceeded(
+        self, repository, create, thread
+    ):
+        now = datetime.now(timezone.utc)
+        for i in range(2):
+            await create(
+                PostFactory, thread=thread, published_at=now - timedelta(days=2 - i)
+            )
+        post = await create(PostFactory, thread=thread, published_at=now)
+
+        page = await repository.get_page_number(post, limit=2)
+
+        assert page == 2
+
+    async def test_get_page_number_ignores_other_threads(
+        self, repository, create, thread
+    ):
+        other_thread = await create(ThreadFactory)
+        await create(PostFactory, thread=other_thread)
+        post = await create(PostFactory, thread=thread)
+
+        page = await repository.get_page_number(post, limit=2)
+
+        assert page == 1
+
+    async def test_get_page_number_ignores_draft_posts_before_it(
+        self, repository, create, thread
+    ):
+        now = datetime.now(timezone.utc)
+        await create(
+            PostFactory,
+            thread=thread,
+            state=Post.States.DRAFT,
+            published_at=now - timedelta(days=1),
+        )
+        post = await create(PostFactory, thread=thread, published_at=now)
+
+        page = await repository.get_page_number(post, limit=1)
+
+        assert page == 1

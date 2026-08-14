@@ -140,7 +140,7 @@ class TestGetPost:
         assert response.status_code == 200
         assert response.json()["datestamp"] is None
 
-    async def test_get_post_is_first_post_true_for_thread_first_post(
+    async def test_get_post_returns_thread_forum_page_and_is_first_post(
         self, authed_client, create
     ):
         client, _user = authed_client
@@ -150,22 +150,11 @@ class TestGetPost:
 
         response = await client.get(f"/posts/{post.id}")
 
-        assert response.status_code == 200
-        assert response.json()["is_first_post"] is True
-
-    async def test_get_post_is_first_post_false_for_reply(
-        self, authed_client, create
-    ):
-        client, _user = authed_client
-        thread = await create(ThreadFactory)
-        first_post = await create(PostFactory, thread=thread)
-        reply = await create(PostFactory, thread=thread)
-        thread.first_post_id = first_post.id
-
-        response = await client.get(f"/posts/{reply.id}")
-
-        assert response.status_code == 200
-        assert response.json()["is_first_post"] is False
+        body = response.json()
+        assert body["thread_id"] == thread.id
+        assert body["forum_id"] == thread.forum_id
+        assert body["page"] == 1
+        assert body["is_first_post"] is True
 
 
 def new_post_payload(**overrides):

@@ -69,6 +69,9 @@ async def get_post(db_session: DBSessionDependency, auth: Auth, post_id: int):
         ),
         body=post.body,
         is_first_post=post.thread.first_post_id == post.id,
+        thread_id=post.thread_id,
+        forum_id=post.thread.forum_id,
+        page=await post_repository.get_page_number(post),
     )
 
 

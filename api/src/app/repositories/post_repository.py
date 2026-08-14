@@ -25,6 +25,24 @@ class PostRepository:
         post = await self.db_session.get(Post, post_id)
         return post
 
+    async def get_page_number(
+        self, post: Post, limit: int = configs.PAGINATE_PER_PAGE
+    ) -> int:
+        if post.published_at is None:
+            return 1
+
+        position = (
+            await self.db_session.scalar(
+                select(func.count()).where(
+                    Post.thread_id == post.thread_id,
+                    Post.state == Post.States.PUBLISHED,
+                    Post.published_at < post.published_at,
+                )
+            )
+            or 0
+        )
+        return position // limit + 1
+
     async def get_all(
         self, thread_id: int, page: int = 1, limit: int = configs.PAGINATE_PER_PAGE
     ) -> ScalarResult[Post]:
