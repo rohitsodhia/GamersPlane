@@ -1233,6 +1233,7 @@ h1 .forum-icon {
 
 	.post {
 		display: flex;
+		scroll-margin-top: calc(70px + 1em);
 
 		&:not(:first-child) {
 			margin-top: 1.5em;

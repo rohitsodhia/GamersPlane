@@ -20,6 +20,7 @@ import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
 import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
+import { useScrollToHash } from "#/lib/use-scroll-to-hash";
 import { forumBreadcrumbsQueryOptions } from "#/queries/forums";
 import { meFullQueryOptions, type PostSide } from "#/queries/me";
 import { createPost, type Post, postsQueryOptions } from "#/queries/posts";
@@ -146,6 +147,7 @@ function RouteComponent() {
 		data: { posts, count },
 	} = useSuspenseQuery(postsQueryOptions(threadId, page));
 	const queryClient = useQueryClient();
+	useScrollToHash([posts]);
 
 	const loggedIn = useAuthStore((state) => !!state.token);
 	const { data: me } = useQuery({ ...meFullQueryOptions, enabled: loggedIn });
