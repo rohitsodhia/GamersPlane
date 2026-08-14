@@ -166,6 +166,73 @@ class TestThreadRepository:
         with pytest.raises(AssertionError):
             await repository.attach_new_post(thread, draft_post)
 
+    async def test_delete_sets_deleted_timestamp(self, repository, forum):
+        thread = await repository.create(forum.id, Thread.Options())
+
+        await repository.delete(thread)
+
+        assert thread.deleted is not None
+
+    async def test_delete_excludes_thread_from_get_all(
+        self, repository, create, forum
+    ):
+        thread = await create(ThreadFactory, forum=forum)
+
+        await repository.delete(thread)
+        threads = list(await repository.get_all(forum.id))
+
+        assert threads == []
+
+    async def test_detach_post_decrements_post_count(
+        self, repository, create, forum
+    ):
+        thread = await repository.create(forum.id, Thread.Options())
+        first_post = await create(PostFactory, thread=thread)
+        await repository.attach_new_post(thread, first_post)
+        second_post = await create(PostFactory, thread=thread)
+        await repository.attach_new_post(thread, second_post)
+
+        await repository.detach_post(thread, second_post)
+
+        assert thread.post_count == 1
+
+    async def test_detach_post_updates_last_post_to_previous_post(
+        self, repository, create, forum
+    ):
+        thread = await repository.create(forum.id, Thread.Options())
+        first_post = await create(PostFactory, thread=thread)
+        await repository.attach_new_post(thread, first_post)
+        second_post = await create(PostFactory, thread=thread)
+        await repository.attach_new_post(thread, second_post)
+
+        await repository.detach_post(thread, second_post)
+
+        assert thread.last_post_id == first_post.id
+
+    async def test_detach_post_leaves_last_post_when_not_last_post(
+        self, repository, create, forum
+    ):
+        thread = await repository.create(forum.id, Thread.Options())
+        first_post = await create(PostFactory, thread=thread)
+        await repository.attach_new_post(thread, first_post)
+        second_post = await create(PostFactory, thread=thread)
+        await repository.attach_new_post(thread, second_post)
+        third_post = await create(PostFactory, thread=thread)
+        await repository.attach_new_post(thread, third_post)
+
+        await repository.detach_post(thread, second_post)
+
+        assert thread.last_post_id == third_post.id
+        assert thread.post_count == 2
+
+    async def test_detach_post_rejects_first_post(self, repository, create, forum):
+        thread = await repository.create(forum.id, Thread.Options())
+        first_post = await create(PostFactory, thread=thread)
+        await repository.attach_new_post(thread, first_post)
+
+        with pytest.raises(AssertionError):
+            await repository.detach_post(thread, first_post)
+
     async def test_get_last_posts_by_forum_ids_returns_latest_post_per_forum(
         self, repository, create, forum
     ):

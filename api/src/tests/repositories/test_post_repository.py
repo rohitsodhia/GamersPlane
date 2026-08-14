@@ -61,6 +61,14 @@ class TestPostRepository:
 
         assert found is None
 
+    async def test_get_returns_none_for_deleted_post(self, repository, create, thread):
+        post = await create(PostFactory, thread=thread)
+
+        await repository.delete(post)
+        found = await repository.get(post.id)
+
+        assert found is None
+
     async def test_update_updates_title_and_body(self, repository, create, thread):
         post = await create(PostFactory, thread=thread, title="Old Title")
         new_body = prose_doc("New body")
@@ -234,6 +242,31 @@ class TestPostRepository:
         page = await repository.get_page_number(post, limit=2)
 
         assert page == 1
+
+    async def test_delete_sets_deleted_timestamp(self, repository, create, thread):
+        post = await create(PostFactory, thread=thread)
+
+        await repository.delete(post)
+
+        assert post.deleted is not None
+
+    async def test_delete_excludes_post_from_get_all(self, repository, create, thread):
+        post = await create(PostFactory, thread=thread)
+
+        await repository.delete(post)
+        posts = list(await repository.get_all(thread.id))
+
+        assert posts == []
+
+    async def test_delete_excludes_post_from_count_by_thread(
+        self, repository, create, thread
+    ):
+        post = await create(PostFactory, thread=thread)
+
+        await repository.delete(post)
+        count = await repository.count_by_thread(thread.id)
+
+        assert count == 0
 
     async def test_get_page_number_ignores_draft_posts_before_it(
         self, repository, create, thread

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
@@ -122,3 +122,25 @@ async def edit_post(
     await post_repository.update(post, post_data.title, post_data.body)
 
     return schemas.EditPostResponse(id=post.id)
+
+
+@posts.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_post(
+    db_session: DBSessionDependency, auth: Auth, principal: Principal, post_id: int
+):
+    post_repository = PostRepository(db_session, auth=auth)
+    post = await post_repository.get(post_id)
+    if post is None:
+        raise NotFoundException("Post not found")
+    if post.thread.options.locked:
+        raise ForbiddenException("Thread is locked")
+    if post.author_id != principal.id:
+        raise ForbiddenException("You are not the author of this post")
+
+    thread_repository = ThreadRepository(db_session, auth=auth)
+    thread = post.thread
+    await post_repository.delete(post)
+    if post.id == thread.first_post_id:
+        await thread_repository.delete(thread)
+    else:
+        await thread_repository.detach_post(thread, post)

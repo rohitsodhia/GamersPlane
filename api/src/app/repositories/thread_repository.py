@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import ScalarResult, false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,6 +55,31 @@ class ThreadRepository:
             thread.first_post_id = post.id
         thread.last_post_id = post.id
         thread.post_count += 1
+        await self.db_session.flush()
+        return thread
+
+    async def delete(self, thread: Thread) -> Thread:
+        thread.deleted = datetime.now(UTC)
+        self.db_session.add(thread)
+        await self.db_session.flush()
+        return thread
+
+    async def detach_post(self, thread: Thread, post: Post) -> Thread:
+        assert post.id != thread.first_post_id
+        thread.post_count -= 1
+        if post.id == thread.last_post_id:
+            new_last_post_id = await self.db_session.scalar(
+                select(Post.id)
+                .where(
+                    Post.thread_id == thread.id,
+                    Post.state == Post.States.PUBLISHED,
+                    Post.id != post.id,
+                    Post.deleted.is_(None),
+                )
+                .order_by(Post.published_at.desc())
+                .limit(1)
+            )
+            thread.last_post_id = new_last_post_id
         await self.db_session.flush()
         return thread
 

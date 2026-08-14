@@ -1,5 +1,6 @@
 from app.configs import configs
 from app.models import Post, Thread
+from app.repositories import PostRepository, ThreadRepository
 from tests.factories import PostFactory, ThreadFactory, UserFactory, prose_doc
 
 
@@ -305,3 +306,90 @@ class TestEditPost:
         response = await client.patch(f"/posts/{post.id}", json=edit_post_payload())
 
         assert response.status_code == 403
+
+
+class TestDeletePost:
+    async def test_delete_post_requires_auth(self, client, create):
+        thread = await create(ThreadFactory)
+        post = await create(PostFactory, thread=thread)
+
+        response = await client.delete(f"/posts/{post.id}")
+
+        assert response.status_code == 403
+
+    async def test_delete_post_unknown_post_returns_404(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.delete("/posts/999999")
+
+        assert response.status_code == 404
+
+    async def test_delete_post_not_author_returns_403(self, authed_client, create):
+        client, _user = authed_client
+        thread = await create(ThreadFactory)
+        other_author = await create(UserFactory)
+        post = await create(PostFactory, thread=thread, author=other_author)
+
+        response = await client.delete(f"/posts/{post.id}")
+
+        assert response.status_code == 403
+
+    async def test_delete_post_on_locked_thread_returns_403(
+        self, authed_client, create
+    ):
+        client, user = authed_client
+        thread = await create(ThreadFactory, options=Thread.Options(locked=True))
+        post = await create(PostFactory, thread=thread, author=user)
+
+        response = await client.delete(f"/posts/{post.id}")
+
+        assert response.status_code == 403
+
+    async def test_delete_reply_returns_204_and_soft_deletes_it(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread_repository = ThreadRepository(db_session, auth=[])
+        thread = await create(ThreadFactory)
+        first_post = await create(PostFactory, thread=thread)
+        await thread_repository.attach_new_post(thread, first_post)
+        reply = await create(PostFactory, thread=thread, author=user)
+        await thread_repository.attach_new_post(thread, reply)
+
+        response = await client.delete(f"/posts/{reply.id}")
+
+        assert response.status_code == 204
+        post_repository = PostRepository(db_session, auth=[])
+        found = await post_repository.get(reply.id)
+        assert found is None
+
+    async def test_delete_reply_does_not_delete_thread(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread_repository = ThreadRepository(db_session, auth=[])
+        thread = await create(ThreadFactory)
+        first_post = await create(PostFactory, thread=thread)
+        await thread_repository.attach_new_post(thread, first_post)
+        reply = await create(PostFactory, thread=thread, author=user)
+        await thread_repository.attach_new_post(thread, reply)
+
+        await client.delete(f"/posts/{reply.id}")
+
+        found = await thread_repository.get(thread.id)
+        assert found.deleted is None
+
+    async def test_delete_first_post_deletes_thread(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread_repository = ThreadRepository(db_session, auth=[])
+        thread = await create(ThreadFactory)
+        first_post = await create(PostFactory, thread=thread, author=user)
+        await thread_repository.attach_new_post(thread, first_post)
+
+        response = await client.delete(f"/posts/{first_post.id}")
+
+        assert response.status_code == 204
+        found = await thread_repository.get(thread.id)
+        assert found.deleted is not None

@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import ScalarResult, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -15,14 +17,18 @@ class PostRepository:
         return (
             await self.db_session.scalar(
                 select(func.count()).where(
-                    Post.thread_id == thread_id, Post.state == Post.States.PUBLISHED
+                    Post.thread_id == thread_id,
+                    Post.state == Post.States.PUBLISHED,
+                    Post.deleted.is_(None),
                 )
             )
             or 0
         )
 
     async def get(self, post_id: int) -> Post | None:
-        post = await self.db_session.get(Post, post_id)
+        post = await self.db_session.scalar(
+            select(Post).where(Post.id == post_id, Post.deleted.is_(None)).limit(1)
+        )
         return post
 
     async def get_page_number(
@@ -37,6 +43,7 @@ class PostRepository:
                     Post.thread_id == post.thread_id,
                     Post.state == Post.States.PUBLISHED,
                     Post.published_at < post.published_at,
+                    Post.deleted.is_(None),
                 )
             )
             or 0
@@ -48,7 +55,11 @@ class PostRepository:
     ) -> ScalarResult[Post]:
         return await self.db_session.scalars(
             select(Post)
-            .where(Post.thread_id == thread_id, Post.state == Post.States.PUBLISHED)
+            .where(
+                Post.thread_id == thread_id,
+                Post.state == Post.States.PUBLISHED,
+                Post.deleted.is_(None),
+            )
             .options(selectinload(Post.author).selectinload(User.meta))
             .order_by(Post.published_at)
             .limit(limit)
@@ -80,3 +91,8 @@ class PostRepository:
         self.db_session.add(post)
         await self.db_session.flush()
         return post
+
+    async def delete(self, post: Post):
+        post.deleted = datetime.now(UTC)
+        self.db_session.add(post)
+        await self.db_session.flush()
