@@ -120,8 +120,8 @@ function LastPostInfo({
 	return (
 		<div className="last-post-info">
 			<Link
-				to="/user/$id"
-				params={{ id: String(lastPost.author.id) }}
+				to="/user/$userId"
+				params={{ userId: String(lastPost.author.id) }}
 				className="username"
 			>
 				{lastPost.author.username}
@@ -166,8 +166,8 @@ function Thread({ thread }: { thread: ThreadType }) {
 				<div className="thread-author">
 					by{" "}
 					<Link
-						to="/user/$id"
-						params={{ id: String(thread.first_post.author.id) }}
+						to="/user/$userId"
+						params={{ userId: String(thread.first_post.author.id) }}
 						className="username"
 					>
 						{thread.first_post.author.username}

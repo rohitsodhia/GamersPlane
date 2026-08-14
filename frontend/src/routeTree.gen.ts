@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SystemsRouteImport } from './routes/systems'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CommunityGuidelinesRouteImport } from './routes/community-guidelines'
 import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
@@ -39,6 +40,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityGuidelinesRoute = CommunityGuidelinesRouteImport.update({
+  id: '/community-guidelines',
+  path: '/community-guidelines',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ActivateRoute = ActivateRouteImport.update({
@@ -111,6 +117,7 @@ const ForumsEditPostPostIdRoute = ForumsEditPostPostIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
+  '/community-guidelines': typeof CommunityGuidelinesRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
+  '/community-guidelines': typeof CommunityGuidelinesRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
@@ -148,6 +156,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
+  '/community-guidelines': typeof CommunityGuidelinesRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/activate'
+    | '/community-guidelines'
     | '/login'
     | '/profile'
     | '/systems'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/activate'
+    | '/community-guidelines'
     | '/login'
     | '/profile'
     | '/systems'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/activate'
+    | '/community-guidelines'
     | '/login'
     | '/profile'
     | '/systems'
@@ -223,6 +235,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ActivateRoute: typeof ActivateRoute
+  CommunityGuidelinesRoute: typeof CommunityGuidelinesRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
@@ -260,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community-guidelines': {
+      id: '/community-guidelines'
+      path: '/community-guidelines'
+      fullPath: '/community-guidelines'
+      preLoaderRoute: typeof CommunityGuidelinesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/activate': {
@@ -359,6 +379,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivateRoute: ActivateRoute,
+  CommunityGuidelinesRoute: CommunityGuidelinesRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,
