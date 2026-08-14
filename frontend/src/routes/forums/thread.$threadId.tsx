@@ -73,7 +73,7 @@ function PostItem({
 	onQuote: (post: Post) => void;
 }) {
 	return (
-		<div className={`post ${sideClass}`}>
+		<div id={`post-${post.id}`} className={`post ${sideClass}`}>
 			<div className="post-author">
 				<Link
 					to="/user/$id"
@@ -108,10 +108,9 @@ function PostItem({
 						Quote
 					</button>
 					<Link
-						to="/forums/thread/$threadId"
-						params={{ threadId }}
+						to="/forums/edit-post/$postId"
+						params={{ postId: post.id }}
 						className="edit-post"
-						disabled
 						title="Coming soon"
 					>
 						Edit

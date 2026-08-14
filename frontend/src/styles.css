@@ -1185,7 +1185,7 @@ h1 .forum-icon {
 	margin-top: 1.5em;
 }
 
-#new-thread-page {
+.post-form {
 	h1 {
 		margin-bottom: 0.3em;
 	}
@@ -1216,6 +1216,10 @@ h1 .forum-icon {
 		margin-top: 0;
 		margin-bottom: 0.5em;
 	}
+}
+
+#post-form-form-wrapper {
+	margin-bottom: 1em;
 }
 
 #thread-page {

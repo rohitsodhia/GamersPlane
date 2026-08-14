@@ -24,6 +24,7 @@ import { Route as PmsPmIdRouteImport } from './routes/pms/$pmId'
 import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
 import { Route as ForumsThreadThreadIdRouteImport } from './routes/forums/thread.$threadId'
 import { Route as ForumsNewThreadForumIdRouteImport } from './routes/forums/new-thread.$forumId'
+import { Route as ForumsEditPostPostIdRouteImport } from './routes/forums/edit-post.$postId'
 
 const SystemsRoute = SystemsRouteImport.update({
   id: '/systems',
@@ -101,6 +102,11 @@ const ForumsNewThreadForumIdRoute = ForumsNewThreadForumIdRouteImport.update({
   path: '/forums/new-thread/$forumId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForumsEditPostPostIdRoute = ForumsEditPostPostIdRouteImport.update({
+  id: '/forums/edit-post/$postId',
+  path: '/forums/edit-post/$postId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/register/success': typeof RegisterSuccessRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
+  '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
 }
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/register/success': typeof RegisterSuccessRoute
   '/pms': typeof PmsIndexRoute
   '/register': typeof RegisterIndexRoute
+  '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
 }
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/register/success': typeof RegisterSuccessRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
+  '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
 }
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/register/success'
     | '/pms/'
     | '/register/'
+    | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
   fileRoutesByTo: FileRoutesByTo
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/register/success'
     | '/pms'
     | '/register'
+    | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
   id:
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/register/success'
     | '/pms/'
     | '/register/'
+    | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
   fileRoutesById: FileRoutesById
@@ -222,6 +234,7 @@ export interface RootRouteChildren {
   RegisterSuccessRoute: typeof RegisterSuccessRoute
   PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
+  ForumsEditPostPostIdRoute: typeof ForumsEditPostPostIdRoute
   ForumsNewThreadForumIdRoute: typeof ForumsNewThreadForumIdRoute
   ForumsThreadThreadIdRoute: typeof ForumsThreadThreadIdRoute
 }
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForumsNewThreadForumIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forums/edit-post/$postId': {
+      id: '/forums/edit-post/$postId'
+      path: '/forums/edit-post/$postId'
+      fullPath: '/forums/edit-post/$postId'
+      preLoaderRoute: typeof ForumsEditPostPostIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -350,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterSuccessRoute: RegisterSuccessRoute,
   PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
+  ForumsEditPostPostIdRoute: ForumsEditPostPostIdRoute,
   ForumsNewThreadForumIdRoute: ForumsNewThreadForumIdRoute,
   ForumsThreadThreadIdRoute: ForumsThreadThreadIdRoute,
 }

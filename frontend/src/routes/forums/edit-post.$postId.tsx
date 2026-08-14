@@ -4,22 +4,25 @@ import { useState } from "react";
 import { ApiError } from "#/lib/api";
 import { requireAuth } from "#/lib/auth-route";
 import { forumQueryOptions } from "#/queries/forums";
-import { createThread } from "#/queries/threads";
+import { editPost, postQueryOptions } from "#/queries/posts";
 import { PostForm } from "./-post-form";
 
-export const Route = createFileRoute("/forums/new-thread/$forumId")({
+export const Route = createFileRoute("/forums/edit-post/$postId")({
 	params: {
-		parse: (params) => ({ forumId: Number(params.forumId) }),
+		parse: (params) => ({ postId: Number(params.postId) }),
 	},
 	beforeLoad: (ctx) => {
-		if (!Number.isInteger(ctx.params.forumId) || ctx.params.forumId < 1) {
+		if (!Number.isInteger(ctx.params.postId) || ctx.params.postId < 1) {
 			throw notFound();
 		}
 		return requireAuth(ctx);
 	},
 	loader: async ({ context, params }) => {
 		try {
-			await context.queryClient.ensureQueryData(forumQueryOptions(params.forumId));
+			const post = await context.queryClient.ensureQueryData(
+				postQueryOptions(params.postId),
+			);
+			await context.queryClient.ensureQueryData(forumQueryOptions(post.forum_id));
 		} catch {
 			throw notFound();
 		}
@@ -28,35 +31,45 @@ export const Route = createFileRoute("/forums/new-thread/$forumId")({
 });
 
 function RouteComponent() {
-	const { forumId } = Route.useParams();
-	const { data: forum } = useSuspenseQuery(forumQueryOptions(forumId));
+	const { postId } = Route.useParams();
+	const { data: post } = useSuspenseQuery(postQueryOptions(postId));
+	const { data: forum } = useSuspenseQuery(forumQueryOptions(post.forum_id));
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
 	const [apiErrors, setApiErrors] = useState<string[]>([]);
 
 	const mutation = useMutation({
-		mutationFn: createThread,
+		mutationFn: editPost,
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["threads", forumId] });
+			queryClient.invalidateQueries({ queryKey: ["posts", post.thread_id] });
 		},
 	});
 
 	return (
 		<PostForm
-			pageId="new-thread-page"
-			headerTitle="New Thread"
+			pageId="edit-post-page"
+			headerTitle={`Edit Post - ${post.title}`}
 			forum={forum}
-			submitLabel="Create Thread"
+			defaultTitle={post.title}
+			defaultBody={post.body}
+			showThreadOptions={false}
+			submitLabel="Save Changes"
 			apiErrors={apiErrors}
 			isSubmitting={mutation.isPending}
 			onSubmit={async (value) => {
 				setApiErrors([]);
 				try {
-					const thread = await mutation.mutateAsync({ forum_id: forumId, ...value });
+					await mutation.mutateAsync({
+						post_id: postId,
+						title: value.title,
+						body: value.body,
+					});
 					navigate({
 						to: "/forums/thread/$threadId",
-						params: { threadId: thread.id },
+						params: { threadId: post.thread_id },
+						search: { page: post.page },
+						hash: `post-${postId}`,
 					});
 				} catch (exception) {
 					if (exception instanceof ApiError) {
