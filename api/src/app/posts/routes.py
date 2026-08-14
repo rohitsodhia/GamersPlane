@@ -53,7 +53,6 @@ async def get_posts(
 
 @posts.get("/{post_id}", response_model=schemas.GetPostResponse)
 async def get_post(db_session: DBSessionDependency, auth: Auth, post_id: int):
-
     post_repository = PostRepository(db_session, auth=auth)
     post = await post_repository.get(post_id)
     if post is None:
@@ -69,6 +68,7 @@ async def get_post(db_session: DBSessionDependency, auth: Auth, post_id: int):
             avatar=post.author.avatar_url,
         ),
         body=post.body,
+        is_first_post=post.thread.first_post_id == post.id,
     )
 
 

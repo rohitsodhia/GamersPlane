@@ -21,6 +21,7 @@ class PostData(SchemaBase):
 
 class GetPostResponse(PostData):
     datestamp: datetime | None
+    is_first_post: bool = False
 
 
 class GetPostsResponse(SchemaBase):
