@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from enum import Enum
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,8 +21,7 @@ class Permission(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     permission: Mapped[str] = mapped_column(String(64))
-
-    roles: Mapped[List["Role"]] = relationship(
+    roles: Mapped[list["Role"]] = relationship(
         secondary="role_permissions", back_populates="permissions"
     )
 

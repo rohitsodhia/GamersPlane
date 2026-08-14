@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,9 +17,9 @@ class PM(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     recipient_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    recipient: Mapped["User"] = relationship(foreign_keys=[recipient_id])
+    recipient: Mapped[User] = relationship(foreign_keys=[recipient_id])
     sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    sender: Mapped["User"] = relationship(foreign_keys=[sender_id])
+    sender: Mapped[User] = relationship(foreign_keys=[sender_id])
     title: Mapped[str] = mapped_column(String(200))
     message: Mapped[dict] = mapped_column(JSON())
     datestamp: Mapped[datetime] = mapped_column(
@@ -32,4 +34,4 @@ class PM(Base, TimestampMixin):
     sender_deleted: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), default=None
     )
-    history_ids: Mapped[List[int]] = mapped_column(JSON(), default=list)
+    history_ids: Mapped[list[int]] = mapped_column(JSON(), default=list)

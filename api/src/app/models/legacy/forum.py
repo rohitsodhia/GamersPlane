@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -30,16 +32,16 @@ class Forum(LegacyBase):
     parent_id: Mapped[int] = mapped_column(
         "parentID", ForeignKey("forums.forumID"), nullable=True
     )
-    parent: Mapped["Forum"] = relationship(
+    parent: Mapped[Forum] = relationship(
         "Forum", back_populates="children", remote_side="Forum.id"
     )
-    children: Mapped[list["Forum"]] = relationship(back_populates="parent")
+    children: Mapped[list[Forum]] = relationship(back_populates="parent")
     depth: Mapped[int] = mapped_column(nullable=True)
     order: Mapped[int]
     game_id: Mapped[int | None] = mapped_column(
         "gameID", ForeignKey("games.gameID"), nullable=True
     )
-    game: Mapped["Game"] = relationship(
+    game: Mapped[Game] = relationship(
         "Game",
         primaryjoin="Forum.game_id == Game.id",
         foreign_keys=[game_id],

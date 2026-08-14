@@ -1,0 +1,382 @@
+[
+    {
+        "id": 0,
+        "title": "Index",
+        "description": "",
+        "forum_type": null,
+        "parent_id": null,
+        "heritage": [],
+        "order": 0,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 1,
+        "title": "General",
+        "description": "",
+        "forum_type": "c",
+        "parent_id": 0,
+        "heritage": [
+            0
+        ],
+        "order": 1,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 2,
+        "title": "Game Forums",
+        "description": "",
+        "forum_type": "c",
+        "parent_id": 0,
+        "heritage": [
+            0
+        ],
+        "order": 5,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 3,
+        "title": "Announcements",
+        "description": "Read and discuss all site announcements.",
+        "forum_type": "f",
+        "parent_id": 1,
+        "heritage": [
+            0,
+            1
+        ],
+        "order": 1,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 4,
+        "title": "General Chat",
+        "description": "Anything not fitting into another forum goes here.",
+        "forum_type": "f",
+        "parent_id": 1,
+        "heritage": [
+            0,
+            1
+        ],
+        "order": 2,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 5,
+        "title": "Site Discussions",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 1,
+        "heritage": [
+            0,
+            1
+        ],
+        "order": 3,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 6,
+        "title": "Game Discussions",
+        "description": "",
+        "forum_type": "c",
+        "parent_id": 0,
+        "heritage": [
+            0
+        ],
+        "order": 2,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 7,
+        "title": "Pen and Paper Games",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 6,
+        "heritage": [
+            0,
+            6
+        ],
+        "order": 1,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 8,
+        "title": "Video Games",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 6,
+        "heritage": [
+            0,
+            6
+        ],
+        "order": 2,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 9,
+        "title": "Board/Card Games",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 6,
+        "heritage": [
+            0,
+            6
+        ],
+        "order": 3,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 10,
+        "title": "Games Tavern",
+        "description": "Discuss games you're interested in running, post about a game you'd like to see, or recruit people for your game here.",
+        "forum_type": "f",
+        "parent_id": 2,
+        "heritage": [
+            0,
+            2
+        ],
+        "order": 1,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 11,
+        "title": "Bugs",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 5,
+        "heritage": [
+            0,
+            1,
+            5
+        ],
+        "order": 1,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 12,
+        "title": "Media",
+        "description": "Got thoughts on books, movies, comics, etc? Share it!",
+        "forum_type": "f",
+        "parent_id": 4,
+        "heritage": [
+            0,
+            1,
+            4
+        ],
+        "order": 2,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 13,
+        "title": "Magic the Gathering",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 9,
+        "heritage": [
+            0,
+            6,
+            9
+        ],
+        "order": 1,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 14,
+        "title": "Introductions",
+        "description": "Introduce yourself to your fellow gamers!",
+        "forum_type": "f",
+        "parent_id": 4,
+        "heritage": [
+            0,
+            1,
+            4
+        ],
+        "order": 1,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 15,
+        "title": "Wargames/Miniatures Games",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 6,
+        "heritage": [
+            0,
+            6
+        ],
+        "order": 4,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 16,
+        "title": "Game Development",
+        "description": "For creation of new RPGs or concept work, and homebrew creations as well...",
+        "forum_type": "f",
+        "parent_id": 6,
+        "heritage": [
+            0,
+            6
+        ],
+        "order": 5,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 17,
+        "title": "Concept Work",
+        "description": "If you have raw ideas, or need to work soms kinks out of existing ideas.",
+        "forum_type": "f",
+        "parent_id": 16,
+        "heritage": [
+            0,
+            6,
+            16
+        ],
+        "order": 1,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 18,
+        "title": "Mechanics",
+        "description": "How does it work the way it does, what is the system behind it, and how does it tick",
+        "forum_type": "f",
+        "parent_id": 16,
+        "heritage": [
+            0,
+            6,
+            16
+        ],
+        "order": 2,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 19,
+        "title": "Playtesting & Feedback",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 16,
+        "heritage": [
+            0,
+            6,
+            16
+        ],
+        "order": 3,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 20,
+        "title": "Guides",
+        "description": "",
+        "forum_type": "c",
+        "parent_id": 0,
+        "heritage": [
+            0
+        ],
+        "order": 3,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 21,
+        "title": "General Guides",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 20,
+        "heritage": [
+            0,
+            20
+        ],
+        "order": 1,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 26,
+        "title": "Advertising",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 1,
+        "heritage": [
+            0,
+            1
+        ],
+        "order": 5,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 27,
+        "title": "Site Development",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 5,
+        "heritage": [
+            0,
+            1,
+            5
+        ],
+        "order": 2,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 28,
+        "title": "AMAs",
+        "description": "AMA - Ask Me Anything. Threads in this forum will give you the chance to ask specific other members questions on a range of topics!",
+        "forum_type": "f",
+        "parent_id": 1,
+        "heritage": [
+            0,
+            1
+        ],
+        "order": 4,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 8672,
+        "title": "Questions and Help",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 20,
+        "heritage": [
+            0,
+            20
+        ],
+        "order": 2,
+        "game_id": null,
+        "thread_count": 0
+    },
+    {
+        "id": 9552,
+        "title": "Advent Calendar 22",
+        "description": "",
+        "forum_type": "f",
+        "parent_id": 4,
+        "heritage": [
+            0,
+            1,
+            4
+        ],
+        "order": 3,
+        "game_id": null,
+        "thread_count": 0
+    }
+]

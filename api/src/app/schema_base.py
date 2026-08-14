@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import Any, Callable, List, Optional, cast
+from typing import Any, Callable, Optional, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 from pydantic.config import JsonDict
@@ -20,7 +20,7 @@ def strip_whitespace(v: str) -> str:
     return v.strip()
 
 
-PipelineMap = List[Callable[[str], str]]
+PipelineMap = list[Callable[[str], str]]
 DEFAULT_PIPELINES = [nl2br, strip_whitespace]
 
 

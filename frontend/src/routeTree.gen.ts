@@ -20,7 +20,11 @@ import { Route as RegisterSuccessRouteImport } from './routes/register/success'
 import { Route as RegisterResendRouteImport } from './routes/register/resend'
 import { Route as PmsSendRouteImport } from './routes/pms/send'
 import { Route as PmsReplyRouteImport } from './routes/pms/reply'
-import { Route as PmsPmIDRouteImport } from './routes/pms/$pmID'
+import { Route as PmsPmIdRouteImport } from './routes/pms/$pmId'
+import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
+import { Route as ForumsThreadThreadIdRouteImport } from './routes/forums/thread.$threadId'
+import { Route as ForumsNewThreadForumIdRouteImport } from './routes/forums/new-thread.$forumId'
+import { Route as ForumsEditPostPostIdRouteImport } from './routes/forums/edit-post.$postId'
 
 const SystemsRoute = SystemsRouteImport.update({
   id: '/systems',
@@ -77,9 +81,30 @@ const PmsReplyRoute = PmsReplyRouteImport.update({
   path: '/pms/reply',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PmsPmIDRoute = PmsPmIDRouteImport.update({
-  id: '/pms/$pmID',
-  path: '/pms/$pmID',
+const PmsPmIdRoute = PmsPmIdRouteImport.update({
+  id: '/pms/$pmId',
+  path: '/pms/$pmId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForumsChar123ForumIdChar125Route =
+  ForumsChar123ForumIdChar125RouteImport.update({
+    id: '/forums/{-$forumId}',
+    path: '/forums/{-$forumId}',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ForumsThreadThreadIdRoute = ForumsThreadThreadIdRouteImport.update({
+  id: '/forums/thread/$threadId',
+  path: '/forums/thread/$threadId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForumsNewThreadForumIdRoute = ForumsNewThreadForumIdRouteImport.update({
+  id: '/forums/new-thread/$forumId',
+  path: '/forums/new-thread/$forumId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForumsEditPostPostIdRoute = ForumsEditPostPostIdRouteImport.update({
+  id: '/forums/edit-post/$postId',
+  path: '/forums/edit-post/$postId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -89,13 +114,17 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
-  '/pms/$pmID': typeof PmsPmIDRoute
+  '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
+  '/pms/$pmId': typeof PmsPmIdRoute
   '/pms/reply': typeof PmsReplyRoute
   '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
+  '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
+  '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
+  '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -103,13 +132,17 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
-  '/pms/$pmID': typeof PmsPmIDRoute
+  '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
+  '/pms/$pmId': typeof PmsPmIdRoute
   '/pms/reply': typeof PmsReplyRoute
   '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
   '/pms': typeof PmsIndexRoute
   '/register': typeof RegisterIndexRoute
+  '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
+  '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
+  '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -118,13 +151,17 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
-  '/pms/$pmID': typeof PmsPmIDRoute
+  '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
+  '/pms/$pmId': typeof PmsPmIdRoute
   '/pms/reply': typeof PmsReplyRoute
   '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
+  '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
+  '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
+  '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -134,13 +171,17 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/systems'
-    | '/pms/$pmID'
+    | '/forums/{-$forumId}'
+    | '/pms/$pmId'
     | '/pms/reply'
     | '/pms/send'
     | '/register/resend'
     | '/register/success'
     | '/pms/'
     | '/register/'
+    | '/forums/edit-post/$postId'
+    | '/forums/new-thread/$forumId'
+    | '/forums/thread/$threadId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -148,13 +189,17 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/systems'
-    | '/pms/$pmID'
+    | '/forums/{-$forumId}'
+    | '/pms/$pmId'
     | '/pms/reply'
     | '/pms/send'
     | '/register/resend'
     | '/register/success'
     | '/pms'
     | '/register'
+    | '/forums/edit-post/$postId'
+    | '/forums/new-thread/$forumId'
+    | '/forums/thread/$threadId'
   id:
     | '__root__'
     | '/'
@@ -162,13 +207,17 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/systems'
-    | '/pms/$pmID'
+    | '/forums/{-$forumId}'
+    | '/pms/$pmId'
     | '/pms/reply'
     | '/pms/send'
     | '/register/resend'
     | '/register/success'
     | '/pms/'
     | '/register/'
+    | '/forums/edit-post/$postId'
+    | '/forums/new-thread/$forumId'
+    | '/forums/thread/$threadId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -177,13 +226,17 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
-  PmsPmIDRoute: typeof PmsPmIDRoute
+  ForumsChar123ForumIdChar125Route: typeof ForumsChar123ForumIdChar125Route
+  PmsPmIdRoute: typeof PmsPmIdRoute
   PmsReplyRoute: typeof PmsReplyRoute
   PmsSendRoute: typeof PmsSendRoute
   RegisterResendRoute: typeof RegisterResendRoute
   RegisterSuccessRoute: typeof RegisterSuccessRoute
   PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
+  ForumsEditPostPostIdRoute: typeof ForumsEditPostPostIdRoute
+  ForumsNewThreadForumIdRoute: typeof ForumsNewThreadForumIdRoute
+  ForumsThreadThreadIdRoute: typeof ForumsThreadThreadIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -265,11 +318,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PmsReplyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pms/$pmID': {
-      id: '/pms/$pmID'
-      path: '/pms/$pmID'
-      fullPath: '/pms/$pmID'
-      preLoaderRoute: typeof PmsPmIDRouteImport
+    '/pms/$pmId': {
+      id: '/pms/$pmId'
+      path: '/pms/$pmId'
+      fullPath: '/pms/$pmId'
+      preLoaderRoute: typeof PmsPmIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forums/{-$forumId}': {
+      id: '/forums/{-$forumId}'
+      path: '/forums/{-$forumId}'
+      fullPath: '/forums/{-$forumId}'
+      preLoaderRoute: typeof ForumsChar123ForumIdChar125RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forums/thread/$threadId': {
+      id: '/forums/thread/$threadId'
+      path: '/forums/thread/$threadId'
+      fullPath: '/forums/thread/$threadId'
+      preLoaderRoute: typeof ForumsThreadThreadIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forums/new-thread/$forumId': {
+      id: '/forums/new-thread/$forumId'
+      path: '/forums/new-thread/$forumId'
+      fullPath: '/forums/new-thread/$forumId'
+      preLoaderRoute: typeof ForumsNewThreadForumIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forums/edit-post/$postId': {
+      id: '/forums/edit-post/$postId'
+      path: '/forums/edit-post/$postId'
+      fullPath: '/forums/edit-post/$postId'
+      preLoaderRoute: typeof ForumsEditPostPostIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -281,13 +362,17 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,
-  PmsPmIDRoute: PmsPmIDRoute,
+  ForumsChar123ForumIdChar125Route: ForumsChar123ForumIdChar125Route,
+  PmsPmIdRoute: PmsPmIdRoute,
   PmsReplyRoute: PmsReplyRoute,
   PmsSendRoute: PmsSendRoute,
   RegisterResendRoute: RegisterResendRoute,
   RegisterSuccessRoute: RegisterSuccessRoute,
   PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
+  ForumsEditPostPostIdRoute: ForumsEditPostPostIdRoute,
+  ForumsNewThreadForumIdRoute: ForumsNewThreadForumIdRoute,
+  ForumsThreadThreadIdRoute: ForumsThreadThreadIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

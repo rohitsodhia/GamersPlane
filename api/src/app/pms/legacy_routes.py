@@ -7,7 +7,7 @@ from app.database import LegacyDBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
 from app.helpers.bbcode import BBCode2Html
 from app.helpers.functions import error_response
-from app.middleware import AuthedUser
+from app.middleware import Principal
 from app.pms import legacy_schemas as schemas
 from app.repositories.legacy.pm_repository import (
     NoRecipientException,
@@ -25,7 +25,7 @@ pms = APIRouter(prefix="/legacy/pms")
 )
 async def get_pms(
     db_session: LegacyDBSessionDependency,
-    authed_user: AuthedUser,
+    principal: Principal,
     box: Literal["inbox", "outbox"] = "inbox",
     page: int = 1,
     limit: int = configs.PAGINATE_PER_PAGE,
@@ -33,10 +33,10 @@ async def get_pms(
     if page < 1:
         page = 1
 
-    pm_repository = PMRepository(db_session, authed_user=authed_user)
+    pm_repository = PMRepository(db_session, principal=principal)
 
     pms = await pm_repository.get_pms(
-        user_id=authed_user.id,
+        user_id=principal.id,
         box=box,
         page=page,
         limit=limit,
@@ -60,7 +60,7 @@ async def get_pms(
         )
         pm_response.append(model.model_dump())
 
-    pm_count = await pm_repository.count_pms(user_id=authed_user.id, box=box)
+    pm_count = await pm_repository.count_pms(user_id=principal.id, box=box)
 
     return {"pms": pm_response, "count": pm_count or 0, "page": page}
 
@@ -68,11 +68,11 @@ async def get_pms(
 @pms.get("/{id}", response_model=schemas.GetPMResponse)
 async def get_pm(
     db_session: LegacyDBSessionDependency,
-    authed_user: AuthedUser,
+    principal: Principal,
     id: int,
     includeSelfHistory: bool = False,
 ):
-    pm_repository = PMRepository(db_session, authed_user=authed_user)
+    pm_repository = PMRepository(db_session, principal=principal)
 
     try:
         pm = await pm_repository.get_pm(id)
@@ -87,9 +87,9 @@ async def get_pm(
             errors=[ErrorItem(code="forbidden", detail="Forbidden")],
         )
 
-    if authed_user.id == pm.recipient.id:
+    if principal.id == pm.recipient.id:
         pm.recipient_read = True
-    elif authed_user.id == pm.sender.id:
+    elif principal.id == pm.sender.id:
         pm.sender_read = True
 
     model = schemas.PMWithHistory(
@@ -146,10 +146,10 @@ async def get_pm(
 )
 async def send_pm(
     db_session: LegacyDBSessionDependency,
-    authed_user: AuthedUser,
+    principal: Principal,
     new_pm: schemas.NewPM,
 ):
-    pm_repository = PMRepository(db_session, authed_user=authed_user)
+    pm_repository = PMRepository(db_session, principal=principal)
     try:
         pm = await pm_repository.send_pm(
             recipient_username=new_pm.username,
@@ -173,7 +173,7 @@ async def send_pm(
 
 @pms.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_pm(
-    db_session: LegacyDBSessionDependency, authed_user: AuthedUser, id: int
+    db_session: LegacyDBSessionDependency, principal: Principal, id: int
 ):
-    pm_repository = PMRepository(db_session, authed_user=authed_user)
+    pm_repository = PMRepository(db_session, principal=principal)
     await pm_repository.delete_pm(id)

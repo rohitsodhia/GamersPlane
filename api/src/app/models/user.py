@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import datetime
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import bcrypt
 import jwt
@@ -9,7 +11,7 @@ from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationshi
 
 from app.configs import configs
 from app.models.base import Base
-from app.models.user_meta import UserMeta
+from app.models.user_meta import PostSide, UserMeta
 from app.schemas import ErrorItem
 
 if TYPE_CHECKING:
@@ -38,15 +40,15 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
     banned: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), nullable=True, init=False
     )
-    roles: Mapped[List["Role"]] = relationship(
+    roles: Mapped[list[Role]] = relationship(
         secondary="user_roles", back_populates="users", default_factory=list
     )
-    meta: Mapped[List["UserMeta"]] = relationship(default_factory=list)
+    meta: Mapped[list[UserMeta]] = relationship(default_factory=list)
 
     MIN_PASSWORD_LENGTH: int = 8
 
     # @property
-    # def permissions(self) -> List[int]:
+    # def permissions(self) -> list[int]:
     #     with connection.cursor() as cursor:
     #         cursor.execute(
     #             "SELECT DISTINCT permission FROM permissions p INNER JOIN role_permissions rp ON rp.permissionId = p.id INNER JOIN roles r ON r.id = rp.roleId INNER JOIN user_roles ur ON ur.roleId = r.id WHERE ur.userId = %s",
@@ -108,3 +110,7 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
             if meta.key == UserMeta.MetaKeys.AVATAR_EXT.value:
                 return f"{self.id}.{meta.value}"
         return "avatar.png"
+
+    @property
+    def avatar_url(self) -> str:
+        return f"{configs.AVATARS_ROOT}/{self.avatar}"

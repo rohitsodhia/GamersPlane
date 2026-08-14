@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.database import LegacyDBSessionDependency
 from app.me import legacy_schemas
-from app.middleware import AuthedUser
+from app.middleware import Principal
 from app.repositories.legacy import (
     CharacterRepository,
     GameRepository,
@@ -14,11 +14,11 @@ me = APIRouter(prefix="/legacy/me")
 
 
 @me.get("/header", response_model=legacy_schemas.GetHeaderResponse)
-async def get_header(db_session: LegacyDBSessionDependency, authed_user: AuthedUser):
-    character_repository = CharacterRepository(db_session, authed_user)
-    game_repository = GameRepository(db_session, authed_user)
+async def get_header(db_session: LegacyDBSessionDependency, principal: Principal):
+    character_repository = CharacterRepository(db_session, principal)
+    game_repository = GameRepository(db_session, principal)
     user_repository = UserRepository(db_session)
-    pm_repository = PMRepository(db_session, authed_user)
+    pm_repository = PMRepository(db_session, principal)
 
     characters = await character_repository.get_header_characters()
     if len(characters) > 0 and characters[0]["isFavorite"]:
@@ -35,6 +35,6 @@ async def get_header(db_session: LegacyDBSessionDependency, authed_user: AuthedU
     return {
         "characters": characters,
         "games": games,
-        "avatar": await user_repository.get_avatar(authed_user.id),
-        "pmCount": await pm_repository.count_pms(authed_user.id, state="unread"),
+        "avatar": await user_repository.get_avatar(principal.id),
+        "pmCount": await pm_repository.count_pms(principal.id, state="unread"),
     }

@@ -10,10 +10,10 @@ class UserRepository:
     def __init__(
         self,
         db_session: DBSessionDependency,
-        authed_user: User | None = None,
+        principal: User | None = None,
     ):
         self.db_session = db_session
-        self.authed_user = authed_user
+        self.principal = principal
 
     async def get_avatar(self, user_id: int):
         avatar_ext = await self.db_session.scalar(

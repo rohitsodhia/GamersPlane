@@ -7,7 +7,7 @@ from app.exceptions import ValidationError
 from app.helpers.enums import LabelEnum
 from app.models.base import Base
 
-PostSide = Literal["l", "r", "c"]
+PostSide = Literal["r", "l", "c"]
 
 
 class UserMeta(Base):
@@ -54,7 +54,7 @@ class UserMeta(Base):
         if self.key == self.MetaKeys.POST_SIDE.value:
             value = value.lower()
             if value not in get_args(PostSide):
-                raise ValidationError("Post Side must either be 'l', 'r', or 'c'")
+                raise ValidationError("Post Side must either be 'r', 'l', or 'c'")
         elif cast_type is bool:
             value = 1 if value else 0
 

@@ -13,6 +13,7 @@ export const Route = createFileRoute("/pms/")({
 	component: RouteComponent,
 	validateSearch: z.object({
 		box: z.enum(["inbox", "outbox"]).optional().catch(undefined),
+		page: z.number().optional(),
 	}),
 });
 
@@ -38,7 +39,7 @@ function PMRow({
 			</div>
 			<div className="info">
 				<div className="title">
-					<Link to="/pms/$id" params={{ id: String(pm.id) }}>
+					<Link to="/pms/$pmId" params={{ pmId: String(pm.id) }}>
 						{pm.title}
 					</Link>
 				</div>
@@ -59,10 +60,10 @@ function PMRow({
 }
 
 function RouteComponent() {
-	const { box: searchBox } = Route.useSearch();
+	const { box: searchBox, page: searchPage } = Route.useSearch();
 	const box = searchBox ?? "inbox";
 	const navigate = Route.useNavigate();
-	const [page, setPage] = useState(1);
+	const [page, setPage] = useState(searchPage ?? 1);
 	const queryClient = useQueryClient();
 
 	const { data, isPending } = useQuery(pmsQueryOptions({ box, page }));
@@ -88,10 +89,10 @@ function RouteComponent() {
 			</h1>
 
 			<div
-				id="pms-controls-container"
+				className="controls-container"
 				style={{ marginInlineStart: `${hbMargined.margin}px` }}
 			>
-				<Link to="/pms/send/" className="trap-btn">
+				<Link to="/pms/send/" className="skew-btn">
 					New PM
 				</Link>
 				<div>
@@ -115,28 +116,26 @@ function RouteComponent() {
 			</div>
 			<div id="pms-list">
 				<div id="pms-list-header" className="headerbar hb-dark" ref={hbMargined.ref}>
-					&nbsp;
+					<div></div>
+					<div>Message</div>
 				</div>
 				<div id="pms-list-container" style={{ marginInline: `${hbMargined.margin}px` }}>
-					{isPending && <div className="loading">Loading...</div>}
-					{data?.pms.map((pm) => (
-						<PMRow
-							key={pm.id}
-							pm={pm}
-							box={box}
-							onDelete={(id) => deletePMMutation.mutate(id)}
-						/>
-					))}
-					{data && data.pms.length === 0 && (
-						<div className="no-results">No messages</div>
-					)}
+					<div>
+						{isPending && <div className="loading">Loading...</div>}
+						{data?.pms.map((pm) => (
+							<PMRow
+								key={pm.id}
+								pm={pm}
+								box={box}
+								onDelete={(id) => deletePMMutation.mutate(id)}
+							/>
+						))}
+						{data && data.pms.length === 0 && (
+							<div className="no-results">No messages</div>
+						)}
+					</div>
 					{data && (
-						<Paginate
-							numItems={data.count}
-							itemsPerPage={1}
-							current={page}
-							onPageChange={setPage}
-						/>
+						<Paginate numItems={data.count} current={page} onPageChange={setPage} />
 					)}
 				</div>
 			</div>

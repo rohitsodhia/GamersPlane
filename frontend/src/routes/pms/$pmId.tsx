@@ -7,11 +7,11 @@ import { useHbMargined } from "#/lib/use-hb-margined";
 import { deletePM, pmQueryOptions } from "#/queries/pms";
 import { PmHistory } from "#/routes/pms/-history-pm";
 
-export const Route = createFileRoute("/pms/$pmID")({
+export const Route = createFileRoute("/pms/$pmId")({
 	beforeLoad: requireAuth,
 	loader: async ({ context, params }) => {
 		try {
-			await context.queryClient.ensureQueryData(pmQueryOptions(Number(params.pmID)));
+			await context.queryClient.ensureQueryData(pmQueryOptions(Number(params.pmId)));
 		} catch {
 			throw redirect({ to: "/pms" });
 		}
@@ -20,8 +20,8 @@ export const Route = createFileRoute("/pms/$pmID")({
 });
 
 function RouteComponent() {
-	const { pmID } = Route.useParams();
-	const { data: pm } = useSuspenseQuery(pmQueryOptions(Number(pmID)));
+	const { pmId } = Route.useParams();
+	const { data: pm } = useSuspenseQuery(pmQueryOptions(Number(pmId)));
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
@@ -42,12 +42,12 @@ function RouteComponent() {
 			</h1>
 
 			<div>
-				<Link to="/pms/reply" search={{ pmID: pm.id }} className="trap-btn">
+				<Link to="/pms/reply" search={{ pmId: pm.id }} className="skew-btn">
 					Reply
 				</Link>
 				<button
 					type="button"
-					className="trap-btn delete-pm"
+					className="skew-btn delete-pm"
 					onClick={() => deletePMMutation.mutate(pm.id)}
 				>
 					Delete

@@ -50,7 +50,7 @@ class TestGetCurrentUser:
         response = await client.get("/me?full=true")
 
         assert response.status_code == 200
-        assert response.json()["postSide"] == "l"
+        assert response.json()["postSide"] == "r"
 
 
 class TestUpdateCurrentUser:

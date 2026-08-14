@@ -65,6 +65,7 @@ function RouteComponent() {
 							itemsPerPage={ITEMS_PER_PAGE}
 							current={page}
 							onPageChange={setPage}
+							disableUpdateUrl
 						/>
 					</div>
 				</div>
@@ -142,6 +143,7 @@ function RouteComponent() {
 						itemsPerPage={ITEMS_PER_PAGE}
 						current={page}
 						onPageChange={setPage}
+						disableUpdateUrl
 					/>
 				</div>
 			</div>

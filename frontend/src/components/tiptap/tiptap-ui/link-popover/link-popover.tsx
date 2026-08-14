@@ -1,7 +1,7 @@
 "use client";
 
 import type { Editor } from "@tiptap/react";
-import { forwardRef, useCallback, useEffect, useState } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 // --- Icons ---
 import { CornerDownLeftIcon } from "#/components/tiptap/tiptap-icons/corner-down-left-icon";
 import { ExternalLinkIcon } from "#/components/tiptap/tiptap-icons/external-link-icon";
@@ -68,7 +68,10 @@ export interface LinkPopoverProps
 	onOpenChange?: (isOpen: boolean) => void;
 	/**
 	 * Whether to automatically open the popover when a link is active.
-	 * @default true
+	 * Off by default: the popover should only surface when the user
+	 * explicitly clicks the link button, not just from moving the cursor
+	 * into a link.
+	 * @default false
 	 */
 	autoOpenOnLinkActive?: boolean;
 }
@@ -213,7 +216,7 @@ export const LinkPopover = forwardRef<HTMLButtonElement, LinkPopoverProps>(
 			hideWhenUnavailable = false,
 			onSetLink,
 			onOpenChange,
-			autoOpenOnLinkActive = true,
+			autoOpenOnLinkActive = false,
 			onClick,
 			children,
 			...buttonProps
@@ -241,6 +244,7 @@ export const LinkPopover = forwardRef<HTMLButtonElement, LinkPopoverProps>(
 		});
 
 		const shouldAutoOpen = autoOpenOnLinkActive && !!editor?.isFocused && isActive;
+		const suppressAutoOpenRef = useRef(false);
 
 		const handleOnOpenChange = useCallback(
 			(nextIsOpen: boolean) => {
@@ -252,6 +256,11 @@ export const LinkPopover = forwardRef<HTMLButtonElement, LinkPopoverProps>(
 
 		const handleSetLink = useCallback(() => {
 			setLink();
+			// If the link mark is configured as inclusive, the cursor placed
+			// right after the link still reports isActive === true. Suppress
+			// the next auto-open so applying a link doesn't immediately
+			// reopen the popover (only relevant when autoOpenOnLinkActive is on).
+			suppressAutoOpenRef.current = true;
 			setIsOpen(false);
 		}, [setLink]);
 
@@ -266,6 +275,10 @@ export const LinkPopover = forwardRef<HTMLButtonElement, LinkPopoverProps>(
 
 		useEffect(() => {
 			if (shouldAutoOpen) {
+				if (suppressAutoOpenRef.current) {
+					suppressAutoOpenRef.current = false;
+					return;
+				}
 				setIsOpen(true);
 			}
 		}, [shouldAutoOpen]);
@@ -291,7 +304,17 @@ export const LinkPopover = forwardRef<HTMLButtonElement, LinkPopoverProps>(
 					</LinkButton>
 				</PopoverTrigger>
 
-				<PopoverContent collisionPadding={4}>
+				<PopoverContent
+					collisionPadding={4}
+					onCloseAutoFocus={(event) => {
+						// Radix returns focus to the trigger button by default when the
+						// popover closes. We want focus to stay in the editor (at the
+						// end of the link we just set) instead, so prevent that and
+						// refocus the editor ourselves.
+						event.preventDefault();
+						editor?.commands.focus();
+					}}
+				>
 					<LinkMain
 						url={url}
 						setUrl={setUrl}

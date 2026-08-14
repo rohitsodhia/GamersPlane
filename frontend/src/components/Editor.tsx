@@ -2,6 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import { Color } from "@tiptap/extension-color";
 import { FindAndReplace } from "@tiptap/extension-find-and-replace";
 import { Image } from "@tiptap/extension-image";
+import { Link } from "@tiptap/extension-link";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Subscript } from "@tiptap/extension-subscript";
 import { Superscript } from "@tiptap/extension-superscript";
@@ -9,16 +10,17 @@ import { TextAlign } from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Typography } from "@tiptap/extension-typography";
 import { Selection } from "@tiptap/extensions";
+import { AllSelection } from "@tiptap/pm/state";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
-import { BubbleMenu } from "@tiptap/react/menus";
 import { StarterKit } from "@tiptap/starter-kit";
 import clsx from "clsx";
-import type { ComponentProps } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // --- Tiptap node styles ---
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
+import { Note } from "#/components/tiptap/tiptap-node/note-node/note-node-extension";
+import { Quote } from "#/components/tiptap/tiptap-node/quote-node/quote-node-extension";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
@@ -26,11 +28,14 @@ import "#/components/tiptap/tiptap-node/list-node/list-node.scss";
 import "#/components/tiptap/tiptap-node/image-node/image-node.scss";
 import "#/components/tiptap/tiptap-node/heading-node/heading-node.scss";
 import "#/components/tiptap/tiptap-node/paragraph-node/paragraph-node.scss";
+import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
+import "#/components/tiptap/tiptap-node/quote-node/quote-node.scss";
 
 // --- Icons ---
 import { ArrowLeftIcon } from "#/components/tiptap/tiptap-icons/arrow-left-icon";
 import { CaseSensitiveIcon } from "#/components/tiptap/tiptap-icons/case-sensitive-icon";
 import { CornerDownLeftIcon } from "#/components/tiptap/tiptap-icons/corner-down-left-icon";
+import { HorizontalRuleIcon } from "#/components/tiptap/tiptap-icons/horizontal-rule-icon";
 import { ImagePlusIcon } from "#/components/tiptap/tiptap-icons/image-plus-icon";
 import { LinkIcon } from "#/components/tiptap/tiptap-icons/link-icon";
 // --- Tiptap UI ---
@@ -72,12 +77,46 @@ import { useWindowSize } from "#/hooks/use-window-size";
 // --- Styles ---
 import "#/components/tiptap/tiptap-templates/simple/simple-editor.scss";
 
+// The default Link extension marks itself inclusive (tied to the `autolink`
+// option), which extends the link mark to the cursor placed right after a
+// link. That makes it impossible to type plain text immediately after a
+// link, so it's overridden here to behave like a normal exclusive mark.
+const NonInclusiveLink = Link.extend({
+	inclusive() {
+		return false;
+	},
+});
+
+// TextStyle (used to carry the text color mark) is inclusive by default,
+// which extends the color to text typed right after a colored run. Make it
+// exclusive so typing after colored text doesn't inherit the color, same as
+// NonInclusiveLink above.
+const NonInclusiveTextStyle = TextStyle.extend({
+	inclusive() {
+		return false;
+	},
+});
+
 export const emptyContent: JSONContent = { type: "doc", content: [] };
 
 export function isContentEmpty(content: JSONContent | null | undefined): boolean {
 	if (!content) return true;
 	if (content.text) return false;
 	return (content.content ?? []).every(isContentEmpty);
+}
+
+// StarterKit's TrailingNode extension appends an empty paragraph after a
+// document-final node that can't otherwise be typed into directly (e.g. our
+// isolating Note node), purely so there's somewhere to click while editing.
+// It carries no meaning outside the editor, so read-only rendering should
+// drop it rather than showing a stray empty line.
+export function trimTrailingEmptyParagraph(content: JSONContent): JSONContent {
+	const nodes = content.content ?? [];
+	const last = nodes[nodes.length - 1];
+	if (nodes.length <= 1 || last?.type !== "paragraph" || !isContentEmpty(last)) {
+		return content;
+	}
+	return { ...content, content: nodes.slice(0, -1) };
 }
 
 const SEARCH_AND_REPLACE_SCROLL_OPTIONS: ScrollIntoViewOptions = {
@@ -99,6 +138,60 @@ function LineBreakButton({ editor }: { editor: TiptapEditor | null }) {
 			onClick={() => editor.chain().focus().setHardBreak().run()}
 		>
 			<CornerDownLeftIcon className="tiptap-button-icon" />
+		</Button>
+	);
+}
+
+// No dedicated horizontal rule button ships with the tiptap templates either;
+// wire up the custom HorizontalRule extension's command directly.
+function HorizontalRuleButton({ editor }: { editor: TiptapEditor | null }) {
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Horizontal break"
+			aria-label="Horizontal rule"
+			onClick={() => editor.chain().focus().setHorizontalRule().run()}
+		>
+			<HorizontalRuleIcon className="tiptap-button-icon" />
+		</Button>
+	);
+}
+
+// No dedicated note button ships with the tiptap templates either; wire up
+// the custom Note extension's command directly, same as the horizontal rule.
+function NoteButton({ editor }: { editor: TiptapEditor | null }) {
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Note"
+			aria-label="Note"
+			onClick={() => editor.chain().focus().setNote().run()}
+		>
+			Note
+		</Button>
+	);
+}
+
+// No dedicated quote button ships with the tiptap templates either; wire up
+// the custom Quote extension's command directly, same as the note button.
+function QuoteButton({ editor }: { editor: TiptapEditor | null }) {
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Quote"
+			aria-label="Quote"
+			onClick={() => editor.chain().focus().setQuote().run()}
+		>
+			Quote
 		</Button>
 	);
 }
@@ -164,6 +257,7 @@ const MainToolbarContent = ({
 					types={["bulletList", "orderedList", "taskList"]}
 				/>
 				<BlockquoteButton />
+				<QuoteButton editor={editor} />
 				<CodeBlockButton />
 			</ToolbarGroup>
 
@@ -181,8 +275,9 @@ const MainToolbarContent = ({
 					<TextColorPopoverButton onClick={onTextColorClick} />
 				)}
 				{!isMobile ? <LinkPopover /> : <LinkButton onClick={onLinkClick} />}
-				<LineBreakButton editor={editor} />
 				<ImageUrlButton editor={editor} />
+				<HorizontalRuleButton editor={editor} />
+				<NoteButton editor={editor} />
 			</ToolbarGroup>
 
 			<ToolbarSeparator />
@@ -242,31 +337,6 @@ const MobileToolbarContent = ({
 	</>
 );
 
-// Tiptap's default shouldShow only treats a `TextSelection` as "empty text",
-// but clicking into an empty document produces an `AllSelection` instead
-// (from 0 to the size of the empty paragraph), which slips past that check
-// and shows the bubble menu with nothing highlighted. Checking the selected
-// text length directly covers every selection type.
-const bubbleMenuShouldShow: NonNullable<
-	ComponentProps<typeof BubbleMenu>["shouldShow"]
-> = ({ editor, state, from, to }) => {
-	if (!editor.isEditable || state.selection.empty) return false;
-	return state.doc.textBetween(from, to).length > 0;
-};
-
-// Selection-driven inline formatting, shown next to highlighted text.
-const BubbleMenuContent = () => (
-	<Toolbar variant="floating">
-		<ToolbarGroup>
-			<MarkButton type="bold" />
-			<MarkButton type="italic" />
-			<MarkButton type="underline" />
-			<MarkButton type="strike" />
-			<LinkPopover />
-		</ToolbarGroup>
-	</Toolbar>
-);
-
 type EditorProps = {
 	id?: string;
 	value: JSONContent | null | undefined;
@@ -288,16 +358,20 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 		extensions: [
 			StarterKit.configure({
 				horizontalRule: false,
-				link: {
-					openOnClick: false,
-					enableClickSelection: true,
-				},
+				hardBreak: false,
+				link: false,
+			}),
+			NonInclusiveLink.configure({
+				openOnClick: false,
+				enableClickSelection: false,
 			}),
 			HorizontalRule,
+			Note,
+			Quote,
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			TaskList,
 			TaskItem.configure({ nested: true }),
-			TextStyle,
+			NonInclusiveTextStyle,
 			Color,
 			Image,
 			Typography,
@@ -315,6 +389,15 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 		},
 		onBlur: () => {
 			onBlur?.();
+		},
+		// Clicking into (or tabbing into) an editor whose doc has no real
+		// content resolves to an AllSelection covering the whole (empty) doc
+		// instead of a collapsed cursor, which visually looks like the empty
+		// area got ctrl+a'd. Collapse it to a normal cursor at the start.
+		onFocus: ({ editor }) => {
+			if (editor.isEmpty && editor.state.selection instanceof AllSelection) {
+				editor.commands.setTextSelection(0);
+			}
 		},
 		editorProps: {
 			attributes: {
@@ -350,6 +433,13 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 		const next = JSON.stringify(value ?? emptyContent);
 		if (current !== next) {
 			editor.commands.setContent(value ?? emptyContent);
+			// setContent doesn't remap the old selection onto the new doc in a
+			// useful way — left alone it can resolve to an AllSelection or a
+			// NodeSelection wrapping an isolating node (e.g. Quote) rather than a
+			// normal text cursor, which breaks click-to-place and arrow-key
+			// navigation until the user manually reselects. Put the cursor at a
+			// definite, normal spot instead.
+			editor.commands.setTextSelection(editor.state.doc.content.size);
 		}
 	}, [editor, value]);
 
@@ -414,15 +504,6 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 					role="presentation"
 					className={clsx("simple-editor-content", className)}
 				/>
-
-				{editor && (
-					<BubbleMenu
-						className="simple-editor-bubble-menu"
-						shouldShow={bubbleMenuShouldShow}
-					>
-						<BubbleMenuContent />
-					</BubbleMenu>
-				)}
 			</EditorContext.Provider>
 		</div>
 	);

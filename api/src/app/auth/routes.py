@@ -13,7 +13,7 @@ from app.database import DBSessionDependency
 from app.helpers.decorators import public
 from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
-from app.middleware import AuthedUser
+from app.middleware import Principal
 from app.models import PasswordResetToken, User
 from app.repositories import UserRepository
 from app.schemas import ErrorItem
@@ -55,7 +55,7 @@ async def login(user_details: schemas.UserInput, db_session: DBSessionDependency
     "/refresh",
     response_model=schemas.RefreshResponse,
 )
-async def refresh(current_user: AuthedUser):
+async def refresh(current_user: Principal):
     return {"jwt": current_user.generate_jwt()}
 
 

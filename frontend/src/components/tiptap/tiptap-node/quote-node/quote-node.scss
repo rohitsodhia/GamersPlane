@@ -1,0 +1,89 @@
+.tiptap.ProseMirror {
+  --quote-bg-color: var(--white);
+  --quote-border-color: var(--tt-gray-light-a-200);
+  --quote-header-color: var(--tt-gray-light-a-800);
+
+  .dark & {
+    --quote-bg-color: var(--tt-gray-dark-50);
+    --quote-border-color: var(--tt-gray-dark-a-200);
+    --quote-header-color: var(--tt-gray-dark-a-800);
+  }
+}
+
+/* =====================
+     QUOTE
+     ===================== */
+.tiptap.ProseMirror {
+  blockquote.quote,
+  .quote-node {
+    position: relative;
+    padding: 0.75rem 1rem;
+    margin: 1.5rem 0;
+    border-radius: 0.5rem;
+    background-color: var(--quote-bg-color);
+    border: 1px solid var(--quote-border-color);
+
+    p {
+      margin-top: 0;
+    }
+  }
+
+  .quotee,
+  .quote-node-header {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.375rem;
+    color: var(--quote-header-color);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .quote-node-delete {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: none;
+    border-radius: 999px;
+    background-color: transparent;
+    color: var(--quote-header-color);
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    font-size: 1rem;
+    opacity: 0.6;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  .quote-node-quotee-input {
+    border: none;
+    background: none;
+    outline: none;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--quote-header-color);
+    min-width: 4ch;
+    max-width: 16ch;
+
+    &::placeholder {
+      color: var(--tt-gray-light-a-400);
+      font-style: italic;
+    }
+  }
+
+  .quote-node-content {
+    > *:last-child {
+      margin-bottom: 0;
+    }
+  }
+}

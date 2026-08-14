@@ -7,7 +7,7 @@ function HistoryPM({ pm, isFirst }: { pm: PM; isFirst: boolean }) {
 	return (
 		<div className={`history-pm${isFirst ? " first" : ""}`}>
 			<p className="title">
-				<Link to="/pms/$pmID" params={{ pmID: String(pm.id) }}>
+				<Link to="/pms/$pmId" params={{ pmId: String(pm.id) }}>
 					{pm.title}
 				</Link>
 			</p>

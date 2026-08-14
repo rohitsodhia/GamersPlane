@@ -1,19 +1,28 @@
-from django.db import models
-from helpers.base_models import SoftDeleteModel, TimestampedModel
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from sqlalchemy import JSON, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.helpers.enums import LabelEnum, LabelEnumType
+from app.models.base import Base, SoftDeleteMixin, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models import System
 
 
-class Character(TimestampedModel, SoftDeleteModel):
-    class Meta:
-        db_table = "characters"
+class Character(Base, SoftDeleteMixin, TimestampMixin):
+    __tablename__ = "characters"
 
-    class Type(models.TextChoices):
+    class Type(LabelEnum):
         PC = "pc", "PC"
         NPC = "npc", "NPC"
 
-    label = models.CharField(max_length=100)
-    name = models.CharField(max_length=100)
-    system = models.ForeignKey(
-        "systems.System", on_delete=models.PROTECT, related_name="system"
-    )
-    type = models.CharField(max_length=5, choices=Type.choices)
-    data = models.JSONField(null=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    label: Mapped[str] = mapped_column()
+    name: Mapped[str] = mapped_column()
+    system_id: Mapped[int] = mapped_column(ForeignKey("systems.id"))
+    system: Mapped[System] = relationship(lazy="joined")
+    type: Mapped[Type] = mapped_column(LabelEnumType(Type, String(5)))
+    data: Mapped[dict | None] = mapped_column(JSON(), nullable=True)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Literal, TypedDict
@@ -26,10 +28,10 @@ class Game(LegacyBase):
     id: Mapped[int] = mapped_column("gameID", primary_key=True)
     title: Mapped[str] = mapped_column(String(100))
     system_id: Mapped[int] = mapped_column("system", ForeignKey("systems.id"))
-    system: Mapped["System"] = relationship()
+    system: Mapped[System] = relationship()
     custom_system: Mapped[str] = mapped_column("customSystem", nullable=True)
     gm_id: Mapped[int] = mapped_column("gmID", ForeignKey("users.userID"))
-    gm: Mapped["User"] = relationship(foreign_keys=[gm_id])
+    gm: Mapped[User] = relationship(foreign_keys=[gm_id])
     created: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), insert_default=func.now()
     )
@@ -47,7 +49,7 @@ class Game(LegacyBase):
         "charGenInfo", Text(), nullable=True
     )
     root_forum_id: Mapped[int] = mapped_column("forumID", ForeignKey("forums.forumID"))
-    root_forum: Mapped["Forum"] = relationship(
+    root_forum: Mapped[Forum] = relationship(
         "Forum",
         primaryjoin="Game.root_forum_id == Forum.id",
         foreign_keys=[root_forum_id],
@@ -56,7 +58,7 @@ class Game(LegacyBase):
     group_id: Mapped[int] = mapped_column(
         "groupID", ForeignKey("forums_groups.groupID")
     )
-    group: Mapped["ForumGroup"] = relationship(foreign_keys=[group_id])
+    group: Mapped[ForumGroup] = relationship(foreign_keys=[group_id])
     status: Mapped[Statuses] = mapped_column(
         EnumValueDecorator(enum_class=Statuses, impl_class=types.String(1)),
         default=Statuses.OPEN,

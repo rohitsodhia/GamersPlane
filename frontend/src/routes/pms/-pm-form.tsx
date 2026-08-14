@@ -199,7 +199,7 @@ export function PmForm({
 								<button
 									type="submit"
 									name="send"
-									className="trap-btn"
+									className="skew-btn"
 									disabled={!canSubmit || mutation.isPending}
 								>
 									Send

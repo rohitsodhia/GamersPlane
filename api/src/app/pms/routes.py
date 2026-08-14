@@ -5,8 +5,9 @@ from fastapi import APIRouter, status
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.helpers.functions import error_response
-from app.middleware import AuthedUser
+from app.middleware import Principal
 from app.pms import schemas
+from app.pms.functions import build_pm_data
 from app.repositories.pm_repository import (
     NoRecipientException,
     PMRepository,
@@ -23,7 +24,7 @@ pms = APIRouter(prefix="/pms")
 )
 async def get_pms(
     db_session: DBSessionDependency,
-    authed_user: AuthedUser,
+    principal: Principal,
     box: Literal["inbox", "outbox"] = "inbox",
     page: int = 1,
     limit: int = configs.PAGINATE_PER_PAGE,
@@ -31,34 +32,17 @@ async def get_pms(
     if page < 1:
         page = 1
 
-    pm_repository = PMRepository(db_session, authed_user=authed_user)
+    pm_repository = PMRepository(db_session, principal=principal)
 
     pms = await pm_repository.get_pms(
-        user_id=authed_user.id,
+        user_id=principal.id,
         box=box,
         page=page,
         limit=limit,
     )
-    pm_response: list[dict] = []
-    for pm in pms:
-        model = schemas.PM(
-            id=pm.id,
-            recipient=schemas.UserDetails(
-                id=pm.recipient.id,
-                username=pm.recipient.username,
-                read=pm.recipient_read,
-            ),
-            sender=schemas.UserDetails(
-                id=pm.sender.id, username=pm.sender.username, read=pm.sender_read
-            ),
-            title=pm.title,
-            message=pm.message,
-            datestamp=str(pm.datestamp),
-            reply_to_id=pm.reply_to_id,
-        )
-        pm_response.append(model.model_dump())
+    pm_response: list[dict] = [build_pm_data(pm).model_dump() for pm in pms]
 
-    pm_count = await pm_repository.count_pms(user_id=authed_user.id, box=box)
+    pm_count = await pm_repository.count_pms(user_id=principal.id, box=box)
 
     return {"pms": pm_response, "count": pm_count or 0, "page": page, "limit": limit}
 
@@ -66,55 +50,22 @@ async def get_pms(
 @pms.get("/{id}", response_model=schemas.GetPMResponse)
 async def get_pm(
     db_session: DBSessionDependency,
-    authed_user: AuthedUser,
+    principal: Principal,
     id: int,
     include_self_history: bool = False,
 ):
-    pm_repository = PMRepository(db_session, authed_user=authed_user)
+    pm_repository = PMRepository(db_session, principal=principal)
 
     pm = await pm_repository.get_pm(id)
 
-    if authed_user.id == pm.recipient.id:
+    if principal.id == pm.recipient.id:
         pm.recipient_read = True
-    elif authed_user.id == pm.sender.id:
+    elif principal.id == pm.sender.id:
         pm.sender_read = True
 
-    model = schemas.PMWithHistory(
-        id=pm.id,
-        recipient=schemas.UserDetails(
-            id=pm.recipient.id,
-            username=pm.recipient.username,
-            read=pm.recipient_read,
-        ),
-        sender=schemas.UserDetails(
-            id=pm.sender.id, username=pm.sender.username, read=pm.sender_read
-        ),
-        title=pm.title,
-        message=pm.message,
-        datestamp=str(pm.datestamp),
-        reply_to_id=pm.reply_to_id,
-    )
+    model = schemas.PMWithHistory(**build_pm_data(pm).model_dump())
 
-    history = []
-
-    for pm in await pm_repository.get_pm_history(pm):
-        history.append(
-            schemas.PM(
-                id=pm.id,
-                recipient=schemas.UserDetails(
-                    id=pm.recipient.id,
-                    username=pm.recipient.username,
-                    read=pm.recipient_read,
-                ),
-                sender=schemas.UserDetails(
-                    id=pm.sender.id, username=pm.sender.username, read=pm.sender_read
-                ),
-                title=pm.title,
-                message=pm.message,
-                datestamp=str(pm.datestamp),
-                reply_to_id=pm.reply_to_id,
-            )
-        )
+    history = [build_pm_data(pm) for pm in await pm_repository.get_pm_history(pm)]
 
     if include_self_history:
         history.insert(
@@ -133,12 +84,12 @@ async def get_pm(
 )
 async def send_pm(
     db_session: DBSessionDependency,
-    authed_user: AuthedUser,
+    principal: Principal,
     new_pm: schemas.NewPM,
 ):
-    pm_repository = PMRepository(db_session, authed_user=authed_user)
+    pm_repository = PMRepository(db_session, principal=principal)
     try:
-        pm = await pm_repository.send_pm(
+        await pm_repository.send_pm(
             recipient_username=new_pm.username,
             title=new_pm.title,
             message=new_pm.message,
@@ -159,6 +110,6 @@ async def send_pm(
 
 
 @pms.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_pm(db_session: DBSessionDependency, authed_user: AuthedUser, id: int):
-    pm_repository = PMRepository(db_session, authed_user=authed_user)
+async def delete_pm(db_session: DBSessionDependency, principal: Principal, id: int):
+    pm_repository = PMRepository(db_session, principal=principal)
     await pm_repository.delete_pm(id)

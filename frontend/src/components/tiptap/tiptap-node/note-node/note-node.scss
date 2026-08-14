@@ -1,0 +1,119 @@
+.tiptap.ProseMirror {
+  --note-bg-color: var(--white);
+  --note-border-color: var(--tt-gray-light-a-200);
+  --note-header-bg: var(--tt-gray-light-a-50);
+  --note-text-color: var(--tt-gray-light-a-800);
+  --note-chip-bg: var(--tt-brand-color-500);
+
+  .dark & {
+    --note-bg-color: var(--tt-gray-dark-50);
+    --note-border-color: var(--tt-gray-dark-a-200);
+    --note-header-bg: var(--tt-gray-dark-a-50);
+    --note-text-color: var(--tt-gray-dark-a-800);
+    --note-chip-bg: var(--tt-brand-color-400);
+  }
+}
+
+/* =====================
+     NOTE
+     ===================== */
+.tiptap.ProseMirror {
+  [data-type="note"],
+  .note-node {
+    position: relative;
+    border: 1px solid var(--note-border-color);
+    border-radius: 0.5rem;
+    margin: 1.5rem 0;
+    background-color: var(--note-bg-color);
+  }
+
+  .note-node-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+    // Right padding reserves room for the delete button so chips/input
+    // never flow underneath it.
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    background-color: var(--note-header-bg);
+    border-bottom: 1px solid var(--note-border-color);
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+    color: var(--note-text-color);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .note-node-delete {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: none;
+    border-radius: 999px;
+    background-color: transparent;
+    color: var(--note-text-color);
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    font-size: 1rem;
+    opacity: 0.6;
+
+    &:hover {
+      background-color: var(--note-chip-bg);
+      color: #fff;
+      opacity: 1;
+    }
+  }
+
+  .note-node-label {
+    font-weight: 600;
+    opacity: 0.75;
+  }
+
+  .note-node-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background-color: var(--note-chip-bg);
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  .note-node-chip-remove {
+    border: none;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    font-size: 1rem;
+  }
+
+  .note-node-user-input {
+    border: none;
+    background: none;
+    outline: none;
+    font: inherit;
+    font-size: 0.8125rem;
+    color: var(--note-text-color);
+    min-width: 8ch;
+    flex: 1;
+  }
+
+  .note-node-content {
+    padding: 0.75rem;
+
+    > *:last-child {
+      margin-bottom: 0;
+    }
+  }
+}

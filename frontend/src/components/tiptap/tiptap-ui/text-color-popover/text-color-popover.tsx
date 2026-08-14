@@ -1,18 +1,12 @@
 import type { Editor } from "@tiptap/react";
-import { forwardRef, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useState } from "react";
+import { HexColorInput, HexColorPicker } from "react-colorful";
 // --- Icons ---
 import { BanIcon } from "#/components/tiptap/tiptap-icons/ban-icon";
 import { CaseSensitiveIcon } from "#/components/tiptap/tiptap-icons/case-sensitive-icon";
 // --- Tiptap UI ---
-import type {
-	TextColor,
-	UseTextColorConfig,
-} from "#/components/tiptap/tiptap-ui/text-color-button";
-import {
-	pickTextColorsByValue,
-	TextColorButton,
-	useTextColor,
-} from "#/components/tiptap/tiptap-ui/text-color-button";
+import type { UseTextColorConfig } from "#/components/tiptap/tiptap-ui/text-color-button";
+import { useTextColor } from "#/components/tiptap/tiptap-ui/text-color-button";
 // --- UI Primitives ---
 import type { ButtonProps } from "#/components/tiptap/tiptap-ui-primitive/button";
 import { Button } from "#/components/tiptap/tiptap-ui-primitive/button";
@@ -27,33 +21,24 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "#/components/tiptap/tiptap-ui-primitive/popover";
-import { Separator } from "#/components/tiptap/tiptap-ui-primitive/separator";
 import { useIsBreakpoint } from "#/hooks/use-is-breakpoint";
 // --- Hooks ---
-import { useMenuNavigation } from "#/hooks/use-menu-navigation";
 import { useTiptapEditor } from "#/hooks/use-tiptap-editor";
+
+import "#/components/tiptap/tiptap-ui/text-color-popover/text-color-popover.scss";
+
+const DEFAULT_TEXT_COLOR = "#000000";
 
 export interface TextColorPopoverContentProps {
 	/**
 	 * The Tiptap editor instance.
 	 */
 	editor?: Editor | null;
-	/**
-	 * Optional colors to use in the text color popover.
-	 * If not provided, defaults to a predefined set of colors.
-	 */
-	colors?: TextColor[];
 }
 
 export interface TextColorPopoverProps
 	extends Omit<ButtonProps, "type">,
-		Pick<UseTextColorConfig, "editor" | "hideWhenUnavailable" | "onApplied"> {
-	/**
-	 * Optional colors to use in the text color popover.
-	 * If not provided, defaults to a predefined set of colors.
-	 */
-	colors?: TextColor[];
-}
+		Pick<UseTextColorConfig, "editor" | "hideWhenUnavailable" | "onApplied"> {}
 
 export const TextColorPopoverButton = forwardRef<HTMLButtonElement, ButtonProps>(
 	({ className, children, ...props }, ref) => (
@@ -77,79 +62,63 @@ export const TextColorPopoverButton = forwardRef<HTMLButtonElement, ButtonProps>
 TextColorPopoverButton.displayName = "TextColorPopoverButton";
 
 export function TextColorPopoverContent({
-	editor,
-	colors = pickTextColorsByValue([
-		"var(--tt-color-text-red)",
-		"var(--tt-color-text-orange)",
-		"var(--tt-color-text-yellow)",
-		"var(--tt-color-text-green)",
-		"var(--tt-color-text-blue)",
-		"var(--tt-color-text-purple)",
-		"var(--tt-color-text-gray)",
-	]),
+	editor: providedEditor,
 }: TextColorPopoverContentProps) {
-	const { handleRemoveTextColor } = useTextColor({ editor });
+	const { editor } = useTiptapEditor(providedEditor);
 	const isMobile = useIsBreakpoint();
-	const containerRef = useRef<HTMLDivElement>(null);
+	const activeColor = editor?.getAttributes("textStyle").color as string | undefined;
+	const [color, setColor] = useState(activeColor || DEFAULT_TEXT_COLOR);
 
-	const menuItems = useMemo(
-		() => [...colors, { label: "Remove text color", value: "none" }],
-		[colors],
+	useEffect(() => {
+		setColor(activeColor || DEFAULT_TEXT_COLOR);
+	}, [activeColor]);
+
+	const applyColor = useCallback(
+		(value: string) => {
+			setColor(value);
+			// Don't call `.focus()` here: it would move DOM focus into the
+			// editor, which sits outside the popover in the DOM tree, causing
+			// Radix to treat it as an outside interaction and close the
+			// popover mid-drag. The transaction still applies without focus;
+			// focus is restored when the popover closes.
+			editor?.chain().setColor(value).run();
+		},
+		[editor],
 	);
 
-	const { selectedIndex } = useMenuNavigation({
-		containerRef,
-		items: menuItems,
-		orientation: "both",
-		onSelect: (item) => {
-			if (!containerRef.current) return false;
-			const highlightedElement = containerRef.current.querySelector(
-				'[data-highlighted="true"]',
-			) as HTMLElement;
-			if (highlightedElement) highlightedElement.click();
-			if (item.value === "none") handleRemoveTextColor();
-			return true;
-		},
-		autoSelectFirstItem: false,
-	});
+	const handleRemoveTextColor = useCallback(() => {
+		editor?.chain().unsetColor().run();
+	}, [editor]);
 
 	return (
-		<Card
-			ref={containerRef}
-			tabIndex={0}
-			style={isMobile ? { boxShadow: "none", border: 0 } : {}}
-		>
+		<Card tabIndex={0} style={isMobile ? { boxShadow: "none", border: 0 } : {}}>
 			<CardBody style={isMobile ? { padding: 0 } : {}}>
-				<CardItemGroup orientation="horizontal">
-					<ButtonGroup>
-						{colors.map((color, index) => (
-							<ButtonGroup key={color.value}>
-								<TextColorButton
-									editor={editor}
-									textColor={color.value}
-									tooltip={color.label}
-									aria-label={`${color.label} text color`}
-									tabIndex={index === selectedIndex ? 0 : -1}
-									data-highlighted={selectedIndex === index}
-								/>
-							</ButtonGroup>
-						))}
-					</ButtonGroup>
-					<Separator />
-					<ButtonGroup>
-						<Button
-							onClick={handleRemoveTextColor}
-							aria-label="Remove text color"
-							tooltip="Remove text color"
-							tabIndex={selectedIndex === colors.length ? 0 : -1}
-							type="button"
-							role="menuitem"
-							variant="ghost"
-							data-highlighted={selectedIndex === colors.length}
-						>
-							<BanIcon className="tiptap-button-icon" />
-						</Button>
-					</ButtonGroup>
+				<CardItemGroup orientation="vertical">
+					<HexColorPicker
+						className="tiptap-text-color-picker"
+						color={color}
+						onChange={applyColor}
+					/>
+					<CardItemGroup orientation="horizontal">
+						<HexColorInput
+							className="tiptap-input tiptap-text-color-hex-input"
+							color={color}
+							onChange={applyColor}
+							prefixed
+							autoFocus
+						/>
+						<ButtonGroup>
+							<Button
+								onClick={handleRemoveTextColor}
+								aria-label="Remove text color"
+								tooltip="Remove text color"
+								type="button"
+								variant="ghost"
+							>
+								<BanIcon className="tiptap-button-icon" />
+							</Button>
+						</ButtonGroup>
+					</CardItemGroup>
 				</CardItemGroup>
 			</CardBody>
 		</Card>
@@ -158,15 +127,6 @@ export function TextColorPopoverContent({
 
 export function TextColorPopover({
 	editor: providedEditor,
-	colors = pickTextColorsByValue([
-		"var(--tt-color-text-red)",
-		"var(--tt-color-text-orange)",
-		"var(--tt-color-text-yellow)",
-		"var(--tt-color-text-green)",
-		"var(--tt-color-text-blue)",
-		"var(--tt-color-text-purple)",
-		"var(--tt-color-text-gray)",
-	]),
 	hideWhenUnavailable = false,
 	onApplied,
 	...props
@@ -196,8 +156,21 @@ export function TextColorPopover({
 					<Icon className="tiptap-button-icon" />
 				</TextColorPopoverButton>
 			</PopoverTrigger>
-			<PopoverContent aria-label="Text colors">
-				<TextColorPopoverContent editor={editor} colors={colors} />
+			<PopoverContent
+				aria-label="Text colors"
+				onCloseAutoFocus={(event) => {
+					// Radix returns focus to the trigger button by default when the
+					// popover closes. Keep focus in the editor instead, matching the
+					// link popover's behavior. Also collapse the selection to its
+					// end (rather than restoring the pre-existing range) so the
+					// cursor lands after the colored text instead of before it.
+					event.preventDefault();
+					if (!editor) return;
+					const { to } = editor.state.selection;
+					editor.chain().focus().setTextSelection(to).run();
+				}}
+			>
+				<TextColorPopoverContent editor={editor} />
 			</PopoverContent>
 		</Popover>
 	);

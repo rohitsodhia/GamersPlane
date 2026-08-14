@@ -1,6 +1,6 @@
+import { useNavigate } from "@tanstack/react-router";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useNavigate } from "@tanstack/react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Paginate from "./Paginate";
 
@@ -24,7 +24,9 @@ describe("Paginate", () => {
 	});
 
 	it("shows the current page and surrounding page numbers", () => {
-		render(<Paginate numItems={100} itemsPerPage={10} current={5} onPageChange={vi.fn()} />);
+		render(
+			<Paginate numItems={100} itemsPerPage={10} current={5} onPageChange={vi.fn()} />,
+		);
 
 		expect(screen.getByText("5 of 10", { exact: false })).toBeInTheDocument();
 		for (const page of [3, 4, 5, 6, 7]) {
@@ -41,23 +43,14 @@ describe("Paginate", () => {
 		expect(screen.getByRole("button", { name: ">" })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Last >>" })).toBeInTheDocument();
 
-		rerender(<Paginate numItems={50} itemsPerPage={10} current={5} onPageChange={vi.fn()} />);
+		rerender(
+			<Paginate numItems={50} itemsPerPage={10} current={5} onPageChange={vi.fn()} />,
+		);
 		expect(screen.queryByRole("button", { name: ">" })).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "Last >>" })).not.toBeInTheDocument();
 	});
 
-	it("calls onPageChange when a page button is clicked", async () => {
-		const user = userEvent.setup();
-		const onPageChange = vi.fn();
-		render(<Paginate numItems={50} itemsPerPage={10} current={2} onPageChange={onPageChange} />);
-
-		await user.click(screen.getByRole("button", { name: "3" }));
-
-		expect(onPageChange).toHaveBeenCalledWith(3);
-		expect(navigate).not.toHaveBeenCalled();
-	});
-
-	it("also calls navigate to update the URL when updateUrl is set", async () => {
+	it("calls onPageChange and updates the URL when a page button is clicked", async () => {
 		const user = userEvent.setup();
 		const onPageChange = vi.fn();
 		render(
@@ -66,18 +59,54 @@ describe("Paginate", () => {
 				itemsPerPage={10}
 				current={2}
 				onPageChange={onPageChange}
-				updateUrl
+			/>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "3" }));
+
+		expect(onPageChange).toHaveBeenCalledWith(3);
+		expect(navigate).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not call navigate when disableUpdateUrl is set", async () => {
+		const user = userEvent.setup();
+		const onPageChange = vi.fn();
+		render(
+			<Paginate
+				numItems={50}
+				itemsPerPage={10}
+				current={2}
+				onPageChange={onPageChange}
+				disableUpdateUrl
 			/>,
 		);
 
 		await user.click(screen.getByRole("button", { name: "<< First" }));
 
 		expect(onPageChange).toHaveBeenCalledWith(1);
-		expect(navigate).toHaveBeenCalledTimes(1);
+		expect(navigate).not.toHaveBeenCalled();
 	});
 
 	it("disables the button for the current page", () => {
-		render(<Paginate numItems={50} itemsPerPage={10} current={3} onPageChange={vi.fn()} />);
+		render(
+			<Paginate numItems={50} itemsPerPage={10} current={3} onPageChange={vi.fn()} />,
+		);
 		expect(screen.getByRole("button", { name: "3" })).toBeDisabled();
+	});
+
+	describe("default itemsPerPage", () => {
+		it("falls back to PAGINATE_PER_PAGE when itemsPerPage is not provided", async () => {
+			vi.resetModules();
+			vi.doMock("#/lib/config", () => ({ PAGINATE_PER_PAGE: 20 }));
+			const { default: PaginateWithMockedConfig } = await import("./Paginate");
+
+			render(
+				<PaginateWithMockedConfig numItems={100} current={1} onPageChange={vi.fn()} />,
+			);
+			expect(screen.getByText("1 of 5", { exact: false })).toBeInTheDocument();
+
+			vi.doUnmock("#/lib/config");
+			vi.resetModules();
+		});
 	});
 });

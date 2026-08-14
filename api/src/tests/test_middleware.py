@@ -19,31 +19,33 @@ def make_request(headers: dict[str, str] | None = None, scope: dict | None = Non
 
 
 class TestValidateJwt:
-    async def test_no_authorization_header_leaves_scope_unset(self, db_session):
+    async def test_no_authorization_header_defaults_to_unauthenticated(
+        self, db_session
+    ):
         request = make_request()
 
         await validate_jwt(request, db_session)
 
-        assert request.scope["auth"] is None
+        assert request.scope["auth"] == []
         assert request.scope["user"] is None
 
-    async def test_non_bearer_header_leaves_scope_unset(self, db_session):
+    async def test_non_bearer_header_defaults_to_unauthenticated(self, db_session):
         request = make_request({"Authorization": "Basic somevalue"})
 
         await validate_jwt(request, db_session)
 
-        assert request.scope["auth"] is None
+        assert request.scope["auth"] == []
         assert request.scope["user"] is None
 
-    async def test_garbage_token_leaves_scope_unset(self, db_session):
+    async def test_garbage_token_defaults_to_unauthenticated(self, db_session):
         request = make_request({"Authorization": "Bearer not-a-real-token"})
 
         await validate_jwt(request, db_session)
 
-        assert request.scope["auth"] is None
+        assert request.scope["auth"] == []
         assert request.scope["user"] is None
 
-    async def test_wrong_signature_leaves_scope_unset(self, db_session):
+    async def test_wrong_signature_defaults_to_unauthenticated(self, db_session):
         token = jwt.encode(
             {"user_id": 1}, "wrong-secret", algorithm=configs.JWT_ALGORITHM
         )
@@ -51,20 +53,20 @@ class TestValidateJwt:
 
         await validate_jwt(request, db_session)
 
-        assert request.scope["auth"] is None
+        assert request.scope["auth"] == []
         assert request.scope["user"] is None
 
-    async def test_expired_token_leaves_scope_unset(self, db_session, create):
+    async def test_expired_token_defaults_to_unauthenticated(self, db_session, create):
         user = await create(UserFactory)
         token = user.generate_jwt(exp_len={"seconds": -10})
         request = make_request({"Authorization": f"Bearer {token}"})
 
         await validate_jwt(request, db_session)
 
-        assert request.scope["auth"] is None
+        assert request.scope["auth"] == []
         assert request.scope["user"] is None
 
-    async def test_unknown_user_id_leaves_scope_unset(self, db_session):
+    async def test_unknown_user_id_defaults_to_unauthenticated(self, db_session):
         token = jwt.encode(
             {
                 "user_id": 0,
@@ -78,7 +80,7 @@ class TestValidateJwt:
 
         await validate_jwt(request, db_session)
 
-        assert request.scope["auth"] is None
+        assert request.scope["auth"] == []
         assert request.scope["user"] is None
 
     async def test_valid_token_sets_user_and_permissions(self, db_session, create):

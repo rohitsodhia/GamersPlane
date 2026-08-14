@@ -4,9 +4,11 @@ from functools import wraps
 
 import typer
 from mimesis import Text
+from sqlalchemy import text
 
 from app.configs import configs
 from app.database import session_manager
+from app.models import Forum
 from app.repositories import (
     GenreRepository,
     PublisherRepository,
@@ -90,7 +92,34 @@ async def seed():
             password="test1234",
         )
         user.activate()
-        typer.echo("User added")
+        user = await register_user(
+            session,
+            email="test@test.com",
+            username="Irdalth",
+            password="test1234",
+        )
+        user.activate()
+        user = await register_user(
+            session,
+            email="test2@test.com",
+            username="Soliin",
+            password="test1234",
+        )
+        user.activate()
+        typer.echo("Users added")
+
+        with open("data/forums.json") as f:
+            forums_data = json.load(f)
+        for forum_data in forums_data:
+            session.add(Forum(**forum_data))
+        await session.flush()
+        await session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        typer.echo("Forums added")
 
 
 @app.command()
