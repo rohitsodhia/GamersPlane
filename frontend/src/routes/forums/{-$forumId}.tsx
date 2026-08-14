@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
+import { z } from "zod";
 import DieIcon from "#/components/DieIcon";
 import LockIcon from "#/components/LockIcon";
 import Paginate from "#/components/Paginate";
@@ -23,13 +24,19 @@ export const Route = createFileRoute("/forums/{-$forumId}")({
 	params: {
 		parse: (params) => ({ forumId: Number(params.forumId ?? 0) }),
 	},
+	validateSearch: z.object({
+		page: z.number().optional(),
+	}),
 	beforeLoad: ({ params }) => {
 		if (Number.isNaN(params.forumId)) throw notFound();
 	},
-	loader: ({ context, params }) =>
+	loaderDeps: ({ search }) => ({ page: search.page ?? 1 }),
+	loader: ({ context, params, deps }) =>
 		Promise.all([
 			context.queryClient.ensureQueryData(forumQueryOptions(params.forumId)),
-			context.queryClient.ensureQueryData(threadsQueryOptions(params.forumId)),
+			context.queryClient.ensureQueryData(
+				threadsQueryOptions(params.forumId, deps.page),
+			),
 		]),
 	component: RouteComponent,
 });
@@ -217,8 +224,9 @@ function RouteComponent() {
 	const loggedIn = useAuthStore((state) => !!state.token);
 
 	const { forumId } = Route.useParams();
+	const { page: searchPage } = Route.useSearch();
 	const { data: forum } = useSuspenseQuery(forumQueryOptions(forumId));
-	const [page, setPage] = useState(1);
+	const [page, setPage] = useState(searchPage ?? 1);
 	const {
 		data: { threads, count },
 	} = useSuspenseQuery(threadsQueryOptions(forumId, page));

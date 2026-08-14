@@ -6,7 +6,7 @@ interface PaginateProps {
 	itemsPerPage?: number;
 	current: number;
 	onPageChange: (page: number) => void;
-	updateUrl?: boolean;
+	disableUpdateUrl?: boolean;
 }
 
 function Paginate({
@@ -14,7 +14,7 @@ function Paginate({
 	itemsPerPage = PAGINATE_PER_PAGE,
 	current,
 	onPageChange,
-	updateUrl = false,
+	disableUpdateUrl = false,
 }: PaginateProps) {
 	const navigate = useNavigate();
 	const numPages = Math.ceil(numItems / itemsPerPage);
@@ -28,7 +28,7 @@ function Paginate({
 
 	const changePage = (page: number) => {
 		onPageChange(page);
-		if (updateUrl) {
+		if (!disableUpdateUrl) {
 			// biome-ignore lint/suspicious/noExplicitAny: generic component can't know calling route's search schema
 			(navigate as any)({ search: (prev: any) => ({ ...prev, page }) });
 		}

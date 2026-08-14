@@ -13,6 +13,7 @@ export const Route = createFileRoute("/pms/")({
 	component: RouteComponent,
 	validateSearch: z.object({
 		box: z.enum(["inbox", "outbox"]).optional().catch(undefined),
+		page: z.number().optional(),
 	}),
 });
 
@@ -59,10 +60,10 @@ function PMRow({
 }
 
 function RouteComponent() {
-	const { box: searchBox } = Route.useSearch();
+	const { box: searchBox, page: searchPage } = Route.useSearch();
 	const box = searchBox ?? "inbox";
 	const navigate = Route.useNavigate();
-	const [page, setPage] = useState(1);
+	const [page, setPage] = useState(searchPage ?? 1);
 	const queryClient = useQueryClient();
 
 	const { data, isPending } = useQuery(pmsQueryOptions({ box, page }));
