@@ -65,11 +65,13 @@ function PostItem({
 	post,
 	sideClass,
 	threadId,
+	page,
 	onQuote,
 }: {
 	post: Post;
 	sideClass: string;
 	threadId: number;
+	page: number;
 	onQuote: (post: Post) => void;
 }) {
 	return (
@@ -98,7 +100,15 @@ function PostItem({
 				<ChatPoint />
 				<div className="post-bubble">
 					<div className="post-header">
-						<span className="post-title">{post.title}</span>
+						<Link
+							to="/forums/thread/$threadId"
+							params={{ threadId }}
+							search={{ page }}
+							hash={`post-${post.id}`}
+							className="post-title"
+						>
+							{post.title}
+						</Link>
 						<span className="post-datestamp">{formatDateTime(post.datestamp)}</span>
 					</div>
 					<TiptapContent content={post.body} className="post-body" />
@@ -228,6 +238,7 @@ function RouteComponent() {
 							post={post}
 							sideClass={getPostSideClass(postSide, index)}
 							threadId={threadId}
+							page={page}
 							onQuote={handleQuote}
 						/>
 					))}
