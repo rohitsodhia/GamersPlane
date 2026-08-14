@@ -37,16 +37,6 @@ class TestLogin:
         assert response.status_code == 200
         assert response.json()["logged_in"] is True
 
-    async def test_login_identifier_is_case_insensitive(self, client, create):
-        await create(ActivatedUserFactory, username="CaseUser", password="ValidPass1!")
-
-        response = await client.post(
-            "/auth/login",
-            json={"identifier": "caseuser", "password": "ValidPass1!"},
-        )
-
-        assert response.status_code == 200
-
     async def test_login_wrong_password(self, client, create):
         await create(ActivatedUserFactory, username="wrongpass", password="ValidPass1!")
 

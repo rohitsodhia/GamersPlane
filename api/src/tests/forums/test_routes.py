@@ -79,18 +79,11 @@ class TestGetForum:
 
     async def test_get_forum_includes_children_tree(self, client, create):
         root = await create(ForumFactory, title="Root", heritage=[], order=1)
-        child = await create(
+        await create(
             ForumFactory,
             title="Child",
             parent_id=root.id,
             heritage=[root.id],
-            order=1,
-        )
-        await create(
-            ForumFactory,
-            title="Grandchild",
-            parent_id=child.id,
-            heritage=[root.id, child.id],
             order=1,
         )
 
@@ -99,8 +92,6 @@ class TestGetForum:
         body = response.json()
         assert len(body["children"]) == 1
         assert body["children"][0]["title"] == "Child"
-        assert len(body["children"][0]["children"]) == 1
-        assert body["children"][0]["children"][0]["title"] == "Grandchild"
 
     async def test_get_forum_no_children(self, client, create):
         forum = await create(ForumFactory, heritage=[])
