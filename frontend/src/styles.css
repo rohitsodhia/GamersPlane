@@ -1346,3 +1346,21 @@ h1 .forum-icon {
 		margin-top: 0.5em;
 	}
 }
+
+#community-guidelines-page {
+	h2:not(.headerbar) {
+		margin-block: 1em 0.5em;
+		font-size: 1.2em;
+		text-decoration: underline;
+	}
+
+	p,
+	li {
+		margin-block: 0.5em;
+	}
+
+	ol {
+		margin-left: 2em;
+		list-style-type: decimal;
+	}
+}
