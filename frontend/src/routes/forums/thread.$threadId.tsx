@@ -84,8 +84,8 @@ function PostItem({
 		<div id={`post-${post.id}`} className={`post ${sideClass}`}>
 			<div className="post-author">
 				<Link
-					to="/user/$id"
-					params={{ id: String(post.author.id) }}
+					to="/user/$userId"
+					params={{ userId: String(post.author.id) }}
 					className="username"
 				>
 					<img
@@ -95,8 +95,8 @@ function PostItem({
 					/>
 				</Link>
 				<Link
-					to="/user/$id"
-					params={{ id: String(post.author.id) }}
+					to="/user/$userId"
+					params={{ userId: String(post.author.id) }}
 					className="username"
 				>
 					{post.author.username}

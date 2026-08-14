@@ -46,8 +46,8 @@ function PMRow({
 				<div className="details">
 					{isInbox ? "from" : "to"}{" "}
 					<Link
-						to="/user/$id"
-						params={{ id: String(displayedUser.id) }}
+						to="/user/$userId"
+						params={{ userId: String(displayedUser.id) }}
 						className="username"
 					>
 						{displayedUser.username}

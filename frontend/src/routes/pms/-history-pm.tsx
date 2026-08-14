@@ -13,7 +13,11 @@ function HistoryPM({ pm, isFirst }: { pm: PM; isFirst: boolean }) {
 			</p>
 			<p className="user">
 				from{" "}
-				<Link to="/user/$id" params={{ id: String(pm.sender.id) }} className="username">
+				<Link
+					to="/user/$userId"
+					params={{ userId: String(pm.sender.id) }}
+					className="username"
+				>
 					{pm.sender.username}
 				</Link>{" "}
 				on <span>{formatDateTime(pm.datestamp)}</span>
@@ -21,8 +25,8 @@ function HistoryPM({ pm, isFirst }: { pm: PM; isFirst: boolean }) {
 			<p className="user">
 				to{" "}
 				<Link
-					to="/user/$id"
-					params={{ id: String(pm.recipient.id) }}
+					to="/user/$userId"
+					params={{ userId: String(pm.recipient.id) }}
 					className="username"
 				>
 					{pm.recipient.username}

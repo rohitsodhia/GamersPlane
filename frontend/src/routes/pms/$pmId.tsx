@@ -62,8 +62,8 @@ function RouteComponent() {
 					<div>From</div>
 					<div>
 						<Link
-							to="/user/$id"
-							params={{ id: String(pm.sender.id) }}
+							to="/user/$userId"
+							params={{ userId: String(pm.sender.id) }}
 							className="username"
 						>
 							{pm.sender.username}
@@ -74,8 +74,8 @@ function RouteComponent() {
 					<div>To</div>
 					<div>
 						<Link
-							to="/user/$id"
-							params={{ id: String(pm.recipient.id) }}
+							to="/user/$userId"
+							params={{ userId: String(pm.recipient.id) }}
 							className="username"
 						>
 							{pm.recipient.username}
