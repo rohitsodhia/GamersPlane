@@ -26,10 +26,15 @@ class UserRepository:
         )
         return user
 
-    async def get_user_by_id(self, id: int) -> User | None:
-        return await self.db_session.scalar(
+    async def get_user_by_id(
+        self, id: int, include_meta: bool = False
+    ) -> User | None:
+        statement = (
             select(User).where(User.id == id, User.activated_on.is_not(None)).limit(1)
         )
+        if include_meta:
+            statement = statement.options(joinedload(User.meta))
+        return await self.db_session.scalar(statement)
 
     async def get_user_by_username(self, username: str) -> User | None:
         return await self.db_session.scalar(

@@ -1,15 +1,21 @@
 from datetime import datetime
-from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class UserDict(BaseModel):
     id: int
     username: str
-    email: EmailStr
+    avatar: str
     joinDate: datetime
-    lastActivity: Optional[datetime] = None
+    lastActivity: datetime | None = None
+    pronouns: str | None
+    showAge: bool = False
+    age: str | None
+    location: str | None
+    postCount: int
+    communityPostCount: int
+    gamePostCount: int
 
 
 class GetUserResponse(BaseModel):

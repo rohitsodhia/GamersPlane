@@ -5,13 +5,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.configs import configs
-from app.models import Post, User
+from app.models import Forum, Post, Thread, User
 
 
 class PostRepository:
     def __init__(self, db_session: AsyncSession, auth: list[str]):
         self.db_session = db_session
         self.auth = auth
+
+    async def count_by_author(self, author_id: int) -> tuple[int, int]:
+        """Returns (game_post_count, community_post_count) for a user."""
+        result = await self.db_session.execute(
+            select(
+                func.count().filter(Forum.game_id.is_not(None)),
+                func.count().filter(Forum.game_id.is_(None)),
+            )
+            .select_from(Post)
+            .join(Thread, Post.thread_id == Thread.id)
+            .join(Forum, Thread.forum_id == Forum.id)
+            .where(
+                Post.author_id == author_id,
+                Post.state == Post.States.PUBLISHED,
+                Post.deleted.is_(None),
+            )
+        )
+        game_post_count, community_post_count = result.one()
+        return game_post_count or 0, community_post_count or 0
 
     async def count_by_thread(self, thread_id: int) -> int:
         return (

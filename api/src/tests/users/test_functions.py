@@ -1,13 +1,42 @@
+from datetime import date
+
 import pytest
 
 from app.models import User, UserMeta
 from app.users.exceptions import UserExists
 from app.users.functions import (
+    calculate_age,
     check_for_existing_user,
     get_avatar_path,
     register_user,
 )
 from tests.factories import UserFactory
+
+
+class TestCalculateAge:
+    @pytest.fixture(autouse=True)
+    def frozen_today(self, monkeypatch):
+        fixed_today = date(2026, 6, 15)
+
+        class FakeDate(date):
+            @classmethod
+            def today(cls):
+                return fixed_today
+
+        monkeypatch.setattr("app.users.functions.date", FakeDate)
+        return fixed_today
+
+    def test_birthday_already_passed_this_year(self):
+        assert calculate_age(date(2000, 6, 14)) == 26
+
+    def test_birthday_is_today(self):
+        assert calculate_age(date(2000, 6, 15)) == 26
+
+    def test_birthday_not_yet_this_year(self):
+        assert calculate_age(date(2000, 6, 16)) == 25
+
+    def test_birthday_this_year(self):
+        assert calculate_age(date(2026, 1, 1)) == 0
 
 
 class TestGetAvatarPath:
@@ -78,9 +107,7 @@ class TestCheckForExistingUser:
 
 
 class TestRegisterUser:
-    async def test_creates_user_with_hashed_password_and_default_meta(
-        self, db_session
-    ):
+    async def test_creates_user_with_hashed_password_and_default_meta(self, db_session):
         user = await register_user(
             db_session,
             email="new@example.com",
