@@ -98,7 +98,7 @@ class TestRegisterUser:
             UserMeta.MetaKeys.GM_MAIL.value: True,
             UserMeta.MetaKeys.NEW_GAME_MAIL.value: True,
             UserMeta.MetaKeys.PM_MAIL.value: True,
-            UserMeta.MetaKeys.POST_SIDE.value: "l",
+            UserMeta.MetaKeys.POST_SIDE.value: "r",
             UserMeta.MetaKeys.SHOW_AVATARS.value: True,
         }
 
