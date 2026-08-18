@@ -80,6 +80,9 @@ async def get_user(id: int, db_session: DBSessionDependency, auth: Auth):
             "postCount": game_post_count + community_post_count,
             "communityPostCount": community_post_count,
             "gamePostCount": game_post_count,
+            "activeGames": [],
+            "characters": {"count": 0, "systems": []},
+            "gmStats": {"count": 0, "systems": []},
         }
     }
     return response

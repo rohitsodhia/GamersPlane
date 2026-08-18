@@ -3,6 +3,29 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class ActiveGameData(BaseModel):
+    id: int
+    name: str
+    isGM: bool
+    system: str
+    forumId: int | None
+
+
+class SystemData(BaseModel):
+    id: str
+    name: str
+
+
+class SystemCountData(BaseModel):
+    system: SystemData
+    count: int
+
+
+class SystemsCountData(BaseModel):
+    count: int
+    systems: list[SystemCountData]
+
+
 class UserDict(BaseModel):
     id: int
     username: str
@@ -16,6 +39,9 @@ class UserDict(BaseModel):
     postCount: int
     communityPostCount: int
     gamePostCount: int
+    activeGames: list[ActiveGameData]
+    characters: SystemsCountData
+    gmStats: SystemsCountData
 
 
 class GetUserResponse(BaseModel):
