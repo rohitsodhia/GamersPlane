@@ -17,6 +17,7 @@ import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
 import { Route as PmsIndexRouteImport } from './routes/pms/index'
+import { Route as UserUserIdRouteImport } from './routes/user.$userId'
 import { Route as RegisterSuccessRouteImport } from './routes/register/success'
 import { Route as RegisterResendRouteImport } from './routes/register/resend'
 import { Route as PmsSendRouteImport } from './routes/pms/send'
@@ -65,6 +66,11 @@ const RegisterIndexRoute = RegisterIndexRouteImport.update({
 const PmsIndexRoute = PmsIndexRouteImport.update({
   id: '/pms/',
   path: '/pms/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UserUserIdRoute = UserUserIdRouteImport.update({
+  id: '/user/$userId',
+  path: '/user/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterSuccessRoute = RegisterSuccessRouteImport.update({
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/user/$userId': typeof UserUserIdRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/user/$userId': typeof UserUserIdRoute
   '/pms': typeof PmsIndexRoute
   '/register': typeof RegisterIndexRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/user/$userId': typeof UserUserIdRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/pms/send'
     | '/register/resend'
     | '/register/success'
+    | '/user/$userId'
     | '/pms/'
     | '/register/'
     | '/forums/edit-post/$postId'
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/pms/send'
     | '/register/resend'
     | '/register/success'
+    | '/user/$userId'
     | '/pms'
     | '/register'
     | '/forums/edit-post/$postId'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/pms/send'
     | '/register/resend'
     | '/register/success'
+    | '/user/$userId'
     | '/pms/'
     | '/register/'
     | '/forums/edit-post/$postId'
@@ -245,6 +257,7 @@ export interface RootRouteChildren {
   PmsSendRoute: typeof PmsSendRoute
   RegisterResendRoute: typeof RegisterResendRoute
   RegisterSuccessRoute: typeof RegisterSuccessRoute
+  UserUserIdRoute: typeof UserUserIdRoute
   PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
   ForumsEditPostPostIdRoute: typeof ForumsEditPostPostIdRoute
@@ -308,6 +321,13 @@ declare module '@tanstack/react-router' {
       path: '/pms'
       fullPath: '/pms/'
       preLoaderRoute: typeof PmsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user/$userId': {
+      id: '/user/$userId'
+      path: '/user/$userId'
+      fullPath: '/user/$userId'
+      preLoaderRoute: typeof UserUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register/success': {
@@ -389,6 +409,7 @@ const rootRouteChildren: RootRouteChildren = {
   PmsSendRoute: PmsSendRoute,
   RegisterResendRoute: RegisterResendRoute,
   RegisterSuccessRoute: RegisterSuccessRoute,
+  UserUserIdRoute: UserUserIdRoute,
   PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
   ForumsEditPostPostIdRoute: ForumsEditPostPostIdRoute,

@@ -1364,3 +1364,26 @@ h1 .forum-icon {
 		list-style-type: decimal;
 	}
 }
+
+#user-profile-struct {
+	display: flex;
+
+	.avatar-wrapper {
+		width: 200px;
+		flex-shrink: 0;
+	}
+}
+
+#user-profile-info {
+	flex-grow: 1;
+
+	.section-info {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+		gap: 1em;
+	}
+
+	.no-items {
+		grid-column: 1 / -1;
+	}
+}
