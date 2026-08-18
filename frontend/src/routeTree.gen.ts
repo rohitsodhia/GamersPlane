@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SystemsRouteImport } from './routes/systems'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CommunityGuidelinesRouteImport } from './routes/community-guidelines'
 import { Route as ActivateRouteImport } from './routes/activate'
@@ -36,6 +37,11 @@ const SystemsRoute = SystemsRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/login': typeof LoginRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/login': typeof LoginRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/login': typeof LoginRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/activate'
     | '/community-guidelines'
     | '/login'
+    | '/privacy-policy'
     | '/profile'
     | '/systems'
     | '/forums/{-$forumId}'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/activate'
     | '/community-guidelines'
     | '/login'
+    | '/privacy-policy'
     | '/profile'
     | '/systems'
     | '/forums/{-$forumId}'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/activate'
     | '/community-guidelines'
     | '/login'
+    | '/privacy-policy'
     | '/profile'
     | '/systems'
     | '/forums/{-$forumId}'
@@ -249,6 +261,7 @@ export interface RootRouteChildren {
   ActivateRoute: typeof ActivateRoute
   CommunityGuidelinesRoute: typeof CommunityGuidelinesRoute
   LoginRoute: typeof LoginRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
   ForumsChar123ForumIdChar125Route: typeof ForumsChar123ForumIdChar125Route
@@ -279,6 +292,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -401,6 +421,7 @@ const rootRouteChildren: RootRouteChildren = {
   ActivateRoute: ActivateRoute,
   CommunityGuidelinesRoute: CommunityGuidelinesRoute,
   LoginRoute: LoginRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,
   ForumsChar123ForumIdChar125Route: ForumsChar123ForumIdChar125Route,

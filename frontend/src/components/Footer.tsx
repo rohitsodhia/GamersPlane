@@ -10,39 +10,39 @@ function Footer() {
 			<div className="page-wrap">
 				<ul>
 					<li>
-						<Link to="/tools/">Tools</Link>
+						<Link to="/tools">Tools</Link>
 					</li>
 					<li>
-						<Link to="/systems/">Systems</Link>
+						<Link to="/systems">Systems</Link>
 					</li>
 					<li>
-						<Link to="/characters/">Characters</Link>
+						<Link to="/characters">Characters</Link>
 					</li>
 					<li>
-						<Link to="/games/">Games</Link>
+						<Link to="/games">Games</Link>
 					</li>
 					<li>
-						<Link to="/forums/">Forums</Link>
+						<Link to="/forums">Forums</Link>
 					</li>
 					<li>
-						<Link to="/gamersList/">The Gamers</Link>
+						<Link to="/gamersList">The Gamers</Link>
 					</li>
 				</ul>
 				<ul>
 					<li>
-						<Link to="/faqs/">FAQs</Link>
+						<Link to="/faqs">FAQs</Link>
 					</li>
 					<li>
-						<Link to="/about/">About GP</Link>
+						<Link to="/about">About GP</Link>
 					</li>
 					<li>
-						<Link to="/contact/">Contact Us</Link>
+						<Link to="/contact">Contact Us</Link>
 					</li>
 					<li>
-						<Link to="/privacy/">Privacy Policy</Link>
+						<Link to="/privacy-policy">Privacy Policy</Link>
 					</li>
 					<li>
-						<Link to="/community_guidelines/">Community Guidelines</Link>
+						<Link to="/community_guidelines">Community Guidelines</Link>
 					</li>
 				</ul>
 				<ul>
@@ -60,11 +60,7 @@ function Footer() {
 							target="_top"
 						>
 							<input type="hidden" name="cmd" value="_s-xclick" />
-							<input
-								type="hidden"
-								name="hosted_button_id"
-								value="6VHQ2BP4AS7L6"
-							/>
+							<input type="hidden" name="hosted_button_id" value="6VHQ2BP4AS7L6" />
 							<input
 								type="image"
 								src="/images/support_us.png"
