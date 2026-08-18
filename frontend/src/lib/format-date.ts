@@ -7,6 +7,17 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
 	hour12: true,
 });
 
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+	month: "long",
+	day: "numeric",
+	year: "numeric",
+});
+
+// Produces "May 9, 2026"
+export function formatDate(date: Date | string | number) {
+	return dateFormatter.format(new Date(date));
+}
+
 // Produces "May 9, 2026 4:09 am" (Intl's dateStyle/timeStyle shortcuts insert
 // "at" and uppercase AM/PM, so the parts are assembled manually instead).
 export function formatDateTime(date: Date | string | number) {

@@ -94,6 +94,28 @@ class TestUserRepository:
 
         assert found is None
 
+    async def test_get_user_by_id_include_meta_loads_meta(self, repository, create):
+        user = await create(ActivatedUserFactory)
+        await repository.update_user_meta(
+            user, {UserMeta.MetaKeys.PRONOUNS: "they/them"}
+        )
+
+        found = await repository.get_user_by_id(user.id, include_meta=True)
+
+        assert found is not None
+        meta = {m.key: m.value for m in found.meta}
+        assert meta == {UserMeta.MetaKeys.PRONOUNS.value: "they/them"}
+
+    async def test_get_user_by_id_include_meta_empty_when_no_meta(
+        self, repository, create
+    ):
+        user = await create(ActivatedUserFactory)
+
+        found = await repository.get_user_by_id(user.id, include_meta=True)
+
+        assert found is not None
+        assert found.meta == []
+
     async def test_update_user_meta_creates_new(self, repository, create):
         user = await create(UserFactory)
 

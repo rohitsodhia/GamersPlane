@@ -41,6 +41,8 @@ class UserMeta(Base):
             return None
 
         cast_type: type[int | bool | str] = self.MetaKeys(self.key).full_value[2]
+        if cast_type is bool:
+            return self._value == "1"
         return cast_type(self._value)
 
     @value.setter

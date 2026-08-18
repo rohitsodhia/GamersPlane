@@ -1,4 +1,8 @@
-from tests.factories import ActivatedUserFactory
+from datetime import date
+
+from app.models import UserMeta
+from app.repositories.user_repository import UserRepository
+from tests.factories import ActivatedUserFactory, PostFactory, ThreadFactory
 
 
 class TestSearchUser:
@@ -43,3 +47,71 @@ class TestGetUser:
 
         assert response.status_code == 404
         assert response.json()["errors"][0]["code"] == "user_not_found"
+
+    async def test_get_user_defaults_when_no_meta_or_posts(self, client, create):
+        user = await create(ActivatedUserFactory)
+
+        response = await client.get(f"/users/{user.id}")
+
+        assert response.status_code == 200
+        body = response.json()["user"]
+        assert body["avatar"] == user.avatar_url
+        assert body["pronouns"] is None
+        assert body["location"] is None
+        assert body["showAge"] is False
+        assert body["age"] is None
+        assert body["postCount"] == 0
+        assert body["communityPostCount"] == 0
+        assert body["gamePostCount"] == 0
+
+    async def test_get_user_includes_meta_fields(self, client, create, db_session):
+        user = await create(ActivatedUserFactory)
+        user_repository = UserRepository(db_session)
+        await user_repository.update_user_meta(
+            user,
+            {
+                UserMeta.MetaKeys.PRONOUNS: "they/them",
+                UserMeta.MetaKeys.LOCATION: "Toronto",
+                UserMeta.MetaKeys.BIRTHDAY: date(1990, 1, 1),
+                UserMeta.MetaKeys.SHOW_AGE: True,
+            },
+        )
+
+        response = await client.get(f"/users/{user.id}")
+
+        body = response.json()["user"]
+        assert body["pronouns"] == "they/them"
+        assert body["location"] == "Toronto"
+        assert body["showAge"] is True
+        assert body["age"] is not None
+
+    async def test_get_user_age_hidden_when_show_age_false(
+        self, client, create, db_session
+    ):
+        user = await create(ActivatedUserFactory)
+        user_repository = UserRepository(db_session)
+        await user_repository.update_user_meta(
+            user,
+            {
+                UserMeta.MetaKeys.BIRTHDAY: date(1990, 1, 1),
+                UserMeta.MetaKeys.SHOW_AGE: False,
+            },
+        )
+
+        response = await client.get(f"/users/{user.id}")
+
+        body = response.json()["user"]
+        assert body["showAge"] is False
+        assert body["age"] is None
+
+    async def test_get_user_reflects_post_counts(self, client, create):
+        user = await create(ActivatedUserFactory)
+        thread = await create(ThreadFactory)
+        await create(PostFactory, thread=thread, author=user)
+
+        response = await client.get(f"/users/{user.id}")
+
+        body = response.json()["user"]
+        assert body["postCount"] == 1
+        assert body["communityPostCount"] == 1
+        assert body["gamePostCount"] == 0

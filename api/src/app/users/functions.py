@@ -1,9 +1,20 @@
+from datetime import date
+
 from sqlalchemy import or_, select
 
 from app.database import DBSessionDependency
 from app.models import User, UserMeta
 from app.schemas import ErrorItem
 from app.users.exceptions import UserExists
+
+
+def calculate_age(birthday: date) -> int:
+    today = date.today()
+    return (
+        today.year
+        - birthday.year
+        - ((today.month, today.day) < (birthday.month, birthday.day))
+    )
 
 
 def get_avatar_path(user_id: int | None = None, ext: str | None = None):

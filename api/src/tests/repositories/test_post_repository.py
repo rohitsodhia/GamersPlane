@@ -2,9 +2,17 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.models import Post
+from app.models import Game, Post
 from app.repositories.post_repository import PostRepository
-from tests.factories import PostFactory, ThreadFactory, UserFactory, prose_doc
+from tests.factories import (
+    ForumFactory,
+    PostFactory,
+    RoleFactory,
+    SystemFactory,
+    ThreadFactory,
+    UserFactory,
+    prose_doc,
+)
 
 
 class TestPostRepository:
@@ -283,3 +291,114 @@ class TestPostRepository:
         page = await repository.get_page_number(post, limit=1)
 
         assert page == 1
+
+
+class TestCountByAuthor:
+    @pytest.fixture
+    async def repository(self, db_session, wrap_in_savepoint):
+        return PostRepository(db_session, auth=[])
+
+    @pytest.fixture
+    async def author(self, create, wrap_in_savepoint):
+        return await create(UserFactory)
+
+    @pytest.fixture
+    async def community_thread(self, create, wrap_in_savepoint):
+        return await create(ThreadFactory)
+
+    @pytest.fixture
+    async def game_forum(self, db_session, create, wrap_in_savepoint):
+        system = await create(SystemFactory)
+        gm = await create(UserFactory)
+        role = await create(RoleFactory)
+        root_forum = await create(ForumFactory)
+        game = Game(
+            title="Test Game",
+            system=system,
+            gm=gm,
+            post_frequency="1d",
+            num_players=4,
+            root_forum=root_forum,
+            role=role,
+            public=True,
+        )
+        db_session.add(game)
+        await db_session.flush()
+
+        return await create(ForumFactory, game_id=game.id)
+
+    @pytest.fixture
+    async def game_thread(self, create, game_forum, wrap_in_savepoint):
+        return await create(ThreadFactory, forum=game_forum)
+
+    async def test_counts_community_post(
+        self, repository, create, author, community_thread
+    ):
+        await create(PostFactory, thread=community_thread, author=author)
+
+        game_count, community_count = await repository.count_by_author(author.id)
+
+        assert (game_count, community_count) == (0, 1)
+
+    async def test_counts_game_post(self, repository, create, author, game_thread):
+        await create(PostFactory, thread=game_thread, author=author)
+
+        game_count, community_count = await repository.count_by_author(author.id)
+
+        assert (game_count, community_count) == (1, 0)
+
+    async def test_counts_mixed_posts(
+        self, repository, create, author, community_thread, game_thread
+    ):
+        await create(PostFactory, thread=community_thread, author=author)
+        await create(PostFactory, thread=community_thread, author=author)
+        await create(PostFactory, thread=game_thread, author=author)
+
+        game_count, community_count = await repository.count_by_author(author.id)
+
+        assert (game_count, community_count) == (1, 2)
+
+    async def test_excludes_other_authors(
+        self, repository, create, author, community_thread
+    ):
+        other = await create(UserFactory)
+        await create(PostFactory, thread=community_thread, author=other)
+
+        game_count, community_count = await repository.count_by_author(author.id)
+
+        assert (game_count, community_count) == (0, 0)
+
+    async def test_excludes_non_published_posts(
+        self, repository, create, author, community_thread
+    ):
+        await create(
+            PostFactory,
+            thread=community_thread,
+            author=author,
+            state=Post.States.DRAFT,
+        )
+        await create(
+            PostFactory,
+            thread=community_thread,
+            author=author,
+            state=Post.States.REVISED,
+        )
+
+        game_count, community_count = await repository.count_by_author(author.id)
+
+        assert (game_count, community_count) == (0, 0)
+
+    async def test_excludes_deleted_posts(
+        self, repository, create, author, community_thread
+    ):
+        post = await create(PostFactory, thread=community_thread, author=author)
+
+        await repository.delete(post)
+        game_count, community_count = await repository.count_by_author(author.id)
+
+        assert (game_count, community_count) == (0, 0)
+
+    async def test_zero_when_no_posts(self, repository, author):
+        game_count, community_count = await repository.count_by_author(author.id)
+
+        assert (game_count, community_count) == (0, 0)

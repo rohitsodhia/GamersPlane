@@ -1,15 +1,47 @@
 from datetime import datetime
-from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
+
+
+class ActiveGameData(BaseModel):
+    id: int
+    name: str
+    isGM: bool
+    system: str
+    forumId: int | None
+
+
+class SystemData(BaseModel):
+    id: str
+    name: str
+
+
+class SystemCountData(BaseModel):
+    system: SystemData
+    count: int
+
+
+class SystemsCountData(BaseModel):
+    count: int
+    systems: list[SystemCountData]
 
 
 class UserDict(BaseModel):
     id: int
     username: str
-    email: EmailStr
+    avatar: str
     joinDate: datetime
-    lastActivity: Optional[datetime] = None
+    lastActivity: datetime | None = None
+    pronouns: str | None
+    showAge: bool = False
+    age: str | None
+    location: str | None
+    postCount: int
+    communityPostCount: int
+    gamePostCount: int
+    activeGames: list[ActiveGameData]
+    characters: SystemsCountData
+    gmStats: SystemsCountData
 
 
 class GetUserResponse(BaseModel):

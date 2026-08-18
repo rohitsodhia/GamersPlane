@@ -10,6 +10,12 @@ class TestValueGetter:
 
         assert meta.value is True
 
+    def test_casts_bool_key_stored_as_false(self):
+        meta = UserMeta(key=UserMeta.MetaKeys.GM_MAIL.value)
+        meta._value = "0"
+
+        assert meta.value is False
+
     def test_casts_str_key(self):
         meta = UserMeta(key=UserMeta.MetaKeys.PRONOUNS.value, value="they/them")
 

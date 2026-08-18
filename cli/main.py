@@ -8,13 +8,14 @@ from sqlalchemy import text
 
 from app.configs import configs
 from app.database import session_manager
-from app.models import Forum
+from app.models import Forum, UserMeta
 from app.repositories import (
     GenreRepository,
     PublisherRepository,
     ReferralLinkRepository,
     SystemRepository,
 )
+from app.repositories.user_repository import UserRepository
 from app.users.functions import register_user
 
 app = typer.Typer()
@@ -92,6 +93,8 @@ async def seed():
             password="test1234",
         )
         user.activate()
+        user_repo = UserRepository(session)
+        await user_repo.update_user_meta(user, {UserMeta.MetaKeys.AVATAR_EXT: "png"})
         user = await register_user(
             session,
             email="test@test.com",
