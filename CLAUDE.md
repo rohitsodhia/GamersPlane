@@ -89,6 +89,10 @@ npm run generate-routes
 
 Biome uses tabs for indentation and double quotes for JS/TS strings. The `routeTree.gen.ts` file is auto-generated — never edit it manually.
 
+## Interacting with the Dev Frontend Server
+
+Any time you need to interact with the running frontend dev server — via Claude in Chrome, curl, or any other CLI tool — always target `http://localhost:3000`. If nothing is running on port 3000, prompt the user to start it (`npm run dev` in `frontend/`) rather than starting it yourself. Never kill or restart the server on port 3000.
+
 ## API Architecture
 
 ### App structure
