@@ -1,0 +1,53 @@
+.main-wrapper {
+	display: flex;
+	gap: 2rem;
+}
+
+.controls {
+	flex-shrink: 0;
+}
+
+.card-controls {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	min-width: 12rem;
+
+	input {
+		text-align: center;
+	}
+
+	p {
+		margin: 0;
+	}
+}
+
+.deck-name {
+	font-weight: bold;
+	text-decoration: underline;
+	font-size: 1.2em;
+}
+
+.num-cards {
+	width: 3rem;
+}
+
+.new-deck {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	align-items: flex-start;
+
+	button:hover {
+		text-decoration: underline;
+	}
+}
+
+.card-space {
+	display: flex;
+	flex-wrap: wrap;
+	flex-grow: 1;
+	gap: 0.5rem;
+	padding: 0.5rem;
+	border: 1px solid var(--gp-red);
+}

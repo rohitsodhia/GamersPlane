@@ -17,8 +17,8 @@ export type CardRank =
 	| "king";
 export type JokerColor = "black" | "red";
 
-type SuitCardProps = { suit: CardSuit; rank: CardRank };
-type JokerCardProps = { suit: "joker"; rank: JokerColor };
+export type SuitCardProps = { suit: CardSuit; rank: CardRank };
+export type JokerCardProps = { suit: "joker"; rank: JokerColor };
 
 export type DeckCardProps = (SuitCardProps | JokerCardProps) & {
 	mini?: boolean;
