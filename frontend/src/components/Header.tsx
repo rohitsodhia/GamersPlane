@@ -5,6 +5,7 @@ import ThemeToggle from "#/components/ThemeToggle";
 import { meHeaderQueryOptions, meQueryOptions } from "#/queries/me";
 import { useAuthStore } from "#/stores/auth";
 import { useThemeStore } from "#/stores/theme";
+import styles from "./Header.module.css";
 
 type PopoverPosition = { top: number; left?: number; right?: number };
 
@@ -60,9 +61,9 @@ function Header() {
 	};
 
 	return (
-		<header className={`${location.pathname === "/" ? "landing" : ""}`}>
+		<header className={location.pathname === "/" ? styles.landing : ""}>
 			<div className="page-wrap">
-				<Link id="header_logo" to="/">
+				<Link className={styles["header-logo"]} to="/">
 					<img
 						src={`/images/${logo_path}${theme === "dark" ? "_dark" : ""}.png`}
 						alt="Gamers' Plane Logo"
@@ -70,14 +71,14 @@ function Header() {
 				</Link>
 				<nav>
 					<ul>
-						<li className="has-dropdown">
+						<li className={styles["has-dropdown"]}>
 							<button type="button" ref={toolsButtonRef} popoverTarget="tools-menu">
 								Tools
 							</button>
 							{/* biome-ignore lint/a11y/useKeyWithClickEvents: delegated click handler catches bubbled clicks from interactive <a> children, which already fire click on keyboard activation */}
 							<ul
 								id="tools-menu"
-								className="dropdown"
+								className={styles.dropdown}
 								popover="auto"
 								ref={toolsPopoverRef}
 								onClick={(e) => {
@@ -104,7 +105,7 @@ function Header() {
 							<Link to="/forums">Forums</Link>
 						</li>
 						{me ? (
-							<li id="header_avatar">
+							<li className={styles["header-avatar"]}>
 								<button
 									type="button"
 									ref={userButtonRef}
@@ -113,7 +114,7 @@ function Header() {
 									<img src={me.avatar} alt={me.username} />
 									{pmCount > 0 && (
 										<img
-											id="header_new-messages"
+											className={styles["header-new-messages"]}
 											src="/images/icons/envelope.jpg"
 											alt="New Messages"
 										/>
@@ -122,7 +123,7 @@ function Header() {
 								{/* biome-ignore lint/a11y/useKeyWithClickEvents: delegated click handler catches bubbled clicks from interactive <a>/<button> children, which already fire click on keyboard activation */}
 								<ul
 									id="header_user-menu"
-									className="dropdown"
+									className={styles.dropdown}
 									popover="auto"
 									ref={userPopoverRef}
 									onClick={(e) => {
@@ -152,15 +153,15 @@ function Header() {
 							</li>
 						) : (
 							<>
-								<li id="header_register">
+								<li className={styles["header-register"]}>
 									<Link to="/register">Register</Link>
 								</li>
-								<li id="header_login">
+								<li className={styles["header-login"]}>
 									<Link to="/login" search={{ redirect: location.pathname }}>
 										Login
 									</Link>
 								</li>
-								<li id="header_theme-toggle">
+								<li className={styles["header-theme-toggle"]}>
 									<ThemeToggle />
 								</li>
 							</>

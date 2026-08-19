@@ -1,0 +1,37 @@
+footer {
+	background-color: light-dark(#333, #444);
+	border-top: 5px solid light-dark(#aaa, #666);
+	padding-bottom: 1em;
+
+	:global(.page-wrap) {
+		display: flex;
+		gap: 3em;
+	}
+
+	ul {
+		margin-top: 0.5em;
+	}
+
+	li {
+		line-height: 1.8em;
+	}
+
+	ul:last-of-type {
+		margin-left: auto;
+
+		& > li {
+			text-align: right;
+		}
+
+		form {
+			margin-top: 0.5em;
+		}
+	}
+
+	a,
+	a:active,
+	a:visited {
+		color: #fff;
+		text-transform: uppercase;
+	}
+}
