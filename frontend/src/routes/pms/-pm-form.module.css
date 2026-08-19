@@ -1,0 +1,17 @@
+.send-pm-form {
+	--label-col-width: 100px;
+
+	.input-field {
+		width: min(100%, 300px);
+	}
+
+	& > div:last-of-type {
+		grid-column: span 2;
+		text-align: center;
+	}
+
+	:global(.error) {
+		display: inline-block;
+		margin-left: 1em;
+	}
+}

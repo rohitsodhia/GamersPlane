@@ -19,6 +19,7 @@ import {
 } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
 import { Breadcrumbs } from "./-breadcrumbs";
+import styles from "./{-$forumId}.module.css";
 
 export const Route = createFileRoute("/forums/{-$forumId}")({
 	params: {
@@ -60,12 +61,12 @@ function CategoryGroup({ title, forums }: { title: string; forums: ChildForum[] 
 	);
 
 	return (
-		<div className="forum-category">
+		<div className={styles["forum-category"]}>
 			<div style={{ marginLeft: hbMargined.margin }}>
-				<h2 className="trapezoid red-trapezoid">{title}</h2>
+				<h2 className={`trapezoid ${styles["red-trapezoid"]}`}>{title}</h2>
 			</div>
 			<div
-				className="headerbar hb-dark column-titles"
+				className={`headerbar hb-dark listed-items-header ${styles["column-titles"]}`}
 				ref={(el) => {
 					hbMargined.ref.current = el;
 					heightRef.current = el;
@@ -75,12 +76,15 @@ function CategoryGroup({ title, forums }: { title: string; forums: ChildForum[] 
 				}
 			>
 				<div></div>
-				<div className="forum-info">Forum</div>
+				<div className={styles["forum-info"]}>Forum</div>
 				<div># of Threads</div>
 				<div># of Posts</div>
 				<div>Last Post</div>
 			</div>
-			<div className="category-forums" style={{ marginInline: hbMargined.margin }}>
+			<div
+				className={styles["category-forums"]}
+				style={{ marginInline: hbMargined.margin }}
+			>
 				{forums.map((childForum) => (
 					<CategoryForum key={childForum.id} forum={childForum}></CategoryForum>
 				))}
@@ -91,9 +95,9 @@ function CategoryGroup({ title, forums }: { title: string; forums: ChildForum[] 
 
 function CategoryForum({ forum }: { forum: ChildForum }) {
 	return (
-		<div className="forum-category-forum">
+		<div className={styles["forum-category-forum"]}>
 			<DieIcon className="forum-status-icon" title="Forum Status - Unread" />
-			<div className="forum-info read">
+			<div className={`${styles["forum-info"]} read`}>
 				<Link
 					to="/forums/{-$forumId}"
 					params={{ forumId: forum.id }}
@@ -115,10 +119,10 @@ function LastPostInfo({
 }: {
 	lastPost: { datestamp: string; author: { id: number; username: string } } | null;
 }) {
-	if (!lastPost) return <div className="last-post-info">No Posts Yet!</div>;
+	if (!lastPost) return <div className={styles["last-post-info"]}>No Posts Yet!</div>;
 
 	return (
-		<div className="last-post-info">
+		<div className={styles["last-post-info"]}>
 			<Link
 				to="/user/$userId"
 				params={{ userId: String(lastPost.author.id) }}
@@ -135,7 +139,7 @@ function Thread({ thread }: { thread: ThreadType }) {
 	return (
 		<div>
 			<ThreadStatusIcon options={thread.options} />
-			<div className="thread-info">
+			<div className={styles["thread-info"]}>
 				<Link
 					to="/forums/thread/$threadId"
 					params={{ threadId: thread.id }}
@@ -244,7 +248,7 @@ function RouteComponent() {
 	const subscribed: boolean = false;
 
 	return (
-		<div id="forum-page">
+		<div className={styles["forum-page"]}>
 			<h1 className="headerbar" ref={hbMarginedHeader.ref}>
 				{" "}
 				<ForumIcon forumId={forumId} rootForum={rootForum}></ForumIcon>
@@ -254,7 +258,7 @@ function RouteComponent() {
 			<div id="forums_top-nav" style={{ marginInline: hbMarginedHeader.margin }}>
 				<Breadcrumbs forum={forum} />
 
-				<div id="forums_top-nav-links">
+				<div className={styles["forums-top-nav-links"]}>
 					<div>
 						Be sure to read and follow the{" "}
 						<Link to="/community_guidelines">community guidelines</Link>.
@@ -292,9 +296,9 @@ function RouteComponent() {
 				<CategoryGroup title="Subforums" forums={uncategorizedForums} />
 			)}
 
-			<div id="forum_threads">
+			<div className={styles["forum-threads"]}>
 				<div
-					className="forum-threads-header"
+					className={styles["forum-threads-header"]}
 					style={{ marginLeft: hbMarginedThreadHeader.margin }}
 				>
 					<Link
@@ -306,26 +310,31 @@ function RouteComponent() {
 					</Link>
 
 					<div
-						className="thread-pagination"
+						className={styles["thread-pagination"]}
 						style={{ marginInline: hbMarginedThreadHeader.margin }}
 					>
 						<Paginate numItems={count} current={page} onPageChange={setPage} />
 					</div>
 				</div>
 				<div
-					className="headerbar hb-dark column-titles"
+					className={`headerbar hb-dark listed-items-header ${styles["column-titles"]}`}
 					ref={hbMarginedThreadHeader.ref}
 				>
 					<div></div>
-					<div className="thread-info">Thread</div>
+					<div className={styles["thread-info"]}>Thread</div>
 					<div># of Posts</div>
 					<div>Last Post</div>
 				</div>
-				<div id="thread-list" style={{ marginInline: hbMarginedThreadHeader.margin }}>
+				<div
+					className={styles["thread-list"]}
+					style={{ marginInline: hbMarginedThreadHeader.margin }}
+				>
 					{threads.map((thread) => (
 						<Thread key={thread.id} thread={thread} />
 					))}
-					{threads.length === 0 && <div id="no-threads">No threads</div>}
+					{threads.length === 0 && (
+						<div className={styles["no-threads"]}>No threads</div>
+					)}
 				</div>
 				<div
 					className="thread-pagination"
@@ -335,7 +344,10 @@ function RouteComponent() {
 				</div>
 			</div>
 
-			<div id="forums_bottom-nav" style={{ marginInline: hbMarginedHeader.margin }}>
+			<div
+				className={styles["forums-bottom-nav"]}
+				style={{ marginInline: hbMarginedHeader.margin }}
+			>
 				<p>
 					<a href={`/forums/process/read/${forum.id}`}>Mark Forum As Read</a>
 				</p>

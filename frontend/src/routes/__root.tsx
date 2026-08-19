@@ -18,6 +18,7 @@ import { referralLinksQueryOptions } from "#/queries/referralLinks";
 import { refreshToken } from "#/queries/refresh";
 import { useAuthStore } from "#/stores/auth";
 import appCss from "#/styles.css?url";
+import "./__root.module.css";
 
 const REFRESH_THRESHOLD_MS = 1000 * 60 * 60 * 24 * 2; // 2 days
 

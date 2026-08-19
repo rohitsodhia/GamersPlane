@@ -1,6 +1,8 @@
+import styles from "./LoadingSpinner.module.css";
+
 function LoadingSpinner({ fullScreen = false }: { fullScreen?: boolean }) {
 	return (
-		<div id="loading-spinner">
+		<div className={styles["loading-spinner"]}>
 			<svg
 				version="1.2"
 				baseProfile="tiny"
@@ -21,7 +23,7 @@ function LoadingSpinner({ fullScreen = false }: { fullScreen?: boolean }) {
 							points="49.782,44.321 25.808,59.62 1.835,44.321 0.81,15.269 25.808,1.511 50.81,15.269 		"
 						/>
 						<polygon
-							id="loading-spinner-top-cube"
+							className={styles["loading-spinner-top-cube"]}
 							fill="#bc2025"
 							points="49.782,44.321 25.808,59.62 1.835,44.321 0.81,15.269 25.808,1.511 50.81,15.269 		"
 						/>

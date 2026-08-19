@@ -13,7 +13,7 @@ function RouteComponent() {
 	const hbMarginedMods = useHbMargined<HTMLHeadingElement>();
 
 	return (
-		<div id="community-guidelines-page">
+		<div className="legal-content">
 			<h1 className="headerbar" ref={hbMarginedHeader.ref}>
 				Community Guidelines
 			</h1>

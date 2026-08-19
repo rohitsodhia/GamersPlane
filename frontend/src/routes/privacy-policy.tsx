@@ -9,7 +9,7 @@ function RouteComponent() {
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
 
 	return (
-		<div id="privacy-policy-page">
+		<div className="legal-content">
 			<h1 className="headerbar" ref={hbMargined.ref}>
 				Privacy Policy
 			</h1>

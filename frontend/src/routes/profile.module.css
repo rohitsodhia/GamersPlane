@@ -1,0 +1,49 @@
+.edit-profile-page {
+	form {
+		textarea {
+			width: 100%;
+			max-width: 400px;
+			height: calc(var(--line-height) * 3);
+		}
+
+		:global(.success-banner) {
+			margin-bottom: 0;
+			width: fit-content;
+			opacity: 0;
+			transition: opacity 1s ease;
+		}
+
+		:global(.success-banner.is-visible) {
+			opacity: 1;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			:global(.success-banner) {
+				transition: none;
+			}
+		}
+
+		:global(.error) {
+			margin-top: 0.5em;
+		}
+
+		&.security-form {
+			& > div:first-child {
+				display: block;
+				grid-column: span 2;
+				width: 0;
+				min-width: 100%;
+			}
+		}
+	}
+}
+
+.edit-settings_avatar {
+	input[type="file"] {
+		margin-block: 0.5em;
+	}
+	p {
+		font-size: var(--font-size-sm);
+		margin-bottom: 0;
+	}
+}

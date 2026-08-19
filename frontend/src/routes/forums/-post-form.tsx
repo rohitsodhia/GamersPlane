@@ -7,6 +7,7 @@ import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import type { ForumBreadcrumbs } from "#/queries/forums";
 import { Breadcrumbs } from "./-breadcrumbs";
+import styles from "./-post-form.module.css";
 
 const optionCheckboxes = [
 	{ name: "options.sticky", label: "Sticky thread" },
@@ -128,12 +129,12 @@ export function PostForm({
 	}
 
 	return (
-		<div id={pageId} className="post-form">
+		<div id={pageId} className={styles["post-form"]}>
 			<h1 className="headerbar" ref={hbMarginedHeader.ref}>
 				{headerTitle}
 			</h1>
 			<div
-				id="post-form-form-wrapper"
+				className={styles["post-form-form-wrapper"]}
 				style={{ marginInline: `${hbMarginedHeader.margin}px` }}
 			>
 				<Breadcrumbs forum={forum} />
@@ -178,7 +179,7 @@ export function PostForm({
 										onBlur={field.handleBlur}
 										onChange={(e) => field.handleChange(e.target.value)}
 										className={clsx(
-											"input-field",
+											styles["input-field"],
 											field.state.meta.isValid ? "" : "field-invalid",
 										)}
 									/>

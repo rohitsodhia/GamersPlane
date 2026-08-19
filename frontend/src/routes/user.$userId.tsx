@@ -4,6 +4,7 @@ import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { lastActivityText } from "#/lib/users";
 import { userQueryOptions } from "#/queries/users";
+import styles from "./user.$userId.module.css";
 
 export const Route = createFileRoute("/user/$userId")({
 	params: {
@@ -41,16 +42,16 @@ function RouteComponent() {
 				{user.username}
 			</h1>
 			<div
-				id="user-profile-struct"
+				className={styles["user-profile-struct"]}
 				style={{ marginInline: `${hbMaginedMain.margin}px` }}
 			>
-				<div className="avatar-wrapper">
+				<div className={styles["avatar-wrapper"]}>
 					<img src={user.avatar} className="avatar" alt={`${user.username} Avatar`} />
 					<div>
 						<a href={`/pms/send/?userID=${user.id}`}>Send Private Message</a>
 					</div>
 				</div>
-				<div id="user-profile-info">
+				<div className={styles["user-profile-info"]}>
 					{allowBan && (
 						<div className="align-right">
 							<button type="button" onClick={() => {}} className="skew-btn">
@@ -63,7 +64,7 @@ function RouteComponent() {
 						User Information
 					</h2>
 					<div
-						className="section-info"
+						className={styles["section-info"]}
 						style={{ marginInline: `${hbMaginedSub.margin}px` }}
 					>
 						<div>
@@ -101,7 +102,7 @@ function RouteComponent() {
 
 					<h2 className="headerbar hb-dark">Forum Stats</h2>
 					<div
-						className="section-info"
+						className={styles["section-info"]}
 						style={{ marginInline: `${hbMaginedSub.margin}px` }}
 					>
 						<div>
@@ -155,7 +156,7 @@ function RouteComponent() {
 							</p>
 						)}
 						<div
-							className="section-info"
+							className={styles["section-info"]}
 							style={{ marginInline: `${hbMaginedSub.margin}px` }}
 						>
 							{user.characters.systems.map((system, index) => (
@@ -174,7 +175,7 @@ function RouteComponent() {
 								</div>
 							))}
 							{user.characters.systems.length === 0 && (
-								<div className="no-items">
+								<div className={styles["no-items"]}>
 									{user.username} has not yet made any characters.
 								</div>
 							)}
@@ -190,7 +191,7 @@ function RouteComponent() {
 							</p>
 						)}
 						<div
-							className="section-info"
+							className={styles["section-info"]}
 							style={{ marginInline: `${hbMaginedSub.margin}px` }}
 						>
 							{user.gmStats.systems.map((system, index) => (
@@ -209,7 +210,7 @@ function RouteComponent() {
 								</div>
 							))}
 							{user.gmStats.systems.length === 0 && (
-								<div className="no-items">
+								<div className={styles["no-items"]}>
 									{user.username} has not yet run any games.
 								</div>
 							)}

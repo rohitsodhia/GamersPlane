@@ -1,0 +1,9 @@
+main {
+	position: relative;
+	flex-grow: 1;
+	margin-block: 20px;
+
+	& > div > *:first-child {
+		margin-top: 0;
+	}
+}

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ApiError } from "#/lib/api";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { register } from "#/queries/register";
+import styles from "./index.module.css";
 
 export const Route = createFileRoute("/register/")({ component: Register });
 
@@ -69,7 +70,7 @@ function Register() {
 				</p>
 			</div>
 			<form
-				id="register-form"
+				className={styles["register-form"]}
 				onSubmit={(e) => {
 					e.preventDefault();
 					form.handleSubmit();
@@ -98,12 +99,12 @@ function Register() {
 									onBlur={field.handleBlur}
 									onChange={(e) => field.handleChange(e.target.value)}
 									autoComplete="off"
-									className={field.state.meta.isValid ? "" : "field-invalid"}
+									className={field.state.meta.isValid ? "" : styles["field-invalid"]}
 								/>
 								<p
 									className={clsx(
-										"field-message",
-										field.state.meta.errors.length ? "field-error" : "",
+										styles["field-message"],
+										field.state.meta.errors.length ? styles["field-error"] : "",
 									)}
 								>
 									Username must be between 4 and 24 characters.
@@ -136,9 +137,9 @@ function Register() {
 									onBlur={field.handleBlur}
 									onChange={(e) => field.handleChange(e.target.value)}
 									autoComplete="email"
-									className={field.state.meta.isValid ? "" : "field-invalid"}
+									className={field.state.meta.isValid ? "" : styles["field-invalid"]}
 								/>
-								<p className="field-message">
+								<p className={styles["field-message"]}>
 									<FieldError message={field.state.meta.errors[0]} />
 								</p>
 							</div>
@@ -167,12 +168,12 @@ function Register() {
 									onBlur={field.handleBlur}
 									onChange={(e) => field.handleChange(e.target.value)}
 									autoComplete="off"
-									className={field.state.meta.isValid ? "" : "field-invalid"}
+									className={field.state.meta.isValid ? "" : styles["field-invalid"]}
 								/>
 								<p
 									className={clsx(
-										"field-message",
-										field.state.meta.errors.length ? "field-error" : "",
+										styles["field-message"],
+										field.state.meta.errors.length ? styles["field-error"] : "",
 									)}
 								>
 									Password must be at least 8 characters.
@@ -205,9 +206,9 @@ function Register() {
 									onBlur={field.handleBlur}
 									onChange={(e) => field.handleChange(e.target.value)}
 									autoComplete="off"
-									className={field.state.meta.isValid ? "" : "field-invalid"}
+									className={field.state.meta.isValid ? "" : styles["field-invalid"]}
 								/>
-								<p className="field-message">
+								<p className={styles["field-message"]}>
 									<FieldError message={field.state.meta.errors[0]} />
 								</p>
 							</div>

@@ -7,6 +7,7 @@ import { requireAuth } from "#/lib/auth-route";
 import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { deletePM, type PM, type PMBox, pmsQueryOptions } from "#/queries/pms";
+import styles from "./index.module.css";
 
 export const Route = createFileRoute("/pms/")({
 	beforeLoad: requireAuth,
@@ -31,19 +32,19 @@ function PMRow({
 	const displayedUser = isInbox ? pm.sender : pm.recipient;
 
 	return (
-		<div className={`pm ${read ? "read" : " unread"}`}>
-			<div className="del-col">
+		<div className={`${styles.pm} ${read ? "read" : styles.unread}`}>
+			<div className={styles["del-col"]}>
 				<button type="button" onClick={() => onDelete(pm.id)}>
 					<img src="/images/icons/cross.png" alt="Delete PM" />
 				</button>
 			</div>
-			<div className="info">
-				<div className="title">
+			<div className={styles.info}>
+				<div className={styles.title}>
 					<Link to="/pms/$pmId" params={{ pmId: String(pm.id) }}>
 						{pm.title}
 					</Link>
 				</div>
-				<div className="details">
+				<div className={styles.details}>
 					{isInbox ? "from" : "to"}{" "}
 					<Link
 						to="/user/$userId"
@@ -114,12 +115,18 @@ function RouteComponent() {
 					</div>
 				</div>
 			</div>
-			<div id="pms-list">
-				<div id="pms-list-header" className="headerbar hb-dark" ref={hbMargined.ref}>
+			<div className={styles["pms-list"]}>
+				<div
+					className={`headerbar hb-dark listed-items-header ${styles["pms-list-header"]}`}
+					ref={hbMargined.ref}
+				>
 					<div></div>
 					<div>Message</div>
 				</div>
-				<div id="pms-list-container" style={{ marginInline: `${hbMargined.margin}px` }}>
+				<div
+					className={styles["pms-list-container"]}
+					style={{ marginInline: `${hbMargined.margin}px` }}
+				>
 					<div>
 						{isPending && <div className="loading">Loading...</div>}
 						{data?.pms.map((pm) => (
@@ -131,7 +138,7 @@ function RouteComponent() {
 							/>
 						))}
 						{data && data.pms.length === 0 && (
-							<div className="no-results">No messages</div>
+							<div className={styles["no-results"]}>No messages</div>
 						)}
 					</div>
 					{data && (

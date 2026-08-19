@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Paginate from "#/components/Paginate";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { systemsQueryOptions } from "#/queries/systems";
+import styles from "./systems.module.css";
 
 export const Route = createFileRoute("/systems")({
 	component: RouteComponent,
@@ -38,12 +39,12 @@ function RouteComponent() {
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
 
 	return (
-		<div id="systems-list-page">
+		<div className={styles["systems-list-page"]}>
 			<h1 className="headerbar" ref={hbMargined.ref}>
 				Systems on Gamers' Plane
 			</h1>
 			<div style={{ marginInline: `${hbMargined.margin}px` }}>
-				<div id="systems-filter" className="two-column">
+				<div className={`${styles["systems-filter"]} two-column`}>
 					<form>
 						<label htmlFor="systems-search">Search:</label>
 						<input
@@ -69,11 +70,11 @@ function RouteComponent() {
 						/>
 					</div>
 				</div>
-				<div id="systems-list">
+				<div className={styles["systems-list"]}>
 					{paginatedSystems.map((system) => (
-						<div key={system.id} className="system">
-							<div className="left-col">
-								<div className="logo">
+						<div key={system.id} className={styles.system}>
+							<div className={styles["left-col"]}>
+								<div className={styles.logo}>
 									<img
 										src={`/images/logos/${system.id}.png`}
 										alt={`${system.name} Logo`}
@@ -134,7 +135,7 @@ function RouteComponent() {
 						</div>
 					))}
 					{paginatedSystems.length === 0 && (
-						<div className="no-results">No systems found</div>
+						<div className={styles["no-results"]}>No systems found</div>
 					)}
 				</div>
 				<div className="align-right">
