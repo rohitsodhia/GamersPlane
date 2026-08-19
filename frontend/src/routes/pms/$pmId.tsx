@@ -6,6 +6,7 @@ import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { deletePM, pmQueryOptions } from "#/queries/pms";
 import { PmHistory } from "#/routes/pms/-history-pm";
+import styles from "./$pmId.module.css";
 
 export const Route = createFileRoute("/pms/$pmId")({
 	beforeLoad: requireAuth,
@@ -53,7 +54,10 @@ function RouteComponent() {
 					Delete
 				</button>
 			</div>
-			<div id="display-pm" style={{ marginInline: `${hbMargined.margin}px` }}>
+			<div
+				className={styles["display-pm"]}
+				style={{ marginInline: `${hbMargined.margin}px` }}
+			>
 				<div>
 					<div>Title</div>
 					<div>{pm.title}</div>
@@ -86,7 +90,7 @@ function RouteComponent() {
 					<div>When</div>
 					<div>{formatDateTime(pm.datestamp)}</div>
 				</div>
-				<TiptapContent content={pm.message} className="message" />
+				<TiptapContent content={pm.message} className={styles.message} />
 			</div>
 
 			<PmHistory pms={pm.history} />

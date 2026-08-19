@@ -1,0 +1,36 @@
+.post-form {
+	h1 {
+		margin-bottom: 0.3em;
+	}
+
+	form {
+		display: grid;
+		grid-template-columns: 60px 1fr;
+		gap: 0.5em 1em;
+		margin-top: 1em;
+		align-items: center;
+	}
+
+	input.input-field {
+		width: 100%;
+	}
+
+	:global(.tiptap-editor),
+	form > div:last-child {
+		grid-column: span 2;
+	}
+
+	form > div:last-child {
+		margin-top: 0.5em;
+		text-align: center;
+	}
+
+	h2 {
+		margin-top: 0;
+		margin-bottom: 0.5em;
+	}
+}
+
+.post-form-form-wrapper {
+	margin-bottom: 1em;
+}

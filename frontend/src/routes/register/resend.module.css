@@ -1,0 +1,8 @@
+.resend-activation-form {
+	grid-template-columns: 100px 1fr;
+	width: fit-content;
+
+	label {
+		align-items: center;
+	}
+}

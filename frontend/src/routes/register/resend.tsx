@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { resendActivation } from "#/queries/register";
+import styles from "./resend.module.css";
 
 export const Route = createFileRoute("/register/resend")({
 	component: RouteComponent,
@@ -54,7 +55,7 @@ function RouteComponent() {
 					Please try this form at least once.
 				</p>
 				<form
-					id="resend-activation-form"
+					className={`auth-form ${styles["resend-activation-form"]}`}
 					onSubmit={(e) => {
 						e.preventDefault();
 						form.handleSubmit();

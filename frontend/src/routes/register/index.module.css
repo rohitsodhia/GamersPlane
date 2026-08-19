@@ -1,0 +1,44 @@
+.register-form {
+	display: grid;
+	grid-template-columns: max-content 300px;
+	gap: 0.5em 1em;
+	width: fit-content;
+	margin-inline: auto;
+	margin-top: 1em;
+
+	label {
+		margin-top: 0.4em;
+	}
+
+	p {
+		margin-block: 0;
+	}
+
+	& > div:last-of-type {
+		grid-column: span 2;
+		text-align: center;
+	}
+
+	input {
+		width: 100%;
+	}
+
+	& > div:not(:last-of-type) > p {
+		margin-top: 0.5em;
+		font-size: 0.8em;
+	}
+
+	.field-invalid {
+		border-color: var(--gp-red);
+	}
+
+	label,
+	.field-message {
+		height: 2em;
+	}
+
+	.field-error {
+		margin-top: 0.5em;
+		color: var(--gp-red);
+	}
+}

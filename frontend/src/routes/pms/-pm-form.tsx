@@ -10,6 +10,7 @@ import { useHbMargined } from "#/lib/use-hb-margined";
 import type { PM } from "#/queries/pms";
 import { sendPM } from "#/queries/pms";
 import { searchUserByUsername } from "#/queries/users";
+import styles from "./-pm-form.module.css";
 
 function FieldError({ message }: { message: string | undefined }) {
 	if (!message) return null;
@@ -80,12 +81,11 @@ export function PmForm({
 					</div>
 				)}
 				<form
-					id="send-pm-form"
 					onSubmit={(e) => {
 						e.preventDefault();
 						form.handleSubmit();
 					}}
-					className="grid-layout"
+					className={`grid-layout ${styles["send-pm-form"]}`}
 				>
 					<form.Field
 						name="username"
@@ -114,7 +114,7 @@ export function PmForm({
 										onChange={(e) => field.handleChange(e.target.value)}
 										autoComplete="off"
 										className={clsx(
-											"input-field",
+											styles["input-field"],
 											field.state.meta.isValid ? "" : "field-invalid",
 										)}
 									/>
@@ -149,7 +149,7 @@ export function PmForm({
 										onBlur={field.handleBlur}
 										onChange={(e) => field.handleChange(e.target.value)}
 										className={clsx(
-											"input-field",
+											styles["input-field"],
 											field.state.meta.isValid ? "" : "field-invalid",
 										)}
 									/>

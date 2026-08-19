@@ -27,6 +27,7 @@ import { createPost, deletePost, type Post, postsQueryOptions } from "#/queries/
 import { threadQueryOptions } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
 import { Breadcrumbs } from "./-breadcrumbs";
+import styles from "./thread.$threadId.module.css";
 
 export const Route = createFileRoute("/forums/thread/$threadId")({
 	params: {
@@ -81,8 +82,8 @@ function PostItem({
 }) {
 	const deleteConfirmId = `delete-post-confirm-${post.id}`;
 	return (
-		<div id={`post-${post.id}`} className={`post ${sideClass}`}>
-			<div className="post-author">
+		<div id={`post-${post.id}`} className={`${styles.post} ${styles[sideClass] ?? ""}`}>
+			<div className={styles["post-author"]}>
 				<Link
 					to="/user/$userId"
 					params={{ userId: String(post.author.id) }}
@@ -91,7 +92,7 @@ function PostItem({
 					<img
 						src={post.author.avatar}
 						alt={post.author.username}
-						className="user-avatar"
+						className={styles["user-avatar"]}
 					/>
 				</Link>
 				<Link
@@ -102,24 +103,26 @@ function PostItem({
 					{post.author.username}
 				</Link>
 			</div>
-			<div className="post-content">
+			<div className={styles["post-content"]}>
 				<ChatPoint />
-				<div className="post-bubble">
-					<div className="post-header">
+				<div className={styles["post-bubble"]}>
+					<div className={styles["post-header"]}>
 						<Link
 							to="/forums/thread/$threadId"
 							params={{ threadId }}
 							search={{ page }}
 							hash={`post-${post.id}`}
-							className="post-title"
+							className={styles["post-title"]}
 						>
 							{post.title}
 						</Link>
-						<span className="post-datestamp">{formatDateTime(post.datestamp)}</span>
+						<span className={styles["post-datestamp"]}>
+							{formatDateTime(post.datestamp)}
+						</span>
 					</div>
 					<TiptapContent content={post.body} className="post-body" />
 				</div>
-				<div className="post-actions">
+				<div className={styles["post-actions"]}>
 					<button type="button" className="quote-post" onClick={() => onQuote(post)}>
 						Quote
 					</button>
@@ -141,7 +144,7 @@ function PostItem({
 			<div
 				id={deleteConfirmId}
 				popover="auto"
-				className="confirm-popover"
+				className={styles["confirm-popover"]}
 				onClick={(e) => {
 					if (e.target instanceof HTMLElement) {
 						e.currentTarget.hidePopover();
@@ -153,7 +156,7 @@ function PostItem({
 						? "Are you sure you want to delete this thread? This will delete the entire thread and all of its posts."
 						: "Are you sure you want to delete this post?"}
 				</p>
-				<div className="confirm-popover-actions">
+				<div className={styles["confirm-popover-actions"]}>
 					<button type="button" className="skew-btn" onClick={() => onDelete(post)}>
 						Yes
 					</button>
@@ -258,7 +261,7 @@ function RouteComponent() {
 	};
 
 	return (
-		<div id="thread-page">
+		<div className={styles["thread-page"]}>
 			<h1 className="headerbar" ref={hbMarginedHeader.ref}>
 				{thread.title}
 			</h1>
@@ -274,7 +277,7 @@ function RouteComponent() {
 					<Paginate numItems={count} current={page} onPageChange={setPage} />
 				</div>
 
-				<div id="thread-posts">
+				<div className={styles["thread-posts"]}>
 					{posts.map((post, index) => (
 						<PostItem
 							key={post.id}
@@ -298,7 +301,7 @@ function RouteComponent() {
 				Quick Reply
 			</h2>
 			<form
-				id="quick-reply-form"
+				className={styles["quick-reply-form"]}
 				ref={quickReplyRef}
 				style={{ marginInline: hbMarginedReply.margin }}
 				onSubmit={(e) => {

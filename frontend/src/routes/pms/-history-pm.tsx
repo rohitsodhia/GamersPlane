@@ -2,16 +2,17 @@ import { Link } from "@tanstack/react-router";
 import { TiptapContent } from "#/components/TiptapContent";
 import { formatDateTime } from "#/lib/format-date";
 import type { PM } from "#/queries/pms";
+import styles from "./-history-pm.module.css";
 
 function HistoryPM({ pm, isFirst }: { pm: PM; isFirst: boolean }) {
 	return (
-		<div className={`history-pm${isFirst ? " first" : ""}`}>
-			<p className="title">
+		<div className={`${styles["history-pm"]}${isFirst ? ` ${styles.first}` : ""}`}>
+			<p className={styles.title}>
 				<Link to="/pms/$pmId" params={{ pmId: String(pm.id) }}>
 					{pm.title}
 				</Link>
 			</p>
-			<p className="user">
+			<p className={styles.user}>
 				from{" "}
 				<Link
 					to="/user/$userId"
@@ -22,7 +23,7 @@ function HistoryPM({ pm, isFirst }: { pm: PM; isFirst: boolean }) {
 				</Link>{" "}
 				on <span>{formatDateTime(pm.datestamp)}</span>
 			</p>
-			<p className="user">
+			<p className={styles.user}>
 				to{" "}
 				<Link
 					to="/user/$userId"
@@ -41,7 +42,7 @@ export function PmHistory({ pms }: { pms: PM[] }) {
 	if (pms.length === 0) return null;
 
 	return (
-		<div id="pm-history-container">
+		<div className={styles["pm-history-container"]}>
 			{pms.map((pm, index) => (
 				<HistoryPM key={pm.id} pm={pm} isFirst={index === 0} />
 			))}

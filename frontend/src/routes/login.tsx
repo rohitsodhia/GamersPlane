@@ -6,6 +6,7 @@ import { z } from "zod";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { login } from "#/queries/login";
 import { useAuthStore } from "#/stores/auth";
+import styles from "./login.module.css";
 
 const BLOCKED_REDIRECTS = /^\/register(\/|$)|^\/activate(\/|$)/;
 
@@ -54,7 +55,7 @@ function RouteComponent() {
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
 
 	return (
-		<div id="login-page">
+		<div className={styles["login-page"]}>
 			<h1 className="headerbar" ref={hbMargined.ref}>
 				Login
 			</h1>
@@ -65,7 +66,7 @@ function RouteComponent() {
 					</p>
 				)}
 				<form
-					id="login-form"
+					className={`auth-form ${styles["login-form"]}`}
 					onSubmit={(e) => {
 						e.preventDefault();
 						form.handleSubmit();

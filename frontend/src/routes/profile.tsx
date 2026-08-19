@@ -13,6 +13,7 @@ import {
 	updateUserPassword,
 	updateUserSettings,
 } from "#/queries/me";
+import styles from "./profile.module.css";
 
 export const Route = createFileRoute("/profile")({
 	beforeLoad: requireAuth,
@@ -90,7 +91,7 @@ function RouteComponent() {
 	const securityHbMargined = useHbMargined<HTMLHeadingElement>();
 
 	return (
-		<div id="edit-profile-page">
+		<div className={styles["edit-profile-page"]}>
 			<h1 className="headerbar">Edit Settings</h1>
 			<h2 className="headerbar" ref={profileHbMargined.ref}>
 				Profile
@@ -113,7 +114,7 @@ function RouteComponent() {
 						}).format(me.joinDate)}
 					</div>
 				</div>
-				<div id="edit-settings_avatar">
+				<div className={styles["edit-settings_avatar"]}>
 					<label htmlFor="edit-settings_avatar-file">Avatar</label>
 					<div>
 						<div id="edit-settings_avatar-disp">
@@ -410,12 +411,11 @@ function RouteComponent() {
 				Security
 			</h2>
 			<form
-				id="security-form"
 				onSubmit={(e) => {
 					e.preventDefault();
 					securityForm.handleSubmit();
 				}}
-				className="grid-layout"
+				className={`grid-layout ${styles["security-form"]}`}
 				style={{ marginInline: `${securityHbMargined.margin}px` }}
 			>
 				<div className="span-two-col">

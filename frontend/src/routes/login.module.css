@@ -1,0 +1,17 @@
+.login-page {
+	max-width: 500px;
+	margin-inline: auto;
+}
+
+.login-form {
+	grid-template-columns: 150px 1fr;
+	gap: 0.5em 1em;
+
+	label {
+		align-content: center;
+	}
+
+	input {
+		width: 100%;
+	}
+}
