@@ -93,6 +93,10 @@ Biome uses tabs for indentation and double quotes for JS/TS strings. The `routeT
 
 Any time you need to interact with the running frontend dev server — via Claude in Chrome, curl, or any other CLI tool — always target `http://localhost:3000`. If nothing is running on port 3000, prompt the user to start it (`npm run dev` in `frontend/`) rather than starting it yourself. Never kill or restart the server on port 3000.
 
+## Testing Workflow
+
+After writing or substantially changing a suite of tests (a new test file, or a batch of new tests added to an existing one), spawn a subagent to audit the suite before considering the work done. Ask it to flag tests that are low-value: ones that just re-assert a stdlib/framework guarantee rather than our code's behavior, trivial wrappers that don't exercise any real logic or branching, and redundant tests that cover the exact same code path as another test with no meaningfully different input or assertion. It should distinguish that from tests that look similar but exercise genuinely distinct branches (e.g. keep-highest vs. keep-lowest, or three variants of a type flag) — those should be kept. Have it report a verdict (KEEP/CUT/MERGE) per test rather than editing anything itself, then apply the agreed-on edits and re-run the suite.
+
 ## API Architecture
 
 ### App structure
