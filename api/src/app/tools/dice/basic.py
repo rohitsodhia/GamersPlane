@@ -60,7 +60,11 @@ class BasicRoll(Roll):
 
             terms: list[BasicDiceTerm] = []
             modifier = 0
+            pos = 0
             for match in TERM_RE.finditer(expression):
+                if match.start() != pos:
+                    raise ValueError(f"Invalid dice expression: {expression}")
+                pos = match.end()
                 sign = -1 if match.group("sign") == "-" else 1
                 if match.group("sides") is not None:
                     sides = int(match.group("sides"))
@@ -85,6 +89,9 @@ class BasicRoll(Roll):
                     self._dice.setdefault(sides, BasicDie(sides))
                 elif match.group("mod") is not None:
                     modifier += sign * int(match.group("mod"))
+
+            if pos != len(expression):
+                raise ValueError(f"Invalid dice expression: {expression}")
 
             if terms or modifier:
                 self._groups.append(

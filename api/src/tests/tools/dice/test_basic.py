@@ -110,6 +110,13 @@ class TestBasicRollParsing:
         with pytest.raises(ValueError):
             roll.new_roll("0d6")
 
+    @pytest.mark.parametrize("expression", ["3d6+4:2l", "2d6x"])
+    def test_invalid_syntax_raises(self, expression):
+        roll = BasicRoll()
+
+        with pytest.raises(ValueError):
+            roll.new_roll(expression)
+
 
 class TestBasicRollRolling:
     def test_simple_roll_sums_dice_and_modifier(self, monkeypatch):
