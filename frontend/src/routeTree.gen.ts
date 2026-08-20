@@ -19,6 +19,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
 import { Route as PmsIndexRouteImport } from './routes/pms/index'
 import { Route as UserUserIdRouteImport } from './routes/user.$userId'
+import { Route as ToolsDiceRouteImport } from './routes/tools/dice'
+import { Route as ToolsCardsRouteImport } from './routes/tools/cards'
 import { Route as RegisterSuccessRouteImport } from './routes/register/success'
 import { Route as RegisterResendRouteImport } from './routes/register/resend'
 import { Route as PmsSendRouteImport } from './routes/pms/send'
@@ -77,6 +79,16 @@ const PmsIndexRoute = PmsIndexRouteImport.update({
 const UserUserIdRoute = UserUserIdRouteImport.update({
   id: '/user/$userId',
   path: '/user/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsDiceRoute = ToolsDiceRouteImport.update({
+  id: '/tools/dice',
+  path: '/tools/dice',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsCardsRoute = ToolsCardsRouteImport.update({
+  id: '/tools/cards',
+  path: '/tools/cards',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterSuccessRoute = RegisterSuccessRouteImport.update({
@@ -140,6 +152,8 @@ export interface FileRoutesByFullPath {
   '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/tools/cards': typeof ToolsCardsRoute
+  '/tools/dice': typeof ToolsDiceRoute
   '/user/$userId': typeof UserUserIdRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
@@ -161,6 +175,8 @@ export interface FileRoutesByTo {
   '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/tools/cards': typeof ToolsCardsRoute
+  '/tools/dice': typeof ToolsDiceRoute
   '/user/$userId': typeof UserUserIdRoute
   '/pms': typeof PmsIndexRoute
   '/register': typeof RegisterIndexRoute
@@ -183,6 +199,8 @@ export interface FileRoutesById {
   '/pms/send': typeof PmsSendRoute
   '/register/resend': typeof RegisterResendRoute
   '/register/success': typeof RegisterSuccessRoute
+  '/tools/cards': typeof ToolsCardsRoute
+  '/tools/dice': typeof ToolsDiceRoute
   '/user/$userId': typeof UserUserIdRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
@@ -206,6 +224,8 @@ export interface FileRouteTypes {
     | '/pms/send'
     | '/register/resend'
     | '/register/success'
+    | '/tools/cards'
+    | '/tools/dice'
     | '/user/$userId'
     | '/pms/'
     | '/register/'
@@ -227,6 +247,8 @@ export interface FileRouteTypes {
     | '/pms/send'
     | '/register/resend'
     | '/register/success'
+    | '/tools/cards'
+    | '/tools/dice'
     | '/user/$userId'
     | '/pms'
     | '/register'
@@ -248,6 +270,8 @@ export interface FileRouteTypes {
     | '/pms/send'
     | '/register/resend'
     | '/register/success'
+    | '/tools/cards'
+    | '/tools/dice'
     | '/user/$userId'
     | '/pms/'
     | '/register/'
@@ -270,6 +294,8 @@ export interface RootRouteChildren {
   PmsSendRoute: typeof PmsSendRoute
   RegisterResendRoute: typeof RegisterResendRoute
   RegisterSuccessRoute: typeof RegisterSuccessRoute
+  ToolsCardsRoute: typeof ToolsCardsRoute
+  ToolsDiceRoute: typeof ToolsDiceRoute
   UserUserIdRoute: typeof UserUserIdRoute
   PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
@@ -348,6 +374,20 @@ declare module '@tanstack/react-router' {
       path: '/user/$userId'
       fullPath: '/user/$userId'
       preLoaderRoute: typeof UserUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/dice': {
+      id: '/tools/dice'
+      path: '/tools/dice'
+      fullPath: '/tools/dice'
+      preLoaderRoute: typeof ToolsDiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/cards': {
+      id: '/tools/cards'
+      path: '/tools/cards'
+      fullPath: '/tools/cards'
+      preLoaderRoute: typeof ToolsCardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register/success': {
@@ -430,6 +470,8 @@ const rootRouteChildren: RootRouteChildren = {
   PmsSendRoute: PmsSendRoute,
   RegisterResendRoute: RegisterResendRoute,
   RegisterSuccessRoute: RegisterSuccessRoute,
+  ToolsCardsRoute: ToolsCardsRoute,
+  ToolsDiceRoute: ToolsDiceRoute,
   UserUserIdRoute: UserUserIdRoute,
   PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,

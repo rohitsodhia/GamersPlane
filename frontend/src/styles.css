@@ -48,6 +48,38 @@ body {
 	line-height: var(--line-height);
 }
 
+main {
+	position: relative;
+	flex-grow: 1;
+	margin-block: 20px;
+
+	& > div > *:first-child {
+		margin-top: 0;
+	}
+}
+
+.loading-spinner {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.loading-spinner-top-cube {
+	animation: loading-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes loading-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0;
+	}
+}
+
 input:not([type="image"]),
 select,
 textarea,
@@ -55,6 +87,7 @@ textarea,
 	border: 1px solid light-dark(#666, #888);
 	border-radius: 0.3em;
 	background-color: light-dark(#eee, #444);
+	outline: none;
 }
 
 input:not([type="image"]),
@@ -158,7 +191,7 @@ p {
 
 h1.headerbar,
 h2.headerbar {
-	font-family: "AgencyFB";
+	font-family: "AgencyFB", sans-serif;
 	margin-block: 0.7em;
 	padding-inline: calc(
 		var(--hb-height-resolved) *
@@ -188,7 +221,7 @@ h2.headerbar {
 .skew-btn {
 	display: inline-block;
 	background: transparent;
-	font-family: Neuropol;
+	font-family: Neuropol, sans-serif;
 	font-size: 1.3em;
 	outline: none;
 
@@ -216,7 +249,13 @@ h2.headerbar {
 	&::before {
 		content: "";
 		position: absolute;
-		inset: 0;
+		/* Bottom is extended 1px past the box (rather than flush) because
+		   clip-path gets rasterized in its own layer, and on fractional-pixel
+		   heights that layer's bottom edge can round down a device pixel
+		   short of the box, leaving a hairline gap against whatever sits
+		   directly below (e.g. a headerbar). The 1px overdraw is invisible
+		   since it's a solid fill either way. */
+		inset: 0 0 -1px;
 		z-index: -1;
 		background: #000;
 		clip-path: polygon(

@@ -1,0 +1,33 @@
+.roll {
+	margin: 0;
+	padding: 0.5em 1em;
+	font-size: 1.15em;
+	line-height: 1.3em;
+
+	p {
+		margin: 0.3em 0 0;
+	}
+}
+
+.roll-string {
+	margin: 0;
+}
+
+.dropped {
+	text-decoration: line-through;
+	opacity: 0.5;
+}
+
+.rerolled {
+	text-decoration: line-through;
+}
+
+.roll-total {
+	font-weight: bold;
+}
+
+.dice-row {
+	display: flex;
+	gap: 10px;
+	margin: 0.3em 0;
+}

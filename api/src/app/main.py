@@ -29,6 +29,7 @@ from app.schemas import ErrorItem
 from app.systems.legacy_routes import systems as legacy_systems
 from app.systems.routes import systems
 from app.threads.routes import threads
+from app.tools.routes import tools
 from app.users.routes import users
 
 seed()
@@ -142,5 +143,6 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(forums)
     app.include_router(threads)
     app.include_router(posts)
+    app.include_router(tools)
 
     return app
