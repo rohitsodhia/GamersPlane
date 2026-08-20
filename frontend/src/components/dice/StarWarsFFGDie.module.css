@@ -1,0 +1,24 @@
+.window {
+	position: relative;
+	width: 25px;
+	height: 50px;
+	overflow: hidden;
+}
+
+.background {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 175px;
+	height: 50px;
+	max-width: none;
+}
+
+.face {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 150px;
+	height: 150px;
+	max-width: none;
+}
