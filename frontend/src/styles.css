@@ -41,20 +41,46 @@ html {
 }
 
 body {
-	display: flex;
-	flex-direction: column;
+	display: grid;
+	grid-template-columns: [full-width-start] 1fr [content-start] 1080px [content-end] 1fr [full-width-end];
 	background: var(--bg);
 	color: var(--text);
 	line-height: var(--line-height);
+
+	& > * {
+		grid-column: full-width;
+	}
+}
+
+@media only screen and (max-width: calc(1080px + 2rem)) {
+	body {
+		grid-template-columns: [full-width-start] 2rem [content-start] 1fr [content-end] 2rem [full-width-end];
+	}
 }
 
 main {
 	position: relative;
-	flex-grow: 1;
 	margin-block: 20px;
+
+	&.no-gap {
+		margin-block: 0;
+	}
 
 	& > div > *:first-child {
 		margin-top: 0;
+	}
+}
+
+.page-wrap {
+	display: grid;
+	grid-template-columns: subgrid;
+
+	& > *:not(.full-width) {
+		grid-column: content;
+	}
+
+	& > .full-width {
+		grid-column: full-width;
 	}
 }
 
@@ -120,11 +146,6 @@ p {
 	margin-block: 0.5em;
 }
 
-.page-wrap {
-	width: min(1080px, calc(100% - 2rem));
-	margin-inline: auto;
-}
-
 .banner {
 	padding: 0.5em 0.8em;
 	margin-bottom: 1em;
@@ -149,6 +170,7 @@ p {
 
 	/* clip-path: polygon(1em 0%, 100% 0%, calc(100% - 1em) 100%, 0% 100%); */
 	position: relative;
+	isolation: isolate;
 	margin-inline: calc(var(--hb-height-resolved) * 0.5 * tan(var(--skew-angle)));
 	padding-inline: calc(var(--hb-height-resolved) * 0.5 * tan(var(--skew-angle)));
 	line-height: var(--line-height);

@@ -1,9 +1,9 @@
-footer {
+#site-footer {
 	background-color: light-dark(#333, #444);
 	border-top: 5px solid light-dark(#aaa, #666);
 	padding-bottom: 1em;
 
-	:global(.page-wrap) {
+	& > div {
 		display: flex;
 		gap: 3em;
 	}

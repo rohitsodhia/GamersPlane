@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import clsx from "clsx";
 import { useCallback, useRef } from "react";
 import ThemeToggle from "#/components/ThemeToggle";
 import { meHeaderQueryOptions, meQueryOptions } from "#/queries/me";
@@ -61,8 +62,11 @@ function Header() {
 	};
 
 	return (
-		<header className={location.pathname === "/" ? styles.landing : ""}>
-			<div className="page-wrap">
+		<header
+			id={styles["site-header"]}
+			className={clsx("page-wrap", location.pathname === "/" ? styles.landing : "")}
+		>
+			<div>
 				<Link className={styles["header-logo"]} to="/">
 					<img
 						src={`/images/${logo_path}${theme === "dark" ? "_dark" : ""}.png`}

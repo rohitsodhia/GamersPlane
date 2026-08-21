@@ -1,4 +1,4 @@
-header {
+#site-header {
 	position: sticky;
 	top: 0;
 	z-index: 100;
@@ -6,17 +6,18 @@ header {
 	background: light-dark(#ddd, #444);
 	box-shadow: 0 1px 20px 1px #777;
 	height: 70px;
+	grid-template-rows: 100%;
 
 	&.landing {
 		height: 120px;
 	}
 
-	& > :global(.page-wrap),
-	& > :global(.page-wrap) nav > ul {
+	& > div,
+	& > div nav > ul {
 		height: 100%;
 	}
 
-	& > :global(.page-wrap) {
+	& > div {
 		display: flex;
 		padding-block: 0.5em;
 	}
