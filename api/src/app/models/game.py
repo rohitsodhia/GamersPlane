@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING
+import re
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal, cast
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -11,6 +13,17 @@ from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models import Forum, Role, System, User
+
+POST_FREQUENCY_PATTERN = re.compile(r"^([1-9]\d?)/([dw])$")
+
+
+@dataclass(frozen=True)
+class PostFrequency:
+    times_per: int
+    per_period: Literal["d", "w"]
+
+    def __str__(self) -> str:
+        return f"{self.times_per}/{self.per_period}"
 
 
 class Game(Base, SoftDeleteMixin, TimestampMixin):
@@ -38,7 +51,7 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
     end: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    post_frequency: Mapped[str] = mapped_column(String(4))
+    _post_frequency: Mapped[str] = mapped_column("post_frequency", String(4))
     num_players: Mapped[int] = mapped_column()
     chars_per_player: Mapped[int] = mapped_column(default=1)
     description: Mapped[str | None] = mapped_column(Text(), nullable=True)
@@ -52,3 +65,22 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
     )
     public: Mapped[bool] = mapped_column()
     retired: Mapped[datetime.datetime | None] = mapped_column(nullable=True)
+
+    @property
+    def post_frequency(self) -> PostFrequency:
+        match = POST_FREQUENCY_PATTERN.match(self._post_frequency)
+        if not match:
+            raise ValueError(
+                f"invalid post_frequency in database: {self._post_frequency!r}"
+            )
+        per_period = cast(Literal["d", "w"], match.group(2))
+        return PostFrequency(int(match.group(1)), per_period)
+
+    @post_frequency.setter
+    def post_frequency(self, value: PostFrequency | str) -> None:
+        value = str(value)
+        if not POST_FREQUENCY_PATTERN.match(value):
+            raise ValueError(
+                f"post_frequency must match ##/[dw] (e.g. '3/w'), got {value!r}"
+            )
+        self._post_frequency = value

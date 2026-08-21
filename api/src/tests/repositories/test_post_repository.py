@@ -316,7 +316,7 @@ class TestCountByAuthor:
             title="Test Game",
             system=system,
             gm=gm,
-            post_frequency="1d",
+            post_frequency="1/d",
             num_players=4,
             root_forum=root_forum,
             role=role,
