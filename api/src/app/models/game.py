@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, cast
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.helpers.enums import LabelEnum, LabelEnumType
@@ -54,8 +54,8 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
     _post_frequency: Mapped[str] = mapped_column("post_frequency", String(4))
     num_players: Mapped[int] = mapped_column()
     chars_per_player: Mapped[int] = mapped_column(default=1)
-    description: Mapped[str | None] = mapped_column(Text(), nullable=True)
-    char_gen_info: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    description: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
+    char_gen_info: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
     root_forum_id: Mapped[int] = mapped_column(ForeignKey("forums.id"))
     root_forum: Mapped[Forum] = relationship(foreign_keys=[root_forum_id])
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
