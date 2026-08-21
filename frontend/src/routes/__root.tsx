@@ -7,6 +7,7 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import clsx from "clsx";
 import { useEffect, useState } from "react";
 import Footer from "#/components/Footer";
 import Header from "#/components/Header";
@@ -17,6 +18,7 @@ import { meHeaderQueryOptions, meQueryOptions } from "#/queries/me";
 import { referralLinksQueryOptions } from "#/queries/referralLinks";
 import { refreshToken } from "#/queries/refresh";
 import { useAuthStore } from "#/stores/auth";
+import { useLayoutStore } from "#/stores/layout";
 import appCss from "#/styles.css?url";
 
 const REFRESH_THRESHOLD_MS = 1000 * 60 * 60 * 24 * 2; // 2 days
@@ -89,6 +91,7 @@ function RootLayout() {
 	const token = useAuthStore((state) => state.token);
 	const { isFetched: meFetched } = useQuery({ ...meQueryOptions, enabled: !!token });
 	const { isFetched: referralLinksFetched } = useQuery(referralLinksQueryOptions);
+	const noGap = useLayoutStore((state) => state.noGap);
 
 	const [mounted, setMounted] = useState(false);
 	useEffect(() => setMounted(true), []);
@@ -102,7 +105,7 @@ function RootLayout() {
 	return (
 		<>
 			{authResolved && <Header />}
-			<main className="page-wrap">
+			<main className={clsx("page-wrap", noGap && "no-gap")}>
 				<Outlet />
 			</main>
 			{referralLinksResolved && <Footer />}

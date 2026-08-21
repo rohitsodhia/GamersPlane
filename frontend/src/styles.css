@@ -170,6 +170,7 @@ p {
 
 	/* clip-path: polygon(1em 0%, 100% 0%, calc(100% - 1em) 100%, 0% 100%); */
 	position: relative;
+	isolation: isolate;
 	margin-inline: calc(var(--hb-height-resolved) * 0.5 * tan(var(--skew-angle)));
 	padding-inline: calc(var(--hb-height-resolved) * 0.5 * tan(var(--skew-angle)));
 	line-height: var(--line-height);

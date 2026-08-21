@@ -1,0 +1,313 @@
+.landing-page {
+	font-family: "OpenSans", "LucidaGrande", sans-serif;
+	color: #000;
+	line-height: 1.3em;
+}
+
+.landing-top {
+	display: grid;
+	grid-template-columns: subgrid;
+	background: url("/images/landing_top_bg.jpg") top center / cover no-repeat;
+
+	& > * {
+		grid-column: content;
+	}
+}
+
+.hero {
+	padding: 30px 0 30px 100px;
+
+	h1,
+	h2 {
+		margin: 0;
+		font-family: "OpenSans", "LucidaGrande", sans-serif;
+		color: #fff;
+		text-align: left;
+		line-height: 1em;
+	}
+
+	h1 {
+		margin-bottom: 0.5em;
+		font-size: 40px;
+		font-weight: normal;
+	}
+
+	h2 {
+		margin-left: 50px;
+		font-size: 26px;
+	}
+}
+
+.landing-top-content {
+	padding-bottom: 30px;
+}
+
+.white-box {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 20px 10px;
+	background: #fff;
+	margin: 0 auto;
+
+	h2 {
+		margin-bottom: 0;
+
+		&::before {
+			background-color: var(--gp-orange);
+		}
+	}
+
+	& > * {
+		width: 50%;
+		padding: 0 20px;
+	}
+}
+
+.games-header {
+	margin-bottom: 0;
+	font-weight: normal;
+	text-align: center;
+}
+
+.system-search {
+	padding: 6px 12px;
+	border: 2px solid #bbb;
+	border-top: 0;
+
+	input {
+		width: 100%;
+		border: none;
+		outline: none;
+		background: none;
+	}
+}
+
+.game {
+	padding: 8px 30px;
+	border-top: 1px solid #ccc;
+
+	&.first {
+		border-top: none;
+	}
+
+	.title {
+		margin-bottom: 5px;
+		font-weight: bold;
+	}
+
+	.info {
+		margin-left: 20px;
+	}
+
+	.system {
+		text-decoration: underline;
+	}
+}
+
+.signup {
+	& > * {
+		text-align: center;
+	}
+
+	a {
+		font-size: 1.4em;
+	}
+
+	.register {
+		font-size: 2em;
+	}
+
+	.login::before,
+	.login::after {
+		background-color: #742;
+	}
+
+	p {
+		margin-bottom: 1.4em;
+	}
+}
+
+.what-is {
+	display: flex;
+	flex-wrap: wrap;
+	padding: 1rem;
+	margin-inline: auto;
+}
+
+.what-is-logos {
+	position: relative;
+	height: 410px;
+	width: 590px;
+
+	& > * {
+		position: absolute;
+	}
+}
+
+.logo-dnd5 {
+	top: 40px;
+	left: 34px;
+	width: 309px;
+}
+
+.logo-thestrange {
+	top: 17px;
+	left: 387px;
+	width: 167px;
+}
+
+.logo-pathfinder {
+	top: 126px;
+	left: 82px;
+	width: 195px;
+}
+
+.logo-starwarsffg {
+	top: 102px;
+	left: 336px;
+	width: 173px;
+}
+
+.logo-13thage {
+	top: 227px;
+	left: 142px;
+	width: 89px;
+}
+
+.logo-numenera {
+	top: 222px;
+	left: 270px;
+	width: 280px;
+}
+
+.logo-shadowrun5 {
+	top: 331px;
+	left: 39px;
+	width: 191px;
+}
+
+.logo-fate {
+	top: 325px;
+	left: 286px;
+	width: 113px;
+}
+
+.logo-savageworlds {
+	top: 295px;
+	left: 433px;
+	width: 121px;
+}
+
+.what-is-text {
+	width: calc(100% - 600px);
+
+	h2 {
+		margin-bottom: 0.5em;
+		font-family: "AgencyFB", sans-serif;
+		font-size: 48px;
+		line-height: 1em;
+	}
+
+	p {
+		margin: 1.2em 0 0;
+		line-height: 1.4em;
+	}
+}
+
+.features {
+	display: grid;
+	grid-template-columns: subgrid;
+	padding-block: 60px;
+	background-color: #ddd;
+}
+
+.features-list {
+	grid-column: content;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	column-gap: 30px;
+	align-items: center;
+
+	& > * {
+		position: relative;
+		height: 100%;
+		padding: 50px 30px 30px;
+		box-sizing: border-box;
+		border: 1px solid #dbb;
+		background-color: #fff;
+	}
+}
+
+.icon {
+	position: absolute;
+	top: -36px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 72px;
+	height: 72px;
+	background-color: #c31d29;
+	border-radius: 36px;
+	text-align: center;
+	line-height: 68px;
+
+	i {
+		display: inline-block;
+		vertical-align: middle;
+		color: #fff;
+		font-size: 3rem;
+	}
+}
+
+.features-list h3 {
+	font-family: "OpenSans", "LucidaGrande", sans-serif;
+	font-size: 20px;
+	text-transform: uppercase;
+	font-weight: bold;
+	text-align: center;
+}
+
+.features-list p {
+	margin: 0;
+	font-size: 1.2em;
+	line-height: 1.5em;
+	text-align: center;
+}
+
+@media only screen and (max-width: 600px) {
+	.white-box {
+		flex-wrap: wrap;
+
+		.signup {
+			order: 1;
+			width: 100%;
+		}
+
+		.latest-games {
+			order: 2;
+			width: 100%;
+		}
+	}
+
+	.hero {
+		margin-left: 30px;
+		padding-left: 0;
+	}
+}
+
+@media only screen and (max-width: 800px) {
+	.features-list {
+		grid-template-columns: 1fr;
+		row-gap: 50px;
+	}
+}
+
+@media only screen and (max-width: 960px) {
+	.what-is-logos {
+		display: none;
+	}
+
+	.what-is-text {
+		width: 100%;
+	}
+}
