@@ -4,6 +4,7 @@ from .game import Game
 from .game_allowed_systems import GameAllowedSystem
 from .genre import Genre
 from .permission import Permission
+from .player import Player
 from .pm import PM
 from .post import Post
 from .publisher import Publisher
