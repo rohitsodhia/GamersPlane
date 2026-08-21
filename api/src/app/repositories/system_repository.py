@@ -19,6 +19,15 @@ class SystemRepository:
             query = query.where(System.enabled)
         return await self.db_session.scalars(query)
 
+    async def get_by_id(self, id: str) -> System | None:
+        return await self.db_session.get(System, id)
+
+    async def get_by_ids(self, ids: list[str]) -> list[System]:
+        systems = await self.db_session.scalars(
+            select(System).where(System.id.in_(ids))
+        )
+        return list(systems)
+
     async def add(
         self,
         id: str,
