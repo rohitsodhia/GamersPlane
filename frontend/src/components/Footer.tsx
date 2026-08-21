@@ -1,14 +1,14 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { referralLinksQueryOptions } from "#/queries/referralLinks";
-import "./Footer.module.css";
+import styles from "./Footer.module.css";
 
 function Footer() {
 	const { data } = useSuspenseQuery(referralLinksQueryOptions);
 
 	return (
-		<footer>
-			<div className="page-wrap">
+		<footer id={styles["site-footer"]} className="page-wrap">
+			<div>
 				<ul>
 					<li>
 						<Link to="/tools">Tools</Link>
