@@ -32,15 +32,14 @@ async def create_game(
         game_data.system_id,
         game_data.allowed_char_sheets,
         principal.id,
-        game_data.start,
-        game_data.end,
         game_data.post_frequency,
         game_data.num_players,
         game_data.chars_per_player,
         game_data.description,
         game_data.char_gen_info,
-        game_data.status,
         game_data.public,
+        game_data.recruitment_thread_id,
+        game_data.advanced_options,
     )
 
     player_repository = PlayerRepository(db_session, principal=principal)

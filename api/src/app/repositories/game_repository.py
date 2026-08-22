@@ -1,4 +1,3 @@
-import datetime
 import uuid
 
 from sqlalchemy import select
@@ -21,15 +20,14 @@ class GameRepository:
         system_id: str,
         allowed_char_sheets: list[str],
         gm_id: int,
-        start: datetime.datetime,
-        end: datetime.datetime | None,
         post_frequency: str,
         num_players: int,
         chars_per_player: int,
         description: dict | None,
         char_gen_info: dict | None,
-        status: Game.Statuses,
         public: bool,
+        recruitment_thread_id: int | None,
+        advanced_options: dict | None,
     ) -> Game:
         char_sheets = await self.db_session.scalars(
             select(System).where(System.id.in_(allowed_char_sheets))
@@ -53,16 +51,15 @@ class GameRepository:
             system_id=system_id,
             allowed_char_sheets=list(char_sheets),
             gm_id=gm_id,
-            start=start,
-            end=end,
             num_players=num_players,
             chars_per_player=chars_per_player,
             description=description,
             char_gen_info=char_gen_info,
             root_forum_id=root_forum.id,
             role_id=player_role.id,
-            status=status,
             public=public,
+            recruitment_thread_id=recruitment_thread_id,
+            advanced_options=advanced_options,
         )
         game.post_frequency = post_frequency
         self.db_session.add(game)

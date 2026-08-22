@@ -18,6 +18,7 @@ from app.database import (
 from app.exceptions import ForbiddenException, NotFoundException, ValidationError
 from app.forums.routes import forums
 from app.gamers.legacy_routes import gamers as legacy_gamers
+from app.games.routes import games
 from app.helpers.functions import error_response
 from app.me.legacy_routes import me as legacy_me
 from app.me.routes import me
@@ -144,5 +145,6 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(threads)
     app.include_router(posts)
     app.include_router(tools)
+    app.include_router(games)
 
     return app
