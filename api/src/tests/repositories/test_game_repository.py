@@ -22,8 +22,10 @@ class TestGameRepository:
         # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
         # later auto-generated forum id in this test could collide with it.
         await db_session.execute(
-            text("SELECT setval(pg_get_serial_sequence('forums', 'id'), "
-                 "(SELECT MAX(id) FROM forums))")
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
         )
         return forum
 
@@ -108,7 +110,18 @@ class TestGameRepository:
 
     async def test_create_with_no_allowed_char_sheets(self, repository, gm, system):
         game = await repository.create(
-            "My Campaign", system.id, [], gm.id, "1/d", 4, 1, None, None, True, None, None
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
         )
 
         assert game.allowed_char_sheets == []
@@ -117,7 +130,18 @@ class TestGameRepository:
         self, repository, gm, system, games_root_forum, db_session
     ):
         game = await repository.create(
-            "My Campaign", system.id, [], gm.id, "1/d", 4, 1, None, None, True, None, None
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
         )
 
         root_forum = await db_session.get(Forum, game.root_forum_id)
@@ -128,9 +152,92 @@ class TestGameRepository:
         self, repository, gm, system, db_session
     ):
         game = await repository.create(
-            "My Campaign", system.id, [], gm.id, "1/d", 4, 1, None, None, True, None, None
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
         )
 
         role = await db_session.get(Role, game.role_id)
         assert role.name == f"Game Id {game.id} Player"
         assert role.owner_id == gm.id
+
+    async def test_get_returns_the_game(self, repository, gm, system):
+        created = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        game = await repository.get(created.id)
+
+        assert game is not None
+        assert game.id == created.id
+        assert game.title == "My Campaign"
+
+    async def test_get_returns_none_for_missing_id(self, repository):
+        game = await repository.get(999999)
+
+        assert game is None
+
+    async def test_get_eager_loads_gm(self, repository, gm, system):
+        created = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        game = await repository.get(created.id)
+
+        # Accessing an unloaded relationship on an async session raises
+        # MissingGreenlet, so this only passes if gm was eagerly loaded.
+        assert game.gm.username == gm.username
+
+    async def test_get_eager_loads_allowed_char_sheets(
+        self, repository, gm, system, create
+    ):
+        sheet = await create(SystemFactory, id="sheet-a")
+        created = await repository.create(
+            "My Campaign",
+            system.id,
+            [sheet.id],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        game = await repository.get(created.id)
+
+        assert {s.id for s in game.allowed_char_sheets} == {sheet.id}

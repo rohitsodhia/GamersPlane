@@ -1,5 +1,7 @@
+from sqlalchemy import ScalarResult, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import Player, User
 
@@ -35,3 +37,15 @@ class PlayerRepository:
         except IntegrityError as e:
             raise DuplicatePlayerError(game_id, user_id) from e
         return player
+
+    async def get_players_for_game(
+        self, game_id: int, only_accepted: bool = False
+    ) -> ScalarResult[Player]:
+        query = (
+            select(Player)
+            .where(Player.game_id == game_id)
+            .options(selectinload(Player.user))
+        )
+        if only_accepted:
+            query = query.where(Player.state == Player.States.ACCEPTED)
+        return await self.db_session.scalars(query)

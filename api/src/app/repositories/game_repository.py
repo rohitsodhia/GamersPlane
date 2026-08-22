@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import Forum, Game, Role, System, User
 from app.repositories.forum_repository import ForumRepository
@@ -13,6 +14,16 @@ class GameRepository:
     def __init__(self, db_session: AsyncSession, principal: User):
         self.db_session = db_session
         self.principal = principal
+
+    async def get(self, game_id: int) -> Game | None:
+        return await self.db_session.scalar(
+            select(Game)
+            .where(Game.id == game_id)
+            .options(
+                selectinload(Game.gm),
+                selectinload(Game.allowed_char_sheets),
+            )
+        )
 
     async def create(
         self,

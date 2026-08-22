@@ -3,13 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.helpers.enums import LabelEnum, LabelEnumType
 from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    pass
+    from app.models import User
 
 
 class Player(Base, TimestampMixin):
@@ -28,6 +28,7 @@ class Player(Base, TimestampMixin):
     user_id: Mapped[int] = mapped_column(
         "userID", ForeignKey("users.id"), primary_key=True
     )
+    user: Mapped[User] = relationship()
     state: Mapped[States] = mapped_column(
         LabelEnumType(States, String(8)), default=States.APPLIED
     )
