@@ -67,6 +67,8 @@ def upgrade() -> None:
         sa.Column("role_id", sa.Integer(), nullable=False),
         sa.Column("status", sa.Boolean(), nullable=False),
         sa.Column("public", sa.Boolean(), nullable=False),
+        sa.Column("recruitment_thread_id", sa.Integer(), nullable=True),
+        sa.Column("advanced_options", sa.JSON(), nullable=True),
         sa.Column("retired", sa.DateTime(), nullable=True),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),

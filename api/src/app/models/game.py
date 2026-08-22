@@ -64,6 +64,8 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
         LabelEnumType(Statuses, Boolean), default=Statuses.OPEN
     )
     public: Mapped[bool] = mapped_column()
+    recruitment_thread_id: Mapped[int | None] = mapped_column(nullable=True)
+    advanced_options: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
     retired: Mapped[datetime.datetime | None] = mapped_column(nullable=True)
 
     @property
