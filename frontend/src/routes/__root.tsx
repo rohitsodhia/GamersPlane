@@ -19,6 +19,7 @@ import { referralLinksQueryOptions } from "#/queries/referralLinks";
 import { refreshToken } from "#/queries/refresh";
 import { useAuthStore } from "#/stores/auth";
 import { useLayoutStore } from "#/stores/layout";
+import racCss from "#/rac.css?url";
 import appCss from "#/styles.css?url";
 
 const REFRESH_THRESHOLD_MS = 1000 * 60 * 60 * 24 * 2; // 2 days
@@ -52,6 +53,10 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			{
 				rel: "stylesheet",
 				href: appCss,
+			},
+			{
+				rel: "stylesheet",
+				href: racCss,
 			},
 		],
 	}),

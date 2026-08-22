@@ -1,0 +1,175 @@
+/* Shared styling for react-aria-components primitives, keyed off their default
+   data-* render-prop attributes so it applies wherever these components are used. */
+
+:root {
+	--rac-border-color: light-dark(#666, #888);
+	--rac-bg: light-dark(#eee, #444);
+	--rac-radius: 0.3em;
+	--rac-field-width: 300px;
+	--rac-item-padding: 0.3em 0.6em;
+	--rac-list-max-height: 12em;
+	--rac-checkbox-size: 1.2em;
+}
+
+/* Surface shared by the floating panels (menu, generic popover, select trigger):
+   same border/radius/fill so any one of them can be restyled from one place. */
+.react-aria-Menu,
+.react-aria-Popover,
+.react-aria-Select .react-aria-Button {
+	border: 1px solid var(--rac-border-color);
+	border-radius: var(--rac-radius);
+	background-color: var(--rac-bg);
+}
+
+/* List reset shared by the two scrollable option lists (menu, select listbox). */
+.react-aria-Menu,
+.react-aria-Select .react-aria-Popover .react-aria-ListBox {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	max-height: var(--rac-list-max-height);
+	overflow-y: auto;
+}
+
+/* Row styling shared by the two item types (menu item, select listbox item),
+   including the focused/hovered highlight. */
+.react-aria-MenuItem,
+.react-aria-ListBoxItem {
+	padding: var(--rac-item-padding);
+	cursor: pointer;
+	outline: none;
+
+	&[data-focused],
+	&[data-hovered] {
+		background-color: var(--gp-red);
+		color: #fff;
+	}
+}
+
+.react-aria-SearchField {
+	display: inline-flex;
+	align-items: center;
+	width: min(100%, var(--rac-field-width));
+
+	.react-aria-Input {
+		width: 100%;
+	}
+}
+
+/* Any wrapper that directly contains a SearchField immediately followed by a
+   Menu (the Autocomplete pattern) becomes the positioning context for that
+   Menu, so it always floats under the field without per-usage CSS. */
+:has(> .react-aria-SearchField ~ .react-aria-Menu) {
+	position: relative;
+}
+
+.react-aria-Menu {
+	margin-top: 0.3em;
+
+	&[data-empty] {
+		display: none;
+	}
+}
+
+.react-aria-SearchField ~ .react-aria-Menu {
+	display: none;
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	/* Above the tiptap editor toolbar (.tiptap-toolbar[data-variant="fixed"], z-index: 50). */
+	z-index: 60;
+	margin-top: 0.3em;
+}
+
+:has(> .react-aria-SearchField ~ .react-aria-Menu):focus-within .react-aria-Menu {
+	display: block;
+}
+
+.react-aria-MenuItem[data-disabled] {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.react-aria-Popover {
+	box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+}
+
+.react-aria-Checkbox {
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
+	gap: 0.5em;
+	cursor: pointer;
+
+	.checkbox-box {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--rac-checkbox-size);
+		height: var(--rac-checkbox-size);
+		border: 1px solid var(--rac-border-color);
+		border-radius: var(--rac-radius);
+		background-color: var(--rac-bg);
+
+		svg {
+			width: 75%;
+			height: 75%;
+			fill: none;
+			stroke: currentColor;
+			stroke-width: 3px;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+			opacity: 0;
+		}
+	}
+
+	&[data-selected] .checkbox-box,
+	&[data-indeterminate] .checkbox-box {
+		background-color: var(--gp-red);
+		border-color: var(--gp-red);
+		color: #fff;
+
+		svg {
+			opacity: 1;
+		}
+	}
+
+	&[data-focus-visible] .checkbox-box {
+		outline: 2px solid var(--gp-red);
+		outline-offset: 1px;
+	}
+
+	&[data-disabled] {
+		opacity: 0.5;
+		cursor: default;
+	}
+}
+
+.react-aria-Select {
+	display: inline-flex;
+
+	.react-aria-Button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5em;
+		width: min(100%, var(--rac-field-width));
+		justify-content: space-between;
+		padding: var(--rac-item-padding);
+		cursor: pointer;
+
+		&[data-focus-visible] {
+			outline: 2px solid var(--gp-red);
+			outline-offset: 1px;
+		}
+	}
+
+	.react-aria-Popover .react-aria-ListBox {
+		outline: none;
+		width: var(--trigger-width);
+	}
+
+	.react-aria-ListBoxItem[data-selected] {
+		font-weight: bold;
+	}
+}
