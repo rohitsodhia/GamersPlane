@@ -14,19 +14,20 @@ type Publisher = {
 type System = {
 	id: string;
 	name: string;
-	sortName: string;
+	sort_name: string;
 	publisher: Publisher | null;
 	genres: string[];
 	basics: Basic[];
-	hasCharSheet: boolean;
+	has_char_sheet: boolean;
 	enabled: boolean;
 };
 
-type BasicSystem = {
+export type BasicSystem = {
 	id: string;
 	name: string;
+	sort_name: string;
 	genres: string[];
-	hasCharSheet: boolean;
+	has_char_sheet: boolean;
 };
 
 export function systemsQueryOptions(params: {

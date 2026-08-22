@@ -1,0 +1,58 @@
+.game-form {
+	--label-col-width: 220px;
+
+	label {
+		text-align: right;
+
+		&:not(:global(.push-down)) {
+			align-self: center;
+		}
+	}
+
+	.input-field {
+		width: min(100%, 400px);
+	}
+
+	input[type="number"] {
+		width: 4em;
+	}
+
+	.char-sheet-picker {
+		display: flex;
+		gap: 0.5em;
+		align-items: center;
+	}
+
+	.char-sheet-list {
+		list-style: none;
+		margin: 0.5em 0 0;
+		padding: 0;
+
+		li {
+			margin-bottom: 0.25em;
+		}
+	}
+
+	.thread-url {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25em;
+
+		input {
+			width: 6em;
+		}
+	}
+
+	:global(.is-container) {
+		grid-column: span 2;
+	}
+
+	& > div:last-of-type {
+		text-align: center;
+	}
+
+	:global(.error) {
+		display: inline-block;
+		margin-left: 1em;
+	}
+}
