@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; if echo \"$f\" | grep -qE 'api/src/tests/.*\\.py$'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"REMINDER (CLAUDE.md Testing Workflow): this change touched a test file under api/src/tests/. Before considering this test-writing work done, spawn a subagent to audit the suite (KEEP/CUT/MERGE verdict per test), apply the agreed edits, and re-run the suite. Do this now if not already done for this batch of test changes.\"}}'; fi; }"
+          }
+        ]
+      }
+    ]
+  }
+}
