@@ -1,0 +1,162 @@
+:global(.hb-topper) {
+	button,
+	a {
+		padding: 0.5em 0.8em;
+	}
+
+	button:hover {
+		text-decoration: underline;
+	}
+
+	img {
+		margin-right: 0.5em;
+	}
+}
+
+h1 {
+	a {
+		color: #fff;
+	}
+}
+
+.favorite {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font: inherit;
+}
+
+.details {
+	display: grid;
+	grid-template-columns: 260px minmax(0, 1fr);
+	gap: 0.75em 1em;
+
+	& > div:not(.full-width) {
+		display: contents;
+
+		& > *:first-child {
+			font-weight: bold;
+			align-self: center;
+			text-align: right;
+		}
+	}
+
+	hr {
+		grid-column: 1 / -1;
+		width: 100%;
+		border: none;
+		border-top: 1px solid light-dark(#ccc, #444);
+	}
+}
+
+:global(.tiptap-content) {
+	p:first-child {
+		margin-top: 0;
+	}
+}
+
+.full-width {
+	grid-column: 1 / -1;
+}
+
+.inline-action {
+	background: none;
+	border: none;
+	margin-left: 0.5em;
+	padding: 0;
+	cursor: pointer;
+	font: inherit;
+
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+.retire-confirm {
+	margin-left: 0;
+	padding: 0.75em 1em;
+	background: light-dark(#f5f5f5, #222);
+	border-radius: 0.3em;
+}
+
+.columns {
+	display: flex;
+	gap: 2em;
+	margin-top: 1.5em;
+	align-items: flex-start;
+
+	h2 {
+		margin-block: 0;
+	}
+
+	@media (max-width: 800px) {
+		flex-direction: column;
+	}
+}
+
+.left-col {
+	flex: 2;
+	min-width: 0;
+}
+
+.right-col {
+	flex: 1;
+	min-width: 0;
+}
+
+.right-panel {
+}
+
+.player-list {
+	list-style: none;
+	margin: 0 0 1em;
+	padding: 0;
+
+	li {
+		padding: 0.6em 0.6em;
+		border: 1px solid transparent;
+
+		&:hover {
+			background: light-dark(#f5f5f5, #222);
+			border-color: light-dark(#ccc, #444);
+		}
+	}
+}
+
+.player-info {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5em;
+}
+
+:global(.gm-badge) {
+	margin-left: 0.3em;
+}
+
+.action-links {
+	display: flex;
+	gap: 1em;
+	font-size: 0.85em;
+}
+
+.notice {
+	color: light-dark(#666, #999);
+	font-style: italic;
+}
+
+.invite-form {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+	margin-bottom: 1.5em;
+
+	.error {
+		color: var(--gp-red);
+	}
+}
+
+.decks-body {
+	padding: 0.5em 0;
+}

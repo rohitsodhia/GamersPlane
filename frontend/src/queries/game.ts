@@ -2,33 +2,41 @@ import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 
-type SuggestedNumPlayers = {
-	best: string;
-	recommended: string;
-};
+export type GamePlayerState = "applied" | "accepted" | "rejected" | "removed" | "left";
 
-export type LibraryGame = {
+export type GamePlayer = {
 	id: number;
-	name: string;
-	thumbnail: string;
-	image: string;
-	min_players: number;
-	max_players: number;
-	suggested_num_players: SuggestedNumPlayers;
-	min_play_time: number;
-	max_play_time: number;
-	suggested_age: number;
-	complexity: number;
-	suggested_tags: string[];
-	dized: boolean;
-	in_library: boolean;
-	count: number;
+	username: string;
+	is_gm: boolean;
+	state: GamePlayerState;
 };
 
-export const GameQueryOptions = (gameId: number) =>
+export type GameDetails = {
+	id: number;
+	title: string;
+	system: string;
+	allowed_char_sheets: string[];
+	gm: { id: number; username: string };
+	created: string;
+	end: string | null;
+	post_frequency: { times_per: number; per_period: "d" | "w" };
+	num_players: number;
+	chars_per_player: number;
+	description: JSONContent | null;
+	char_gen_info: JSONContent | null;
+	root_forum_id: number;
+	status: "open" | "closed";
+	public: boolean;
+	recruitment_thread_id: number | null;
+	advanced_options: Record<string, unknown> | null;
+	retired: string | null;
+	players: { players: GamePlayer[] };
+};
+
+export const gameDetailsQueryOptions = (gameId: number) =>
 	queryOptions({
 		queryKey: ["game", gameId],
-		queryFn: async (): Promise<LibraryGame> => {
+		queryFn: async (): Promise<GameDetails> => {
 			const res = await apiFetch(`/games/${gameId}`);
 			if (!res.ok) throw new Error("Failed to fetch game data");
 			return res.json();
