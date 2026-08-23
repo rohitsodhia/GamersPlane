@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import text
 
-from app.models import Game, Player
+from app.models import FavoriteGame, Game, Player
 from app.repositories import GameRepository, PlayerRepository
 from tests.factories import ActivatedUserFactory, ForumFactory, SystemFactory
 
@@ -296,3 +296,91 @@ class TestGetGame:
                 "state": "accepted",
             }
         ]
+
+
+class TestFavoriteGame:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        return await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+    async def test_favorite_game_requires_auth(self, client, game):
+        response = await client.post(f"/games/{game.id}/favorite")
+
+        assert response.status_code == 403
+
+    async def test_favorite_game_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post("/games/999999/favorite")
+
+        assert response.status_code == 404
+
+    async def test_favorite_game_adds_favorite(self, authed_client, game, db_session):
+        client, user = authed_client
+
+        response = await client.post(f"/games/{game.id}/favorite")
+
+        assert response.status_code == 200
+        assert response.json() == {"favorite": True}
+        favorite = await db_session.get(FavoriteGame, (user.id, game.id))
+        assert favorite is not None
+
+    async def test_favorite_game_twice_removes_favorite(
+        self, authed_client, game, db_session
+    ):
+        client, user = authed_client
+        await client.post(f"/games/{game.id}/favorite")
+
+        response = await client.post(f"/games/{game.id}/favorite")
+
+        assert response.status_code == 200
+        assert response.json() == {"favorite": False}
+        favorite = await db_session.get(FavoriteGame, (user.id, game.id))
+        assert favorite is None
+
+    async def test_favorite_game_soft_deleted_not_found(
+        self, authed_client, game, db_session
+    ):
+        client, _user = authed_client
+        game.deleted = game.created
+        db_session.add(game)
+        await db_session.flush()
+
+        response = await client.post(f"/games/{game.id}/favorite")
+
+        assert response.status_code == 404

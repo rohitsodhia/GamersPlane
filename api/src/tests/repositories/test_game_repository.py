@@ -197,6 +197,50 @@ class TestGameRepository:
 
         assert game is None
 
+    async def test_exists_returns_true_for_existing_game(self, repository, gm, system):
+        game = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        assert await repository.exists(game.id) is True
+
+    async def test_exists_returns_false_for_missing_id(self, repository):
+        assert await repository.exists(999999) is False
+
+    async def test_exists_returns_false_for_soft_deleted_game(
+        self, repository, gm, system, db_session
+    ):
+        game = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        game.deleted = game.created
+        db_session.add(game)
+        await db_session.flush()
+
+        assert await repository.exists(game.id) is False
+
     async def test_get_eager_loads_gm(self, repository, gm, system):
         created = await repository.create(
             "My Campaign",

@@ -58,6 +58,12 @@ export type NewGameInput = {
 	advanced_options: Record<string, unknown> | null;
 };
 
+export const favoriteGame = async (gameId: number): Promise<{ favorite: boolean }> => {
+	const res = await apiFetch(`/games/${gameId}/favorite`, { method: "POST" });
+	if (!res.ok) throw new Error("Failed to favorite game");
+	return res.json();
+};
+
 export const createGame = async (data: NewGameInput): Promise<{ id: number }> => {
 	const res = await apiFetch("/games/", {
 		method: "POST",

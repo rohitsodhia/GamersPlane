@@ -1,4 +1,5 @@
 from .character import Character
+from .favorites import FavoriteCharacter, FavoriteGame
 from .forum import Forum
 from .game import Game
 from .game_allowed_systems import GameAllowedSystem

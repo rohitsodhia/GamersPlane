@@ -1,11 +1,11 @@
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import GMBadge from "#/components/GMBadge";
 import { TiptapContent } from "#/components/TiptapContent";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { type GamePlayer, gameDetailsQueryOptions } from "#/queries/game";
+import { favoriteGame, type GamePlayer, gameDetailsQueryOptions } from "#/queries/game";
 import { meQueryOptions } from "#/queries/me";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { searchUserByUsername } from "#/queries/users";
@@ -54,8 +54,11 @@ function RouteComponent() {
 	// action is marked with a TODO pointing at the endpoint it's standing in
 	// for, and none of it persists past a page refresh.
 
-	// TODO: no favorites endpoint/table on the new schema yet.
 	const [favorited, setFavorited] = useState(false);
+	const favoriteMutation = useMutation({
+		mutationFn: () => favoriteGame(gameId),
+		onSuccess: (data) => setFavorited(data.favorite),
+	});
 
 	// TODO: no PATCH endpoint to toggle a game's open/closed status yet.
 	const [status, setStatus] = useState(game.status);
@@ -161,11 +164,12 @@ function RouteComponent() {
 	return (
 		<div>
 			<div className="hb-topper">
-				<div className="trapezoid red-trapezoid">
+				<div className="trapezoid">
 					<button
 						type="button"
 						className={`${styles.favorite}`}
-						onClick={() => setFavorited((f) => !f)}
+						onClick={() => favoriteMutation.mutate()}
+						disabled={favoriteMutation.isPending}
 						title={favorited ? "Unfavorite" : "Favorite"}
 					>
 						{favorited ? (

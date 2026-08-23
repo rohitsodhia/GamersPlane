@@ -25,6 +25,11 @@ class GameRepository:
             )
         )
 
+    async def exists(self, game_id: int) -> bool:
+        return (
+            await self.db_session.scalar(select(Game.id).where(Game.id == game_id))
+        ) is not None
+
     async def create(
         self,
         title: str,

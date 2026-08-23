@@ -5,7 +5,13 @@ from app.exceptions import NotFoundException
 from app.games import schemas
 from app.helpers.decorators import public
 from app.middleware import Auth, Principal
-from app.repositories import GameRepository, PlayerRepository, SystemRepository
+from app.models import Player
+from app.repositories import (
+    FavoritesRepository,
+    GameRepository,
+    PlayerRepository,
+    SystemRepository,
+)
 
 games = APIRouter(prefix="/games")
 
@@ -44,7 +50,9 @@ async def create_game(
     )
 
     player_repository = PlayerRepository(db_session, principal=principal)
-    await player_repository.attach_player_to_game(game.id, principal.id, is_gm=True)
+    await player_repository.attach_player_to_game(
+        game.id, principal.id, is_gm=True, state=Player.States.ACCEPTED
+    )
 
     return schemas.NewGameResponse(id=game.id)
 
@@ -100,3 +108,17 @@ async def get_game(
             ]
         ),
     )
+
+
+@games.post("/{game_id}/favorite", response_model=schemas.FavoriteGameResponse)
+async def favorite_game(
+    game_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    if not await game_repository.exists(game_id):
+        raise NotFoundException("Game not found")
+
+    favorites_repository = FavoritesRepository(db_session, principal)
+    is_favorite = await favorites_repository.toggle_game_favorite(game_id)
+
+    return schemas.FavoriteGameResponse(favorite=is_favorite)

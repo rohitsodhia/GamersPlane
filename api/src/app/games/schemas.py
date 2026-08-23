@@ -65,3 +65,7 @@ class GetGameResponse(SchemaBase):
     advanced_options: dict | None
     retired: datetime.datetime | None
     players: PlayersData
+
+
+class FavoriteGameResponse(SchemaBase):
+    favorite: bool

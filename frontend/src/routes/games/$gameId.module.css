@@ -1,4 +1,10 @@
 :global(.hb-topper) {
+	:global(.trapezoid) {
+		&::before {
+			background: #333;
+		}
+	}
+
 	button,
 	a {
 		padding: 0.5em 0.8em;
