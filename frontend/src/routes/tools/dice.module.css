@@ -2,20 +2,21 @@
 	display: flex;
 	gap: 1.25rem;
 
-	input, select {
+	input,
+	select {
 		box-sizing: border-box;
 		height: 2.4em;
 		border: 1px solid var(--gp-red);
 		font-size: 1em;
 	}
 
-	input[type=number] {
+	input[type="number"] {
 		-moz-appearance: textfield;
 		appearance: textfield;
 	}
 
-	input[type=number]::-webkit-outer-spin-button,
-	input[type=number]::-webkit-inner-spin-button {
+	input[type="number"]::-webkit-outer-spin-button,
+	input[type="number"]::-webkit-inner-spin-button {
 		-webkit-appearance: none;
 		margin: 0;
 	}
@@ -34,10 +35,6 @@
 	padding: 0.6em 1em 0.4em;
 	font-size: 1em;
 	outline: none;
-}
-
-h2:global(.headerbar) {
-	margin-top: 0;
 }
 
 .system-select option {

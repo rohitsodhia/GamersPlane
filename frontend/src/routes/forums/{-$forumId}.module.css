@@ -26,8 +26,7 @@
 .forum-category {
 	margin-top: 1.5em;
 
-	.red-trapezoid {
-		display: inline-block;
+	:global(.red-trapezoid) {
 		font-family: Neuropol;
 		font-weight: normal;
 	}

@@ -63,7 +63,7 @@ function CategoryGroup({ title, forums }: { title: string; forums: ChildForum[] 
 	return (
 		<div className={styles["forum-category"]}>
 			<div style={{ marginLeft: hbMargined.margin }}>
-				<h2 className={`trapezoid ${styles["red-trapezoid"]}`}>{title}</h2>
+				<h2 className="trapezoid red-trapezoid">{title}</h2>
 			</div>
 			<div
 				className={`headerbar hb-dark listed-items-header ${styles["column-titles"]}`}

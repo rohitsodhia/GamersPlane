@@ -130,7 +130,8 @@ input:is([type="radio"], [type="checkbox"]) {
 
 a,
 a:visited,
-a:active {
+a:active,
+button {
 	color: var(--gp-light-red);
 }
 
@@ -223,6 +224,10 @@ h2.headerbar {
 		tan(var(--skew-angle)) +
 		0.2em
 	);
+
+	&.has-topper {
+		margin-block-start: 0;
+	}
 }
 
 h1.headerbar {
@@ -240,6 +245,11 @@ h2.headerbar {
 	&::before {
 		background-color: oklch(0.25 0 0);
 	}
+}
+
+.hb-topper {
+	display: flex;
+	justify-content: flex-end;
 }
 
 .skew-btn {
@@ -293,6 +303,7 @@ h2.headerbar {
 	& > * {
 		display: flex;
 		align-items: center;
+		flex-wrap: no-wrap;
 		height: 100%;
 		color: #fff;
 	}
