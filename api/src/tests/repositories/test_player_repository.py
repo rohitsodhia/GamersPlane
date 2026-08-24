@@ -155,3 +155,19 @@ class TestPlayerRepository:
         # Accessing an unloaded relationship on an async session raises
         # MissingGreenlet, so this only passes if user was eagerly loaded.
         assert players[0].user.username == user.username
+
+    async def test_is_gm_true_for_gm_player(self, repository, game, gm):
+        await repository.attach_player_to_game(game.id, gm.id, is_gm=True)
+
+        assert await repository.is_gm(game.id, gm.id) is True
+
+    async def test_is_gm_false_for_non_gm_player(self, repository, game, create):
+        user = await create(ActivatedUserFactory)
+        await repository.attach_player_to_game(game.id, user.id, is_gm=False)
+
+        assert await repository.is_gm(game.id, user.id) is False
+
+    async def test_is_gm_false_when_not_a_player(self, repository, game, create):
+        user = await create(ActivatedUserFactory)
+
+        assert await repository.is_gm(game.id, user.id) is False

@@ -15,7 +15,12 @@ from app.database import (
     legacy_session_manager,
     session_manager,
 )
-from app.exceptions import ForbiddenException, NotFoundException, ValidationError
+from app.exceptions import (
+    ConflictException,
+    ForbiddenException,
+    NotFoundException,
+    ValidationError,
+)
 from app.forums.routes import forums
 from app.gamers.legacy_routes import gamers as legacy_gamers
 from app.games.routes import games
@@ -127,6 +132,12 @@ def create_app(init_db=True) -> FastAPI:
         return error_response(
             status_code=400,
             errors=[ErrorItem(code="validation_error", detail=str(exc))],
+        )
+
+    @app.exception_handler(ConflictException)
+    async def conflict_exception_handler(request: Request, exc: ConflictException):
+        return error_response(
+            status_code=409, errors=[ErrorItem(code="conflict", detail=str(exc))]
         )
 
     app.include_router(legacy_auth)

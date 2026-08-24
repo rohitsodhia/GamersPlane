@@ -38,11 +38,7 @@ class PlayerData(SchemaBase):
     id: int
     username: str
     is_gm: bool
-    state: Literal["applied", "accepted", "rejected", "removed", "left"]
-
-
-class PlayersData(SchemaBase):
-    players: list[PlayerData]
+    state: Literal["invited", "applied", "accepted", "rejected", "removed", "left"]
 
 
 class GetGameResponse(SchemaBase):
@@ -64,8 +60,12 @@ class GetGameResponse(SchemaBase):
     recruitment_thread_id: int | None
     advanced_options: dict | None
     retired: datetime.datetime | None
-    players: PlayersData
+    players: list[PlayerData]
 
 
 class FavoriteGameResponse(SchemaBase):
     favorite: bool
+
+
+class InvitePlayerInput(SchemaBase):
+    username: str

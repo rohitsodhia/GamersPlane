@@ -49,3 +49,9 @@ class PlayerRepository:
         if only_accepted:
             query = query.where(Player.state == Player.States.ACCEPTED)
         return await self.db_session.scalars(query)
+
+    async def is_gm(self, game_id: int, user_id: int) -> bool:
+        player = await self.db_session.get(
+            Player, {"game_id": game_id, "user_id": user_id}
+        )
+        return player is not None and player.is_gm

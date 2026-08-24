@@ -2,7 +2,13 @@ import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 
-export type GamePlayerState = "applied" | "accepted" | "rejected" | "removed" | "left";
+export type GamePlayerState =
+	| "invited"
+	| "applied"
+	| "accepted"
+	| "rejected"
+	| "removed"
+	| "left";
 
 export type GamePlayer = {
 	id: number;
@@ -30,7 +36,7 @@ export type GameDetails = {
 	recruitment_thread_id: number | null;
 	advanced_options: Record<string, unknown> | null;
 	retired: string | null;
-	players: { players: GamePlayer[] };
+	players: GamePlayer[];
 };
 
 export const gameDetailsQueryOptions = (gameId: number) =>
@@ -62,6 +68,17 @@ export const favoriteGame = async (gameId: number): Promise<{ favorite: boolean 
 	const res = await apiFetch(`/games/${gameId}/favorite`, { method: "POST" });
 	if (!res.ok) throw new Error("Failed to favorite game");
 	return res.json();
+};
+
+export const invitePlayer = async (gameId: number, username: string): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/invite`, {
+		method: "POST",
+		body: JSON.stringify({ username }),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
 };
 
 export const createGame = async (data: NewGameInput): Promise<{ id: number }> => {

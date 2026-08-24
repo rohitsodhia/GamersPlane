@@ -3,9 +3,15 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import GMBadge from "#/components/GMBadge";
 import { TiptapContent } from "#/components/TiptapContent";
+import { ApiError } from "#/lib/api";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { favoriteGame, type GamePlayer, gameDetailsQueryOptions } from "#/queries/game";
+import {
+	favoriteGame,
+	type GamePlayer,
+	gameDetailsQueryOptions,
+	invitePlayer,
+} from "#/queries/game";
 import { meQueryOptions } from "#/queries/me";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { searchUserByUsername } from "#/queries/users";
@@ -31,8 +37,6 @@ export const Route = createFileRoute("/games/$gameId")({
 	},
 	component: RouteComponent,
 });
-
-type Invite = { id: number; username: string };
 
 function systemName(systems: BasicSystem[], id: string) {
 	return systems.find((system) => system.id === id)?.name ?? id;
@@ -72,31 +76,53 @@ function RouteComponent() {
 
 	// TODO: local copy of the player list so the mock GM actions below (remove,
 	// toggle GM, approve, reject, leave) can be demoed without a real endpoint.
-	const [players, setPlayers] = useState<GamePlayer[]>(game.players.players);
+	const [players, setPlayers] = useState<GamePlayer[]>(game.players);
 
 	// TODO: no apply-to-game endpoint yet.
 	const [hasApplied, setHasApplied] = useState(false);
 
-	// TODO: no invites table/endpoint on the new schema yet. The user lookup
-	// itself is real (searchUserByUsername), but the invite it produces is
-	// only ever kept in local state.
-	const [invites, setInvites] = useState<Invite[]>([]);
 	const [inviteUsername, setInviteUsername] = useState("");
 	const [inviteError, setInviteError] = useState<string | null>(null);
-	// TODO: derived purely from the local mock invite list above, since
-	// there's no real invite-acceptance flow yet.
-	const pendingInvite = !!me && invites.some((invite) => invite.id === me.id);
+	const inviteMutation = useMutation({
+		mutationFn: async (username: string) => {
+			const user = await searchUserByUsername(username);
+			if (!user)
+				throw new ApiError(404, [{ code: "not_found", detail: "Invalid user" }]);
+			await invitePlayer(gameId, username);
+			return user;
+		},
+		onSuccess: (user) => {
+			setPlayers((prev) => [
+				...prev,
+				{ id: user.id, username: user.username, is_gm: false, state: "invited" },
+			]);
+			setInviteUsername("");
+		},
+		onError: (error: unknown) => {
+			if (error instanceof ApiError && error.errors[0]?.detail) {
+				setInviteError(error.errors[0].detail);
+			} else {
+				setInviteError("Failed to invite player");
+			}
+		},
+	});
 
 	// TODO: decks aren't modeled on the backend at all yet.
 	const decks: { id: number; label: string; cardsRemaining: number }[] = [];
 
 	const isPrimaryGM = me?.id === game.gm.id;
-	const currentPlayer = me ? players.find((player) => player.id === me.id) : undefined;
+	// Excludes "invited" players: an invite alone doesn't make someone a
+	// player in the game, so this shouldn't count toward inGame/approved.
+	const currentPlayer = me
+		? players.find((player) => player.id === me.id && player.state !== "invited")
+		: undefined;
 	const isGM = currentPlayer?.is_gm ?? isPrimaryGM;
 	const inGame = !!currentPlayer;
 	const approved = currentPlayer?.state === "accepted";
 
 	const playersInGame = players.filter((player) => player.state === "accepted");
+	const playersInvited = players.filter((player) => player.state === "invited");
+	const pendingInvite = !!me && playersInvited.some((player) => player.id === me.id);
 	const playersAwaitingApproval = players.filter(
 		(player) => player.state === "applied",
 	);
@@ -130,35 +156,26 @@ function RouteComponent() {
 		setPlayers((prev) => prev.filter((player) => player.id !== me.id));
 	};
 
-	const submitInvite = async (e: React.FormEvent) => {
+	const submitInvite = (e: React.FormEvent) => {
 		e.preventDefault();
 		setInviteError(null);
-		if (!inviteUsername.trim()) return;
-		const user = await searchUserByUsername(inviteUsername.trim());
-		if (!user) {
-			setInviteError("Invalid user");
-			return;
-		}
-		if (invites.some((invite) => invite.id === user.id)) {
-			setInviteError("Already invited");
-			return;
-		}
-		setInvites((prev) => [...prev, user]);
-		setInviteUsername("");
+		const username = inviteUsername.trim();
+		if (!username) return;
+		inviteMutation.mutate(username);
 	};
 	const withdrawInvite = (userId: number) =>
-		setInvites((prev) => prev.filter((invite) => invite.id !== userId));
+		setPlayers((prev) => prev.filter((player) => player.id !== userId));
 	const acceptInvite = () => {
 		if (!me) return;
-		setPlayers((prev) => [
-			...prev,
-			{ id: me.id, username: me.username, is_gm: false, state: "accepted" },
-		]);
-		setInvites((prev) => prev.filter((invite) => invite.id !== me.id));
+		setPlayers((prev) =>
+			prev.map((player) =>
+				player.id === me.id ? { ...player, state: "accepted" } : player,
+			),
+		);
 	};
 	const declineInvite = () => {
 		if (!me) return;
-		setInvites((prev) => prev.filter((invite) => invite.id !== me.id));
+		setPlayers((prev) => prev.filter((player) => player.id !== me.id));
 	};
 
 	return (
@@ -445,16 +462,16 @@ function RouteComponent() {
 								</h2>
 								<div style={{ marginInline: hbMarginedH2.margin }}>
 									<ul className={styles["player-list"]}>
-										{invites.map((invite) => (
-											<li key={invite.id}>
+										{playersInvited.map((player) => (
+											<li key={player.id}>
 												<div className={styles["player-info"]}>
-													<div>{invite.username}</div>
+													<div>{player.username}</div>
 													{isGM && (
 														<div className={styles["action-links"]}>
 															<button
 																type="button"
 																className={styles["inline-action"]}
-																onClick={() => withdrawInvite(invite.id)}
+																onClick={() => withdrawInvite(player.id)}
 															>
 																Withdraw Invite
 															</button>
@@ -463,25 +480,32 @@ function RouteComponent() {
 												</div>
 											</li>
 										))}
-										{invites.length === 0 && (
+										{playersInvited.length === 0 && (
 											<li className={styles.notice}>No pending invites.</li>
 										)}
 									</ul>
 									{isGM && (
-										<form className={styles["invite-form"]} onSubmit={submitInvite}>
-											<label htmlFor="invite-username">Invite player:</label>
-											<input
-												id="invite-username"
-												type="text"
-												value={inviteUsername}
-												onChange={(e) => setInviteUsername(e.target.value)}
-												placeholder="Username"
-											/>
-											<button type="submit" className="skew-btn">
-												Invite
-											</button>
+										<>
+											<form className={styles["invite-form"]} onSubmit={submitInvite}>
+												<label htmlFor="invite-username">Invite player:</label>
+												<input
+													id="invite-username"
+													type="text"
+													value={inviteUsername}
+													onChange={(e) => setInviteUsername(e.target.value)}
+													placeholder="Username"
+													disabled={inviteMutation.isPending}
+												/>
+												<button
+													type="submit"
+													className="skew-btn"
+													disabled={inviteMutation.isPending}
+												>
+													Invite
+												</button>
+											</form>
 											{inviteError && <div className="error">{inviteError}</div>}
-										</form>
+										</>
 									)}
 								</div>
 							</>

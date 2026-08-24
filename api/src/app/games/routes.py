@@ -1,7 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 
 from app.database import DBSessionDependency
-from app.exceptions import NotFoundException
+from app.exceptions import ConflictException, ForbiddenException, NotFoundException
 from app.games import schemas
 from app.helpers.decorators import public
 from app.middleware import Auth, Principal
@@ -11,7 +11,9 @@ from app.repositories import (
     GameRepository,
     PlayerRepository,
     SystemRepository,
+    UserRepository,
 )
+from app.repositories.player_repository import DuplicatePlayerError
 
 games = APIRouter(prefix="/games")
 
@@ -70,9 +72,19 @@ async def get_game(
     is_gm = principal is not None and principal.id == game.gm_id
 
     player_repository = PlayerRepository(db_session, principal=principal)
-    players = await player_repository.get_players_for_game(
+    all_players = await player_repository.get_players_for_game(
         game_id, only_accepted=not is_gm
     )
+
+    players = [
+        schemas.PlayerData(
+            id=player.user.id,
+            username=player.user.username,
+            is_gm=player.is_gm,
+            state=player.state.value,
+        )
+        for player in all_players
+    ]
 
     return schemas.GetGameResponse(
         id=game.id,
@@ -96,17 +108,7 @@ async def get_game(
         recruitment_thread_id=game.recruitment_thread_id,
         advanced_options=game.advanced_options,
         retired=game.retired,
-        players=schemas.PlayersData(
-            players=[
-                schemas.PlayerData(
-                    id=player.user.id,
-                    username=player.user.username,
-                    is_gm=player.is_gm,
-                    state=player.state.value,
-                )
-                for player in players
-            ]
-        ),
+        players=players,
     )
 
 
@@ -122,3 +124,34 @@ async def favorite_game(
     is_favorite = await favorites_repository.toggle_game_favorite(game_id)
 
     return schemas.FavoriteGameResponse(favorite=is_favorite)
+
+
+@games.post("/{game_id}/invite", status_code=status.HTTP_204_NO_CONTENT)
+async def invite_player(
+    game_id: int,
+    request_body: schemas.InvitePlayerInput,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    if not await game_repository.exists(game_id):
+        raise NotFoundException("Game not found")
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    if not await player_repository.is_gm(game_id, principal.id):
+        raise ForbiddenException("Only game masters can invite players")
+
+    username = request_body.username
+    user_repository = UserRepository(db_session)
+    user = await user_repository.get_user_by_username(username)
+    if user is None:
+        raise NotFoundException("User not found")
+
+    try:
+        await player_repository.attach_player_to_game(
+            game_id, user.id, state=Player.States.INVITED
+        )
+    except DuplicatePlayerError as e:
+        raise ConflictException("Player already invited to game") from e
+
+    return

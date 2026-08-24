@@ -17,6 +17,7 @@ class Player(Base, TimestampMixin):
 
     class States(LabelEnum):
         APPLIED = "applied", "Applied"
+        INVITED = "invited", "Invited"
         ACCEPTED = "accepted", "Accepted"
         REJECTED = "rejected", "Rejected"
         REMOVED = "removed", "Removed"

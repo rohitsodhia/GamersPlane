@@ -165,11 +165,6 @@ class TestGetGame:
 
         assert response.status_code == 404
 
-    async def test_get_game_is_public(self, client, game):
-        response = await client.get(f"/games/{game.id}")
-
-        assert response.status_code == 200
-
     async def test_get_game_returns_fields(self, client, game, system, gm):
         response = await client.get(f"/games/{game.id}")
 
@@ -193,7 +188,7 @@ class TestGetGame:
         assert body["recruitment_thread_id"] is None
         assert body["advanced_options"] is None
         assert body["retired"] is None
-        assert body["players"] == {"players": []}
+        assert body["players"] == []
 
     async def test_get_game_allowed_char_sheets_returns_ids(
         self, client, db_session, gm, system, create
@@ -234,16 +229,20 @@ class TestGetGame:
         player_repository = PlayerRepository(db_session, principal=gm)
         applied = await create(ActivatedUserFactory)
         accepted = await create(ActivatedUserFactory)
+        invited = await create(ActivatedUserFactory)
         await player_repository.attach_player_to_game(game.id, applied.id)
         await player_repository.attach_player_to_game(
             game.id, accepted.id, state=Player.States.ACCEPTED
+        )
+        await player_repository.attach_player_to_game(
+            game.id, invited.id, state=Player.States.INVITED
         )
 
         client = self._auth_as(client, gm)
         response = await client.get(f"/games/{game.id}")
 
-        player_user_ids = {p["id"] for p in response.json()["players"]["players"]}
-        assert player_user_ids == {applied.id, accepted.id}
+        player_user_ids = {p["id"] for p in response.json()["players"]}
+        assert player_user_ids == {applied.id, accepted.id, invited.id}
 
     async def test_get_game_as_non_gm_only_returns_accepted_players(
         self, authed_client, db_session, gm, game, create
@@ -252,14 +251,18 @@ class TestGetGame:
         player_repository = PlayerRepository(db_session, principal=gm)
         applied = await create(ActivatedUserFactory)
         accepted = await create(ActivatedUserFactory)
+        invited = await create(ActivatedUserFactory)
         await player_repository.attach_player_to_game(game.id, applied.id)
         await player_repository.attach_player_to_game(
             game.id, accepted.id, state=Player.States.ACCEPTED
         )
+        await player_repository.attach_player_to_game(
+            game.id, invited.id, state=Player.States.INVITED
+        )
 
         response = await client.get(f"/games/{game.id}")
 
-        player_user_ids = {p["id"] for p in response.json()["players"]["players"]}
+        player_user_ids = {p["id"] for p in response.json()["players"]}
         assert player_user_ids == {accepted.id}
 
     async def test_get_game_anonymous_only_returns_accepted_players(
@@ -268,14 +271,18 @@ class TestGetGame:
         player_repository = PlayerRepository(db_session, principal=gm)
         applied = await create(ActivatedUserFactory)
         accepted = await create(ActivatedUserFactory)
+        invited = await create(ActivatedUserFactory)
         await player_repository.attach_player_to_game(game.id, applied.id)
         await player_repository.attach_player_to_game(
             game.id, accepted.id, state=Player.States.ACCEPTED
         )
+        await player_repository.attach_player_to_game(
+            game.id, invited.id, state=Player.States.INVITED
+        )
 
         response = await client.get(f"/games/{game.id}")
 
-        player_user_ids = {p["id"] for p in response.json()["players"]["players"]}
+        player_user_ids = {p["id"] for p in response.json()["players"]}
         assert player_user_ids == {accepted.id}
 
     async def test_get_game_player_fields(self, client, db_session, gm, game, create):
@@ -287,7 +294,7 @@ class TestGetGame:
 
         response = await client.get(f"/games/{game.id}")
 
-        players = response.json()["players"]["players"]
+        players = response.json()["players"]
         assert players == [
             {
                 "id": user.id,
@@ -384,3 +391,129 @@ class TestFavoriteGame:
         response = await client.post(f"/games/{game.id}/favorite")
 
         assert response.status_code == 404
+
+
+class TestInvitePlayer:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        game = await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        # Real games always have their GM attached as a player (see
+        # create_game in routes.py); invite_player's GM check reads this
+        # Player row, not Game.gm_id, so the fixture must mirror that.
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        return game
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_invite_player_requires_auth(self, client, game):
+        response = await client.post(
+            f"/games/{game.id}/invite", json={"username": "someone"}
+        )
+
+        assert response.status_code == 403
+
+    async def test_invite_player_game_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post(
+            "/games/999999/invite", json={"username": "someone"}
+        )
+
+        assert response.status_code == 404
+
+    async def test_invite_player_not_gm_forbidden(self, authed_client, game):
+        client, _user = authed_client
+
+        response = await client.post(
+            f"/games/{game.id}/invite", json={"username": "someone"}
+        )
+
+        assert response.status_code == 403
+
+    async def test_invite_player_user_not_found(self, client, game, gm):
+        client = self._auth_as(client, gm)
+
+        response = await client.post(
+            f"/games/{game.id}/invite", json={"username": "does-not-exist"}
+        )
+
+        assert response.status_code == 404
+
+    async def test_invite_player_creates_invited_player(
+        self, client, db_session, game, gm, create
+    ):
+        client = self._auth_as(client, gm)
+        invitee = await create(ActivatedUserFactory)
+
+        response = await client.post(
+            f"/games/{game.id}/invite", json={"username": invitee.username}
+        )
+
+        assert response.status_code == 204
+        player = await db_session.get(
+            Player, {"game_id": game.id, "user_id": invitee.id}
+        )
+        assert player is not None
+        assert player.state == Player.States.INVITED
+        assert player.is_gm is False
+
+    async def test_invite_player_already_invited_conflict(
+        self, client, db_session, game, gm, create
+    ):
+        client = self._auth_as(client, gm)
+        invitee = await create(ActivatedUserFactory)
+        await client.post(
+            f"/games/{game.id}/invite", json={"username": invitee.username}
+        )
+
+        response = await client.post(
+            f"/games/{game.id}/invite", json={"username": invitee.username}
+        )
+
+        assert response.status_code == 409
+        # The test client's db_session override bypasses the commit/rollback
+        # that DBSessionDependency normally does at the request boundary, so
+        # the failed flush's rolled-back transaction state must be cleared
+        # manually or it poisons every later test sharing this session.
+        await db_session.rollback()
