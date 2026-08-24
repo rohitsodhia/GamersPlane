@@ -34,11 +34,14 @@ class PostFrequencyData(SchemaBase):
     per_period: Literal["d", "w"]
 
 
+PlayerState = Literal["invited", "applied", "accepted", "rejected", "removed", "left"]
+
+
 class PlayerData(SchemaBase):
     id: int
     username: str
     is_gm: bool
-    state: Literal["invited", "applied", "accepted", "rejected", "removed", "left"]
+    state: PlayerState
 
 
 class GetGameResponse(SchemaBase):
@@ -61,6 +64,7 @@ class GetGameResponse(SchemaBase):
     advanced_options: dict | None
     retired: datetime.datetime | None
     players: list[PlayerData]
+    viewer_state: PlayerState | None
 
 
 class FavoriteGameResponse(SchemaBase):

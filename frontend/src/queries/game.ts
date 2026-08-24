@@ -37,6 +37,7 @@ export type GameDetails = {
 	advanced_options: Record<string, unknown> | null;
 	retired: string | null;
 	players: GamePlayer[];
+	viewer_state: GamePlayerState | null;
 };
 
 export const gameDetailsQueryOptions = (gameId: number) =>
@@ -74,6 +75,16 @@ export const invitePlayer = async (gameId: number, username: string): Promise<vo
 	const res = await apiFetch(`/games/${gameId}/invite`, {
 		method: "POST",
 		body: JSON.stringify({ username }),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
+export const deletePlayer = async (gameId: number, userId: number): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/player/${userId}`, {
+		method: "DELETE",
 	});
 	if (!res.ok) {
 		const { errors } = await res.json();

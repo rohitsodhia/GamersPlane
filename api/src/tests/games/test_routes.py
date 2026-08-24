@@ -189,6 +189,7 @@ class TestGetGame:
         assert body["advanced_options"] is None
         assert body["retired"] is None
         assert body["players"] == []
+        assert body["viewer_state"] is None
 
     async def test_get_game_allowed_char_sheets_returns_ids(
         self, client, db_session, gm, system, create
@@ -284,6 +285,34 @@ class TestGetGame:
 
         player_user_ids = {p["id"] for p in response.json()["players"]}
         assert player_user_ids == {accepted.id}
+
+    async def test_get_game_viewer_state_reflects_own_invite(
+        self, client, db_session, gm, game, create
+    ):
+        player_repository = PlayerRepository(db_session, principal=gm)
+        invitee = await create(ActivatedUserFactory)
+        await player_repository.attach_player_to_game(
+            game.id, invitee.id, state=Player.States.INVITED
+        )
+
+        client = self._auth_as(client, invitee)
+        response = await client.get(f"/games/{game.id}")
+
+        body = response.json()
+        assert body["viewer_state"] == "invited"
+        # The invited player isn't accepted, so they still don't show up in
+        # the public players list even though they can see their own state.
+        assert body["players"] == []
+
+    async def test_get_game_viewer_state_none_when_not_a_player(
+        self, client, db_session, gm, game, create
+    ):
+        other_user = await create(ActivatedUserFactory)
+
+        client = self._auth_as(client, other_user)
+        response = await client.get(f"/games/{game.id}")
+
+        assert response.json()["viewer_state"] is None
 
     async def test_get_game_player_fields(self, client, db_session, gm, game, create):
         player_repository = PlayerRepository(db_session, principal=gm)
@@ -517,3 +546,136 @@ class TestInvitePlayer:
         # the failed flush's rolled-back transaction state must be cleared
         # manually or it poisons every later test sharing this session.
         await db_session.rollback()
+
+
+class TestDeletePlayer:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        game = await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        # Real games always have their GM attached as a player (see
+        # create_game in routes.py); delete_player's GM check reads this
+        # Player row, not Game.gm_id, so the fixture must mirror that.
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        return game
+
+    @pytest.fixture
+    async def invitee(self, db_session, gm, game, create):
+        invitee = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, invitee.id, state=Player.States.INVITED
+        )
+        return invitee
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_delete_player_requires_auth(self, client, game, invitee):
+        response = await client.delete(f"/games/{game.id}/player/{invitee.id}")
+
+        assert response.status_code == 403
+
+    async def test_delete_player_game_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.delete("/games/999999/player/1")
+
+        assert response.status_code == 404
+
+    async def test_delete_player_not_gm_and_not_self_forbidden(
+        self, authed_client, game, invitee
+    ):
+        client, _user = authed_client
+
+        response = await client.delete(f"/games/{game.id}/player/{invitee.id}")
+
+        assert response.status_code == 403
+
+    @pytest.mark.parametrize(
+        "state", [Player.States.INVITED, Player.States.ACCEPTED]
+    )
+    async def test_delete_player_as_gm_removes_player(
+        self, client, db_session, game, gm, create, state
+    ):
+        target = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(game.id, target.id, state=state)
+        client = self._auth_as(client, gm)
+
+        response = await client.delete(f"/games/{game.id}/player/{target.id}")
+
+        assert response.status_code == 204
+        player = await db_session.get(Player, {"game_id": game.id, "user_id": target.id})
+        assert player is None
+
+    @pytest.mark.parametrize(
+        "state", [Player.States.INVITED, Player.States.ACCEPTED]
+    )
+    async def test_delete_player_as_self_removes_own_player(
+        self, client, db_session, game, gm, create, state
+    ):
+        target = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(game.id, target.id, state=state)
+        client = self._auth_as(client, target)
+
+        response = await client.delete(f"/games/{game.id}/player/{target.id}")
+
+        assert response.status_code == 204
+        player = await db_session.get(Player, {"game_id": game.id, "user_id": target.id})
+        assert player is None
+
+    async def test_delete_player_not_in_game_not_found(self, client, game, gm, create):
+        client = self._auth_as(client, gm)
+        stranger = await create(ActivatedUserFactory)
+
+        response = await client.delete(f"/games/{game.id}/player/{stranger.id}")
+
+        assert response.status_code == 404
+
+    async def test_delete_player_primary_gm_forbidden(self, client, game, gm):
+        client = self._auth_as(client, gm)
+
+        response = await client.delete(f"/games/{game.id}/player/{gm.id}")
+
+        assert response.status_code == 403

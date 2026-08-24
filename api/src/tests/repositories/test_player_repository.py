@@ -156,6 +156,32 @@ class TestPlayerRepository:
         # MissingGreenlet, so this only passes if user was eagerly loaded.
         assert players[0].user.username == user.username
 
+    async def test_get_player_returns_player(self, repository, game, create):
+        user = await create(ActivatedUserFactory)
+        await repository.attach_player_to_game(
+            game.id, user.id, state=Player.States.INVITED
+        )
+
+        player = await repository.get_player(game.id, user.id)
+
+        assert player is not None
+        assert player.state == Player.States.INVITED
+
+    async def test_get_player_none_when_not_a_player(self, repository, game, create):
+        user = await create(ActivatedUserFactory)
+
+        assert await repository.get_player(game.id, user.id) is None
+
+    async def test_delete_player_removes_row(self, repository, game, create):
+        user = await create(ActivatedUserFactory)
+        player = await repository.attach_player_to_game(
+            game.id, user.id, state=Player.States.INVITED
+        )
+
+        await repository.delete_player(player)
+
+        assert await repository.get_player(game.id, user.id) is None
+
     async def test_is_gm_true_for_gm_player(self, repository, game, gm):
         await repository.attach_player_to_game(game.id, gm.id, is_gm=True)
 

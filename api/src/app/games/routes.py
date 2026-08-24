@@ -86,6 +86,12 @@ async def get_game(
         for player in all_players
     ]
 
+    viewer_state = None
+    if principal is not None:
+        viewer_player = await player_repository.get_player(game_id, principal.id)
+        if viewer_player is not None:
+            viewer_state = viewer_player.state.value
+
     return schemas.GetGameResponse(
         id=game.id,
         title=game.title,
@@ -109,6 +115,7 @@ async def get_game(
         advanced_options=game.advanced_options,
         retired=game.retired,
         players=players,
+        viewer_state=viewer_state,
     )
 
 
@@ -155,3 +162,31 @@ async def invite_player(
         raise ConflictException("Player already invited to game") from e
 
     return
+
+
+@games.delete("/{game_id}/player/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_player(
+    game_id: int,
+    user_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await game_repository.get(game_id)
+    if not game:
+        raise NotFoundException("Game not found")
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    player = await player_repository.get_player(game_id, user_id)
+    if player is None:
+        raise NotFoundException("Player not in game")
+
+    if user_id == game.gm_id:
+        raise ForbiddenException("Primary GM cannot be removed from game")
+    if (
+        not await player_repository.is_gm(game_id, principal.id)
+        and principal.id != user_id
+    ):
+        raise ForbiddenException("Only game masters can edit players")
+
+    await player_repository.delete_player(player)

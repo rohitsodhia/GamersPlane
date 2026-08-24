@@ -7,6 +7,7 @@ import { ApiError } from "#/lib/api";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
+	deletePlayer,
 	favoriteGame,
 	type GamePlayer,
 	gameDetailsQueryOptions,
@@ -53,10 +54,11 @@ function RouteComponent() {
 	const hbMarginedH1 = useHbMargined<HTMLHeadingElement>();
 	const hbMarginedH2 = useHbMargined<HTMLHeadingElement>();
 
-	// --- Everything below this point that mutates state is a UI-only mock:
-	// the backend only exposes GET /games/{id} and POST /games/ today. Each
-	// action is marked with a TODO pointing at the endpoint it's standing in
-	// for, and none of it persists past a page refresh.
+	// --- Everything below this point that mutates state is a UI-only mock
+	// unless otherwise noted: the backend only exposes a handful of endpoints
+	// today. Each remaining mock action is marked with a TODO pointing at the
+	// endpoint it's standing in for, and none of it persists past a page
+	// refresh.
 
 	const [favorited, setFavorited] = useState(false);
 	const favoriteMutation = useMutation({
@@ -107,6 +109,15 @@ function RouteComponent() {
 		},
 	});
 
+	const [deletePlayerError, setDeletePlayerError] = useState<string | null>(null);
+	const deletePlayerMutation = useMutation({
+		mutationFn: (userId: number) => deletePlayer(gameId, userId),
+		onSuccess: (_data, userId) => {
+			setPlayers((prev) => prev.filter((player) => player.id !== userId));
+		},
+		onError: () => setDeletePlayerError("Failed to remove player"),
+	});
+
 	// TODO: decks aren't modeled on the backend at all yet.
 	const decks: { id: number; label: string; cardsRemaining: number }[] = [];
 
@@ -122,10 +133,15 @@ function RouteComponent() {
 
 	const playersInGame = players.filter((player) => player.state === "accepted");
 	const playersInvited = players.filter((player) => player.state === "invited");
-	const pendingInvite = !!me && playersInvited.some((player) => player.id === me.id);
+	const pendingInvite = game.viewer_state === "invited";
 	const playersAwaitingApproval = players.filter(
 		(player) => player.state === "applied",
 	);
+	const viewerGameStatus: "invited" | "inGame" | "none" = pendingInvite
+		? "invited"
+		: inGame
+			? "inGame"
+			: "none";
 
 	const toggleGameStatus = () => setStatus((s) => (s === "open" ? "closed" : "open"));
 	const toggleForum = () => setIsPublic((p) => !p);
@@ -135,8 +151,6 @@ function RouteComponent() {
 	};
 	const confirmUnretire = () => setRetired(null);
 
-	const removePlayer = (userId: number) =>
-		setPlayers((prev) => prev.filter((player) => player.id !== userId));
 	const approvePlayer = (userId: number) =>
 		setPlayers((prev) =>
 			prev.map((player) =>
@@ -151,11 +165,6 @@ function RouteComponent() {
 				player.id === userId ? { ...player, is_gm: !player.is_gm } : player,
 			),
 		);
-	const leaveGame = () => {
-		if (!me) return;
-		setPlayers((prev) => prev.filter((player) => player.id !== me.id));
-	};
-
 	const submitInvite = (e: React.FormEvent) => {
 		e.preventDefault();
 		setInviteError(null);
@@ -380,15 +389,15 @@ function RouteComponent() {
 										</div>
 										<div className={styles["action-links"]}>
 											{me &&
-												player.id !== me.id &&
-												isGM &&
-												!(player.id === game.gm.id) && (
+												player.id !== game.gm.id &&
+												(isGM || player.id === me.id) && (
 													<button
 														type="button"
 														className={styles["inline-action"]}
-														onClick={() => removePlayer(player.id)}
+														onClick={() => deletePlayerMutation.mutate(player.id)}
+														disabled={deletePlayerMutation.isPending}
 													>
-														Remove player
+														{player.id === me.id ? "Leave Game" : "Remove player"}
 													</button>
 												)}
 											{isPrimaryGM && player.id !== game.gm.id && (
@@ -398,15 +407,6 @@ function RouteComponent() {
 													onClick={() => toggleGMStatus(player.id)}
 												>
 													{player.is_gm ? "Remove as" : "Make"} GM
-												</button>
-											)}
-											{me && player.id === me.id && player.id !== game.gm.id && (
-												<button
-													type="button"
-													className={styles["inline-action"]}
-													onClick={leaveGame}
-												>
-													Leave Game
 												</button>
 											)}
 										</div>
@@ -419,6 +419,7 @@ function RouteComponent() {
 								<li className={styles.notice}>No players have joined yet.</li>
 							)}
 						</ul>
+						{deletePlayerError && <div className="error">{deletePlayerError}</div>}
 
 						{!retired && isGM && playersAwaitingApproval.length > 0 && (
 							<>
@@ -542,7 +543,7 @@ function RouteComponent() {
 					</div>
 
 					<div className={styles["right-col"]}>
-						{!retired && status !== "open" && !pendingInvite && !inGame && (
+						{!retired && status !== "open" && viewerGameStatus === "none" && (
 							<div className={styles["right-panel"]}>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-round-shield" /> Game Closed
@@ -567,8 +568,7 @@ function RouteComponent() {
 						{!retired &&
 							status === "open" &&
 							loggedIn &&
-							!pendingInvite &&
-							!inGame &&
+							viewerGameStatus === "none" &&
 							game.num_players <= playersInGame.length && (
 								<div className={styles["right-panel"]}>
 									<h2 className="headerbar hb-dark">
@@ -580,8 +580,7 @@ function RouteComponent() {
 						{!retired &&
 							status === "open" &&
 							loggedIn &&
-							!pendingInvite &&
-							!inGame &&
+							viewerGameStatus === "none" &&
 							game.num_players > playersInGame.length &&
 							!hasApplied && (
 								<div className={styles["right-panel"]}>
@@ -634,7 +633,7 @@ function RouteComponent() {
 									)}
 								</div>
 							)}
-						{!retired && loggedIn && !pendingInvite && inGame && !approved && (
+						{!retired && loggedIn && viewerGameStatus === "inGame" && !approved && (
 							<div className={styles["right-panel"]}>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Join Game
@@ -643,11 +642,11 @@ function RouteComponent() {
 									Your request to join this game is awaiting approval
 								</p>
 								<p>
-									{/* TODO: no withdraw endpoint yet */}
 									<button
 										type="button"
 										className={styles["inline-action"]}
-										onClick={leaveGame}
+										onClick={() => deletePlayerMutation.mutate(me.id)}
+										disabled={deletePlayerMutation.isPending}
 									>
 										withdraw
 									</button>{" "}
@@ -655,7 +654,7 @@ function RouteComponent() {
 								</p>
 							</div>
 						)}
-						{!retired && loggedIn && hasApplied && !inGame && (
+						{!retired && loggedIn && hasApplied && viewerGameStatus === "none" && (
 							<div className={styles["right-panel"]}>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Join Game
@@ -665,7 +664,7 @@ function RouteComponent() {
 								</p>
 							</div>
 						)}
-						{!retired && loggedIn && pendingInvite && (
+						{!retired && loggedIn && viewerGameStatus === "invited" && (
 							<div className={styles["right-panel"]}>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-hourglass" /> Invite Pending
@@ -681,7 +680,7 @@ function RouteComponent() {
 								</p>
 							</div>
 						)}
-						{!retired && loggedIn && inGame && approved && (
+						{!retired && loggedIn && viewerGameStatus === "inGame" && approved && (
 							<div className={styles["right-panel"]}>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Submit a Character
