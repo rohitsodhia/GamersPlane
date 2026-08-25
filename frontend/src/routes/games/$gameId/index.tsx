@@ -62,7 +62,7 @@ function getRightPanel(args: {
 	retired: string | null;
 	viewerGameStatus: "invited" | "inGame" | "none";
 	approved: boolean;
-	hasApplied: boolean;
+	pendingApplication: boolean;
 	status: "open" | "closed";
 	loggedIn: boolean;
 	full: boolean;
@@ -72,7 +72,7 @@ function getRightPanel(args: {
 	if (args.viewerGameStatus === "inGame") {
 		return args.approved ? "submitCharacter" : "awaitingApproval";
 	}
-	if (args.hasApplied) return "awaitingApproval";
+	if (args.pendingApplication) return "awaitingApproval";
 	if (args.status !== "open") return "closed";
 	if (!args.loggedIn) return "loginRequired";
 	if (args.full) return "full";
@@ -122,13 +122,13 @@ function RouteComponent() {
 	// toggle GM, approve, reject, leave) can be demoed without a real endpoint.
 	const [players, setPlayers] = useState<GamePlayer[]>(game.players);
 
-	// TODO: no apply-to-game endpoint yet.
-	const [hasApplied, setHasApplied] = useState(false);
-
-	// TODO: no accept/decline-invite endpoint yet. Tracked separately from
+	// TODO: no apply-to-game/accept-invite/decline-invite endpoints yet, so
+	// this is mutated locally to mock those actions. Tracked separately from
 	// `players` because the backend excludes the viewer's own non-accepted
-	// row from that list unless they're the GM (see game.viewer_state).
-	const [viewerInviteState, setViewerInviteState] = useState(game.viewer_state);
+	// row from that list unless they're the GM (see game.viewer_state) —
+	// this is the only reliable source for the viewer's own applied/invited
+	// state.
+	const [viewerPlayerState, setViewerPlayerState] = useState(game.viewer_state);
 
 	const [inviteUsername, setInviteUsername] = useState("");
 	const [inviteError, setInviteError] = useState<string | null>(null);
@@ -176,7 +176,8 @@ function RouteComponent() {
 
 	const playersInGame = players.filter((player) => player.state === "accepted");
 	const playersInvited = players.filter((player) => player.state === "invited");
-	const pendingInvite = viewerInviteState === "invited";
+	const pendingInvite = viewerPlayerState === "invited";
+	const pendingApplication = viewerPlayerState === "applied";
 	const playersAwaitingApproval = players.filter(
 		(player) => player.state === "applied",
 	);
@@ -189,7 +190,7 @@ function RouteComponent() {
 		retired,
 		viewerGameStatus,
 		approved,
-		hasApplied,
+		pendingApplication,
 		status,
 		loggedIn,
 		full: game.num_players <= playersInGame.length,
@@ -222,18 +223,13 @@ function RouteComponent() {
 		if (!username) return;
 		inviteMutation.mutate(username);
 	};
-	const withdrawInvite = (userId: number) =>
-		setPlayers((prev) => prev.filter((player) => player.id !== userId));
 	const acceptInvite = () => {
 		if (!me) return;
-		setViewerInviteState("accepted");
+		setViewerPlayerState("accepted");
 		setPlayers((prev) => [
 			...prev,
 			{ id: me.id, username: me.username, is_gm: false, state: "accepted" },
 		]);
-	};
-	const declineInvite = () => {
-		setViewerInviteState("rejected");
 	};
 
 	return (
@@ -259,7 +255,7 @@ function RouteComponent() {
 							)}
 						</button>
 						{isGM && (
-							<Link to="/games/$gameId/edit" params={{ gameId: String(game.id) }}>
+							<Link to="/games/$gameId/edit" params={{ gameId: game.id }}>
 								Edit
 							</Link>
 						)}
@@ -525,7 +521,8 @@ function RouteComponent() {
 															<button
 																type="button"
 																className={styles["inline-action"]}
-																onClick={() => withdrawInvite(player.id)}
+																onClick={() => deletePlayerMutation.mutate(player.id)}
+																disabled={deletePlayerMutation.isPending}
 															>
 																Withdraw Invite
 															</button>
@@ -538,6 +535,9 @@ function RouteComponent() {
 											<li className={styles.notice}>No pending invites.</li>
 										)}
 									</ul>
+									{deletePlayerError && (
+										<div className="error">{deletePlayerError}</div>
+									)}
 									{isGM && (
 										<>
 											<form className={styles["invite-form"]} onSubmit={submitInvite}>
@@ -601,7 +601,12 @@ function RouteComponent() {
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-round-shield" /> Game Closed
 								</h2>
-								<p className={styles.notice}>This game is closed for applications</p>
+								<p
+									className={styles.notice}
+									style={{ marginInline: hbMarginedH2.margin }}
+								>
+									This game is closed for applications
+								</p>
 							</div>
 						)}
 						{rightPanel === "loginRequired" && (
@@ -609,13 +614,15 @@ function RouteComponent() {
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Join Game
 								</h2>
-								<p className="align-center">Interested in this game?</p>
-								<p className="align-center">
-									<Link to="/login" search={{ redirect: `/games/${game.id}` }}>
-										Login
-									</Link>{" "}
-									or <Link to="/register">Register</Link> to join!
-								</p>
+								<div style={{ marginInline: hbMarginedH2.margin }}>
+									<p className="align-center">Interested in this game?</p>
+									<p className="align-center">
+										<Link to="/login" search={{ redirect: `/games/${game.id}` }}>
+											Login
+										</Link>{" "}
+										or <Link to="/register">Register</Link> to join!
+									</p>
+								</div>
 							</div>
 						)}
 						{rightPanel === "full" && (
@@ -623,7 +630,12 @@ function RouteComponent() {
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-round-shield" /> Game Full
 								</h2>
-								<p className={styles.notice}>This game is currently full</p>
+								<p
+									className={styles.notice}
+									style={{ marginInline: hbMarginedH2.margin }}
+								>
+									This game is currently full
+								</p>
 							</div>
 						)}
 						{rightPanel === "canApply" && (
@@ -631,47 +643,52 @@ function RouteComponent() {
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Join Game
 								</h2>
-								{game.recruitment_thread_id && (
-									<>
-										<p>
-											<Link
-												to="/forums/thread/$threadId"
-												params={{ threadId: game.recruitment_thread_id }}
+								<div style={{ marginInline: hbMarginedH2.margin }}>
+									{game.recruitment_thread_id && (
+										<>
+											<p>
+												<Link
+													to="/forums/thread/$threadId"
+													params={{ threadId: game.recruitment_thread_id }}
+													className="skew-btn"
+												>
+													<i className="ra ra-beer" /> Apply in Games Tavern
+												</Link>
+											</p>
+											<p>
+												<a
+													href={`/pms/send/?userID=${game.gm.id}`}
+													className="skew-btn"
+												>
+													<i className="ra ra-quill-ink" /> Message the GM
+												</a>
+											</p>
+										</>
+									)}
+									{/* TODO: no apply-to-game endpoint yet, this just mutates viewerPlayerState locally */}
+									{!game.recruitment_thread_id ? (
+										<p className="align-center">
+											<button
+												type="button"
 												className="skew-btn"
+												onClick={() => setViewerPlayerState("applied")}
 											>
-												<i className="ra ra-beer" /> Apply in Games Tavern
-											</Link>
+												Apply to Game
+											</button>
 										</p>
-										<p>
-											<a href={`/pms/send/?userID=${game.gm.id}`} className="skew-btn">
-												<i className="ra ra-quill-ink" /> Message the GM
-											</a>
+									) : (
+										<p className="align-right">
+											<hr />
+											<button
+												type="button"
+												className={styles["inline-action"]}
+												onClick={() => setViewerPlayerState("applied")}
+											>
+												Apply to game
+											</button>
 										</p>
-									</>
-								)}
-								{/* TODO: no apply-to-game endpoint yet, this just flips local state */}
-								{!game.recruitment_thread_id ? (
-									<p className="align-center">
-										<button
-											type="button"
-											className="skew-btn"
-											onClick={() => setHasApplied(true)}
-										>
-											Apply to Game
-										</button>
-									</p>
-								) : (
-									<p className="align-right">
-										<hr />
-										<button
-											type="button"
-											className={styles["inline-action"]}
-											onClick={() => setHasApplied(true)}
-										>
-											Apply to game
-										</button>
-									</p>
-								)}
+									)}
+								</div>
 							</div>
 						)}
 						{rightPanel === "awaitingApproval" && (
@@ -679,22 +696,25 @@ function RouteComponent() {
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Join Game
 								</h2>
-								<p className={styles.notice}>
-									Your request to join this game is awaiting approval
-								</p>
-								{inGame && (
+								<div style={{ marginInline: hbMarginedH2.margin }}>
+									<p className={styles.notice}>
+										Your request to join this game is awaiting approval
+									</p>
 									<p>
 										<button
 											type="button"
 											className={styles["inline-action"]}
-											onClick={() => deletePlayerMutation.mutate(viewerPlayer.id)}
+											// Reaching this panel requires either viewerGameStatus === "inGame" or
+											// pendingApplication, both of which only hold for an authenticated
+											// viewer, so `me` is always defined here.
+											onClick={() => deletePlayerMutation.mutate(me!.id)}
 											disabled={deletePlayerMutation.isPending}
 										>
 											withdraw
 										</button>{" "}
 										from the game if you're tired of waiting.
 									</p>
-								)}
+								</div>
 							</div>
 						)}
 						{rightPanel === "invited" && (
@@ -702,15 +722,25 @@ function RouteComponent() {
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-hourglass" /> Invite Pending
 								</h2>
-								<p>You've been invited to join this game!</p>
-								<p>
-									<button type="button" className="skew-btn" onClick={acceptInvite}>
-										Join
-									</button>{" "}
-									<button type="button" className="skew-btn" onClick={declineInvite}>
-										Decline
-									</button>
-								</p>
+								<div style={{ marginInline: hbMarginedH2.margin }}>
+									<p>You've been invited to join this game!</p>
+									<p className="align-center">
+										<button type="button" className="skew-btn" onClick={acceptInvite}>
+											Join
+										</button>{" "}
+										<button
+											type="button"
+											className="skew-btn"
+											// Reaching this panel requires viewerPlayerState === "invited",
+											// which only holds for an authenticated viewer, so `me` is
+											// always defined here.
+											onClick={() => deletePlayerMutation.mutate(me!.id)}
+											disabled={deletePlayerMutation.isPending}
+										>
+											Decline
+										</button>
+									</p>
+								</div>
 							</div>
 						)}
 						{rightPanel === "submitCharacter" && (
@@ -719,7 +749,10 @@ function RouteComponent() {
 									<i className="ra ra-player-teleport" /> Submit a Character
 								</h2>
 								{/* TODO: game <-> character submission isn't wired up yet */}
-								<div className={styles.notice}>
+								<div
+									className={styles.notice}
+									style={{ marginInline: hbMarginedH2.margin }}
+								>
 									Character submission isn't available yet.
 								</div>
 							</div>
