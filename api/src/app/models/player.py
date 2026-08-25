@@ -19,9 +19,6 @@ class Player(Base, TimestampMixin):
         APPLIED = "applied", "Applied"
         INVITED = "invited", "Invited"
         ACCEPTED = "accepted", "Accepted"
-        REJECTED = "rejected", "Rejected"
-        REMOVED = "removed", "Removed"
-        LEFT = "left", "Left"
 
     game_id: Mapped[int] = mapped_column(
         "gameID", ForeignKey("games.id"), primary_key=True

@@ -34,7 +34,7 @@ class PostFrequencyData(SchemaBase):
     per_period: Literal["d", "w"]
 
 
-PlayerState = Literal["invited", "applied", "accepted", "rejected", "removed", "left"]
+PlayerState = Literal["invited", "applied", "accepted"]
 
 
 class PlayerData(SchemaBase):

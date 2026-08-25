@@ -2,13 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 
-export type GamePlayerState =
-	| "invited"
-	| "applied"
-	| "accepted"
-	| "rejected"
-	| "removed"
-	| "left";
+export type GamePlayerState = "invited" | "applied" | "accepted";
 
 export type GamePlayer = {
 	id: number;
