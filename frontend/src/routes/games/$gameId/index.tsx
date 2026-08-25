@@ -8,12 +8,14 @@ import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	applyToGame,
+	approvePlayer,
 	deletePlayer,
 	favoriteGame,
 	type GamePlayer,
 	gameDetailsQueryOptions,
 	invitePlayer,
 	toggleGameFlag,
+	toggleGm,
 } from "#/queries/game";
 import { meQueryOptions } from "#/queries/me";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
@@ -179,6 +181,32 @@ function RouteComponent() {
 		onError: () => setDeletePlayerError("Failed to remove player"),
 	});
 
+	const [approvePlayerError, setApprovePlayerError] = useState<string | null>(null);
+	const approvePlayerMutation = useMutation({
+		mutationFn: (userId: number) => approvePlayer(gameId, userId),
+		onSuccess: (_data, userId) => {
+			setPlayers((prev) =>
+				prev.map((player) =>
+					player.id === userId ? { ...player, state: "accepted" } : player,
+				),
+			);
+		},
+		onError: () => setApprovePlayerError("Failed to approve player"),
+	});
+
+	const [toggleGmError, setToggleGmError] = useState<string | null>(null);
+	const toggleGmMutation = useMutation({
+		mutationFn: (userId: number) => toggleGm(gameId, userId),
+		onSuccess: (_data, userId) => {
+			setPlayers((prev) =>
+				prev.map((player) =>
+					player.id === userId ? { ...player, is_gm: !player.is_gm } : player,
+				),
+			);
+		},
+		onError: () => setToggleGmError("Failed to toggle GM status"),
+	});
+
 	// TODO: decks aren't modeled on the backend at all yet.
 	const decks: { id: number; label: string; cardsRemaining: number }[] = [];
 
@@ -216,20 +244,6 @@ function RouteComponent() {
 	};
 	const confirmUnretire = () => setRetired(null);
 
-	const approvePlayer = (userId: number) =>
-		setPlayers((prev) =>
-			prev.map((player) =>
-				player.id === userId ? { ...player, state: "accepted" } : player,
-			),
-		);
-	const rejectPlayer = (userId: number) =>
-		setPlayers((prev) => prev.filter((player) => player.id !== userId));
-	const toggleGMStatus = (userId: number) =>
-		setPlayers((prev) =>
-			prev.map((player) =>
-				player.id === userId ? { ...player, is_gm: !player.is_gm } : player,
-			),
-		);
 	const submitInvite = (e: React.FormEvent) => {
 		e.preventDefault();
 		setInviteError(null);
@@ -467,7 +481,8 @@ function RouteComponent() {
 												<button
 													type="button"
 													className={styles["inline-action"]}
-													onClick={() => toggleGMStatus(player.id)}
+													onClick={() => toggleGmMutation.mutate(player.id)}
+													disabled={toggleGmMutation.isPending}
 												>
 													{player.is_gm ? "Remove as" : "Make"} GM
 												</button>
@@ -483,6 +498,7 @@ function RouteComponent() {
 							)}
 						</ul>
 						{deletePlayerError && <div className="error">{deletePlayerError}</div>}
+						{toggleGmError && <div className="error">{toggleGmError}</div>}
 
 						{!retired && isGM && playersAwaitingApproval.length > 0 && (
 							<>
@@ -503,7 +519,8 @@ function RouteComponent() {
 													<button
 														type="button"
 														className={styles["inline-action"]}
-														onClick={() => approvePlayer(player.id)}
+														onClick={() => approvePlayerMutation.mutate(player.id)}
+														disabled={approvePlayerMutation.isPending}
 													>
 														Approve
 													</button>
@@ -520,6 +537,9 @@ function RouteComponent() {
 										</li>
 									))}
 								</ul>
+								{approvePlayerError && (
+									<div className="error">{approvePlayerError}</div>
+								)}
 							</>
 						)}
 

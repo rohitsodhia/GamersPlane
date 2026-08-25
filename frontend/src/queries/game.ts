@@ -96,6 +96,26 @@ export const applyToGame = async (gameId: number): Promise<void> => {
 	}
 };
 
+export const approvePlayer = async (gameId: number, userId: number): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/player/${userId}/approve`, {
+		method: "POST",
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
+export const toggleGm = async (gameId: number, userId: number): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/player/${userId}/toggle_gm`, {
+		method: "POST",
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
 export const deletePlayer = async (gameId: number, userId: number): Promise<void> => {
 	const res = await apiFetch(`/games/${gameId}/player/${userId}`, {
 		method: "DELETE",
