@@ -88,6 +88,14 @@ export const toggleGameFlag = async (
 	}
 };
 
+export const applyToGame = async (gameId: number): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/apply`, { method: "POST" });
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
 export const deletePlayer = async (gameId: number, userId: number): Promise<void> => {
 	const res = await apiFetch(`/games/${gameId}/player/${userId}`, {
 		method: "DELETE",

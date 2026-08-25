@@ -7,6 +7,7 @@ import { ApiError } from "#/lib/api";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
+	applyToGame,
 	deletePlayer,
 	favoriteGame,
 	type GamePlayer,
@@ -122,13 +123,25 @@ function RouteComponent() {
 	// toggle GM, approve, reject, leave) can be demoed without a real endpoint.
 	const [players, setPlayers] = useState<GamePlayer[]>(game.players);
 
-	// TODO: no apply-to-game/accept-invite/decline-invite endpoints yet, so
-	// this is mutated locally to mock those actions. Tracked separately from
-	// `players` because the backend excludes the viewer's own non-accepted
-	// row from that list unless they're the GM (see game.viewer_state) —
-	// this is the only reliable source for the viewer's own applied/invited
-	// state.
+	// TODO: no accept-invite/decline-invite endpoints yet, so those are still
+	// mutated locally to mock those actions. Tracked separately from `players`
+	// because the backend excludes the viewer's own non-accepted row from
+	// that list unless they're the GM (see game.viewer_state) — this is the
+	// only reliable source for the viewer's own applied/invited state.
 	const [viewerPlayerState, setViewerPlayerState] = useState(game.viewer_state);
+
+	const [applyError, setApplyError] = useState<string | null>(null);
+	const applyMutation = useMutation({
+		mutationFn: () => applyToGame(gameId),
+		onSuccess: () => setViewerPlayerState("applied"),
+		onError: (error: unknown) => {
+			if (error instanceof ApiError && error.errors[0]?.detail) {
+				setApplyError(error.errors[0].detail);
+			} else {
+				setApplyError("Failed to apply to game");
+			}
+		},
+	});
 
 	const [inviteUsername, setInviteUsername] = useState("");
 	const [inviteError, setInviteError] = useState<string | null>(null);
@@ -161,6 +174,7 @@ function RouteComponent() {
 		mutationFn: (userId: number) => deletePlayer(gameId, userId),
 		onSuccess: (_data, userId) => {
 			setPlayers((prev) => prev.filter((player) => player.id !== userId));
+			if (userId === me?.id) setViewerPlayerState(null);
 		},
 		onError: () => setDeletePlayerError("Failed to remove player"),
 	});
@@ -473,7 +487,10 @@ function RouteComponent() {
 						{!retired && isGM && playersAwaitingApproval.length > 0 && (
 							<>
 								<h2 className="headerbar hb-dark">Players Pending Approval</h2>
-								<ul className={styles["player-list"]}>
+								<ul
+									className={styles["player-list"]}
+									style={{ marginInline: hbMarginedH2.margin }}
+								>
 									{playersAwaitingApproval.map((player) => (
 										<li key={player.id}>
 											<div className={styles["player-info"]}>
@@ -493,7 +510,8 @@ function RouteComponent() {
 													<button
 														type="button"
 														className={styles["inline-action"]}
-														onClick={() => rejectPlayer(player.id)}
+														onClick={() => deletePlayerMutation.mutate(player.id)}
+														disabled={deletePlayerMutation.isPending}
 													>
 														Reject
 													</button>
@@ -665,13 +683,13 @@ function RouteComponent() {
 											</p>
 										</>
 									)}
-									{/* TODO: no apply-to-game endpoint yet, this just mutates viewerPlayerState locally */}
 									{!game.recruitment_thread_id ? (
 										<p className="align-center">
 											<button
 												type="button"
 												className="skew-btn"
-												onClick={() => setViewerPlayerState("applied")}
+												onClick={() => applyMutation.mutate()}
+												disabled={applyMutation.isPending}
 											>
 												Apply to Game
 											</button>
@@ -682,12 +700,14 @@ function RouteComponent() {
 											<button
 												type="button"
 												className={styles["inline-action"]}
-												onClick={() => setViewerPlayerState("applied")}
+												onClick={() => applyMutation.mutate()}
+												disabled={applyMutation.isPending}
 											>
 												Apply to game
 											</button>
 										</p>
 									)}
+									{applyError && <div className="error">{applyError}</div>}
 								</div>
 							</div>
 						)}
@@ -701,6 +721,7 @@ function RouteComponent() {
 										Your request to join this game is awaiting approval
 									</p>
 									<p>
+										If you're tired of waiting, you can
 										<button
 											type="button"
 											className={styles["inline-action"]}

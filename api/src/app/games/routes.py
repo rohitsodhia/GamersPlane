@@ -149,7 +149,9 @@ async def update_game(
 
     update_data = request_body.model_dump()
     if request_body.allowed_char_sheets:
-        char_sheets = await system_repository.get_by_ids(request_body.allowed_char_sheets)
+        char_sheets = await system_repository.get_by_ids(
+            request_body.allowed_char_sheets
+        )
         if len(char_sheets) != len(set(request_body.allowed_char_sheets)):
             raise NotFoundException("One or more allowed char sheets not found")
         update_data["allowed_char_sheets"] = list(char_sheets)
@@ -225,7 +227,28 @@ async def invite_player(
     except DuplicatePlayerError as e:
         raise ConflictException("Player already invited to game") from e
 
-    return
+
+@games.post("/{game_id}/apply", status_code=status.HTTP_204_NO_CONTENT)
+async def apply_to_game(
+    game_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await game_repository.get(game_id)
+    if not game:
+        raise NotFoundException("Game not found")
+    if game.status is Game.Statuses.CLOSED or not game.public:
+        raise ForbiddenException("Game is not accepting applications")
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+
+    try:
+        await player_repository.attach_player_to_game(
+            game_id, principal.id, state=Player.States.APPLIED
+        )
+    except DuplicatePlayerError as e:
+        raise ConflictException("Player already in game") from e
 
 
 @games.delete("/{game_id}/player/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

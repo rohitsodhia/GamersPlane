@@ -101,16 +101,13 @@ h1 {
 }
 
 .left-col {
-	flex: 2;
+	flex: 5;
 	min-width: 0;
 }
 
 .right-col {
-	flex: 1;
+	flex: 3;
 	min-width: 0;
-}
-
-.right-panel {
 }
 
 .player-list {
@@ -150,6 +147,8 @@ h1 {
 .notice {
 	color: light-dark(#666, #999);
 	font-style: italic;
+	text-wrap: pretty;
+	text-align: center;
 }
 
 .invite-form {

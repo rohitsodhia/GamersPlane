@@ -716,6 +716,139 @@ class TestInvitePlayer:
         await db_session.rollback()
 
 
+class TestApplyToGame:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        game = await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        return game
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_apply_to_game_requires_auth(self, client, game):
+        response = await client.post(f"/games/{game.id}/apply")
+
+        assert response.status_code == 403
+
+    async def test_apply_to_game_game_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post("/games/999999/apply")
+
+        assert response.status_code == 404
+
+    async def test_apply_to_game_closed_forbidden(
+        self, client, db_session, game, gm, create
+    ):
+        game_repository = GameRepository(db_session, principal=gm)
+        await game_repository.update(game, status=Game.Statuses.CLOSED)
+        applicant = await create(ActivatedUserFactory)
+        client = self._auth_as(client, applicant)
+
+        response = await client.post(f"/games/{game.id}/apply")
+
+        assert response.status_code == 403
+
+    async def test_apply_to_game_not_public_forbidden(
+        self, client, db_session, game, gm, create
+    ):
+        game_repository = GameRepository(db_session, principal=gm)
+        await game_repository.update(game, public=False)
+        applicant = await create(ActivatedUserFactory)
+        client = self._auth_as(client, applicant)
+
+        response = await client.post(f"/games/{game.id}/apply")
+
+        assert response.status_code == 403
+
+    async def test_apply_to_game_creates_applied_player(
+        self, client, db_session, game, create
+    ):
+        applicant = await create(ActivatedUserFactory)
+        client = self._auth_as(client, applicant)
+
+        response = await client.post(f"/games/{game.id}/apply")
+
+        assert response.status_code == 204
+        player = await db_session.get(
+            Player, {"game_id": game.id, "user_id": applicant.id}
+        )
+        assert player is not None
+        assert player.state == Player.States.APPLIED
+        assert player.is_gm is False
+
+    async def test_apply_to_game_already_player_conflict(
+        self, client, db_session, game, gm
+    ):
+        client = self._auth_as(client, gm)
+
+        response = await client.post(f"/games/{game.id}/apply")
+
+        assert response.status_code == 409
+        # The test client's db_session override bypasses the commit/rollback
+        # that DBSessionDependency normally does at the request boundary, so
+        # the failed flush's rolled-back transaction state must be cleared
+        # manually or it poisons every later test sharing this session.
+        await db_session.rollback()
+
+    async def test_apply_to_game_apply_twice_conflict(
+        self, client, db_session, game, create
+    ):
+        applicant = await create(ActivatedUserFactory)
+        client = self._auth_as(client, applicant)
+        await client.post(f"/games/{game.id}/apply")
+
+        response = await client.post(f"/games/{game.id}/apply")
+
+        assert response.status_code == 409
+        # The test client's db_session override bypasses the commit/rollback
+        # that DBSessionDependency normally does at the request boundary, so
+        # the failed flush's rolled-back transaction state must be cleared
+        # manually or it poisons every later test sharing this session.
+        await db_session.rollback()
+
+
 class TestToggleGameFlag:
     @pytest.fixture(autouse=True)
     async def games_root_forum(self, create, db_session):
