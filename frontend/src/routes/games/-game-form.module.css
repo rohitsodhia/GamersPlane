@@ -23,8 +23,8 @@
 		align-items: center; */
 	}
 
-	:global(.react-aria-Searchfield) {
-		width: min(100%, 400px);
+	div:has(> :global(.react-aria-SearchField)) {
+		--rac-field-width: min(100%, 400px);
 	}
 
 	.char-sheet-list {

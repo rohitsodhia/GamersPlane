@@ -77,7 +77,10 @@
 	position: absolute;
 	top: 100%;
 	left: 0;
-	right: 0;
+	/* Matches .react-aria-SearchField's own width formula so the menu is
+	   always exactly as wide as the field, not the (potentially wider)
+	   positioning wrapper. */
+	width: min(100%, var(--rac-field-width));
 	/* Above the tiptap editor toolbar (.tiptap-toolbar[data-variant="fixed"], z-index: 50). */
 	z-index: 60;
 	margin-top: 0.3em;
