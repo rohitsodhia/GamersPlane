@@ -247,30 +247,11 @@ class TestGetGame:
         player_user_ids = {p["id"] for p in response.json()["players"]}
         assert player_user_ids == {applied.id, accepted.id, invited.id}
 
-    async def test_get_game_as_non_gm_only_returns_accepted_players(
-        self, authed_client, db_session, gm, game, create
+    @pytest.mark.parametrize("use_auth", [True, False])
+    async def test_get_game_non_gm_only_returns_accepted_players(
+        self, client, authed_client, db_session, gm, game, create, use_auth
     ):
-        client, _user = authed_client
-        player_repository = PlayerRepository(db_session, principal=gm)
-        applied = await create(ActivatedUserFactory)
-        accepted = await create(ActivatedUserFactory)
-        invited = await create(ActivatedUserFactory)
-        await player_repository.attach_player_to_game(game.id, applied.id)
-        await player_repository.attach_player_to_game(
-            game.id, accepted.id, state=Player.States.ACCEPTED
-        )
-        await player_repository.attach_player_to_game(
-            game.id, invited.id, state=Player.States.INVITED
-        )
-
-        response = await client.get(f"/games/{game.id}")
-
-        player_user_ids = {p["id"] for p in response.json()["players"]}
-        assert player_user_ids == {accepted.id}
-
-    async def test_get_game_anonymous_only_returns_accepted_players(
-        self, client, db_session, gm, game, create
-    ):
+        client = authed_client[0] if use_auth else client
         player_repository = PlayerRepository(db_session, principal=gm)
         applied = await create(ActivatedUserFactory)
         accepted = await create(ActivatedUserFactory)
@@ -818,20 +799,6 @@ class TestApplyToGame:
         assert player.state == Player.States.APPLIED
         assert player.is_gm is False
 
-    async def test_apply_to_game_already_player_conflict(
-        self, client, db_session, game, gm
-    ):
-        client = self._auth_as(client, gm)
-
-        response = await client.post(f"/games/{game.id}/apply")
-
-        assert response.status_code == 409
-        # The test client's db_session override bypasses the commit/rollback
-        # that DBSessionDependency normally does at the request boundary, so
-        # the failed flush's rolled-back transaction state must be cleared
-        # manually or it poisons every later test sharing this session.
-        await db_session.rollback()
-
     async def test_apply_to_game_apply_twice_conflict(
         self, client, db_session, game, create
     ):
@@ -847,6 +814,247 @@ class TestApplyToGame:
         # the failed flush's rolled-back transaction state must be cleared
         # manually or it poisons every later test sharing this session.
         await db_session.rollback()
+
+
+class TestApprovePlayer:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        game = await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        # Real games always have their GM attached as a player (see
+        # create_game in routes.py); approve_player's GM check reads this
+        # Player row, not Game.gm_id, so the fixture must mirror that.
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        return game
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_approve_player_requires_auth(self, client, game, gm):
+        response = await client.post(f"/games/{game.id}/player/{gm.id}/approve")
+
+        assert response.status_code == 403
+
+    async def test_approve_player_game_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post("/games/999999/player/1/approve")
+
+        assert response.status_code == 404
+
+    async def test_approve_player_not_gm_forbidden(self, authed_client, game, create):
+        client, _user = authed_client
+        applicant = await create(ActivatedUserFactory)
+
+        response = await client.post(f"/games/{game.id}/player/{applicant.id}/approve")
+
+        assert response.status_code == 403
+
+    async def test_approve_player_not_in_game_not_found(self, client, game, gm, create):
+        client = self._auth_as(client, gm)
+        stranger = await create(ActivatedUserFactory)
+
+        response = await client.post(f"/games/{game.id}/player/{stranger.id}/approve")
+
+        assert response.status_code == 404
+
+    async def test_approve_player_already_accepted_conflict(self, client, game, gm):
+        client = self._auth_as(client, gm)
+
+        response = await client.post(f"/games/{game.id}/player/{gm.id}/approve")
+
+        assert response.status_code == 409
+
+    async def test_approve_player_accepts_player(
+        self, client, db_session, game, gm, create
+    ):
+        target = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, target.id, state=Player.States.APPLIED
+        )
+        client = self._auth_as(client, gm)
+
+        response = await client.post(f"/games/{game.id}/player/{target.id}/approve")
+
+        assert response.status_code == 204
+        player = await db_session.get(
+            Player, {"game_id": game.id, "user_id": target.id}
+        )
+        assert player.state == Player.States.ACCEPTED
+
+
+class TestToggleGm:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        game = await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        # Real games always have their GM attached as a player (see
+        # create_game in routes.py); toggle_gm's GM check reads this
+        # Player row, not Game.gm_id, so the fixture must mirror that.
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        return game
+
+    @pytest.fixture
+    async def accepted_player(self, db_session, gm, game, create):
+        target = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, target.id, state=Player.States.ACCEPTED
+        )
+        return target
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_toggle_gm_requires_auth(self, client, game, accepted_player):
+        response = await client.post(
+            f"/games/{game.id}/player/{accepted_player.id}/toggle_gm"
+        )
+
+        assert response.status_code == 403
+
+    async def test_toggle_gm_game_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post("/games/999999/player/1/toggle_gm")
+
+        assert response.status_code == 404
+
+    async def test_toggle_gm_not_gm_forbidden(
+        self, authed_client, game, accepted_player
+    ):
+        client, _user = authed_client
+
+        response = await client.post(
+            f"/games/{game.id}/player/{accepted_player.id}/toggle_gm"
+        )
+
+        assert response.status_code == 403
+
+    async def test_toggle_gm_not_in_game_not_found(self, client, game, gm, create):
+        client = self._auth_as(client, gm)
+        stranger = await create(ActivatedUserFactory)
+
+        response = await client.post(f"/games/{game.id}/player/{stranger.id}/toggle_gm")
+
+        assert response.status_code == 404
+
+    async def test_toggle_gm_primary_gm_forbidden(self, client, game, gm):
+        client = self._auth_as(client, gm)
+
+        response = await client.post(f"/games/{game.id}/player/{gm.id}/toggle_gm")
+
+        assert response.status_code == 403
+
+    async def test_toggle_gm_promotes_player(
+        self, client, db_session, game, gm, accepted_player
+    ):
+        client = self._auth_as(client, gm)
+
+        response = await client.post(
+            f"/games/{game.id}/player/{accepted_player.id}/toggle_gm"
+        )
+
+        assert response.status_code == 204
+        player = await db_session.get(
+            Player, {"game_id": game.id, "user_id": accepted_player.id}
+        )
+        assert player.is_gm is True
+
+    async def test_toggle_gm_twice_demotes_player(
+        self, client, db_session, game, gm, accepted_player
+    ):
+        client = self._auth_as(client, gm)
+        await client.post(f"/games/{game.id}/player/{accepted_player.id}/toggle_gm")
+
+        response = await client.post(
+            f"/games/{game.id}/player/{accepted_player.id}/toggle_gm"
+        )
+
+        assert response.status_code == 204
+        player = await db_session.get(
+            Player, {"game_id": game.id, "user_id": accepted_player.id}
+        )
+        assert player.is_gm is False
 
 
 class TestToggleGameFlag:
@@ -889,6 +1097,11 @@ class TestToggleGameFlag:
             None,
         )
 
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
     async def test_toggle_game_flag_requires_auth(self, client, game):
         response = await client.patch(f"/games/{game.id}/toggle/public")
 
@@ -901,6 +1114,13 @@ class TestToggleGameFlag:
 
         assert response.status_code == 404
 
+    async def test_toggle_game_flag_not_gm_forbidden(self, authed_client, game):
+        client, _user = authed_client
+
+        response = await client.patch(f"/games/{game.id}/toggle/public")
+
+        assert response.status_code == 403
+
     async def test_toggle_game_flag_invalid_key_not_found(self, authed_client, game):
         client, _user = authed_client
 
@@ -908,8 +1128,8 @@ class TestToggleGameFlag:
 
         assert response.status_code == 422
 
-    async def test_toggle_public_flips_the_flag(self, authed_client, game, db_session):
-        client, _user = authed_client
+    async def test_toggle_public_flips_the_flag(self, client, game, gm, db_session):
+        client = self._auth_as(client, gm)
         assert game.public is True
 
         response = await client.patch(f"/games/{game.id}/toggle/public")
@@ -918,8 +1138,8 @@ class TestToggleGameFlag:
         game = await db_session.get(Game, game.id)
         assert game.public is False
 
-    async def test_toggle_public_twice_flips_back(self, authed_client, game, db_session):
-        client, _user = authed_client
+    async def test_toggle_public_twice_flips_back(self, client, game, gm, db_session):
+        client = self._auth_as(client, gm)
         await client.patch(f"/games/{game.id}/toggle/public")
 
         response = await client.patch(f"/games/{game.id}/toggle/public")
@@ -928,8 +1148,8 @@ class TestToggleGameFlag:
         game = await db_session.get(Game, game.id)
         assert game.public is True
 
-    async def test_toggle_status_flips_the_flag(self, authed_client, game, db_session):
-        client, _user = authed_client
+    async def test_toggle_status_flips_the_flag(self, client, game, gm, db_session):
+        client = self._auth_as(client, gm)
         assert game.status == Game.Statuses.OPEN
 
         response = await client.patch(f"/games/{game.id}/toggle/status")
@@ -938,8 +1158,8 @@ class TestToggleGameFlag:
         game = await db_session.get(Game, game.id)
         assert game.status == Game.Statuses.CLOSED
 
-    async def test_toggle_status_twice_flips_back(self, authed_client, game, db_session):
-        client, _user = authed_client
+    async def test_toggle_status_twice_flips_back(self, client, game, gm, db_session):
+        client = self._auth_as(client, gm)
         await client.patch(f"/games/{game.id}/toggle/status")
 
         response = await client.patch(f"/games/{game.id}/toggle/status")
@@ -1032,38 +1252,40 @@ class TestDeletePlayer:
 
         assert response.status_code == 403
 
-    @pytest.mark.parametrize(
-        "state", [Player.States.INVITED, Player.States.ACCEPTED]
-    )
     async def test_delete_player_as_gm_removes_player(
-        self, client, db_session, game, gm, create, state
+        self, client, db_session, game, gm, create
     ):
         target = await create(ActivatedUserFactory)
         player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(game.id, target.id, state=state)
+        await player_repository.attach_player_to_game(
+            game.id, target.id, state=Player.States.ACCEPTED
+        )
         client = self._auth_as(client, gm)
 
         response = await client.delete(f"/games/{game.id}/player/{target.id}")
 
         assert response.status_code == 204
-        player = await db_session.get(Player, {"game_id": game.id, "user_id": target.id})
+        player = await db_session.get(
+            Player, {"game_id": game.id, "user_id": target.id}
+        )
         assert player is None
 
-    @pytest.mark.parametrize(
-        "state", [Player.States.INVITED, Player.States.ACCEPTED]
-    )
     async def test_delete_player_as_self_removes_own_player(
-        self, client, db_session, game, gm, create, state
+        self, client, db_session, game, gm, create
     ):
         target = await create(ActivatedUserFactory)
         player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(game.id, target.id, state=state)
+        await player_repository.attach_player_to_game(
+            game.id, target.id, state=Player.States.ACCEPTED
+        )
         client = self._auth_as(client, target)
 
         response = await client.delete(f"/games/{game.id}/player/{target.id}")
 
         assert response.status_code == 204
-        player = await db_session.get(Player, {"game_id": game.id, "user_id": target.id})
+        player = await db_session.get(
+            Player, {"game_id": game.id, "user_id": target.id}
+        )
         assert player is None
 
     async def test_delete_player_not_in_game_not_found(self, client, game, gm, create):

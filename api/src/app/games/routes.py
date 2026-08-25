@@ -5,6 +5,12 @@ from fastapi import APIRouter, status
 from app.database import DBSessionDependency
 from app.exceptions import ConflictException, ForbiddenException, NotFoundException
 from app.games import schemas
+from app.games.functions import (
+    get_game_or_404,
+    get_player_or_404,
+    require_game_exists,
+    require_gm,
+)
 from app.helpers.decorators import public
 from app.middleware import Auth, Principal
 from app.models import Game, Player
@@ -67,9 +73,7 @@ async def get_game(
     game_id: int, db_session: DBSessionDependency, auth: Auth, principal: Principal
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    game = await game_repository.get(game_id)
-    if game is None:
-        raise NotFoundException("Game not found")
+    game = await get_game_or_404(game_repository, game_id)
 
     is_gm = principal is not None and principal.id == game.gm_id
 
@@ -135,9 +139,7 @@ async def update_game(
     principal: Principal,
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    game = await game_repository.get(game_id)
-    if not game:
-        raise NotFoundException("Game not found")
+    game = await get_game_or_404(game_repository, game_id)
 
     if principal.id != game.gm_id:
         raise ForbiddenException("Only game masters can edit games")
@@ -169,9 +171,10 @@ async def toggle_game_flag(
     principal: Principal,
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    game = await game_repository.get(game_id)
-    if not game:
-        raise NotFoundException("Game not found")
+    game = await get_game_or_404(game_repository, game_id)
+
+    if principal.id != game.gm_id:
+        raise ForbiddenException("Only game masters can edit games")
 
     if key == "status":
         new_value = (
@@ -190,8 +193,7 @@ async def favorite_game(
     game_id: int, db_session: DBSessionDependency, principal: Principal
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    if not await game_repository.exists(game_id):
-        raise NotFoundException("Game not found")
+    await require_game_exists(game_repository, game_id)
 
     favorites_repository = FavoritesRepository(db_session, principal)
     is_favorite = await favorites_repository.toggle_game_favorite(game_id)
@@ -207,12 +209,12 @@ async def invite_player(
     principal: Principal,
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    if not await game_repository.exists(game_id):
-        raise NotFoundException("Game not found")
+    await require_game_exists(game_repository, game_id)
 
     player_repository = PlayerRepository(db_session, principal=principal)
-    if not await player_repository.is_gm(game_id, principal.id):
-        raise ForbiddenException("Only game masters can invite players")
+    await require_gm(
+        player_repository, game_id, principal.id, "Only game masters can invite players"
+    )
 
     username = request_body.username
     user_repository = UserRepository(db_session)
@@ -235,9 +237,7 @@ async def apply_to_game(
     principal: Principal,
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    game = await game_repository.get(game_id)
-    if not game:
-        raise NotFoundException("Game not found")
+    game = await get_game_or_404(game_repository, game_id)
     if game.status is Game.Statuses.CLOSED or not game.public:
         raise ForbiddenException("Game is not accepting applications")
 
@@ -261,17 +261,17 @@ async def approve_player(
     principal: Principal,
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    game = await game_repository.get(game_id)
-    if not game:
-        raise NotFoundException("Game not found")
+    await require_game_exists(game_repository, game_id)
 
     player_repository = PlayerRepository(db_session, principal=principal)
-    if not await player_repository.is_gm(game_id, principal.id):
-        raise ForbiddenException("Only game masters can approve players")
+    await require_gm(
+        player_repository,
+        game_id,
+        principal.id,
+        "Only game masters can approve players",
+    )
 
-    player = await player_repository.get_player(game_id, user_id)
-    if player is None:
-        raise NotFoundException("Player not in game")
+    player = await get_player_or_404(player_repository, game_id, user_id)
     if player.state is Player.States.ACCEPTED:
         raise ConflictException("Player already accepted")
 
@@ -288,20 +288,20 @@ async def toggle_gm(
     principal: Principal,
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    game = await game_repository.get(game_id)
-    if not game:
-        raise NotFoundException("Game not found")
+    game = await get_game_or_404(game_repository, game_id)
 
     player_repository = PlayerRepository(db_session, principal=principal)
-    if not await player_repository.is_gm(game_id, principal.id):
-        raise ForbiddenException("Only game masters can toggle GM status")
+    await require_gm(
+        player_repository,
+        game_id,
+        principal.id,
+        "Only game masters can toggle GM status",
+    )
 
     if user_id == game.gm_id:
         raise ForbiddenException("Primary GM cannot be demoted")
 
-    player = await player_repository.get_player(game_id, user_id)
-    if player is None:
-        raise NotFoundException("Player not in game")
+    player = await get_player_or_404(player_repository, game_id, user_id)
 
     await player_repository.update_state(player, is_gm=not player.is_gm)
 
@@ -314,14 +314,10 @@ async def delete_player(
     principal: Principal,
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    game = await game_repository.get(game_id)
-    if not game:
-        raise NotFoundException("Game not found")
+    game = await get_game_or_404(game_repository, game_id)
 
     player_repository = PlayerRepository(db_session, principal=principal)
-    player = await player_repository.get_player(game_id, user_id)
-    if player is None:
-        raise NotFoundException("Player not in game")
+    player = await get_player_or_404(player_repository, game_id, user_id)
 
     if user_id == game.gm_id:
         raise ForbiddenException("Primary GM cannot be removed from game")
