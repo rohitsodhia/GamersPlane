@@ -20,3 +20,7 @@ class FavoritesRepository:
         self.db_session.add(FavoriteGame(user_id=self.principal.id, game_id=game_id))
         await self.db_session.flush()
         return True
+
+    async def get_game_favorite_status(self, game_id: int):
+        favorite = await self.db_session.get(FavoriteGame, (self.principal.id, game_id))
+        return favorite is not None

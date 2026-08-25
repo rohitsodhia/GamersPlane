@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, status
 
 from app.database import DBSessionDependency
@@ -5,7 +7,7 @@ from app.exceptions import ConflictException, ForbiddenException, NotFoundExcept
 from app.games import schemas
 from app.helpers.decorators import public
 from app.middleware import Auth, Principal
-from app.models import Player
+from app.models import Game, Player
 from app.repositories import (
     FavoritesRepository,
     GameRepository,
@@ -92,6 +94,11 @@ async def get_game(
         if viewer_player is not None:
             viewer_state = viewer_player.state.value
 
+    favorited = False
+    if principal is not None:
+        favorites_repository = FavoritesRepository(db_session, principal)
+        favorited = await favorites_repository.get_game_favorite_status(game_id)
+
     return schemas.GetGameResponse(
         id=game.id,
         title=game.title,
@@ -116,7 +123,46 @@ async def get_game(
         retired=game.retired,
         players=players,
         viewer_state=viewer_state,
+        favorited=favorited,
     )
+
+
+# @games.patch("/{game_id}", response_model=schemas.UpdateGameResponse)
+# async def update_game(
+#     game_id: int,
+#     request_body: schemas.UpdateGameInput,
+#     db_session: DBSessionDependency,
+#     principal: Principal,
+# ):
+#     game_repository = GameRepository(db_session, principal=principal)
+#     if not await game_repository.exists(game_id):
+#         raise NotFoundException("Game not found")
+
+#     return await game_repository.update(game_id, request_body)
+
+
+@games.patch("/{game_id}/toggle/{key}", status_code=status.HTTP_204_NO_CONTENT)
+async def toggle_game_flag(
+    game_id: int,
+    key: Literal["status", "public"],
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await game_repository.get(game_id)
+    if not game:
+        raise NotFoundException("Game not found")
+
+    if key == "status":
+        new_value = (
+            Game.Statuses.CLOSED
+            if game.status is Game.Statuses.OPEN
+            else Game.Statuses.OPEN
+        )
+    else:
+        new_value = not game.public
+
+    await game_repository.update(game, **{key: new_value})
 
 
 @games.post("/{game_id}/favorite", response_model=schemas.FavoriteGameResponse)

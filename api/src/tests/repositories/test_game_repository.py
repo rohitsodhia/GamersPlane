@@ -285,3 +285,65 @@ class TestGameRepository:
         game = await repository.get(created.id)
 
         assert {s.id for s in game.allowed_char_sheets} == {sheet.id}
+
+    async def test_update_sets_single_field(self, repository, gm, system):
+        game = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        updated = await repository.update(game, public=False)
+
+        assert updated.public is False
+
+    async def test_update_sets_multiple_fields(self, repository, gm, system):
+        game = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        updated = await repository.update(game, public=False, title="New Title")
+
+        assert updated.public is False
+        assert updated.title == "New Title"
+
+    async def test_update_persists_changes(self, repository, gm, system, db_session):
+        game = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        await repository.update(game, public=False)
+
+        refetched = await repository.get(game.id)
+        assert refetched.public is False

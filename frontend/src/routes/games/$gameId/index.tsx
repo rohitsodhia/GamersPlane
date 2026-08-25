@@ -12,14 +12,15 @@ import {
 	type GamePlayer,
 	gameDetailsQueryOptions,
 	invitePlayer,
+	toggleGameFlag,
 } from "#/queries/game";
 import { meQueryOptions } from "#/queries/me";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { searchUserByUsername } from "#/queries/users";
 import { useAuthStore } from "#/stores/auth";
-import styles from "./$gameId.module.css";
+import styles from "./index.module.css";
 
-export const Route = createFileRoute("/games/$gameId")({
+export const Route = createFileRoute("/games/$gameId/")({
 	params: {
 		parse: (params) => ({ gameId: Number(params.gameId) }),
 	},
@@ -43,6 +44,41 @@ function systemName(systems: BasicSystem[], id: string) {
 	return systems.find((system) => system.id === id)?.name ?? id;
 }
 
+type RightPanel =
+	| "closed"
+	| "loginRequired"
+	| "full"
+	| "canApply"
+	| "awaitingApproval"
+	| "invited"
+	| "submitCharacter"
+	| null;
+
+// A single mutually-exclusive choice of what to show in the right column, so
+// the viewer's personal status (invited/awaiting approval/in game) always
+// takes priority over generic game-state messaging (closed/full), and only
+// one panel can ever render at once.
+function getRightPanel(args: {
+	retired: string | null;
+	viewerGameStatus: "invited" | "inGame" | "none";
+	approved: boolean;
+	hasApplied: boolean;
+	status: "open" | "closed";
+	loggedIn: boolean;
+	full: boolean;
+}): RightPanel {
+	if (args.retired) return null;
+	if (args.viewerGameStatus === "invited") return "invited";
+	if (args.viewerGameStatus === "inGame") {
+		return args.approved ? "submitCharacter" : "awaitingApproval";
+	}
+	if (args.hasApplied) return "awaitingApproval";
+	if (args.status !== "open") return "closed";
+	if (!args.loggedIn) return "loginRequired";
+	if (args.full) return "full";
+	return "canApply";
+}
+
 function RouteComponent() {
 	const { gameId } = Route.useParams();
 	const { data: game } = useSuspenseQuery(gameDetailsQueryOptions(gameId));
@@ -60,17 +96,23 @@ function RouteComponent() {
 	// endpoint it's standing in for, and none of it persists past a page
 	// refresh.
 
-	const [favorited, setFavorited] = useState(false);
+	const [favorited, setFavorited] = useState(game.favorited);
 	const favoriteMutation = useMutation({
 		mutationFn: () => favoriteGame(gameId),
 		onSuccess: (data) => setFavorited(data.favorite),
 	});
 
-	// TODO: no PATCH endpoint to toggle a game's open/closed status yet.
 	const [status, setStatus] = useState(game.status);
+	const toggleStatusMutation = useMutation({
+		mutationFn: () => toggleGameFlag(gameId, "status"),
+		onSuccess: () => setStatus((s) => (s === "open" ? "closed" : "open")),
+	});
 
-	// TODO: no PATCH endpoint to toggle a game's forum public/private yet.
 	const [isPublic, setIsPublic] = useState(game.public);
+	const togglePublicMutation = useMutation({
+		mutationFn: () => toggleGameFlag(gameId, "public"),
+		onSuccess: () => setIsPublic((p) => !p),
+	});
 
 	// TODO: no retire/unretire endpoint yet.
 	const [retired, setRetired] = useState(game.retired);
@@ -82,6 +124,11 @@ function RouteComponent() {
 
 	// TODO: no apply-to-game endpoint yet.
 	const [hasApplied, setHasApplied] = useState(false);
+
+	// TODO: no accept/decline-invite endpoint yet. Tracked separately from
+	// `players` because the backend excludes the viewer's own non-accepted
+	// row from that list unless they're the GM (see game.viewer_state).
+	const [viewerInviteState, setViewerInviteState] = useState(game.viewer_state);
 
 	const [inviteUsername, setInviteUsername] = useState("");
 	const [inviteError, setInviteError] = useState<string | null>(null);
@@ -122,18 +169,14 @@ function RouteComponent() {
 	const decks: { id: number; label: string; cardsRemaining: number }[] = [];
 
 	const isPrimaryGM = me?.id === game.gm.id;
-	// Excludes "invited" players: an invite alone doesn't make someone a
-	// player in the game, so this shouldn't count toward inGame/approved.
-	const currentPlayer = me
-		? players.find((player) => player.id === me.id && player.state !== "invited")
-		: undefined;
-	const isGM = currentPlayer?.is_gm ?? isPrimaryGM;
-	const inGame = !!currentPlayer;
-	const approved = currentPlayer?.state === "accepted";
+	const viewerPlayer = me ? players.find((player) => player.id === me.id) : undefined;
+	const isGM = viewerPlayer?.is_gm ?? false;
+	const inGame = !!viewerPlayer;
+	const approved = viewerPlayer?.state === "accepted";
 
 	const playersInGame = players.filter((player) => player.state === "accepted");
 	const playersInvited = players.filter((player) => player.state === "invited");
-	const pendingInvite = game.viewer_state === "invited";
+	const pendingInvite = viewerInviteState === "invited";
 	const playersAwaitingApproval = players.filter(
 		(player) => player.state === "applied",
 	);
@@ -142,9 +185,16 @@ function RouteComponent() {
 		: inGame
 			? "inGame"
 			: "none";
+	const rightPanel = getRightPanel({
+		retired,
+		viewerGameStatus,
+		approved,
+		hasApplied,
+		status,
+		loggedIn,
+		full: game.num_players <= playersInGame.length,
+	});
 
-	const toggleGameStatus = () => setStatus((s) => (s === "open" ? "closed" : "open"));
-	const toggleForum = () => setIsPublic((p) => !p);
 	const confirmRetire = () => {
 		setRetired(new Date().toISOString());
 		setDisplayRetireConfirm(false);
@@ -176,45 +226,46 @@ function RouteComponent() {
 		setPlayers((prev) => prev.filter((player) => player.id !== userId));
 	const acceptInvite = () => {
 		if (!me) return;
-		setPlayers((prev) =>
-			prev.map((player) =>
-				player.id === me.id ? { ...player, state: "accepted" } : player,
-			),
-		);
+		setViewerInviteState("accepted");
+		setPlayers((prev) => [
+			...prev,
+			{ id: me.id, username: me.username, is_gm: false, state: "accepted" },
+		]);
 	};
 	const declineInvite = () => {
-		if (!me) return;
-		setPlayers((prev) => prev.filter((player) => player.id !== me.id));
+		setViewerInviteState("rejected");
 	};
 
 	return (
 		<div>
-			<div className="hb-topper">
-				<div className="trapezoid">
-					<button
-						type="button"
-						className={`${styles.favorite}`}
-						onClick={() => favoriteMutation.mutate()}
-						disabled={favoriteMutation.isPending}
-						title={favorited ? "Unfavorite" : "Favorite"}
-					>
-						{favorited ? (
-							<>
-								<img src="/images/icons/bookmark_on.png" alt="" /> Favorited
-							</>
-						) : (
-							<>
-								<img src="/images/icons/bookmark_off.png" alt="" /> Favorite
-							</>
+			{me && (
+				<div className="hb-topper">
+					<div className="trapezoid">
+						<button
+							type="button"
+							className={`${styles.favorite}`}
+							onClick={() => favoriteMutation.mutate()}
+							disabled={favoriteMutation.isPending}
+							title={favorited ? "Unfavorite" : "Favorite"}
+						>
+							{favorited ? (
+								<>
+									<img src="/images/icons/bookmark_on.png" alt="" /> Favorited
+								</>
+							) : (
+								<>
+									<img src="/images/icons/bookmark_off.png" alt="" /> Favorite
+								</>
+							)}
+						</button>
+						{isGM && (
+							<Link to="/games/$gameId/edit" params={{ gameId: String(game.id) }}>
+								Edit
+							</Link>
 						)}
-					</button>
-					{isGM && (
-						<Link to="/games/$gameId/edit" params={{ gameId: String(game.id) }}>
-							Edit
-						</Link>
-					)}
+					</div>
 				</div>
-			</div>
+			)}
 			<h1 className="headerbar has-topper" ref={hbMarginedH1.ref}>
 				<i className="ra ra-d6" /> {game.title}
 			</h1>
@@ -245,7 +296,8 @@ function RouteComponent() {
 							<button
 								type="button"
 								className={styles["inline-action"]}
-								onClick={toggleGameStatus}
+								onClick={() => toggleStatusMutation.mutate()}
+								disabled={toggleStatusMutation.isPending}
 							>
 								[{" "}
 								{status === "open" ? "Close for applications" : "Open to applications"}{" "}
@@ -285,7 +337,8 @@ function RouteComponent() {
 							<button
 								type="button"
 								className={styles["inline-action"]}
-								onClick={toggleForum}
+								onClick={() => togglePublicMutation.mutate()}
+								disabled={togglePublicMutation.isPending}
 							>
 								[ Make game {!isPublic ? "Public" : "Private"} ]
 							</button>
@@ -543,7 +596,7 @@ function RouteComponent() {
 					</div>
 
 					<div className={styles["right-col"]}>
-						{!retired && status !== "open" && viewerGameStatus === "none" && (
+						{rightPanel === "closed" && (
 							<div className={styles["right-panel"]}>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-round-shield" /> Game Closed
@@ -551,7 +604,7 @@ function RouteComponent() {
 								<p className={styles.notice}>This game is closed for applications</p>
 							</div>
 						)}
-						{!retired && status === "open" && !loggedIn && (
+						{rightPanel === "loginRequired" && (
 							<div className={styles["right-panel"]}>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Join Game
@@ -565,75 +618,63 @@ function RouteComponent() {
 								</p>
 							</div>
 						)}
-						{!retired &&
-							status === "open" &&
-							loggedIn &&
-							viewerGameStatus === "none" &&
-							game.num_players <= playersInGame.length && (
-								<div className={styles["right-panel"]}>
-									<h2 className="headerbar hb-dark">
-										<i className="ra ra-round-shield" /> Game Full
-									</h2>
-									<p className={styles.notice}>This game is currently full</p>
-								</div>
-							)}
-						{!retired &&
-							status === "open" &&
-							loggedIn &&
-							viewerGameStatus === "none" &&
-							game.num_players > playersInGame.length &&
-							!hasApplied && (
-								<div className={styles["right-panel"]}>
-									<h2 className="headerbar hb-dark">
-										<i className="ra ra-player-teleport" /> Join Game
-									</h2>
-									{game.recruitment_thread_id && (
-										<>
-											<p>
-												<Link
-													to="/forums/thread/$threadId"
-													params={{ threadId: game.recruitment_thread_id }}
-													className="skew-btn"
-												>
-													<i className="ra ra-beer" /> Apply in Games Tavern
-												</Link>
-											</p>
-											<p>
-												<a
-													href={`/pms/send/?userID=${game.gm.id}`}
-													className="skew-btn"
-												>
-													<i className="ra ra-quill-ink" /> Message the GM
-												</a>
-											</p>
-										</>
-									)}
-									{/* TODO: no apply-to-game endpoint yet, this just flips local state */}
-									{!game.recruitment_thread_id ? (
-										<p className="align-center">
-											<button
-												type="button"
+						{rightPanel === "full" && (
+							<div className={styles["right-panel"]}>
+								<h2 className="headerbar hb-dark">
+									<i className="ra ra-round-shield" /> Game Full
+								</h2>
+								<p className={styles.notice}>This game is currently full</p>
+							</div>
+						)}
+						{rightPanel === "canApply" && (
+							<div className={styles["right-panel"]}>
+								<h2 className="headerbar hb-dark">
+									<i className="ra ra-player-teleport" /> Join Game
+								</h2>
+								{game.recruitment_thread_id && (
+									<>
+										<p>
+											<Link
+												to="/forums/thread/$threadId"
+												params={{ threadId: game.recruitment_thread_id }}
 												className="skew-btn"
-												onClick={() => setHasApplied(true)}
 											>
-												Apply to Game
-											</button>
+												<i className="ra ra-beer" /> Apply in Games Tavern
+											</Link>
 										</p>
-									) : (
-										<p className="align-right">
-											<hr />
-											<button
-												type="button"
-												className={styles["inline-action"]}
-												onClick={() => setHasApplied(true)}
-											>
-												Apply to game
-											</button>
+										<p>
+											<a href={`/pms/send/?userID=${game.gm.id}`} className="skew-btn">
+												<i className="ra ra-quill-ink" /> Message the GM
+											</a>
 										</p>
-									)}
-								</div>
-							)}
-						{!retired && loggedIn && viewerGameStatus === "inGame" && !approved && (
+									</>
+								)}
+								{/* TODO: no apply-to-game endpoint yet, this just flips local state */}
+								{!game.recruitment_thread_id ? (
+									<p className="align-center">
+										<button
+											type="button"
+											className="skew-btn"
+											onClick={() => setHasApplied(true)}
+										>
+											Apply to Game
+										</button>
+									</p>
+								) : (
+									<p className="align-right">
+										<hr />
+										<button
+											type="button"
+											className={styles["inline-action"]}
+											onClick={() => setHasApplied(true)}
+										>
+											Apply to game
+										</button>
+									</p>
+								)}
+							</div>
+						)}
+						{rightPanel === "awaitingApproval" && (
 							<div className={styles["right-panel"]}>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Join Game
@@ -641,30 +682,22 @@ function RouteComponent() {
 								<p className={styles.notice}>
 									Your request to join this game is awaiting approval
 								</p>
-								<p>
-									<button
-										type="button"
-										className={styles["inline-action"]}
-										onClick={() => deletePlayerMutation.mutate(me.id)}
-										disabled={deletePlayerMutation.isPending}
-									>
-										withdraw
-									</button>{" "}
-									from the game if you're tired of waiting.
-								</p>
+								{inGame && (
+									<p>
+										<button
+											type="button"
+											className={styles["inline-action"]}
+											onClick={() => deletePlayerMutation.mutate(viewerPlayer.id)}
+											disabled={deletePlayerMutation.isPending}
+										>
+											withdraw
+										</button>{" "}
+										from the game if you're tired of waiting.
+									</p>
+								)}
 							</div>
 						)}
-						{!retired && loggedIn && hasApplied && viewerGameStatus === "none" && (
-							<div className={styles["right-panel"]}>
-								<h2 className="headerbar hb-dark">
-									<i className="ra ra-player-teleport" /> Join Game
-								</h2>
-								<p className={styles.notice}>
-									Your request to join this game is awaiting approval
-								</p>
-							</div>
-						)}
-						{!retired && loggedIn && viewerGameStatus === "invited" && (
+						{rightPanel === "invited" && (
 							<div className={styles["right-panel"]}>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-hourglass" /> Invite Pending
@@ -680,7 +713,7 @@ function RouteComponent() {
 								</p>
 							</div>
 						)}
-						{!retired && loggedIn && viewerGameStatus === "inGame" && approved && (
+						{rightPanel === "submitCharacter" && (
 							<div className={styles["right-panel"]}>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Submit a Character

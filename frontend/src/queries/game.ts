@@ -38,6 +38,7 @@ export type GameDetails = {
 	retired: string | null;
 	players: GamePlayer[];
 	viewer_state: GamePlayerState | null;
+	favorited: boolean;
 };
 
 export const gameDetailsQueryOptions = (gameId: number) =>
@@ -76,6 +77,17 @@ export const invitePlayer = async (gameId: number, username: string): Promise<vo
 		method: "POST",
 		body: JSON.stringify({ username }),
 	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
+export const toggleGameFlag = async (
+	gameId: number,
+	key: "status" | "public",
+): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/toggle/${key}`, { method: "PATCH" });
 	if (!res.ok) {
 		const { errors } = await res.json();
 		throw new ApiError(res.status, errors);

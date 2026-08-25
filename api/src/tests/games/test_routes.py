@@ -190,6 +190,7 @@ class TestGetGame:
         assert body["retired"] is None
         assert body["players"] == []
         assert body["viewer_state"] is None
+        assert body["favorited"] is False
 
     async def test_get_game_allowed_char_sheets_returns_ids(
         self, client, db_session, gm, system, create
@@ -332,6 +333,14 @@ class TestGetGame:
                 "state": "accepted",
             }
         ]
+
+    async def test_get_game_favorited_true_when_favorited(self, authed_client, game):
+        client, _user = authed_client
+        await client.post(f"/games/{game.id}/favorite")
+
+        response = await client.get(f"/games/{game.id}")
+
+        assert response.json()["favorited"] is True
 
 
 class TestFavoriteGame:
@@ -546,6 +555,106 @@ class TestInvitePlayer:
         # the failed flush's rolled-back transaction state must be cleared
         # manually or it poisons every later test sharing this session.
         await db_session.rollback()
+
+
+class TestToggleGameFlag:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        return await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+    async def test_toggle_game_flag_requires_auth(self, client, game):
+        response = await client.patch(f"/games/{game.id}/toggle/public")
+
+        assert response.status_code == 403
+
+    async def test_toggle_game_flag_game_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.patch("/games/999999/toggle/public")
+
+        assert response.status_code == 404
+
+    async def test_toggle_game_flag_invalid_key_not_found(self, authed_client, game):
+        client, _user = authed_client
+
+        response = await client.patch(f"/games/{game.id}/toggle/not-a-real-key")
+
+        assert response.status_code == 422
+
+    async def test_toggle_public_flips_the_flag(self, authed_client, game, db_session):
+        client, _user = authed_client
+        assert game.public is True
+
+        response = await client.patch(f"/games/{game.id}/toggle/public")
+
+        assert response.status_code == 204
+        game = await db_session.get(Game, game.id)
+        assert game.public is False
+
+    async def test_toggle_public_twice_flips_back(self, authed_client, game, db_session):
+        client, _user = authed_client
+        await client.patch(f"/games/{game.id}/toggle/public")
+
+        response = await client.patch(f"/games/{game.id}/toggle/public")
+
+        assert response.status_code == 204
+        game = await db_session.get(Game, game.id)
+        assert game.public is True
+
+    async def test_toggle_status_flips_the_flag(self, authed_client, game, db_session):
+        client, _user = authed_client
+        assert game.status == Game.Statuses.OPEN
+
+        response = await client.patch(f"/games/{game.id}/toggle/status")
+
+        assert response.status_code == 204
+        game = await db_session.get(Game, game.id)
+        assert game.status == Game.Statuses.CLOSED
+
+    async def test_toggle_status_twice_flips_back(self, authed_client, game, db_session):
+        client, _user = authed_client
+        await client.patch(f"/games/{game.id}/toggle/status")
+
+        response = await client.patch(f"/games/{game.id}/toggle/status")
+
+        assert response.status_code == 204
+        game = await db_session.get(Game, game.id)
+        assert game.status == Game.Statuses.OPEN
 
 
 class TestDeletePlayer:

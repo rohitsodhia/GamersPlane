@@ -85,3 +85,9 @@ class GameRepository:
         await self.db_session.flush()
 
         return game
+
+    async def update(self, game: Game, **kwargs) -> Game:
+        for key, value in kwargs.items():
+            setattr(game, key, value)
+        await self.db_session.flush()
+        return game

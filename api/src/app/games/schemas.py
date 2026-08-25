@@ -65,6 +65,7 @@ class GetGameResponse(SchemaBase):
     retired: datetime.datetime | None
     players: list[PlayerData]
     viewer_state: PlayerState | None
+    favorited: bool
 
 
 class FavoriteGameResponse(SchemaBase):
