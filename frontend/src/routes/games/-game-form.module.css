@@ -18,9 +18,13 @@
 	}
 
 	.char-sheet-picker {
-		display: flex;
+		/* display: flex;
 		gap: 0.5em;
-		align-items: center;
+		align-items: center; */
+	}
+
+	:global(.react-aria-Searchfield) {
+		width: min(100%, 400px);
 	}
 
 	.char-sheet-list {

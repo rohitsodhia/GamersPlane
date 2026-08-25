@@ -20,7 +20,7 @@ from app.repositories.player_repository import DuplicatePlayerError
 games = APIRouter(prefix="/games")
 
 
-@games.post("/", response_model=schemas.NewGameResponse)
+@games.post("/", response_model=schemas.GameIdResponse)
 async def create_game(
     db_session: DBSessionDependency,
     auth: Auth,
@@ -58,7 +58,7 @@ async def create_game(
         game.id, principal.id, is_gm=True, state=Player.States.ACCEPTED
     )
 
-    return schemas.NewGameResponse(id=game.id)
+    return schemas.GameIdResponse(id=game.id)
 
 
 @games.get("/{game_id}", response_model=schemas.GetGameResponse)
@@ -127,18 +127,36 @@ async def get_game(
     )
 
 
-# @games.patch("/{game_id}", response_model=schemas.UpdateGameResponse)
-# async def update_game(
-#     game_id: int,
-#     request_body: schemas.UpdateGameInput,
-#     db_session: DBSessionDependency,
-#     principal: Principal,
-# ):
-#     game_repository = GameRepository(db_session, principal=principal)
-#     if not await game_repository.exists(game_id):
-#         raise NotFoundException("Game not found")
+@games.patch("/{game_id}", response_model=schemas.GameIdResponse)
+async def update_game(
+    game_id: int,
+    request_body: schemas.UpdateGameInput,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await game_repository.get(game_id)
+    if not game:
+        raise NotFoundException("Game not found")
 
-#     return await game_repository.update(game_id, request_body)
+    if principal.id != game.gm_id:
+        raise ForbiddenException("Only game masters can edit games")
+
+    system_repository = SystemRepository(db_session)
+    system = await system_repository.get_by_id(request_body.system_id)
+    if system is None:
+        raise NotFoundException("System not found")
+
+    update_data = request_body.model_dump()
+    if request_body.allowed_char_sheets:
+        char_sheets = await system_repository.get_by_ids(request_body.allowed_char_sheets)
+        if len(char_sheets) != len(set(request_body.allowed_char_sheets)):
+            raise NotFoundException("One or more allowed char sheets not found")
+        update_data["allowed_char_sheets"] = list(char_sheets)
+    else:
+        update_data["allowed_char_sheets"] = []
+
+    return await game_repository.update(game, **update_data)
 
 
 @games.patch("/{game_id}/toggle/{key}", status_code=status.HTTP_204_NO_CONTENT)

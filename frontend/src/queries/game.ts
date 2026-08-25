@@ -115,3 +115,20 @@ export const createGame = async (data: NewGameInput): Promise<{ id: number }> =>
 	}
 	return res.json();
 };
+
+export type UpdateGameInput = NewGameInput;
+
+export const updateGame = async (
+	gameId: number,
+	data: UpdateGameInput,
+): Promise<{ id: number }> => {
+	const res = await apiFetch(`/games/${gameId}`, {
+		method: "PATCH",
+		body: JSON.stringify(data),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};

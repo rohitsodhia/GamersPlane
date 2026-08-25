@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy import text
+from sqlalchemy.orm import selectinload
 
 from app.models import FavoriteGame, Game, Player
 from app.repositories import GameRepository, PlayerRepository
@@ -341,6 +342,164 @@ class TestGetGame:
         response = await client.get(f"/games/{game.id}")
 
         assert response.json()["favorited"] is True
+
+
+class TestUpdateGame:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        return await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_update_game_requires_auth(self, client, game):
+        response = await client.patch(f"/games/{game.id}", json=_payload())
+
+        assert response.status_code == 403
+
+    async def test_update_game_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.patch("/games/999999", json=_payload())
+
+        assert response.status_code == 404
+
+    async def test_update_game_not_gm_forbidden(self, authed_client, game):
+        client, _user = authed_client
+
+        response = await client.patch(f"/games/{game.id}", json=_payload())
+
+        assert response.status_code == 403
+
+    async def test_update_game_as_gm_updates_fields(self, client, db_session, game, gm):
+        client = self._auth_as(client, gm)
+
+        response = await client.patch(
+            f"/games/{game.id}",
+            json=_payload(
+                title="New Title",
+                post_frequency="1/d",
+                num_players=6,
+                chars_per_player=2,
+                description={"summary": "updated"},
+                char_gen_info={"info": "updated"},
+                public=False,
+                recruitment_thread_id=42,
+                advanced_options={"foo": "bar"},
+            ),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["id"] == game.id
+        updated = await db_session.get(Game, game.id)
+        assert updated.title == "New Title"
+        assert updated.post_frequency.times_per == 1
+        assert updated.post_frequency.per_period == "d"
+        assert updated.num_players == 6
+        assert updated.chars_per_player == 2
+        assert updated.description == {"summary": "updated"}
+        assert updated.char_gen_info == {"info": "updated"}
+        assert updated.public is False
+        assert updated.recruitment_thread_id == 42
+        assert updated.advanced_options == {"foo": "bar"}
+
+    async def test_update_game_strips_and_converts_title(
+        self, client, db_session, game, gm
+    ):
+        client = self._auth_as(client, gm)
+
+        response = await client.patch(
+            f"/games/{game.id}", json=_payload(title="  Line one\nLine two  ")
+        )
+
+        assert response.status_code == 200
+        updated = await db_session.get(Game, game.id)
+        assert updated.title == "Line one<br>Line two"
+
+    async def test_update_game_soft_deleted_not_found(
+        self, client, db_session, game, gm
+    ):
+        client = self._auth_as(client, gm)
+        game.deleted = game.created
+        db_session.add(game)
+        await db_session.flush()
+
+        response = await client.patch(f"/games/{game.id}", json=_payload())
+
+        assert response.status_code == 404
+
+    async def test_update_game_allowed_char_sheets(
+        self, client, db_session, game, gm, create
+    ):
+        client = self._auth_as(client, gm)
+        sheet = await create(SystemFactory, id="sheet-a")
+
+        response = await client.patch(
+            f"/games/{game.id}",
+            json=_payload(allowed_char_sheets=[sheet.id]),
+        )
+
+        assert response.status_code == 200
+        updated = await db_session.get(
+            Game, game.id, options=[selectinload(Game.allowed_char_sheets)]
+        )
+        assert [s.id for s in updated.allowed_char_sheets] == [sheet.id]
+
+    async def test_update_game_system_not_found(self, client, game, gm):
+        client = self._auth_as(client, gm)
+
+        response = await client.patch(
+            f"/games/{game.id}", json=_payload(system_id="does-not-exist")
+        )
+
+        assert response.status_code == 404
+
+    async def test_update_game_allowed_char_sheet_not_found(self, client, game, gm):
+        client = self._auth_as(client, gm)
+
+        response = await client.patch(
+            f"/games/{game.id}",
+            json=_payload(allowed_char_sheets=["does-not-exist"]),
+        )
+
+        assert response.status_code == 404
 
 
 class TestFavoriteGame:

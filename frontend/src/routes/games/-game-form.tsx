@@ -10,7 +10,7 @@ import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
 import { Select } from "#/components/Select";
 import { ApiError } from "#/lib/api";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { createGame } from "#/queries/game";
+import { createGame, type GameDetails, updateGame } from "#/queries/game";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { AdvancedOptions } from "./-advanced-options";
 import styles from "./-game-form.module.css";
@@ -20,28 +20,34 @@ function FieldError({ message }: { message: string | undefined }) {
 	return <>{message}</>;
 }
 
-export function GameForm({ title }: { title: string }) {
+export function GameForm({ title, game }: { title: string; game?: GameDetails }) {
 	const navigate = useNavigate();
 	const { data: systems } = useSuspenseQuery(systemsQueryOptions({ basic: true }));
-	const mutation = useMutation({ mutationFn: createGame });
+	const mutation = useMutation({
+		mutationFn: game
+			? (data: Parameters<typeof updateGame>[1]) => updateGame(game.id, data)
+			: createGame,
+	});
 	const [apiErrors, setApiErrors] = useState<string[]>([]);
 
 	const charSheetSystems = systems.filter((system) => system.has_char_sheet);
 
 	const form = useForm({
 		defaultValues: {
-			title: "",
-			systemId: "custom",
-			allowedCharSheets: [] as string[],
-			timesPer: 1,
-			perPeriod: "d" as "d" | "w",
-			numPlayers: 2,
-			charsPerPlayer: 1,
-			description: emptyContent as JSONContent,
-			charGenInfo: emptyContent as JSONContent,
-			isPublic: true,
-			recruitmentThreadId: "",
-			advancedOptions: {} as Record<string, unknown>,
+			title: game?.title ?? "",
+			systemId: game?.system ?? "custom",
+			allowedCharSheets: game?.allowed_char_sheets ?? ([] as string[]),
+			timesPer: game?.post_frequency.times_per ?? 1,
+			perPeriod: game?.post_frequency.per_period ?? ("d" as "d" | "w"),
+			numPlayers: game?.num_players ?? 2,
+			charsPerPlayer: game?.chars_per_player ?? 1,
+			description: (game?.description ?? emptyContent) as JSONContent,
+			charGenInfo: (game?.char_gen_info ?? emptyContent) as JSONContent,
+			isPublic: game?.public ?? true,
+			recruitmentThreadId: game?.recruitment_thread_id
+				? String(game.recruitment_thread_id)
+				: "",
+			advancedOptions: (game?.advanced_options ?? {}) as Record<string, unknown>,
 		},
 		onSubmit: async ({ value }) => {
 			setApiErrors([]);
@@ -63,7 +69,7 @@ export function GameForm({ title }: { title: string }) {
 						? value.advancedOptions
 						: null,
 				});
-				navigate({ to: "/games/$gameId", params: { gameId: String(result.id) } });
+				navigate({ to: "/games/$gameId", params: { gameId: result.id } });
 			} catch (exception) {
 				if (exception instanceof ApiError) {
 					setApiErrors(exception.errors.map((e) => e.detail));
@@ -391,7 +397,7 @@ export function GameForm({ title }: { title: string }) {
 									className="skew-btn"
 									disabled={!canSubmit || mutation.isPending}
 								>
-									Create
+									{game ? "Save" : "Create"}
 								</button>
 							</div>
 						)}

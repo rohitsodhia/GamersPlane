@@ -19,6 +19,7 @@
 	border: 1px solid var(--rac-border-color);
 	border-radius: var(--rac-radius);
 	background-color: var(--rac-bg);
+	color: var(--text);
 }
 
 /* List reset shared by the two scrollable option lists (menu, select listbox). */
