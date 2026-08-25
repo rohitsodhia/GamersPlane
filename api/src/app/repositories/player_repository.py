@@ -55,6 +55,18 @@ class PlayerRepository:
             Player, {"game_id": game_id, "user_id": user_id}
         )
 
+    async def update_state(
+        self,
+        player: Player,
+        state: Player.States | None = None,
+        is_gm: bool | None = None,
+    ) -> None:
+        if state is not None:
+            player.state = state
+        if is_gm is not None:
+            player.is_gm = is_gm
+        await self.db_session.flush()
+
     async def is_gm(self, game_id: int, user_id: int) -> bool:
         player = await self.get_player(game_id, user_id)
         return player is not None and player.is_gm

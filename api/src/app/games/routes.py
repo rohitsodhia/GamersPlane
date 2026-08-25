@@ -251,6 +251,61 @@ async def apply_to_game(
         raise ConflictException("Player already in game") from e
 
 
+@games.post(
+    "/{game_id}/player/{user_id}/approve", status_code=status.HTTP_204_NO_CONTENT
+)
+async def approve_player(
+    game_id: int,
+    user_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await game_repository.get(game_id)
+    if not game:
+        raise NotFoundException("Game not found")
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    if not await player_repository.is_gm(game_id, principal.id):
+        raise ForbiddenException("Only game masters can approve players")
+
+    player = await player_repository.get_player(game_id, user_id)
+    if player is None:
+        raise NotFoundException("Player not in game")
+    if player.state is Player.States.ACCEPTED:
+        raise ConflictException("Player already accepted")
+
+    await player_repository.update_state(player, state=Player.States.ACCEPTED)
+
+
+@games.post(
+    "/{game_id}/player/{user_id}/toggle_gm", status_code=status.HTTP_204_NO_CONTENT
+)
+async def toggle_gm(
+    game_id: int,
+    user_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await game_repository.get(game_id)
+    if not game:
+        raise NotFoundException("Game not found")
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    if not await player_repository.is_gm(game_id, principal.id):
+        raise ForbiddenException("Only game masters can toggle GM status")
+
+    if user_id == game.gm_id:
+        raise ForbiddenException("Primary GM cannot be demoted")
+
+    player = await player_repository.get_player(game_id, user_id)
+    if player is None:
+        raise NotFoundException("Player not in game")
+
+    await player_repository.update_state(player, is_gm=not player.is_gm)
+
+
 @games.delete("/{game_id}/player/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_player(
     game_id: int,
