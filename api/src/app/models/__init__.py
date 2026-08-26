@@ -1,4 +1,5 @@
 from .character import Character
+from .decks import Deck, DeckPermission, DeckType
 from .favorites import FavoriteCharacter, FavoriteGame
 from .forum import Forum
 from .game import Game
