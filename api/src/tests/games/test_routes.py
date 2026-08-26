@@ -923,6 +923,134 @@ class TestApprovePlayer:
         assert player.state == Player.States.ACCEPTED
 
 
+class TestAcceptInvite:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        game = await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        return game
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_accept_invite_requires_auth(self, client, game):
+        response = await client.post(f"/games/{game.id}/accept_invite")
+
+        assert response.status_code == 403
+
+    async def test_accept_invite_game_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post("/games/999999/accept_invite")
+
+        assert response.status_code == 404
+
+    async def test_accept_invite_no_player_row_not_found(self, authed_client, game):
+        client, _user = authed_client
+
+        response = await client.post(f"/games/{game.id}/accept_invite")
+
+        assert response.status_code == 404
+
+    async def test_accept_invite_already_applied_conflict(
+        self, client, db_session, game, gm, create
+    ):
+        applicant = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, applicant.id, state=Player.States.APPLIED
+        )
+        client = self._auth_as(client, applicant)
+
+        response = await client.post(f"/games/{game.id}/accept_invite")
+
+        assert response.status_code == 409
+
+    async def test_accept_invite_already_accepted_conflict(self, client, game, gm):
+        client = self._auth_as(client, gm)
+
+        response = await client.post(f"/games/{game.id}/accept_invite")
+
+        assert response.status_code == 409
+
+    async def test_accept_invite_accepts_own_invite(
+        self, client, db_session, game, gm, create
+    ):
+        invitee = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, invitee.id, state=Player.States.INVITED
+        )
+        client = self._auth_as(client, invitee)
+
+        response = await client.post(f"/games/{game.id}/accept_invite")
+
+        assert response.status_code == 204
+        player = await db_session.get(
+            Player, {"game_id": game.id, "user_id": invitee.id}
+        )
+        assert player.state == Player.States.ACCEPTED
+
+    async def test_accept_invite_does_not_accept_other_players_invite(
+        self, client, db_session, game, gm, create
+    ):
+        invitee = await create(ActivatedUserFactory)
+        other_user = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, invitee.id, state=Player.States.INVITED
+        )
+        client = self._auth_as(client, other_user)
+
+        response = await client.post(f"/games/{game.id}/accept_invite")
+
+        assert response.status_code == 404
+        player = await db_session.get(
+            Player, {"game_id": game.id, "user_id": invitee.id}
+        )
+        assert player.state == Player.States.INVITED
+
+
 class TestToggleGm:
     @pytest.fixture(autouse=True)
     async def games_root_forum(self, create, db_session):

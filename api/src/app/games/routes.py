@@ -278,6 +278,23 @@ async def approve_player(
     await player_repository.update_state(player, state=Player.States.ACCEPTED)
 
 
+@games.post("/{game_id}/accept_invite", status_code=status.HTTP_204_NO_CONTENT)
+async def accept_invite(
+    game_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    await require_game_exists(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    player = await get_player_or_404(player_repository, game_id, principal.id)
+    if player.state is not Player.States.INVITED:
+        raise ConflictException("No pending invite for this game")
+
+    await player_repository.update_state(player, state=Player.States.ACCEPTED)
+
+
 @games.post(
     "/{game_id}/player/{user_id}/toggle_gm", status_code=status.HTTP_204_NO_CONTENT
 )

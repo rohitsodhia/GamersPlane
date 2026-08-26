@@ -7,6 +7,7 @@ import { ApiError } from "#/lib/api";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
+	acceptInvite,
 	applyToGame,
 	approvePlayer,
 	deletePlayer,
@@ -125,11 +126,10 @@ function RouteComponent() {
 	// toggle GM, approve, reject, leave) can be demoed without a real endpoint.
 	const [players, setPlayers] = useState<GamePlayer[]>(game.players);
 
-	// TODO: no accept-invite/decline-invite endpoints yet, so those are still
-	// mutated locally to mock those actions. Tracked separately from `players`
-	// because the backend excludes the viewer's own non-accepted row from
-	// that list unless they're the GM (see game.viewer_state) — this is the
-	// only reliable source for the viewer's own applied/invited state.
+	// Tracked separately from `players` because the backend excludes the
+	// viewer's own non-accepted row from that list unless they're the GM
+	// (see game.viewer_state) — this is the only reliable source for the
+	// viewer's own applied/invited state.
 	const [viewerPlayerState, setViewerPlayerState] = useState(game.viewer_state);
 
 	const [applyError, setApplyError] = useState<string | null>(null);
@@ -251,14 +251,19 @@ function RouteComponent() {
 		if (!username) return;
 		inviteMutation.mutate(username);
 	};
-	const acceptInvite = () => {
-		if (!me) return;
-		setViewerPlayerState("accepted");
-		setPlayers((prev) => [
-			...prev,
-			{ id: me.id, username: me.username, is_gm: false, state: "accepted" },
-		]);
-	};
+	const [acceptInviteError, setAcceptInviteError] = useState<string | null>(null);
+	const acceptInviteMutation = useMutation({
+		mutationFn: () => acceptInvite(gameId),
+		onSuccess: () => {
+			if (!me) return;
+			setViewerPlayerState("accepted");
+			setPlayers((prev) => [
+				...prev,
+				{ id: me.id, username: me.username, is_gm: false, state: "accepted" },
+			]);
+		},
+		onError: () => setAcceptInviteError("Failed to accept invite"),
+	});
 
 	return (
 		<div>
@@ -766,7 +771,12 @@ function RouteComponent() {
 								<div style={{ marginInline: hbMarginedH2.margin }}>
 									<p>You've been invited to join this game!</p>
 									<p className="align-center">
-										<button type="button" className="skew-btn" onClick={acceptInvite}>
+										<button
+											type="button"
+											className="skew-btn"
+											onClick={() => acceptInviteMutation.mutate()}
+											disabled={acceptInviteMutation.isPending}
+										>
 											Join
 										</button>{" "}
 										<button
@@ -781,6 +791,9 @@ function RouteComponent() {
 											Decline
 										</button>
 									</p>
+									{acceptInviteError && (
+										<div className="error">{acceptInviteError}</div>
+									)}
 								</div>
 							</div>
 						)}

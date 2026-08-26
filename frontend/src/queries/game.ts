@@ -96,6 +96,14 @@ export const applyToGame = async (gameId: number): Promise<void> => {
 	}
 };
 
+export const acceptInvite = async (gameId: number): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/accept_invite`, { method: "POST" });
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
 export const approvePlayer = async (gameId: number, userId: number): Promise<void> => {
 	const res = await apiFetch(`/games/${gameId}/player/${userId}/approve`, {
 		method: "POST",
