@@ -3,7 +3,7 @@ from .decks import Deck, DeckPermission, DeckType
 from .favorites import FavoriteCharacter, FavoriteGame
 from .forum import Forum
 from .game import Game
-from .game_allowed_systems import GameAllowedSystem
+from .game_allowed_char_sheets import GameAllowedSystem
 from .genre import Genre
 from .permission import Permission
 from .player import Player

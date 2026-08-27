@@ -38,7 +38,7 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
     system_id: Mapped[str] = mapped_column(ForeignKey("systems.id"))
     system: Mapped[System] = relationship()
     allowed_char_sheets: Mapped[list[System]] = relationship(
-        secondary="game_allowed_systems"
+        secondary="game_allowed_char_sheets"
     )
     gm_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     gm: Mapped[User] = relationship()
