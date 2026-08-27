@@ -30,6 +30,33 @@ class TestSearchUser:
         assert response.status_code == 404
         assert response.json()["errors"][0]["code"] == "user_not_found"
 
+    async def test_search_user_by_id_found(self, authed_client, create):
+        client, _user = authed_client
+        other = await create(ActivatedUserFactory, username="findme")
+
+        response = await client.get("/users/search", params={"id": other.id})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["user"]["id"] == other.id
+        assert body["user"]["username"] == other.username
+
+    async def test_search_user_by_id_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.get("/users/search", params={"id": 999999})
+
+        assert response.status_code == 404
+        assert response.json()["errors"][0]["code"] == "user_not_found"
+
+    async def test_search_user_missing_query(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.get("/users/search")
+
+        assert response.status_code == 400
+        assert response.json()["errors"][0]["code"] == "missing_query"
+
 
 class TestGetUser:
     async def test_get_user_found(self, client, create):

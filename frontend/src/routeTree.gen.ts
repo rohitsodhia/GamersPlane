@@ -9,51 +9,37 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SystemsRouteImport } from './routes/systems'
-import { Route as ProfileRouteImport } from './routes/profile'
-import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as CommunityGuidelinesRouteImport } from './routes/community-guidelines'
-import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as RegisterIndexRouteImport } from './routes/register/index'
-import { Route as PmsIndexRouteImport } from './routes/pms/index'
-import { Route as UserUserIdRouteImport } from './routes/user.$userId'
-import { Route as ToolsDiceRouteImport } from './routes/tools/dice'
-import { Route as ToolsCardsRouteImport } from './routes/tools/cards'
-import { Route as RegisterSuccessRouteImport } from './routes/register/success'
-import { Route as RegisterResendRouteImport } from './routes/register/resend'
-import { Route as PmsSendRouteImport } from './routes/pms/send'
-import { Route as PmsReplyRouteImport } from './routes/pms/reply'
-import { Route as PmsPmIdRouteImport } from './routes/pms/$pmId'
+import { Route as ActivateRouteImport } from './routes/activate'
+import { Route as CommunityGuidelinesRouteImport } from './routes/community-guidelines'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as SystemsRouteImport } from './routes/systems'
 import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
-import { Route as ForumsThreadThreadIdRouteImport } from './routes/forums/thread.$threadId'
-import { Route as ForumsNewThreadForumIdRouteImport } from './routes/forums/new-thread.$forumId'
+import { Route as GamesIndexRouteImport } from './routes/games/index'
+import { Route as GamesListRouteImport } from './routes/games/list'
+import { Route as GamesNewRouteImport } from './routes/games/new'
+import { Route as PmsIndexRouteImport } from './routes/pms/index'
+import { Route as PmsPmIdRouteImport } from './routes/pms/$pmId'
+import { Route as PmsReplyRouteImport } from './routes/pms/reply'
+import { Route as PmsSendRouteImport } from './routes/pms/send'
+import { Route as RegisterIndexRouteImport } from './routes/register/index'
+import { Route as RegisterResendRouteImport } from './routes/register/resend'
+import { Route as RegisterSuccessRouteImport } from './routes/register/success'
+import { Route as ToolsCardsRouteImport } from './routes/tools/cards'
+import { Route as ToolsDiceRouteImport } from './routes/tools/dice'
+import { Route as UserUserIdRouteImport } from './routes/user.$userId'
 import { Route as ForumsEditPostPostIdRouteImport } from './routes/forums/edit-post.$postId'
+import { Route as ForumsNewThreadForumIdRouteImport } from './routes/forums/new-thread.$forumId'
+import { Route as ForumsThreadThreadIdRouteImport } from './routes/forums/thread.$threadId'
+import { Route as GamesGameIdIndexRouteImport } from './routes/games/$gameId/index'
+import { Route as GamesGameIdEditRouteImport } from './routes/games/$gameId/edit'
+import { Route as GamesListIndexRouteImport } from './routes/games/list.index'
 
-const SystemsRoute = SystemsRouteImport.update({
-  id: '/systems',
-  path: '/systems',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
-  id: '/privacy-policy',
-  path: '/privacy-policy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CommunityGuidelinesRoute = CommunityGuidelinesRouteImport.update({
-  id: '/community-guidelines',
-  path: '/community-guidelines',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ActivateRoute = ActivateRouteImport.update({
@@ -61,59 +47,29 @@ const ActivateRoute = ActivateRouteImport.update({
   path: '/activate',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CommunityGuidelinesRoute = CommunityGuidelinesRouteImport.update({
+  id: '/community-guidelines',
+  path: '/community-guidelines',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RegisterIndexRoute = RegisterIndexRouteImport.update({
-  id: '/register/',
-  path: '/register/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PmsIndexRoute = PmsIndexRouteImport.update({
-  id: '/pms/',
-  path: '/pms/',
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const UserUserIdRoute = UserUserIdRouteImport.update({
-  id: '/user/$userId',
-  path: '/user/$userId',
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ToolsDiceRoute = ToolsDiceRouteImport.update({
-  id: '/tools/dice',
-  path: '/tools/dice',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ToolsCardsRoute = ToolsCardsRouteImport.update({
-  id: '/tools/cards',
-  path: '/tools/cards',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegisterSuccessRoute = RegisterSuccessRouteImport.update({
-  id: '/register/success',
-  path: '/register/success',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegisterResendRoute = RegisterResendRouteImport.update({
-  id: '/register/resend',
-  path: '/register/resend',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PmsSendRoute = PmsSendRouteImport.update({
-  id: '/pms/send',
-  path: '/pms/send',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PmsReplyRoute = PmsReplyRouteImport.update({
-  id: '/pms/reply',
-  path: '/pms/reply',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PmsPmIdRoute = PmsPmIdRouteImport.update({
-  id: '/pms/$pmId',
-  path: '/pms/$pmId',
+const SystemsRoute = SystemsRouteImport.update({
+  id: '/systems',
+  path: '/systems',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForumsChar123ForumIdChar125Route =
@@ -122,9 +78,74 @@ const ForumsChar123ForumIdChar125Route =
     path: '/forums/{-$forumId}',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ForumsThreadThreadIdRoute = ForumsThreadThreadIdRouteImport.update({
-  id: '/forums/thread/$threadId',
-  path: '/forums/thread/$threadId',
+const GamesIndexRoute = GamesIndexRouteImport.update({
+  id: '/games/',
+  path: '/games/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GamesListRoute = GamesListRouteImport.update({
+  id: '/games/list',
+  path: '/games/list',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GamesNewRoute = GamesNewRouteImport.update({
+  id: '/games/new',
+  path: '/games/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PmsIndexRoute = PmsIndexRouteImport.update({
+  id: '/pms/',
+  path: '/pms/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PmsPmIdRoute = PmsPmIdRouteImport.update({
+  id: '/pms/$pmId',
+  path: '/pms/$pmId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PmsReplyRoute = PmsReplyRouteImport.update({
+  id: '/pms/reply',
+  path: '/pms/reply',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PmsSendRoute = PmsSendRouteImport.update({
+  id: '/pms/send',
+  path: '/pms/send',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterIndexRoute = RegisterIndexRouteImport.update({
+  id: '/register/',
+  path: '/register/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterResendRoute = RegisterResendRouteImport.update({
+  id: '/register/resend',
+  path: '/register/resend',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterSuccessRoute = RegisterSuccessRouteImport.update({
+  id: '/register/success',
+  path: '/register/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsCardsRoute = ToolsCardsRouteImport.update({
+  id: '/tools/cards',
+  path: '/tools/cards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsDiceRoute = ToolsDiceRouteImport.update({
+  id: '/tools/dice',
+  path: '/tools/dice',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UserUserIdRoute = UserUserIdRouteImport.update({
+  id: '/user/$userId',
+  path: '/user/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForumsEditPostPostIdRoute = ForumsEditPostPostIdRouteImport.update({
+  id: '/forums/edit-post/$postId',
+  path: '/forums/edit-post/$postId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForumsNewThreadForumIdRoute = ForumsNewThreadForumIdRouteImport.update({
@@ -132,10 +153,25 @@ const ForumsNewThreadForumIdRoute = ForumsNewThreadForumIdRouteImport.update({
   path: '/forums/new-thread/$forumId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ForumsEditPostPostIdRoute = ForumsEditPostPostIdRouteImport.update({
-  id: '/forums/edit-post/$postId',
-  path: '/forums/edit-post/$postId',
+const ForumsThreadThreadIdRoute = ForumsThreadThreadIdRouteImport.update({
+  id: '/forums/thread/$threadId',
+  path: '/forums/thread/$threadId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const GamesGameIdIndexRoute = GamesGameIdIndexRouteImport.update({
+  id: '/games/$gameId/',
+  path: '/games/$gameId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GamesGameIdEditRoute = GamesGameIdEditRouteImport.update({
+  id: '/games/$gameId/edit',
+  path: '/games/$gameId/edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GamesListIndexRoute = GamesListIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => GamesListRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -147,6 +183,8 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
+  '/games/list': typeof GamesListRouteWithChildren
+  '/games/new': typeof GamesNewRoute
   '/pms/$pmId': typeof PmsPmIdRoute
   '/pms/reply': typeof PmsReplyRoute
   '/pms/send': typeof PmsSendRoute
@@ -155,11 +193,15 @@ export interface FileRoutesByFullPath {
   '/tools/cards': typeof ToolsCardsRoute
   '/tools/dice': typeof ToolsDiceRoute
   '/user/$userId': typeof UserUserIdRoute
+  '/games/': typeof GamesIndexRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
+  '/games/$gameId/edit': typeof GamesGameIdEditRoute
+  '/games/$gameId/': typeof GamesGameIdIndexRoute
+  '/games/list/': typeof GamesListIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -170,6 +212,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
+  '/games/new': typeof GamesNewRoute
   '/pms/$pmId': typeof PmsPmIdRoute
   '/pms/reply': typeof PmsReplyRoute
   '/pms/send': typeof PmsSendRoute
@@ -178,11 +221,15 @@ export interface FileRoutesByTo {
   '/tools/cards': typeof ToolsCardsRoute
   '/tools/dice': typeof ToolsDiceRoute
   '/user/$userId': typeof UserUserIdRoute
+  '/games': typeof GamesIndexRoute
   '/pms': typeof PmsIndexRoute
   '/register': typeof RegisterIndexRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
+  '/games/$gameId/edit': typeof GamesGameIdEditRoute
+  '/games/$gameId': typeof GamesGameIdIndexRoute
+  '/games/list': typeof GamesListIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -194,6 +241,8 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
+  '/games/list': typeof GamesListRouteWithChildren
+  '/games/new': typeof GamesNewRoute
   '/pms/$pmId': typeof PmsPmIdRoute
   '/pms/reply': typeof PmsReplyRoute
   '/pms/send': typeof PmsSendRoute
@@ -202,11 +251,15 @@ export interface FileRoutesById {
   '/tools/cards': typeof ToolsCardsRoute
   '/tools/dice': typeof ToolsDiceRoute
   '/user/$userId': typeof UserUserIdRoute
+  '/games/': typeof GamesIndexRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
+  '/games/$gameId/edit': typeof GamesGameIdEditRoute
+  '/games/$gameId/': typeof GamesGameIdIndexRoute
+  '/games/list/': typeof GamesListIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -219,6 +272,8 @@ export interface FileRouteTypes {
     | '/profile'
     | '/systems'
     | '/forums/{-$forumId}'
+    | '/games/list'
+    | '/games/new'
     | '/pms/$pmId'
     | '/pms/reply'
     | '/pms/send'
@@ -227,11 +282,15 @@ export interface FileRouteTypes {
     | '/tools/cards'
     | '/tools/dice'
     | '/user/$userId'
+    | '/games/'
     | '/pms/'
     | '/register/'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
+    | '/games/$gameId/edit'
+    | '/games/$gameId/'
+    | '/games/list/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -242,6 +301,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/systems'
     | '/forums/{-$forumId}'
+    | '/games/new'
     | '/pms/$pmId'
     | '/pms/reply'
     | '/pms/send'
@@ -250,11 +310,15 @@ export interface FileRouteTypes {
     | '/tools/cards'
     | '/tools/dice'
     | '/user/$userId'
+    | '/games'
     | '/pms'
     | '/register'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
+    | '/games/$gameId/edit'
+    | '/games/$gameId'
+    | '/games/list'
   id:
     | '__root__'
     | '/'
@@ -265,6 +329,8 @@ export interface FileRouteTypes {
     | '/profile'
     | '/systems'
     | '/forums/{-$forumId}'
+    | '/games/list'
+    | '/games/new'
     | '/pms/$pmId'
     | '/pms/reply'
     | '/pms/send'
@@ -273,11 +339,15 @@ export interface FileRouteTypes {
     | '/tools/cards'
     | '/tools/dice'
     | '/user/$userId'
+    | '/games/'
     | '/pms/'
     | '/register/'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
+    | '/games/$gameId/edit'
+    | '/games/$gameId/'
+    | '/games/list/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -289,6 +359,8 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
   ForumsChar123ForumIdChar125Route: typeof ForumsChar123ForumIdChar125Route
+  GamesListRoute: typeof GamesListRouteWithChildren
+  GamesNewRoute: typeof GamesNewRoute
   PmsPmIdRoute: typeof PmsPmIdRoute
   PmsReplyRoute: typeof PmsReplyRoute
   PmsSendRoute: typeof PmsSendRoute
@@ -297,48 +369,23 @@ export interface RootRouteChildren {
   ToolsCardsRoute: typeof ToolsCardsRoute
   ToolsDiceRoute: typeof ToolsDiceRoute
   UserUserIdRoute: typeof UserUserIdRoute
+  GamesIndexRoute: typeof GamesIndexRoute
   PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
   ForumsEditPostPostIdRoute: typeof ForumsEditPostPostIdRoute
   ForumsNewThreadForumIdRoute: typeof ForumsNewThreadForumIdRoute
   ForumsThreadThreadIdRoute: typeof ForumsThreadThreadIdRoute
+  GamesGameIdEditRoute: typeof GamesGameIdEditRoute
+  GamesGameIdIndexRoute: typeof GamesGameIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/systems': {
-      id: '/systems'
-      path: '/systems'
-      fullPath: '/systems'
-      preLoaderRoute: typeof SystemsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy-policy': {
-      id: '/privacy-policy'
-      path: '/privacy-policy'
-      fullPath: '/privacy-policy'
-      preLoaderRoute: typeof PrivacyPolicyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/community-guidelines': {
-      id: '/community-guidelines'
-      path: '/community-guidelines'
-      fullPath: '/community-guidelines'
-      preLoaderRoute: typeof CommunityGuidelinesRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/activate': {
@@ -348,81 +395,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ActivateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/community-guidelines': {
+      id: '/community-guidelines'
+      path: '/community-guidelines'
+      fullPath: '/community-guidelines'
+      preLoaderRoute: typeof CommunityGuidelinesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/register/': {
-      id: '/register/'
-      path: '/register'
-      fullPath: '/register/'
-      preLoaderRoute: typeof RegisterIndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pms/': {
-      id: '/pms/'
-      path: '/pms'
-      fullPath: '/pms/'
-      preLoaderRoute: typeof PmsIndexRouteImport
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/user/$userId': {
-      id: '/user/$userId'
-      path: '/user/$userId'
-      fullPath: '/user/$userId'
-      preLoaderRoute: typeof UserUserIdRouteImport
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/tools/dice': {
-      id: '/tools/dice'
-      path: '/tools/dice'
-      fullPath: '/tools/dice'
-      preLoaderRoute: typeof ToolsDiceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tools/cards': {
-      id: '/tools/cards'
-      path: '/tools/cards'
-      fullPath: '/tools/cards'
-      preLoaderRoute: typeof ToolsCardsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register/success': {
-      id: '/register/success'
-      path: '/register/success'
-      fullPath: '/register/success'
-      preLoaderRoute: typeof RegisterSuccessRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register/resend': {
-      id: '/register/resend'
-      path: '/register/resend'
-      fullPath: '/register/resend'
-      preLoaderRoute: typeof RegisterResendRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pms/send': {
-      id: '/pms/send'
-      path: '/pms/send'
-      fullPath: '/pms/send'
-      preLoaderRoute: typeof PmsSendRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pms/reply': {
-      id: '/pms/reply'
-      path: '/pms/reply'
-      fullPath: '/pms/reply'
-      preLoaderRoute: typeof PmsReplyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pms/$pmId': {
-      id: '/pms/$pmId'
-      path: '/pms/$pmId'
-      fullPath: '/pms/$pmId'
-      preLoaderRoute: typeof PmsPmIdRouteImport
+    '/systems': {
+      id: '/systems'
+      path: '/systems'
+      fullPath: '/systems'
+      preLoaderRoute: typeof SystemsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forums/{-$forumId}': {
@@ -432,18 +437,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForumsChar123ForumIdChar125RouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/forums/thread/$threadId': {
-      id: '/forums/thread/$threadId'
-      path: '/forums/thread/$threadId'
-      fullPath: '/forums/thread/$threadId'
-      preLoaderRoute: typeof ForumsThreadThreadIdRouteImport
+    '/games/': {
+      id: '/games/'
+      path: '/games'
+      fullPath: '/games/'
+      preLoaderRoute: typeof GamesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/forums/new-thread/$forumId': {
-      id: '/forums/new-thread/$forumId'
-      path: '/forums/new-thread/$forumId'
-      fullPath: '/forums/new-thread/$forumId'
-      preLoaderRoute: typeof ForumsNewThreadForumIdRouteImport
+    '/games/list': {
+      id: '/games/list'
+      path: '/games/list'
+      fullPath: '/games/list'
+      preLoaderRoute: typeof GamesListRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/games/new': {
+      id: '/games/new'
+      path: '/games/new'
+      fullPath: '/games/new'
+      preLoaderRoute: typeof GamesNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pms/': {
+      id: '/pms/'
+      path: '/pms'
+      fullPath: '/pms/'
+      preLoaderRoute: typeof PmsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pms/$pmId': {
+      id: '/pms/$pmId'
+      path: '/pms/$pmId'
+      fullPath: '/pms/$pmId'
+      preLoaderRoute: typeof PmsPmIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pms/reply': {
+      id: '/pms/reply'
+      path: '/pms/reply'
+      fullPath: '/pms/reply'
+      preLoaderRoute: typeof PmsReplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pms/send': {
+      id: '/pms/send'
+      path: '/pms/send'
+      fullPath: '/pms/send'
+      preLoaderRoute: typeof PmsSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register/': {
+      id: '/register/'
+      path: '/register'
+      fullPath: '/register/'
+      preLoaderRoute: typeof RegisterIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register/resend': {
+      id: '/register/resend'
+      path: '/register/resend'
+      fullPath: '/register/resend'
+      preLoaderRoute: typeof RegisterResendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register/success': {
+      id: '/register/success'
+      path: '/register/success'
+      fullPath: '/register/success'
+      preLoaderRoute: typeof RegisterSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/cards': {
+      id: '/tools/cards'
+      path: '/tools/cards'
+      fullPath: '/tools/cards'
+      preLoaderRoute: typeof ToolsCardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/dice': {
+      id: '/tools/dice'
+      path: '/tools/dice'
+      fullPath: '/tools/dice'
+      preLoaderRoute: typeof ToolsDiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user/$userId': {
+      id: '/user/$userId'
+      path: '/user/$userId'
+      fullPath: '/user/$userId'
+      preLoaderRoute: typeof UserUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forums/edit-post/$postId': {
@@ -453,8 +535,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForumsEditPostPostIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forums/new-thread/$forumId': {
+      id: '/forums/new-thread/$forumId'
+      path: '/forums/new-thread/$forumId'
+      fullPath: '/forums/new-thread/$forumId'
+      preLoaderRoute: typeof ForumsNewThreadForumIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forums/thread/$threadId': {
+      id: '/forums/thread/$threadId'
+      path: '/forums/thread/$threadId'
+      fullPath: '/forums/thread/$threadId'
+      preLoaderRoute: typeof ForumsThreadThreadIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/games/$gameId/': {
+      id: '/games/$gameId/'
+      path: '/games/$gameId'
+      fullPath: '/games/$gameId/'
+      preLoaderRoute: typeof GamesGameIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/games/$gameId/edit': {
+      id: '/games/$gameId/edit'
+      path: '/games/$gameId/edit'
+      fullPath: '/games/$gameId/edit'
+      preLoaderRoute: typeof GamesGameIdEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/games/list/': {
+      id: '/games/list/'
+      path: '/'
+      fullPath: '/games/list/'
+      preLoaderRoute: typeof GamesListIndexRouteImport
+      parentRoute: typeof GamesListRoute
+    }
   }
 }
+
+interface GamesListRouteChildren {
+  GamesListIndexRoute: typeof GamesListIndexRoute
+}
+
+const GamesListRouteChildren: GamesListRouteChildren = {
+  GamesListIndexRoute: GamesListIndexRoute,
+}
+
+const GamesListRouteWithChildren = GamesListRoute._addFileChildren(
+  GamesListRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -465,6 +594,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,
   ForumsChar123ForumIdChar125Route: ForumsChar123ForumIdChar125Route,
+  GamesListRoute: GamesListRouteWithChildren,
+  GamesNewRoute: GamesNewRoute,
   PmsPmIdRoute: PmsPmIdRoute,
   PmsReplyRoute: PmsReplyRoute,
   PmsSendRoute: PmsSendRoute,
@@ -473,11 +604,14 @@ const rootRouteChildren: RootRouteChildren = {
   ToolsCardsRoute: ToolsCardsRoute,
   ToolsDiceRoute: ToolsDiceRoute,
   UserUserIdRoute: UserUserIdRoute,
+  GamesIndexRoute: GamesIndexRoute,
   PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
   ForumsEditPostPostIdRoute: ForumsEditPostPostIdRoute,
   ForumsNewThreadForumIdRoute: ForumsNewThreadForumIdRoute,
   ForumsThreadThreadIdRoute: ForumsThreadThreadIdRoute,
+  GamesGameIdEditRoute: GamesGameIdEditRoute,
+  GamesGameIdIndexRoute: GamesGameIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

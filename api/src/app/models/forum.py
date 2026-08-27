@@ -27,7 +27,6 @@ class Forum(Base, SoftDeleteMixin, TimestampMixin):
     forum_type: Mapped[ForumTypes] = mapped_column(
         LabelEnumType(ForumTypes, String(1)),
         default=ForumTypes.FORUM,
-        nullable=True,
     )
     parent_id: Mapped[int | None] = mapped_column(
         ForeignKey("forums.id"), index=True, nullable=True

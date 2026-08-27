@@ -17,3 +17,10 @@ class ValidationError(Exception):
         if not message:
             message = "Validation error"
         super().__init__(message)
+
+
+class ConflictException(Exception):
+    def __init__(self, message: str | None = None) -> None:
+        if not message:
+            message = "Conflict"
+        super().__init__(message)

@@ -73,3 +73,23 @@ export const searchUserByUsername = async (
 	const { user } = await res.json();
 	return user;
 };
+
+export const searchUserById = async (id: number): Promise<SearchUser | null> => {
+	const res = await apiFetch(`/users/search?id=${id}`);
+	if (res.status === 404) {
+		return null;
+	}
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	const { user } = await res.json();
+	return user;
+};
+
+export function searchUserByIdQueryOptions(id: number) {
+	return queryOptions({
+		queryKey: ["users", "search", { id }],
+		queryFn: () => searchUserById(id),
+	});
+}

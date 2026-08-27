@@ -1,0 +1,4 @@
+[
+    { "short": "pcwj", "name": "Playing Cards w/ Jokers", "deck_size": 54 },
+    { "short": "pcwoj", "name": "Playing Cards w/o Jokers", "deck_size": 52 }
+]

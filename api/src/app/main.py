@@ -15,9 +15,16 @@ from app.database import (
     legacy_session_manager,
     session_manager,
 )
-from app.exceptions import ForbiddenException, NotFoundException, ValidationError
+from app.deck_types.routes import deck_types
+from app.exceptions import (
+    ConflictException,
+    ForbiddenException,
+    NotFoundException,
+    ValidationError,
+)
 from app.forums.routes import forums
 from app.gamers.legacy_routes import gamers as legacy_gamers
+from app.games.routes import games
 from app.helpers.functions import error_response
 from app.me.legacy_routes import me as legacy_me
 from app.me.routes import me
@@ -128,6 +135,12 @@ def create_app(init_db=True) -> FastAPI:
             errors=[ErrorItem(code="validation_error", detail=str(exc))],
         )
 
+    @app.exception_handler(ConflictException)
+    async def conflict_exception_handler(request: Request, exc: ConflictException):
+        return error_response(
+            status_code=409, errors=[ErrorItem(code="conflict", detail=str(exc))]
+        )
+
     app.include_router(legacy_auth)
     app.include_router(legacy_me)
     app.include_router(legacy_gamers)
@@ -144,5 +157,7 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(threads)
     app.include_router(posts)
     app.include_router(tools)
+    app.include_router(games)
+    app.include_router(deck_types)
 
     return app

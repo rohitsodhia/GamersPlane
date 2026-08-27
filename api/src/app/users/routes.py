@@ -19,10 +19,27 @@ users = APIRouter(prefix="/users")
     "/search",
     response_model=schemas.SearchUserResponse,
 )
-async def search_user(username: str, db_session: DBSessionDependency):
+async def search_user(
+    db_session: DBSessionDependency,
+    username: str | None = None,
+    id: int | None = None,
+):
     user_repository = UserRepository(db_session)
 
-    user = await user_repository.get_user_by_username(username)
+    if id is not None:
+        user = await user_repository.get_user_by_id(id)
+    elif username is not None:
+        user = await user_repository.get_user_by_username(username)
+    else:
+        return error_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            errors=[
+                ErrorItem(
+                    code="missing_query",
+                    detail="Either username or id must be provided",
+                )
+            ],
+        )
     if not user:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,

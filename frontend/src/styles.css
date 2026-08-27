@@ -43,6 +43,8 @@ html {
 body {
 	display: grid;
 	grid-template-columns: [full-width-start] 1fr [content-start] 1080px [content-end] 1fr [full-width-end];
+	grid-template-rows: auto 1fr auto;
+	min-height: 100dvh;
 	background: var(--bg);
 	color: var(--text);
 	line-height: var(--line-height);
@@ -85,7 +87,7 @@ main {
 }
 
 .loading-spinner {
-	position: absolute;
+	position: fixed;
 	inset: 0;
 	display: flex;
 	align-items: center;
@@ -128,7 +130,8 @@ input:is([type="radio"], [type="checkbox"]) {
 
 a,
 a:visited,
-a:active {
+a:active,
+button {
 	color: var(--gp-light-red);
 }
 
@@ -221,6 +224,10 @@ h2.headerbar {
 		tan(var(--skew-angle)) +
 		0.2em
 	);
+
+	&.has-topper {
+		margin-block-start: 0;
+	}
 }
 
 h1.headerbar {
@@ -238,6 +245,11 @@ h2.headerbar {
 	&::before {
 		background-color: oklch(0.25 0 0);
 	}
+}
+
+.hb-topper {
+	display: flex;
+	justify-content: flex-end;
 }
 
 .skew-btn {
@@ -268,6 +280,12 @@ h2.headerbar {
 	line-height: var(--trap-height);
 	padding-inline: calc(var(--trap-slant) + 0.3em);
 
+	a,
+	a:visited,
+	a:active {
+		color: #fff;
+	}
+
 	&::before {
 		content: "";
 		position: absolute;
@@ -291,6 +309,7 @@ h2.headerbar {
 	& > * {
 		display: flex;
 		align-items: center;
+		flex-wrap: no-wrap;
 		height: 100%;
 		color: #fff;
 	}
@@ -341,6 +360,34 @@ h2.headerbar {
 	text-align: center;
 }
 
+.badge {
+	border-radius: 0.3em;
+	padding: 0.2em 0.6em 0.1em;
+	color: #fff;
+	white-space: nowrap;
+}
+
+.badge-game-open,
+.badge-game-has-room {
+	background: light-dark(#2e7d32, #4caf50);
+}
+
+.badge-game-closed {
+	background: light-dark(#888, #666);
+}
+
+.badge-game-public {
+	background: light-dark(#1565c0, #42a5f5);
+}
+
+.badge-game-private {
+	background: light-dark(#8e24aa, #ab47bc);
+}
+
+.badge-game-is-full {
+	background: light-dark(#c62828, #e57373);
+}
+
 .visually-hidden {
 	position: absolute;
 	width: 1px;
@@ -382,7 +429,7 @@ form.grid-layout {
 	--label-col-width: 250px;
 
 	display: grid;
-	grid-template-columns: var(--label-col-width) 1fr;
+	grid-template-columns: var(--label-col-width) minmax(0, 1fr);
 	gap: 1em;
 
 	& > div:not(.is-container) {

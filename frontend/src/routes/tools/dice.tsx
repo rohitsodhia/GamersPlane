@@ -110,7 +110,7 @@ function RouteComponent() {
 							</select>
 						</div>
 					</div>
-					<h2 className="headerbar hb-dark" ref={hbMarginedH2.ref}>
+					<h2 className="headerbar hb-dark has-topper" ref={hbMarginedH2.ref}>
 						{SYSTEM_LABELS[system]}
 					</h2>
 

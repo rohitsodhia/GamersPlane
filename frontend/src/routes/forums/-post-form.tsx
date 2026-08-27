@@ -255,7 +255,7 @@ export function PostForm({
 					</div>
 				</div>
 			)}
-			<h2 className="headerbar hb-dark" ref={hbMarginedOptions.ref}>
+			<h2 className="headerbar hb-dark has-topper" ref={hbMarginedOptions.ref}>
 				Thread Options
 			</h2>
 			<div style={{ marginInline: `${hbMarginedOptions.margin}px` }}>

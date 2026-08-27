@@ -1,0 +1,8 @@
+:global(.gm-badge) {
+	font-size: 0.75em;
+	font-weight: bold;
+	color: var(--gp-red);
+	border: 1px solid var(--gp-red);
+	border-radius: 0.4em;
+	padding: 0.4em 0.4em 0.2em;
+}
