@@ -8,14 +8,14 @@ from sqlalchemy import text
 
 from app.configs import configs
 from app.database import session_manager
-from app.models import Forum, UserMeta
+from app.models import DeckType, Forum, UserMeta
 from app.repositories import (
     GenreRepository,
     PublisherRepository,
     ReferralLinkRepository,
     SystemRepository,
+    UserRepository,
 )
-from app.repositories.user_repository import UserRepository
 from app.users.functions import register_user
 
 app = typer.Typer()
@@ -123,6 +123,12 @@ async def seed():
             )
         )
         typer.echo("Forums added")
+
+        with open("data/deck_types.json") as f:
+            deck_types_data = json.load(f)
+        for deck_type_data in deck_types_data:
+            session.add(DeckType(**deck_type_data))
+        typer.echo("Deck Types added")
 
 
 @app.command()
