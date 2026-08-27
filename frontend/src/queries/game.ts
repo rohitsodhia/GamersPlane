@@ -35,6 +35,15 @@ export type GameDetails = {
 	favorited: boolean;
 };
 
+export type Deck = {
+	id: number;
+	label: string;
+	type: string;
+	size: number;
+	position: number;
+	permissions: number[];
+};
+
 export const gameDetailsQueryOptions = (gameId: number) =>
 	queryOptions({
 		queryKey: ["game", gameId],
@@ -161,4 +170,71 @@ export const updateGame = async (
 		throw new ApiError(res.status, errors);
 	}
 	return res.json();
+};
+
+export const decksQueryOptions = (gameId: number) =>
+	queryOptions({
+		queryKey: ["decks", gameId],
+		queryFn: async (): Promise<Deck[]> => {
+			const res = await apiFetch(`/games/${gameId}/decks`);
+			if (!res.ok) throw new Error("Failed to fetch decks");
+			return (await res.json()).decks;
+		},
+	});
+
+export type DeckInput = {
+	label: string;
+	type: string;
+	permissions: number[];
+};
+
+export const createDeck = async (
+	gameId: number,
+	data: DeckInput,
+): Promise<{ id: number }> => {
+	const res = await apiFetch(`/games/${gameId}/decks`, {
+		method: "POST",
+		body: JSON.stringify(data),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+export const updateDeck = async (
+	gameId: number,
+	deckId: number,
+	data: DeckInput,
+): Promise<{ id: number }> => {
+	const res = await apiFetch(`/games/${gameId}/decks/${deckId}`, {
+		method: "PATCH",
+		body: JSON.stringify(data),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+export const shuffleDeck = async (gameId: number, deckId: number): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/decks/${deckId}/shuffle`, {
+		method: "PATCH",
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
+export const deleteDeck = async (gameId: number, deckId: number): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/decks/${deckId}`, {
+		method: "DELETE",
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
 };

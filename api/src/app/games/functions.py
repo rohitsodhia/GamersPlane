@@ -1,6 +1,6 @@
 from app.exceptions import ForbiddenException, NotFoundException
-from app.models import Game, Player
-from app.repositories import GameRepository, PlayerRepository
+from app.models import Deck, Game, Player
+from app.repositories import DeckRepository, GameRepository, PlayerRepository
 
 
 async def get_game_or_404(game_repository: GameRepository, game_id: int) -> Game:
@@ -32,3 +32,12 @@ async def require_gm(
 ) -> None:
     if not await player_repository.is_gm(game_id, principal_id):
         raise ForbiddenException(message)
+
+
+async def get_deck_or_404(
+    deck_repository: DeckRepository, game_id: int, deck_id: int
+) -> Deck:
+    deck = await deck_repository.get_by_id(deck_id)
+    if not deck or deck.game_id != game_id:
+        raise NotFoundException("Deck not found")
+    return deck

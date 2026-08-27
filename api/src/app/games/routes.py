@@ -6,6 +6,7 @@ from app.database import DBSessionDependency
 from app.exceptions import ConflictException, ForbiddenException, NotFoundException
 from app.games import schemas
 from app.games.functions import (
+    get_deck_or_404,
     get_game_or_404,
     get_player_or_404,
     require_game_exists,
@@ -13,8 +14,9 @@ from app.games.functions import (
 )
 from app.helpers.decorators import public
 from app.middleware import Auth, Principal
-from app.models import Game, Player
+from app.models import Deck, Game, Player
 from app.repositories import (
+    DeckRepository,
     FavoritesRepository,
     GameRepository,
     PlayerRepository,
@@ -345,3 +347,153 @@ async def delete_player(
         raise ForbiddenException("Only game masters can edit players")
 
     await player_repository.delete_player(player)
+
+
+def _deck_to_data(deck: Deck) -> schemas.DeckData:
+    return schemas.DeckData(
+        id=deck.id,
+        label=deck.label,
+        type=deck.type_id,
+        size=deck.type.deck_size,
+        position=deck.position,
+        permissions=[permission.user_id for permission in deck.permissions],
+    )
+
+
+@games.get("/{game_id}/decks", response_model=schemas.GetDecksResponse)
+async def get_decks(
+    game_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    await require_game_exists(game_repository, game_id)
+
+    deck_repository = DeckRepository(db_session, principal=principal)
+    decks = await deck_repository.get_all_for_game(game_id)
+
+    return schemas.GetDecksResponse(decks=[_deck_to_data(deck) for deck in decks])
+
+
+@games.get("/{game_id}/decks/{deck_id}", response_model=schemas.GetDeckResponse)
+async def get_deck(
+    game_id: int,
+    deck_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    await require_game_exists(game_repository, game_id)
+
+    deck_repository = DeckRepository(db_session, principal=principal)
+    deck = await get_deck_or_404(deck_repository, game_id, deck_id)
+
+    return schemas.GetDeckResponse(deck=_deck_to_data(deck))
+
+
+@games.post("/{game_id}/decks", response_model=schemas.CreateDecksResponse)
+async def create_deck(
+    game_id: int,
+    request_body: schemas.CreateDecksInput,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    await require_game_exists(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    await require_gm(
+        player_repository,
+        game_id,
+        principal.id,
+        "Only game masters can create decks",
+    )
+    players = await player_repository.get_players_for_game(game_id, only_accepted=True)
+    player_ids = [player.user_id for player in players]
+    for user_id in request_body.permissions:
+        if user_id not in player_ids:
+            raise NotFoundException("User not in game")
+
+    deck_repository = DeckRepository(db_session, principal=principal)
+    deck = await deck_repository.create(game_id=game_id, **request_body.model_dump())
+
+    return schemas.CreateDecksResponse(id=deck.id)
+
+
+@games.patch("/{game_id}/decks/{deck_id}", response_model=schemas.CreateDecksResponse)
+async def update_deck(
+    game_id: int,
+    deck_id: int,
+    request_body: schemas.CreateDecksInput,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    await require_game_exists(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    await require_gm(
+        player_repository,
+        game_id,
+        principal.id,
+        "Only game masters can edit decks",
+    )
+    players = await player_repository.get_players_for_game(game_id, only_accepted=True)
+    player_ids = [player.user_id for player in players]
+    for user_id in request_body.permissions:
+        if user_id not in player_ids:
+            raise NotFoundException("User not in game")
+
+    deck_repository = DeckRepository(db_session, principal=principal)
+    deck = await get_deck_or_404(deck_repository, game_id, deck_id)
+
+    deck = await deck_repository.update(deck, **request_body.model_dump())
+
+    return schemas.CreateDecksResponse(id=deck.id)
+
+
+@games.patch(
+    "/{game_id}/decks/{deck_id}/shuffle", status_code=status.HTTP_204_NO_CONTENT
+)
+async def shuffle_deck(
+    game_id: int, deck_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    await require_game_exists(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    await require_gm(
+        player_repository,
+        game_id,
+        principal.id,
+        "Only game masters can shuffle decks",
+    )
+
+    deck_repository = DeckRepository(db_session, principal=principal)
+    await get_deck_or_404(deck_repository, game_id, deck_id)
+
+    await deck_repository.shuffle(deck_id)
+
+
+@games.delete("/{game_id}/decks/{deck_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_deck(
+    game_id: int,
+    deck_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    await require_game_exists(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    await require_gm(
+        player_repository,
+        game_id,
+        principal.id,
+        "Only game masters can delete decks",
+    )
+
+    deck_repository = DeckRepository(db_session, principal=principal)
+    await get_deck_or_404(deck_repository, game_id, deck_id)
+
+    await deck_repository.delete(deck_id)

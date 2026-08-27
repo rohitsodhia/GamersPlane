@@ -15,6 +15,7 @@ from app.database import (
     legacy_session_manager,
     session_manager,
 )
+from app.deck_types.routes import deck_types
 from app.exceptions import (
     ConflictException,
     ForbiddenException,
@@ -157,5 +158,6 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(posts)
     app.include_router(tools)
     app.include_router(games)
+    app.include_router(deck_types)
 
     return app

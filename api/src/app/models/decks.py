@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import JSON, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin
+from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models import Game, User
@@ -20,7 +20,7 @@ class DeckType(Base):
     deck_size: Mapped[int]
 
 
-class Deck(Base, SoftDeleteMixin, TimestampMixin):
+class Deck(Base, TimestampMixin):
     __tablename__ = "decks"
 
     id: Mapped[int] = mapped_column(primary_key=True)

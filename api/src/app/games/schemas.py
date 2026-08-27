@@ -88,3 +88,30 @@ class UpdateGameInput(SchemaBase):
     public: bool
     recruitment_thread_id: int | None
     advanced_options: dict | None
+
+
+class DeckData(SchemaBase):
+    id: int
+    label: str
+    type: str
+    size: int
+    position: int
+    permissions: list[int]
+
+
+class GetDecksResponse(SchemaBase):
+    decks: list[DeckData]
+
+
+class GetDeckResponse(SchemaBase):
+    deck: DeckData
+
+
+class CreateDecksInput(SchemaBase):
+    label: str
+    type: str
+    permissions: list[int]
+
+
+class CreateDecksResponse(SchemaBase):
+    id: int

@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import {
+	useMutation,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import GMBadge from "#/components/GMBadge";
@@ -6,15 +11,19 @@ import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
+import { deckTypesQueryOptions } from "#/queries/deckTypes";
 import {
 	acceptInvite,
 	applyToGame,
 	approvePlayer,
+	decksQueryOptions,
+	deleteDeck,
 	deletePlayer,
 	favoriteGame,
 	type GamePlayer,
 	gameDetailsQueryOptions,
 	invitePlayer,
+	shuffleDeck,
 	toggleGameFlag,
 	toggleGm,
 } from "#/queries/game";
@@ -22,6 +31,7 @@ import { meQueryOptions } from "#/queries/me";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { searchUserByUsername } from "#/queries/users";
 import { useAuthStore } from "#/stores/auth";
+import DeckFormPopover from "./-deck-form-popover";
 import styles from "./index.module.css";
 
 export const Route = createFileRoute("/games/$gameId/")({
@@ -85,6 +95,7 @@ function getRightPanel(args: {
 
 function RouteComponent() {
 	const { gameId } = Route.useParams();
+	const queryClient = useQueryClient();
 	const { data: game } = useSuspenseQuery(gameDetailsQueryOptions(gameId));
 	const { data: systems } = useSuspenseQuery(systemsQueryOptions({ basic: true }));
 	const token = useAuthStore((state) => state.token);
@@ -194,6 +205,20 @@ function RouteComponent() {
 		onError: () => setApprovePlayerError("Failed to approve player"),
 	});
 
+	const [shuffleDeckError, setShuffleDeckError] = useState<string | null>(null);
+	const shuffleDeckMutation = useMutation({
+		mutationFn: (deckId: number) => shuffleDeck(gameId, deckId),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: ["decks", gameId] }),
+		onError: () => setShuffleDeckError("Failed to shuffle deck"),
+	});
+
+	const [deleteDeckError, setDeleteDeckError] = useState<string | null>(null);
+	const deleteDeckMutation = useMutation({
+		mutationFn: (deckId: number) => deleteDeck(gameId, deckId),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: ["decks", gameId] }),
+		onError: () => setDeleteDeckError("Failed to delete deck"),
+	});
+
 	const [toggleGmError, setToggleGmError] = useState<string | null>(null);
 	const toggleGmMutation = useMutation({
 		mutationFn: (userId: number) => toggleGm(gameId, userId),
@@ -207,14 +232,20 @@ function RouteComponent() {
 		onError: () => setToggleGmError("Failed to toggle GM status"),
 	});
 
-	// TODO: decks aren't modeled on the backend at all yet.
-	const decks: { id: number; label: string; cardsRemaining: number }[] = [];
-
 	const isPrimaryGM = me?.id === game.gm.id;
 	const viewerPlayer = me ? players.find((player) => player.id === me.id) : undefined;
 	const isGM = viewerPlayer?.is_gm ?? false;
 	const inGame = !!viewerPlayer;
 	const approved = viewerPlayer?.state === "accepted";
+
+	const { data: decks = [] } = useQuery({
+		...decksQueryOptions(gameId),
+		enabled: loggedIn,
+	});
+	const { data: deckTypes = [] } = useQuery({
+		...deckTypesQueryOptions,
+		enabled: isGM,
+	});
 
 	const playersInGame = players.filter((player) => player.state === "accepted");
 	const playersInvited = players.filter((player) => player.state === "invited");
@@ -611,12 +642,10 @@ function RouteComponent() {
 						<div className={styles.decks}>
 							{!retired && isGM && (
 								<div style={{ marginLeft: hbMarginedH2.margin }}>
-									{/* TODO: no decks backend yet — button is inert */}
 									<button
 										type="button"
 										className="skew-btn"
-										disabled
-										title="Coming soon"
+										popoverTarget="new-deck-popover"
 									>
 										New Deck
 									</button>
@@ -634,8 +663,93 @@ function RouteComponent() {
 										There are no decks available at this time
 									</p>
 								)}
+								{decks.length > 0 && (
+									<ul className={styles["deck-list"]}>
+										{decks.map((deck) => {
+											const typeName =
+												deckTypes.find((deckType) => deckType.short === deck.type)
+													?.name ?? deck.type;
+											return (
+												<li key={deck.id}>
+													<div className={styles["deck-info"]}>
+														<div>
+															<div>{deck.label}</div>
+															<div className={styles["deck-type"]}>
+																{typeName} &middot; {deck.size - deck.position}/
+																{deck.size} cards remaining
+															</div>
+														</div>
+														{isGM && (
+															<div className={styles["action-links"]}>
+																<button
+																	type="button"
+																	className={styles["icon-button"]}
+																	popoverTarget={`edit-deck-popover-${deck.id}`}
+																	title="Edit Deck"
+																>
+																	<img src="/images/icons/pencil.png" alt="Edit Deck" />
+																</button>
+																<button
+																	type="button"
+																	className={styles["icon-button"]}
+																	title="Shuffle Deck"
+																	onClick={() => {
+																		setShuffleDeckError(null);
+																		shuffleDeckMutation.mutate(deck.id);
+																	}}
+																	disabled={shuffleDeckMutation.isPending}
+																>
+																	<img
+																		src="/images/icons/switch.png"
+																		alt="Shuffle Deck"
+																	/>
+																</button>
+																<button
+																	type="button"
+																	className={styles["icon-button"]}
+																	title="Delete Deck"
+																	onClick={() => {
+																		setDeleteDeckError(null);
+																		deleteDeckMutation.mutate(deck.id);
+																	}}
+																	disabled={deleteDeckMutation.isPending}
+																>
+																	<img
+																		src="/images/icons/cross.png"
+																		alt="Delete Deck"
+																	/>
+																</button>
+															</div>
+														)}
+													</div>
+												</li>
+											);
+										})}
+									</ul>
+								)}
+								{shuffleDeckError && <div className="error">{shuffleDeckError}</div>}
+								{deleteDeckError && <div className="error">{deleteDeckError}</div>}
 							</div>
 						</div>
+						{isGM && (
+							<DeckFormPopover
+								id="new-deck-popover"
+								gameId={game.id}
+								players={playersInGame}
+								deckTypes={deckTypes}
+							/>
+						)}
+						{isGM &&
+							decks.map((deck) => (
+								<DeckFormPopover
+									key={deck.id}
+									id={`edit-deck-popover-${deck.id}`}
+									gameId={game.id}
+									deck={deck}
+									players={playersInGame}
+									deckTypes={deckTypes}
+								/>
+							))}
 					</div>
 
 					<div className={styles["right-col"]}>

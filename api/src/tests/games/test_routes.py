@@ -1,10 +1,15 @@
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
-from app.models import FavoriteGame, Game, Player
-from app.repositories import GameRepository, PlayerRepository
-from tests.factories import ActivatedUserFactory, ForumFactory, SystemFactory
+from app.models import Deck, DeckPermission, FavoriteGame, Game, Player
+from app.repositories import DeckRepository, GameRepository, PlayerRepository
+from tests.factories import (
+    ActivatedUserFactory,
+    DeckTypeFactory,
+    ForumFactory,
+    SystemFactory,
+)
 
 
 def _payload(**overrides):
@@ -1430,3 +1435,1019 @@ class TestDeletePlayer:
         response = await client.delete(f"/games/{game.id}/player/{gm.id}")
 
         assert response.status_code == 403
+
+
+class TestCreateDeck:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def deck_type(self, create):
+        return await create(DeckTypeFactory, deck_size=52)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        game = await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        # Real games always have their GM attached as a player (see
+        # create_game in routes.py); create_deck's GM check reads this
+        # Player row, not Game.gm_id, so the fixture must mirror that.
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        return game
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    def _payload(self, deck_type, **overrides):
+        fields = {
+            "label": "Fate Deck",
+            "type": deck_type.short,
+            "permissions": [],
+        }
+        fields.update(overrides)
+        return fields
+
+    async def test_create_deck_requires_auth(self, client, game, deck_type):
+        response = await client.post(
+            f"/games/{game.id}/decks", json=self._payload(deck_type)
+        )
+
+        assert response.status_code == 403
+
+    async def test_create_deck_game_not_found(self, authed_client, deck_type):
+        client, _user = authed_client
+
+        response = await client.post(
+            "/games/999999/decks", json=self._payload(deck_type)
+        )
+
+        assert response.status_code == 404
+
+    async def test_create_deck_not_gm_forbidden(self, authed_client, game, deck_type):
+        client, _user = authed_client
+
+        response = await client.post(
+            f"/games/{game.id}/decks", json=self._payload(deck_type)
+        )
+
+        assert response.status_code == 403
+
+    async def test_create_deck_type_not_found(self, client, game, gm):
+        client = self._auth_as(client, gm)
+
+        response = await client.post(
+            f"/games/{game.id}/decks",
+            json={"label": "Fate Deck", "type": "does-not-exist", "permissions": []},
+        )
+
+        assert response.status_code == 404
+
+    async def test_create_deck_permission_user_not_in_game_not_found(
+        self, client, game, gm, deck_type, create
+    ):
+        client = self._auth_as(client, gm)
+        stranger = await create(ActivatedUserFactory)
+
+        response = await client.post(
+            f"/games/{game.id}/decks",
+            json=self._payload(deck_type, permissions=[stranger.id]),
+        )
+
+        assert response.status_code == 404
+
+    async def test_create_deck_permission_target_must_be_accepted(
+        self, client, db_session, game, gm, deck_type, create
+    ):
+        client = self._auth_as(client, gm)
+        applicant = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, applicant.id, state=Player.States.APPLIED
+        )
+
+        response = await client.post(
+            f"/games/{game.id}/decks",
+            json=self._payload(deck_type, permissions=[applicant.id]),
+        )
+
+        assert response.status_code == 404
+
+    async def test_create_deck_creates_deck(
+        self, client, db_session, game, gm, deck_type
+    ):
+        client = self._auth_as(client, gm)
+
+        response = await client.post(
+            f"/games/{game.id}/decks", json=self._payload(deck_type)
+        )
+
+        assert response.status_code == 200
+        deck = await db_session.get(Deck, response.json()["id"])
+        assert deck is not None
+        assert deck.game_id == game.id
+        assert deck.label == "Fate Deck"
+        assert deck.type_id == deck_type.short
+        assert deck.position == 0
+
+    async def test_create_deck_order_is_a_shuffled_full_range(
+        self, client, db_session, game, gm, deck_type
+    ):
+        client = self._auth_as(client, gm)
+
+        response = await client.post(
+            f"/games/{game.id}/decks", json=self._payload(deck_type)
+        )
+
+        deck = await db_session.get(Deck, response.json()["id"])
+        assert set(deck.order) == set(range(deck_type.deck_size))
+
+    async def test_create_deck_last_shuffled_is_timezone_aware(
+        self, client, db_session, game, gm, deck_type
+    ):
+        client = self._auth_as(client, gm)
+
+        response = await client.post(
+            f"/games/{game.id}/decks", json=self._payload(deck_type)
+        )
+
+        deck = await db_session.get(Deck, response.json()["id"])
+        assert deck.last_shuffled.tzinfo is not None
+
+    async def test_create_deck_grants_permissions_to_listed_users(
+        self, client, db_session, game, gm, deck_type, create
+    ):
+        client = self._auth_as(client, gm)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        player_a = await create(ActivatedUserFactory)
+        player_b = await create(ActivatedUserFactory)
+        await player_repository.attach_player_to_game(
+            game.id, player_a.id, state=Player.States.ACCEPTED
+        )
+        await player_repository.attach_player_to_game(
+            game.id, player_b.id, state=Player.States.ACCEPTED
+        )
+
+        response = await client.post(
+            f"/games/{game.id}/decks",
+            json=self._payload(deck_type, permissions=[player_a.id, player_b.id]),
+        )
+
+        deck_id = response.json()["id"]
+        permissions = await db_session.scalars(
+            select(DeckPermission).where(DeckPermission.deck_id == deck_id)
+        )
+        user_ids = {p.user_id for p in permissions}
+        assert user_ids == {player_a.id, player_b.id}
+
+    async def test_create_deck_duplicate_permission_ids_deduplicated(
+        self, client, db_session, game, gm, deck_type, create
+    ):
+        client = self._auth_as(client, gm)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        player = await create(ActivatedUserFactory)
+        await player_repository.attach_player_to_game(
+            game.id, player.id, state=Player.States.ACCEPTED
+        )
+
+        response = await client.post(
+            f"/games/{game.id}/decks",
+            json=self._payload(deck_type, permissions=[player.id, player.id]),
+        )
+
+        assert response.status_code == 200
+        deck_id = response.json()["id"]
+        permissions = await db_session.scalars(
+            select(DeckPermission).where(DeckPermission.deck_id == deck_id)
+        )
+        assert [p.user_id for p in permissions] == [player.id]
+
+
+class TestGetDecks:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def deck_type(self, create):
+        return await create(DeckTypeFactory, deck_size=52)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        return await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_get_decks_requires_auth(self, client, game):
+        response = await client.get(f"/games/{game.id}/decks")
+
+        assert response.status_code == 403
+
+    async def test_get_decks_game_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.get("/games/999999/decks")
+
+        assert response.status_code == 404
+
+    async def test_get_decks_empty_when_no_decks(self, client, gm, game):
+        client = self._auth_as(client, gm)
+
+        response = await client.get(f"/games/{game.id}/decks")
+
+        assert response.status_code == 200
+        assert response.json() == {"decks": []}
+
+    async def test_get_decks_returns_decks_for_game(
+        self, client, db_session, gm, game, deck_type, create
+    ):
+        client = self._auth_as(client, gm)
+        deck_repository = DeckRepository(db_session, principal=gm)
+        player = await create(ActivatedUserFactory)
+        deck = await deck_repository.create(
+            game_id=game.id,
+            label="Fate Deck",
+            type=deck_type.short,
+            permissions=[player.id],
+        )
+
+        response = await client.get(f"/games/{game.id}/decks")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["decks"]) == 1
+        assert body["decks"][0] == {
+            "id": deck.id,
+            "label": "Fate Deck",
+            "type": deck_type.short,
+            "size": deck_type.deck_size,
+            "position": 0,
+            "permissions": [player.id],
+        }
+
+    async def test_get_decks_excludes_decks_from_other_games(
+        self, client, db_session, gm, game, system, deck_type
+    ):
+        client = self._auth_as(client, gm)
+        game_repository = GameRepository(db_session, principal=gm)
+        other_game = await game_repository.create(
+            "Other Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        deck_repository = DeckRepository(db_session, principal=gm)
+        await deck_repository.create(
+            game_id=other_game.id,
+            label="Other Deck",
+            type=deck_type.short,
+            permissions=[],
+        )
+
+        response = await client.get(f"/games/{game.id}/decks")
+
+        assert response.status_code == 200
+        assert response.json() == {"decks": []}
+
+
+class TestGetDeck:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def deck_type(self, create):
+        return await create(DeckTypeFactory, deck_size=52)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        return await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+    @pytest.fixture
+    async def deck(self, db_session, gm, game, deck_type):
+        deck_repository = DeckRepository(db_session, principal=gm)
+        return await deck_repository.create(
+            game_id=game.id,
+            label="Fate Deck",
+            type=deck_type.short,
+            permissions=[],
+        )
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_get_deck_requires_auth(self, client, game, deck):
+        response = await client.get(f"/games/{game.id}/decks/{deck.id}")
+
+        assert response.status_code == 403
+
+    async def test_get_deck_game_not_found(self, authed_client, deck):
+        client, _user = authed_client
+
+        response = await client.get(f"/games/999999/decks/{deck.id}")
+
+        assert response.status_code == 404
+
+    async def test_get_deck_not_found(self, client, gm, game):
+        client = self._auth_as(client, gm)
+
+        response = await client.get(f"/games/{game.id}/decks/999999")
+
+        assert response.status_code == 404
+
+    async def test_get_deck_belonging_to_another_game_not_found(
+        self, client, db_session, gm, game, system, deck_type
+    ):
+        client = self._auth_as(client, gm)
+        game_repository = GameRepository(db_session, principal=gm)
+        other_game = await game_repository.create(
+            "Other Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        deck_repository = DeckRepository(db_session, principal=gm)
+        other_deck = await deck_repository.create(
+            game_id=other_game.id,
+            label="Other Deck",
+            type=deck_type.short,
+            permissions=[],
+        )
+
+        response = await client.get(f"/games/{game.id}/decks/{other_deck.id}")
+
+        assert response.status_code == 404
+
+    async def test_get_deck_returns_deck(self, client, gm, game, deck, deck_type):
+        client = self._auth_as(client, gm)
+
+        response = await client.get(f"/games/{game.id}/decks/{deck.id}")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "deck": {
+                "id": deck.id,
+                "label": "Fate Deck",
+                "type": deck_type.short,
+                "size": deck_type.deck_size,
+                "position": 0,
+                "permissions": [],
+            }
+        }
+
+
+class TestUpdateDeck:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def deck_type(self, create):
+        return await create(DeckTypeFactory, deck_size=52)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        game = await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        # Real games always have their GM attached as a player (see
+        # create_game in routes.py); update_deck's GM check reads this
+        # Player row, not Game.gm_id, so the fixture must mirror that.
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        return game
+
+    @pytest.fixture
+    async def deck(self, db_session, gm, game, deck_type):
+        deck_repository = DeckRepository(db_session, principal=gm)
+        return await deck_repository.create(
+            game_id=game.id,
+            label="Fate Deck",
+            type=deck_type.short,
+            permissions=[],
+        )
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    def _payload(self, deck_type, **overrides):
+        fields = {
+            "label": "Fate Deck",
+            "type": deck_type.short,
+            "permissions": [],
+        }
+        fields.update(overrides)
+        return fields
+
+    async def test_update_deck_requires_auth(self, client, game, deck, deck_type):
+        response = await client.patch(
+            f"/games/{game.id}/decks/{deck.id}", json=self._payload(deck_type)
+        )
+
+        assert response.status_code == 403
+
+    async def test_update_deck_game_not_found(self, authed_client, deck_type):
+        client, _user = authed_client
+
+        response = await client.patch(
+            "/games/999999/decks/999999", json=self._payload(deck_type)
+        )
+
+        assert response.status_code == 404
+
+    async def test_update_deck_not_gm_forbidden(
+        self, authed_client, game, deck, deck_type
+    ):
+        client, _user = authed_client
+
+        response = await client.patch(
+            f"/games/{game.id}/decks/{deck.id}", json=self._payload(deck_type)
+        )
+
+        assert response.status_code == 403
+
+    async def test_update_deck_not_found(self, client, gm, game, deck_type):
+        client = self._auth_as(client, gm)
+
+        response = await client.patch(
+            f"/games/{game.id}/decks/999999", json=self._payload(deck_type)
+        )
+
+        assert response.status_code == 404
+
+    async def test_update_deck_belonging_to_another_game_not_found(
+        self, client, db_session, gm, game, system, deck_type
+    ):
+        client = self._auth_as(client, gm)
+        game_repository = GameRepository(db_session, principal=gm)
+        other_game = await game_repository.create(
+            "Other Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        deck_repository = DeckRepository(db_session, principal=gm)
+        other_deck = await deck_repository.create(
+            game_id=other_game.id,
+            label="Other Deck",
+            type=deck_type.short,
+            permissions=[],
+        )
+
+        response = await client.patch(
+            f"/games/{game.id}/decks/{other_deck.id}", json=self._payload(deck_type)
+        )
+
+        assert response.status_code == 404
+
+    async def test_update_deck_type_not_found(self, client, gm, game, deck):
+        client = self._auth_as(client, gm)
+
+        response = await client.patch(
+            f"/games/{game.id}/decks/{deck.id}",
+            json={"label": "Fate Deck", "type": "does-not-exist", "permissions": []},
+        )
+
+        assert response.status_code == 404
+
+    async def test_update_deck_permission_user_not_in_game_not_found(
+        self, client, game, gm, deck, deck_type, create
+    ):
+        client = self._auth_as(client, gm)
+        stranger = await create(ActivatedUserFactory)
+
+        response = await client.patch(
+            f"/games/{game.id}/decks/{deck.id}",
+            json=self._payload(deck_type, permissions=[stranger.id]),
+        )
+
+        assert response.status_code == 404
+
+    async def test_update_deck_updates_label(
+        self, client, db_session, game, gm, deck, deck_type
+    ):
+        client = self._auth_as(client, gm)
+
+        response = await client.patch(
+            f"/games/{game.id}/decks/{deck.id}",
+            json=self._payload(deck_type, label="Renamed Deck"),
+        )
+
+        assert response.status_code == 200
+        await db_session.refresh(deck)
+        assert deck.label == "Renamed Deck"
+
+    async def test_update_deck_same_type_does_not_reshuffle(
+        self, client, db_session, game, gm, deck, deck_type
+    ):
+        client = self._auth_as(client, gm)
+        original_order = list(deck.order)
+        original_shuffled_at = deck.last_shuffled
+
+        response = await client.patch(
+            f"/games/{game.id}/decks/{deck.id}", json=self._payload(deck_type)
+        )
+
+        assert response.status_code == 200
+        await db_session.refresh(deck)
+        assert deck.order == original_order
+        assert deck.last_shuffled == original_shuffled_at
+
+    async def test_update_deck_changing_type_reshuffles(
+        self, client, db_session, game, gm, deck, deck_type, create
+    ):
+        client = self._auth_as(client, gm)
+        new_type = await create(DeckTypeFactory, deck_size=20)
+
+        response = await client.patch(
+            f"/games/{game.id}/decks/{deck.id}",
+            json=self._payload(new_type),
+        )
+
+        assert response.status_code == 200
+        await db_session.refresh(deck)
+        assert deck.type_id == new_type.short
+        assert set(deck.order) == set(range(new_type.deck_size))
+        assert deck.position == 0
+
+    async def test_update_deck_replaces_permissions(
+        self, client, db_session, game, gm, deck, deck_type, create
+    ):
+        client = self._auth_as(client, gm)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        old_player = await create(ActivatedUserFactory)
+        new_player = await create(ActivatedUserFactory)
+        await player_repository.attach_player_to_game(
+            game.id, old_player.id, state=Player.States.ACCEPTED
+        )
+        await player_repository.attach_player_to_game(
+            game.id, new_player.id, state=Player.States.ACCEPTED
+        )
+        deck_repository = DeckRepository(db_session, principal=gm)
+        await deck_repository.update(
+            deck, label=deck.label, type=deck_type.short, permissions=[old_player.id]
+        )
+
+        response = await client.patch(
+            f"/games/{game.id}/decks/{deck.id}",
+            json=self._payload(deck_type, permissions=[new_player.id]),
+        )
+
+        assert response.status_code == 200
+        permissions = await db_session.scalars(
+            select(DeckPermission).where(DeckPermission.deck_id == deck.id)
+        )
+        assert {p.user_id for p in permissions} == {new_player.id}
+
+
+class TestShuffleDeck:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def deck_type(self, create):
+        return await create(DeckTypeFactory, deck_size=52)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        game = await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        # Real games always have their GM attached as a player (see
+        # create_game in routes.py); shuffle_deck's GM check reads this
+        # Player row, not Game.gm_id, so the fixture must mirror that.
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        return game
+
+    @pytest.fixture
+    async def deck(self, db_session, gm, game, deck_type):
+        deck_repository = DeckRepository(db_session, principal=gm)
+        return await deck_repository.create(
+            game_id=game.id,
+            label="Fate Deck",
+            type=deck_type.short,
+            permissions=[],
+        )
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_shuffle_deck_requires_auth(self, client, game, deck):
+        response = await client.patch(f"/games/{game.id}/decks/{deck.id}/shuffle")
+
+        assert response.status_code == 403
+
+    async def test_shuffle_deck_game_not_found(self, authed_client, deck):
+        client, _user = authed_client
+
+        response = await client.patch(f"/games/999999/decks/{deck.id}/shuffle")
+
+        assert response.status_code == 404
+
+    async def test_shuffle_deck_not_gm_forbidden(self, authed_client, game, deck):
+        client, _user = authed_client
+
+        response = await client.patch(f"/games/{game.id}/decks/{deck.id}/shuffle")
+
+        assert response.status_code == 403
+
+    async def test_shuffle_deck_not_found(self, client, gm, game):
+        client = self._auth_as(client, gm)
+
+        response = await client.patch(f"/games/{game.id}/decks/999999/shuffle")
+
+        assert response.status_code == 404
+
+    async def test_shuffle_deck_belonging_to_another_game_not_found(
+        self, client, db_session, gm, game, system, deck_type
+    ):
+        client = self._auth_as(client, gm)
+        game_repository = GameRepository(db_session, principal=gm)
+        other_game = await game_repository.create(
+            "Other Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        deck_repository = DeckRepository(db_session, principal=gm)
+        other_deck = await deck_repository.create(
+            game_id=other_game.id,
+            label="Other Deck",
+            type=deck_type.short,
+            permissions=[],
+        )
+
+        response = await client.patch(
+            f"/games/{game.id}/decks/{other_deck.id}/shuffle"
+        )
+
+        assert response.status_code == 404
+        await db_session.refresh(other_deck)
+        assert other_deck.game_id == other_game.id
+
+    async def test_shuffle_deck_reshuffles(
+        self, client, db_session, game, gm, deck, deck_type
+    ):
+        client = self._auth_as(client, gm)
+        original_shuffled_at = deck.last_shuffled
+
+        response = await client.patch(f"/games/{game.id}/decks/{deck.id}/shuffle")
+
+        assert response.status_code == 204
+        await db_session.refresh(deck)
+        assert deck.last_shuffled > original_shuffled_at
+        assert set(deck.order) == set(range(deck_type.deck_size))
+
+
+class TestDeleteDeck:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def deck_type(self, create):
+        return await create(DeckTypeFactory, deck_size=52)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        game = await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        # Real games always have their GM attached as a player (see
+        # create_game in routes.py); delete_deck's GM check reads this
+        # Player row, not Game.gm_id, so the fixture must mirror that.
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        return game
+
+    @pytest.fixture
+    async def deck(self, db_session, gm, game, deck_type):
+        deck_repository = DeckRepository(db_session, principal=gm)
+        return await deck_repository.create(
+            game_id=game.id,
+            label="Fate Deck",
+            type=deck_type.short,
+            permissions=[],
+        )
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_delete_deck_requires_auth(self, client, game, deck):
+        response = await client.delete(f"/games/{game.id}/decks/{deck.id}")
+
+        assert response.status_code == 403
+
+    async def test_delete_deck_game_not_found(self, authed_client, deck):
+        client, _user = authed_client
+
+        response = await client.delete(f"/games/999999/decks/{deck.id}")
+
+        assert response.status_code == 404
+
+    async def test_delete_deck_not_gm_forbidden(self, authed_client, game, deck):
+        client, _user = authed_client
+
+        response = await client.delete(f"/games/{game.id}/decks/{deck.id}")
+
+        assert response.status_code == 403
+
+    async def test_delete_deck_not_found(self, client, gm, game):
+        client = self._auth_as(client, gm)
+
+        response = await client.delete(f"/games/{game.id}/decks/999999")
+
+        assert response.status_code == 404
+
+    async def test_delete_deck_belonging_to_another_game_not_found(
+        self, client, db_session, gm, game, system, deck_type
+    ):
+        client = self._auth_as(client, gm)
+        game_repository = GameRepository(db_session, principal=gm)
+        other_game = await game_repository.create(
+            "Other Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        deck_repository = DeckRepository(db_session, principal=gm)
+        other_deck = await deck_repository.create(
+            game_id=other_game.id,
+            label="Other Deck",
+            type=deck_type.short,
+            permissions=[],
+        )
+
+        response = await client.delete(f"/games/{game.id}/decks/{other_deck.id}")
+
+        assert response.status_code == 404
+        assert await db_session.get(Deck, other_deck.id) is not None
+
+    async def test_delete_deck_removes_deck(self, client, db_session, game, gm, deck):
+        client = self._auth_as(client, gm)
+
+        response = await client.delete(f"/games/{game.id}/decks/{deck.id}")
+
+        assert response.status_code == 204
+        assert await db_session.get(Deck, deck.id) is None
+
+    async def test_delete_deck_removes_permissions(
+        self, client, db_session, game, gm, deck, deck_type, create
+    ):
+        client = self._auth_as(client, gm)
+        player = await create(ActivatedUserFactory)
+        deck_repository = DeckRepository(db_session, principal=gm)
+        await deck_repository.update(
+            deck, label=deck.label, type=deck_type.short, permissions=[player.id]
+        )
+
+        response = await client.delete(f"/games/{game.id}/decks/{deck.id}")
+
+        assert response.status_code == 204
+        permissions = await db_session.scalars(
+            select(DeckPermission).where(DeckPermission.deck_id == deck.id)
+        )
+        assert list(permissions) == []
