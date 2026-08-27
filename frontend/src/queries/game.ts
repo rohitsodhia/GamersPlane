@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 
@@ -53,24 +53,47 @@ export type GameListItem = {
 	num_players: number;
 	player_count: number;
 	forum_id: number;
-	is_gm: boolean;
 	is_retired: boolean;
 	status: "open" | "closed";
+	public: boolean;
 	favorited: boolean;
 };
 
-export const gamesQueryOptions = (params: { mine?: boolean } = {}) =>
+export type MyGameListItem = GameListItem & { is_gm: boolean };
+
+export const myGamesQueryOptions = () =>
 	queryOptions({
-		queryKey: ["games", params],
-		queryFn: async (): Promise<GameListItem[]> => {
-			const search = new URLSearchParams();
-			if (params.mine) search.set("mine", "true");
-			const qs = search.toString();
-			const res = await apiFetch(`/games/${qs ? `?${qs}` : ""}`);
+		queryKey: ["games", "mine"],
+		queryFn: async (): Promise<MyGameListItem[]> => {
+			const res = await apiFetch("/games/my");
 			if (!res.ok) throw new Error("Failed to fetch games");
 			return (await res.json()).games;
 		},
 		staleTime: 1000 * 60,
+	});
+
+export type BrowseGamesResponse = {
+	games: GameListItem[];
+	count: number;
+	page: number;
+};
+
+export const browseGamesQueryOptions = (
+	params: { search?: string; systems?: string[]; page?: number } = {},
+) =>
+	queryOptions({
+		queryKey: ["games", "browse", params],
+		queryFn: async (): Promise<BrowseGamesResponse> => {
+			const search = new URLSearchParams();
+			if (params.search) search.set("search", params.search);
+			for (const systemId of params.systems ?? []) search.append("systems", systemId);
+			if (params.page) search.set("page", String(params.page));
+			const qs = search.toString();
+			const res = await apiFetch(`/games/${qs ? `?${qs}` : ""}`);
+			if (!res.ok) throw new Error("Failed to fetch games");
+			return res.json();
+		},
+		placeholderData: keepPreviousData,
 	});
 
 export const gameDetailsQueryOptions = (gameId: number) =>

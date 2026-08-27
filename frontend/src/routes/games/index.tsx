@@ -3,21 +3,23 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { favoriteGame, type GameListItem, gamesQueryOptions } from "#/queries/game";
+import { favoriteGame, myGamesQueryOptions } from "#/queries/game";
+import { GameRow } from "./-game-row";
+import gameRowStyles from "./-game-row.module.css";
 import styles from "./index.module.css";
 
 export const Route = createFileRoute("/games/")({
 	beforeLoad: requireAuth,
 	loader: ({ context, location }) =>
 		redirectToLoginOnAuthFailure(
-			context.queryClient.ensureQueryData(gamesQueryOptions({ mine: true })),
+			context.queryClient.ensureQueryData(myGamesQueryOptions()),
 			location,
 		),
 	component: RouteComponent,
 });
 
 function RouteComponent() {
-	const { data: games } = useSuspenseQuery(gamesQueryOptions({ mine: true }));
+	const { data: games } = useSuspenseQuery(myGamesQueryOptions());
 
 	const [favoriteOverrides, setFavoriteOverrides] = useState<Record<number, boolean>>(
 		{},
@@ -55,18 +57,21 @@ function RouteComponent() {
 				</h2>
 				{playing.length > 0 ? (
 					<ul
-						className={styles["game-list"]}
+						className={gameRowStyles["game-list"]}
 						style={{ marginInline: playingHb.margin }}
 					>
 						{playing.map((game) => (
 							<GameRow
 								key={game.id}
 								game={game}
-								favorited={favoriteOverrides[game.id] ?? game.favorited}
-								onToggleFavorite={() => favoriteMutation.mutate(game.id)}
-								pending={
-									favoriteMutation.isPending && favoriteMutation.variables === game.id
-								}
+								favorite={{
+									favorited: favoriteOverrides[game.id] ?? game.favorited,
+									onToggle: () => favoriteMutation.mutate(game.id),
+									pending:
+										favoriteMutation.isPending &&
+										favoriteMutation.variables === game.id,
+								}}
+								end={<ForumLink forumId={game.forum_id} />}
 							/>
 						))}
 					</ul>
@@ -90,19 +95,21 @@ function RouteComponent() {
 				</h2>
 				{running.length > 0 ? (
 					<ul
-						className={styles["game-list"]}
+						className={gameRowStyles["game-list"]}
 						style={{ marginInline: runningHb.margin }}
 					>
 						{running.map((game) => (
 							<GameRow
 								key={game.id}
 								game={game}
-								favorited={favoriteOverrides[game.id] ?? game.favorited}
-								onToggleFavorite={() => favoriteMutation.mutate(game.id)}
-								pending={
-									favoriteMutation.isPending && favoriteMutation.variables === game.id
-								}
-								showOpenBadge
+								favorite={{
+									favorited: favoriteOverrides[game.id] ?? game.favorited,
+									onToggle: () => favoriteMutation.mutate(game.id),
+									pending:
+										favoriteMutation.isPending &&
+										favoriteMutation.variables === game.id,
+								}}
+								end={<ForumLink forumId={game.forum_id} />}
 							/>
 						))}
 					</ul>
@@ -118,16 +125,19 @@ function RouteComponent() {
 			{retired.length > 0 && (
 				<details className={styles["retired-games"]}>
 					<summary>Retired games</summary>
-					<ul className={styles["game-list"]}>
+					<ul className={gameRowStyles["game-list"]}>
 						{retired.map((game) => (
 							<GameRow
 								key={game.id}
 								game={game}
-								favorited={favoriteOverrides[game.id] ?? game.favorited}
-								onToggleFavorite={() => favoriteMutation.mutate(game.id)}
-								pending={
-									favoriteMutation.isPending && favoriteMutation.variables === game.id
-								}
+								favorite={{
+									favorited: favoriteOverrides[game.id] ?? game.favorited,
+									onToggle: () => favoriteMutation.mutate(game.id),
+									pending:
+										favoriteMutation.isPending &&
+										favoriteMutation.variables === game.id,
+								}}
+								end={<ForumLink forumId={game.forum_id} />}
 							/>
 						))}
 					</ul>
@@ -137,58 +147,14 @@ function RouteComponent() {
 	);
 }
 
-function GameRow({
-	game,
-	favorited,
-	onToggleFavorite,
-	pending,
-	showOpenBadge = false,
-}: {
-	game: GameListItem;
-	favorited: boolean;
-	onToggleFavorite: () => void;
-	pending: boolean;
-	showOpenBadge?: boolean;
-}) {
+function ForumLink({ forumId }: { forumId: number }) {
 	return (
-		<li>
-			<span className={styles["game-title"]}>
-				<button
-					type="button"
-					className={styles.favorite}
-					onClick={onToggleFavorite}
-					disabled={pending}
-					title={favorited ? "Unfavorite" : "Favorite"}
-				>
-					<img
-						src={
-							favorited
-								? "/images/icons/bookmark_on.png"
-								: "/images/icons/bookmark_off.png"
-						}
-						alt={favorited ? "Unfavorite" : "Favorite"}
-					/>
-				</button>{" "}
-				<Link to="/games/$gameId" params={{ gameId: game.id }}>
-					{game.title}
-				</Link>
-			</span>
-			<div className={styles["system-type"]}>{game.system}</div>
-			<div className={styles["gm-info"]}>
-				<Link to="/user/$userId" params={{ userId: game.gm.id }} className="username">
-					{game.gm.username}
-				</Link>
-			</div>
-			{/* {showOpenBadge && game.status === "open" && (
-				<span className={styles.badge}>Open</span>
-			)} */}
-			<Link
-				to="/forums/{-$forumId}"
-				params={{ forumId: game.forum_id }}
-				className={styles["forum-link"]}
-			>
-				<i className="ra ra-speech-bubble" /> Forum
-			</Link>
-		</li>
+		<Link
+			to="/forums/{-$forumId}"
+			params={{ forumId }}
+			className={styles["forum-link"]}
+		>
+			<i className="ra ra-speech-bubble" /> Forum
+		</Link>
 	);
 }

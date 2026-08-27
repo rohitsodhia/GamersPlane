@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.configs import configs
 from app.models import Forum, Game, Player, Role, System, User
 from app.repositories.forum_repository import ForumRepository
 
@@ -26,22 +27,63 @@ class GameRepository:
             )
         )
 
-    async def get_all(self, mine: bool = False) -> list[Game]:
+    async def get_player_games(self, user_id: int) -> list[Game]:
         query = (
             select(Game)
+            .join(
+                Player,
+                (Player.game_id == Game.id)
+                & (Player.user_id == user_id)
+                & (Player.state == Player.States.ACCEPTED),
+            )
             .options(selectinload(Game.gm), selectinload(Game.system))
             .order_by(Game.title.asc())
         )
-        if mine:
-            if self.principal is None:
-                return []
-            query = query.join(
-                Player,
-                (Player.game_id == Game.id)
-                & (Player.user_id == self.principal.id)
-                & (Player.state == Player.States.ACCEPTED),
-            )
         return list(await self.db_session.scalars(query))
+
+    def _browse_query(self, search: str | None, system_ids: list[str] | None = None):
+        query = select(Game).order_by(Game.title.asc())
+        if self.principal is not None:
+            query = query.where(
+                ~select(Player.game_id)
+                .where(
+                    Player.game_id == Game.id,
+                    Player.user_id == self.principal.id,
+                    Player.state == Player.States.ACCEPTED,
+                )
+                .exists()
+            )
+        if system_ids:
+            query = query.where(Game.system_id.in_(system_ids))
+        if search:
+            query = query.where(Game.title.ilike(f"%{search}%"))
+        return query
+
+    async def get_browse(
+        self,
+        search: str | None = None,
+        system_ids: list[str] | None = None,
+        page: int = 1,
+        limit: int = configs.PAGINATE_PER_PAGE,
+    ) -> list[Game]:
+        query = (
+            self._browse_query(search, system_ids)
+            .options(selectinload(Game.gm), selectinload(Game.system))
+            .limit(limit)
+            .offset((page - 1) * limit)
+        )
+        return list(await self.db_session.scalars(query))
+
+    async def count_browse(
+        self, search: str | None = None, system_ids: list[str] | None = None
+    ) -> int:
+        query = self._browse_query(search, system_ids)
+        return (
+            await self.db_session.scalar(
+                select(func.count()).select_from(query.subquery())
+            )
+            or 0
+        )
 
     async def get_player_counts(self, game_ids: list[int]) -> dict[int, int]:
         if not game_ids:

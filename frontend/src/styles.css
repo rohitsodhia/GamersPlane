@@ -360,6 +360,34 @@ h2.headerbar {
 	text-align: center;
 }
 
+.badge {
+	border-radius: 0.3em;
+	padding: 0.2em 0.6em 0.1em;
+	color: #fff;
+	white-space: nowrap;
+}
+
+.badge-game-open,
+.badge-game-has-room {
+	background: light-dark(#2e7d32, #4caf50);
+}
+
+.badge-game-closed {
+	background: light-dark(#888, #666);
+}
+
+.badge-game-public {
+	background: light-dark(#1565c0, #42a5f5);
+}
+
+.badge-game-private {
+	background: light-dark(#8e24aa, #ab47bc);
+}
+
+.badge-game-is-full {
+	background: light-dark(#c62828, #e57373);
+}
+
 .visually-hidden {
 	position: absolute;
 	width: 1px;

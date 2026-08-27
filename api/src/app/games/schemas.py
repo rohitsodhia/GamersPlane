@@ -77,14 +77,24 @@ class GameData(SchemaBase):
     num_players: int
     player_count: int
     forum_id: int
-    is_gm: bool
     is_retired: bool
     status: Literal["open", "closed"]
+    public: bool
     favorited: bool
+
+
+class MyGameData(GameData):
+    is_gm: bool
 
 
 class GetGamesResponse(SchemaBase):
     games: list[GameData]
+    count: int
+    page: int
+
+
+class GetMyGamesResponse(SchemaBase):
+    games: list[MyGameData]
 
 
 class FavoriteGameResponse(SchemaBase):

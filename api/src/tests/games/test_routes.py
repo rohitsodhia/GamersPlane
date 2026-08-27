@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
+from app.configs import configs
 from app.models import Deck, DeckPermission, FavoriteGame, Game, Player
 from app.repositories import DeckRepository, GameRepository, PlayerRepository
 from tests.factories import (
@@ -330,7 +331,7 @@ class TestGetGame:
         assert response.json()["favorited"] is True
 
 
-class TestGetGames:
+class _GameFixtures:
     @pytest.fixture(autouse=True)
     async def games_root_forum(self, create, db_session):
         forum = await create(ForumFactory, id=2, heritage=[])
@@ -354,11 +355,11 @@ class TestGetGames:
 
     @pytest.fixture
     def make_game(self, db_session, system):
-        async def _make_game(gm, title="My Campaign", public=True):
+        async def _make_game(gm, title="My Campaign", public=True, system_id=None):
             game_repository = GameRepository(db_session, principal=gm)
             game = await game_repository.create(
                 title,
-                system.id,
+                system_id or system.id,
                 [],
                 gm.id,
                 "3/w",
@@ -371,7 +372,7 @@ class TestGetGames:
                 None,
             )
             # Real games always have their GM attached as a player (see
-            # create_game in routes.py); "mine" and is_gm both read this
+            # create_game in routes.py); "my games" and is_gm both read this
             # Player row, not Game.gm_id, so the fixture must mirror that.
             player_repository = PlayerRepository(db_session, principal=gm)
             await player_repository.attach_player_to_game(
@@ -386,14 +387,16 @@ class TestGetGames:
         client.headers["Authorization"] = f"Bearer {token}"
         return client
 
+
+class TestGetGames(_GameFixtures):
+    """GET /games/ - the public "browse games" listing."""
+
     async def test_get_games_requires_no_auth(self, client):
         response = await client.get("/games/")
 
         assert response.status_code == 200
 
-    async def test_get_games_mine_false_returns_all_games(
-        self, client, gm, make_game, create
-    ):
+    async def test_get_games_returns_all_games(self, client, gm, make_game, create):
         other_gm = await create(ActivatedUserFactory)
         game_a = await make_game(gm, title="A Game")
         game_b = await make_game(other_gm, title="B Game")
@@ -403,75 +406,138 @@ class TestGetGames:
         game_ids = {g["id"] for g in response.json()["games"]}
         assert game_ids == {game_a.id, game_b.id}
 
-    async def test_get_games_anonymous_mine_true_returns_empty(
-        self, client, gm, make_game
-    ):
-        await make_game(gm)
+    async def test_get_games_includes_private_games(self, client, gm, make_game):
+        game = await make_game(gm, title="Private Game", public=False)
 
-        response = await client.get("/games/", params={"mine": True})
+        response = await client.get("/games/")
 
-        assert response.status_code == 200
-        assert response.json()["games"] == []
+        games = response.json()["games"]
+        assert [g["id"] for g in games] == [game.id]
+        assert games[0]["public"] is False
 
-    async def test_get_games_mine_true_excludes_other_users_games(
+    async def test_get_games_excludes_games_viewer_already_accepted_in(
         self, client, gm, make_game, create
     ):
         other_gm = await create(ActivatedUserFactory)
-        await make_game(other_gm)
+        game_mine = await make_game(gm, title="A Game")
+        game_other = await make_game(other_gm, title="B Game")
         client = self._auth_as(client, gm)
 
-        response = await client.get("/games/", params={"mine": True})
+        response = await client.get("/games/")
 
-        assert response.json()["games"] == []
+        game_ids = {g["id"] for g in response.json()["games"]}
+        assert game_ids == {game_other.id}
+        assert game_mine.id not in game_ids
 
-    async def test_get_games_mine_true_includes_gm_games(self, client, gm, make_game):
+    async def test_get_games_includes_accepted_games_for_anonymous(
+        self, client, gm, make_game
+    ):
         game = await make_game(gm)
-        client = self._auth_as(client, gm)
 
-        response = await client.get("/games/", params={"mine": True})
+        response = await client.get("/games/")
 
         game_ids = {g["id"] for g in response.json()["games"]}
         assert game_ids == {game.id}
 
-    async def test_get_games_mine_true_includes_accepted_player_games(
+    async def test_get_games_includes_games_viewer_only_applied_to(
         self, client, db_session, gm, make_game, create
     ):
-        game = await make_game(gm)
-        player = await create(ActivatedUserFactory)
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, player.id, state=Player.States.ACCEPTED
-        )
-        client = self._auth_as(client, player)
-
-        response = await client.get("/games/", params={"mine": True})
-
-        game_ids = {g["id"] for g in response.json()["games"]}
-        assert game_ids == {game.id}
-
-    async def test_get_games_mine_true_excludes_applied_and_invited_games(
-        self, client, db_session, gm, make_game, create
-    ):
-        game = await make_game(gm)
+        game = await make_game(gm, title="A Game")
         applicant = await create(ActivatedUserFactory)
-        invitee = await create(ActivatedUserFactory)
         player_repository = PlayerRepository(db_session, principal=gm)
         await player_repository.attach_player_to_game(
             game.id, applicant.id, state=Player.States.APPLIED
         )
-        await player_repository.attach_player_to_game(
-            game.id, invitee.id, state=Player.States.INVITED
+        client = self._auth_as(client, applicant)
+
+        response = await client.get("/games/")
+
+        game_ids = {g["id"] for g in response.json()["games"]}
+        assert game_ids == {game.id}
+
+    async def test_get_games_search_filters_by_title_case_insensitive(
+        self, client, gm, make_game
+    ):
+        await make_game(gm, title="Curse of Strahd")
+        await make_game(gm, title="Tomb of Annihilation")
+
+        response = await client.get("/games/", params={"search": "curse"})
+
+        titles = [g["title"] for g in response.json()["games"]]
+        assert titles == ["Curse of Strahd"]
+
+    async def test_get_games_search_matches_substring_anywhere_in_title(
+        self, client, gm, make_game
+    ):
+        await make_game(gm, title="Curse of Strahd")
+        await make_game(gm, title="Tomb of Annihilation")
+
+        response = await client.get("/games/", params={"search": "of"})
+
+        titles = {g["title"] for g in response.json()["games"]}
+        assert titles == {"Curse of Strahd", "Tomb of Annihilation"}
+
+    async def test_get_games_search_no_match_returns_empty(self, client, gm, make_game):
+        await make_game(gm, title="Curse of Strahd")
+
+        response = await client.get("/games/", params={"search": "nonexistent"})
+
+        assert response.json()["games"] == []
+
+    async def test_get_games_filters_by_single_system(
+        self, client, gm, make_game, create
+    ):
+        other_system = await create(SystemFactory, id="pf2e")
+        game_dnd = await make_game(gm, title="A Game")
+        await make_game(gm, title="B Game", system_id=other_system.id)
+
+        response = await client.get("/games/", params={"systems": ["dnd5e"]})
+
+        game_ids = [g["id"] for g in response.json()["games"]]
+        assert game_ids == [game_dnd.id]
+
+    async def test_get_games_filters_by_multiple_systems(
+        self, client, gm, make_game, create
+    ):
+        other_system = await create(SystemFactory, id="pf2e")
+        third_system = await create(SystemFactory, id="swade")
+        game_dnd = await make_game(gm, title="A Game")
+        game_pf2e = await make_game(gm, title="B Game", system_id=other_system.id)
+        await make_game(gm, title="C Game", system_id=third_system.id)
+
+        response = await client.get(
+            "/games/", params={"systems": ["dnd5e", "pf2e"]}
         )
 
-        applicant_response = await self._auth_as(client, applicant).get(
-            "/games/", params={"mine": True}
-        )
-        invitee_response = await self._auth_as(client, invitee).get(
-            "/games/", params={"mine": True}
-        )
+        game_ids = {g["id"] for g in response.json()["games"]}
+        assert game_ids == {game_dnd.id, game_pf2e.id}
 
-        assert applicant_response.json()["games"] == []
-        assert invitee_response.json()["games"] == []
+    async def test_get_games_response_includes_count_and_page(
+        self, client, gm, make_game
+    ):
+        await make_game(gm, title="A Game")
+        await make_game(gm, title="B Game")
+
+        response = await client.get("/games/")
+
+        body = response.json()
+        assert body["count"] == 2
+        assert body["page"] == 1
+
+    async def test_get_games_second_page_returns_remaining_games(
+        self, client, gm, make_game
+    ):
+        for i in range(configs.PAGINATE_PER_PAGE + 3):
+            await make_game(gm, title=f"Game {i:03}")
+
+        first_page = await client.get("/games/", params={"page": 1})
+        second_page = await client.get("/games/", params={"page": 2})
+
+        assert len(first_page.json()["games"]) == configs.PAGINATE_PER_PAGE
+        assert len(second_page.json()["games"]) == 3
+        first_ids = {g["id"] for g in first_page.json()["games"]}
+        second_ids = {g["id"] for g in second_page.json()["games"]}
+        assert first_ids.isdisjoint(second_ids)
 
     async def test_get_games_sorted_by_title_ascending(self, client, gm, make_game):
         await make_game(gm, title="Zeta Quest")
@@ -482,93 +548,6 @@ class TestGetGames:
 
         titles = [g["title"] for g in response.json()["games"]]
         assert titles == ["Alpha Quest", "Mid Quest", "Zeta Quest"]
-
-    async def test_get_games_per_game_fields_are_not_cross_contaminated(
-        self, client, db_session, gm, make_game, create
-    ):
-        # A regression guard for the bulk per-game lookups (player_counts,
-        # gm_game_ids, favorited_ids): each is keyed by game id, so a game
-        # the viewer doesn't GM/favorite must not pick up flags that belong
-        # to a different game in the same response.
-        other_gm = await create(ActivatedUserFactory)
-        await make_game(gm, title="Game A")
-        game_b = await make_game(other_gm, title="Game B")
-        player_repository = PlayerRepository(db_session, principal=other_gm)
-        await player_repository.attach_player_to_game(
-            game_b.id, gm.id, state=Player.States.ACCEPTED
-        )
-        client = self._auth_as(client, gm)
-        await client.post(f"/games/{game_b.id}/favorite")
-
-        response = await client.get("/games/", params={"mine": True})
-
-        games = response.json()["games"]
-        assert [g["title"] for g in games] == ["Game A", "Game B"]
-        assert games[0]["is_gm"] is True
-        assert games[0]["favorited"] is False
-        assert games[0]["player_count"] == 0
-        assert games[1]["is_gm"] is False
-        assert games[1]["favorited"] is True
-        assert games[1]["player_count"] == 1
-
-    async def test_get_games_is_gm_true_for_delegated_co_gm(
-        self, client, db_session, gm, make_game, create
-    ):
-        game = await make_game(gm)
-        co_gm = await create(ActivatedUserFactory)
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, co_gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
-        client = self._auth_as(client, co_gm)
-
-        response = await client.get("/games/", params={"mine": True})
-
-        assert response.json()["games"][0]["is_gm"] is True
-
-    async def test_get_games_is_gm_false_for_regular_player(
-        self, client, db_session, gm, make_game, create
-    ):
-        game = await make_game(gm)
-        player = await create(ActivatedUserFactory)
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, player.id, state=Player.States.ACCEPTED
-        )
-        client = self._auth_as(client, player)
-
-        response = await client.get("/games/", params={"mine": True})
-
-        assert response.json()["games"][0]["is_gm"] is False
-
-    async def test_get_games_is_gm_false_when_unauthenticated(
-        self, client, gm, make_game
-    ):
-        await make_game(gm)
-
-        response = await client.get("/games/")
-
-        assert response.json()["games"][0]["is_gm"] is False
-
-    async def test_get_games_is_retired_reflects_retired_field(
-        self, client, gm, make_game
-    ):
-        game = await make_game(gm)
-        client = self._auth_as(client, gm)
-        await client.patch(f"/games/{game.id}/retire")
-
-        response = await client.get("/games/")
-
-        assert response.json()["games"][0]["is_retired"] is True
-
-    async def test_get_games_status_reflects_closed(self, client, gm, make_game):
-        game = await make_game(gm)
-        client = self._auth_as(client, gm)
-        await client.patch(f"/games/{game.id}/toggle/status")
-
-        response = await client.get("/games/")
-
-        assert response.json()["games"][0]["status"] == "closed"
 
     async def test_get_games_player_count_counts_accepted_non_gm_only(
         self, client, db_session, gm, make_game, create
@@ -594,17 +573,6 @@ class TestGetGames:
         # GMs, and "applied" hasn't been approved yet.
         assert response.json()["games"][0]["player_count"] == 1
 
-    async def test_get_games_favorited_true_when_favorited(
-        self, client, gm, make_game
-    ):
-        game = await make_game(gm)
-        client = self._auth_as(client, gm)
-        await client.post(f"/games/{game.id}/favorite")
-
-        response = await client.get("/games/")
-
-        assert response.json()["games"][0]["favorited"] is True
-
     async def test_get_games_favorited_false_when_unauthenticated(
         self, client, gm, make_game
     ):
@@ -617,13 +585,207 @@ class TestGetGames:
 
         assert response.json()["games"][0]["favorited"] is False
 
-    async def test_get_games_returns_expected_fields(
+    async def test_get_games_returns_expected_fields(self, client, gm, system, make_game):
+        game = await make_game(gm, title="My Campaign")
+
+        response = await client.get("/games/")
+
+        assert response.status_code == 200
+        body = response.json()["games"][0]
+        assert body == {
+            "id": game.id,
+            "title": "My Campaign",
+            "system": system.name,
+            "gm": {"id": gm.id, "username": gm.username},
+            "post_frequency": {"times_per": 3, "per_period": "w"},
+            "num_players": 4,
+            "player_count": 0,
+            "forum_id": game.root_forum_id,
+            "is_retired": False,
+            "status": "open",
+            "public": True,
+            "favorited": False,
+        }
+
+
+class TestGetMyGames(_GameFixtures):
+    """GET /games/my - the authenticated "My Games" listing."""
+
+    async def test_get_my_games_requires_auth(self, client):
+        response = await client.get("/games/my")
+
+        assert response.status_code == 403
+
+    async def test_get_my_games_excludes_other_users_games(
+        self, client, gm, make_game, create
+    ):
+        other_gm = await create(ActivatedUserFactory)
+        await make_game(other_gm)
+        client = self._auth_as(client, gm)
+
+        response = await client.get("/games/my")
+
+        assert response.json()["games"] == []
+
+    async def test_get_my_games_includes_gm_games(self, client, gm, make_game):
+        game = await make_game(gm)
+        client = self._auth_as(client, gm)
+
+        response = await client.get("/games/my")
+
+        game_ids = {g["id"] for g in response.json()["games"]}
+        assert game_ids == {game.id}
+
+    async def test_get_my_games_includes_accepted_player_games(
+        self, client, db_session, gm, make_game, create
+    ):
+        game = await make_game(gm)
+        player = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, player.id, state=Player.States.ACCEPTED
+        )
+        client = self._auth_as(client, player)
+
+        response = await client.get("/games/my")
+
+        game_ids = {g["id"] for g in response.json()["games"]}
+        assert game_ids == {game.id}
+
+    async def test_get_my_games_excludes_applied_and_invited_games(
+        self, client, db_session, gm, make_game, create
+    ):
+        game = await make_game(gm)
+        applicant = await create(ActivatedUserFactory)
+        invitee = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, applicant.id, state=Player.States.APPLIED
+        )
+        await player_repository.attach_player_to_game(
+            game.id, invitee.id, state=Player.States.INVITED
+        )
+
+        applicant_response = await self._auth_as(client, applicant).get("/games/my")
+        invitee_response = await self._auth_as(client, invitee).get("/games/my")
+
+        assert applicant_response.json()["games"] == []
+        assert invitee_response.json()["games"] == []
+
+    async def test_get_my_games_is_not_paginated(
+        self, client, db_session, gm, make_game, create
+    ):
+        # "My Games" groups the full list into playing/running/retired
+        # sections client-side, so it must never be truncated by pagination.
+        player = await create(ActivatedUserFactory)
+        for i in range(configs.PAGINATE_PER_PAGE + 5):
+            game = await make_game(gm, title=f"Game {i}")
+            player_repository = PlayerRepository(db_session, principal=gm)
+            await player_repository.attach_player_to_game(
+                game.id, player.id, state=Player.States.ACCEPTED
+            )
+        client = self._auth_as(client, player)
+
+        response = await client.get("/games/my")
+
+        assert len(response.json()["games"]) == configs.PAGINATE_PER_PAGE + 5
+
+    async def test_get_my_games_per_game_fields_are_not_cross_contaminated(
+        self, client, db_session, gm, make_game, create
+    ):
+        # A regression guard for the bulk per-game lookups (player_counts,
+        # gm_game_ids, favorited_ids): each is keyed by game id, so a game
+        # the viewer doesn't GM/favorite must not pick up flags that belong
+        # to a different game in the same response.
+        other_gm = await create(ActivatedUserFactory)
+        await make_game(gm, title="Game A")
+        game_b = await make_game(other_gm, title="Game B")
+        player_repository = PlayerRepository(db_session, principal=other_gm)
+        await player_repository.attach_player_to_game(
+            game_b.id, gm.id, state=Player.States.ACCEPTED
+        )
+        client = self._auth_as(client, gm)
+        await client.post(f"/games/{game_b.id}/favorite")
+
+        response = await client.get("/games/my")
+
+        games = response.json()["games"]
+        assert [g["title"] for g in games] == ["Game A", "Game B"]
+        assert games[0]["is_gm"] is True
+        assert games[0]["favorited"] is False
+        assert games[0]["player_count"] == 0
+        assert games[1]["is_gm"] is False
+        assert games[1]["favorited"] is True
+        assert games[1]["player_count"] == 1
+
+    async def test_get_my_games_is_gm_true_for_delegated_co_gm(
+        self, client, db_session, gm, make_game, create
+    ):
+        game = await make_game(gm)
+        co_gm = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, co_gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        client = self._auth_as(client, co_gm)
+
+        response = await client.get("/games/my")
+
+        assert response.json()["games"][0]["is_gm"] is True
+
+    async def test_get_my_games_is_gm_false_for_regular_player(
+        self, client, db_session, gm, make_game, create
+    ):
+        game = await make_game(gm)
+        player = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, player.id, state=Player.States.ACCEPTED
+        )
+        client = self._auth_as(client, player)
+
+        response = await client.get("/games/my")
+
+        assert response.json()["games"][0]["is_gm"] is False
+
+    async def test_get_my_games_is_retired_reflects_retired_field(
+        self, client, gm, make_game
+    ):
+        game = await make_game(gm)
+        client = self._auth_as(client, gm)
+        await client.patch(f"/games/{game.id}/retire")
+
+        response = await client.get("/games/my")
+
+        assert response.json()["games"][0]["is_retired"] is True
+
+    async def test_get_my_games_status_reflects_closed(self, client, gm, make_game):
+        game = await make_game(gm)
+        client = self._auth_as(client, gm)
+        await client.patch(f"/games/{game.id}/toggle/status")
+
+        response = await client.get("/games/my")
+
+        assert response.json()["games"][0]["status"] == "closed"
+
+    async def test_get_my_games_favorited_true_when_favorited(
+        self, client, gm, make_game
+    ):
+        game = await make_game(gm)
+        client = self._auth_as(client, gm)
+        await client.post(f"/games/{game.id}/favorite")
+
+        response = await client.get("/games/my")
+
+        assert response.json()["games"][0]["favorited"] is True
+
+    async def test_get_my_games_returns_expected_fields(
         self, client, gm, system, make_game
     ):
         game = await make_game(gm, title="My Campaign")
         client = self._auth_as(client, gm)
 
-        response = await client.get("/games/", params={"mine": True})
+        response = await client.get("/games/my")
 
         assert response.status_code == 200
         body = response.json()["games"][0]
@@ -639,6 +801,7 @@ class TestGetGames:
             "is_gm": True,
             "is_retired": False,
             "status": "open",
+            "public": True,
             "favorited": False,
         }
 

@@ -18,6 +18,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SystemsRouteImport } from './routes/systems'
 import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
 import { Route as GamesIndexRouteImport } from './routes/games/index'
+import { Route as GamesListRouteImport } from './routes/games/list'
 import { Route as GamesNewRouteImport } from './routes/games/new'
 import { Route as PmsIndexRouteImport } from './routes/pms/index'
 import { Route as PmsPmIdRouteImport } from './routes/pms/$pmId'
@@ -34,6 +35,7 @@ import { Route as ForumsNewThreadForumIdRouteImport } from './routes/forums/new-
 import { Route as ForumsThreadThreadIdRouteImport } from './routes/forums/thread.$threadId'
 import { Route as GamesGameIdIndexRouteImport } from './routes/games/$gameId/index'
 import { Route as GamesGameIdEditRouteImport } from './routes/games/$gameId/edit'
+import { Route as GamesListIndexRouteImport } from './routes/games/list.index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -79,6 +81,11 @@ const ForumsChar123ForumIdChar125Route =
 const GamesIndexRoute = GamesIndexRouteImport.update({
   id: '/games/',
   path: '/games/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GamesListRoute = GamesListRouteImport.update({
+  id: '/games/list',
+  path: '/games/list',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GamesNewRoute = GamesNewRouteImport.update({
@@ -161,6 +168,11 @@ const GamesGameIdEditRoute = GamesGameIdEditRouteImport.update({
   path: '/games/$gameId/edit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GamesListIndexRoute = GamesListIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => GamesListRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -171,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
+  '/games/list': typeof GamesListRouteWithChildren
   '/games/new': typeof GamesNewRoute
   '/pms/$pmId': typeof PmsPmIdRoute
   '/pms/reply': typeof PmsReplyRoute
@@ -188,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
   '/games/$gameId/': typeof GamesGameIdIndexRoute
+  '/games/list/': typeof GamesListIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -215,6 +229,7 @@ export interface FileRoutesByTo {
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
   '/games/$gameId': typeof GamesGameIdIndexRoute
+  '/games/list': typeof GamesListIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -226,6 +241,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
+  '/games/list': typeof GamesListRouteWithChildren
   '/games/new': typeof GamesNewRoute
   '/pms/$pmId': typeof PmsPmIdRoute
   '/pms/reply': typeof PmsReplyRoute
@@ -243,6 +259,7 @@ export interface FileRoutesById {
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
   '/games/$gameId/': typeof GamesGameIdIndexRoute
+  '/games/list/': typeof GamesListIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -255,6 +272,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/systems'
     | '/forums/{-$forumId}'
+    | '/games/list'
     | '/games/new'
     | '/pms/$pmId'
     | '/pms/reply'
@@ -272,6 +290,7 @@ export interface FileRouteTypes {
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
     | '/games/$gameId/'
+    | '/games/list/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -299,6 +318,7 @@ export interface FileRouteTypes {
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
     | '/games/$gameId'
+    | '/games/list'
   id:
     | '__root__'
     | '/'
@@ -309,6 +329,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/systems'
     | '/forums/{-$forumId}'
+    | '/games/list'
     | '/games/new'
     | '/pms/$pmId'
     | '/pms/reply'
@@ -326,6 +347,7 @@ export interface FileRouteTypes {
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
     | '/games/$gameId/'
+    | '/games/list/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -337,6 +359,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
   ForumsChar123ForumIdChar125Route: typeof ForumsChar123ForumIdChar125Route
+  GamesListRoute: typeof GamesListRouteWithChildren
   GamesNewRoute: typeof GamesNewRoute
   PmsPmIdRoute: typeof PmsPmIdRoute
   PmsReplyRoute: typeof PmsReplyRoute
@@ -419,6 +442,13 @@ declare module '@tanstack/react-router' {
       path: '/games'
       fullPath: '/games/'
       preLoaderRoute: typeof GamesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/games/list': {
+      id: '/games/list'
+      path: '/games/list'
+      fullPath: '/games/list'
+      preLoaderRoute: typeof GamesListRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/games/new': {
@@ -533,8 +563,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GamesGameIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/games/list/': {
+      id: '/games/list/'
+      path: '/'
+      fullPath: '/games/list/'
+      preLoaderRoute: typeof GamesListIndexRouteImport
+      parentRoute: typeof GamesListRoute
+    }
   }
 }
+
+interface GamesListRouteChildren {
+  GamesListIndexRoute: typeof GamesListIndexRoute
+}
+
+const GamesListRouteChildren: GamesListRouteChildren = {
+  GamesListIndexRoute: GamesListIndexRoute,
+}
+
+const GamesListRouteWithChildren = GamesListRoute._addFileChildren(
+  GamesListRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -545,6 +594,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,
   ForumsChar123ForumIdChar125Route: ForumsChar123ForumIdChar125Route,
+  GamesListRoute: GamesListRouteWithChildren,
   GamesNewRoute: GamesNewRoute,
   PmsPmIdRoute: PmsPmIdRoute,
   PmsReplyRoute: PmsReplyRoute,

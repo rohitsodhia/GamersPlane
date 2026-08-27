@@ -1,6 +1,6 @@
 from typing import Literal
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 
 from app.database import DBSessionDependency
 from app.exceptions import ConflictException, ForbiddenException, NotFoundException
@@ -70,7 +70,7 @@ async def create_game(
 
 
 def _game_to_data(
-    game: Game, player_counts: dict[int, int], favorited_ids: set[int], is_gm: bool
+    game: Game, player_counts: dict[int, int], favorited_ids: set[int]
 ) -> schemas.GameData:
     return schemas.GameData(
         id=game.id,
@@ -84,40 +84,76 @@ def _game_to_data(
         num_players=game.num_players,
         player_count=player_counts.get(game.id, 0),
         forum_id=game.root_forum_id,
-        is_gm=is_gm,
         is_retired=game.retired is not None,
         status=game.status.name.lower(),
+        public=game.public,
         favorited=game.id in favorited_ids,
     )
 
 
-@games.get("/", response_model=schemas.GetGamesResponse)
-@public
-async def get_games(
-    db_session: DBSessionDependency, principal: Principal, mine: bool = False
-):
-    game_repository = GameRepository(db_session, principal=principal)
-    games = await game_repository.get_all(mine=mine)
-
-    game_ids = [game.id for game in games]
+async def _get_player_counts_and_favorites(
+    db_session: DBSessionDependency,
+    game_repository: GameRepository,
+    principal: Principal,
+    game_ids: list[int],
+) -> tuple[dict[int, int], set[int]]:
     player_counts = await game_repository.get_player_counts(game_ids)
-    gm_game_ids = await game_repository.get_principal_gm_game_ids(game_ids)
 
     favorited_ids: set[int] = set()
     if principal is not None:
         favorites_repository = FavoritesRepository(db_session, principal)
         favorited_ids = await favorites_repository.get_favorited_game_ids(game_ids)
 
+    return player_counts, favorited_ids
+
+
+@games.get("/", response_model=schemas.GetGamesResponse)
+@public
+async def get_games(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    search: str | None = None,
+    systems: list[str] = Query([]),
+    page: int = 1,
+):
+    if page < 1:
+        page = 1
+
+    game_repository = GameRepository(db_session, principal=principal)
+    games = await game_repository.get_browse(search=search, system_ids=systems, page=page)
+    count = await game_repository.count_browse(search=search, system_ids=systems)
+
+    game_ids = [game.id for game in games]
+    player_counts, favorited_ids = await _get_player_counts_and_favorites(
+        db_session, game_repository, principal, game_ids
+    )
+
     return schemas.GetGamesResponse(
+        games=[_game_to_data(game, player_counts, favorited_ids) for game in games],
+        count=count,
+        page=page,
+    )
+
+
+@games.get("/my", response_model=schemas.GetMyGamesResponse)
+async def get_my_games(db_session: DBSessionDependency, principal: Principal):
+    game_repository = GameRepository(db_session, principal=principal)
+    games = await game_repository.get_player_games(principal.id)
+
+    game_ids = [game.id for game in games]
+    player_counts, favorited_ids = await _get_player_counts_and_favorites(
+        db_session, game_repository, principal, game_ids
+    )
+    gm_game_ids = await game_repository.get_principal_gm_game_ids(game_ids)
+
+    return schemas.GetMyGamesResponse(
         games=[
-            _game_to_data(
-                game,
-                player_counts,
-                favorited_ids,
+            schemas.MyGameData(
+                **_game_to_data(game, player_counts, favorited_ids).model_dump(),
                 is_gm=game.id in gm_game_ids,
             )
             for game in games
-        ]
+        ],
     )
 
 
