@@ -1,5 +1,6 @@
 import asyncio
 import json
+import random
 from functools import wraps
 
 import typer
@@ -10,6 +11,7 @@ from app.configs import configs
 from app.database import session_manager
 from app.models import DeckType, Forum, UserMeta
 from app.repositories import (
+    GameRepository,
     GenreRepository,
     PublisherRepository,
     ReferralLinkRepository,
@@ -17,6 +19,15 @@ from app.repositories import (
     UserRepository,
 )
 from app.users.functions import register_user
+
+
+def prose(text: str) -> dict:
+    return {
+        "type": "doc",
+        "content": [
+            {"type": "paragraph", "content": [{"type": "text", "text": text}]}
+        ],
+    }
 
 app = typer.Typer()
 mimesis_text = Text()
@@ -149,23 +160,43 @@ async def create_user(
             user.activate()
 
 
-# @app.command()
-# @async_command
-# async def create_game():
-#     async with session_manager.session() as session:
-#         game_repository = GameRepository(session)
-#         game = await game_repository.create_game(
-#             title=" ".join(mimesis_text.words(3)),
-#             system_id="custom",
-#             gm_id=1,
-#             post_frequency={"timesPer": random.randint(1, 5), "perPeriod": "d"},
-#             num_players=random.randint(1, 6),
-#             chars_per_player=1,
-#             description=mimesis_text.sentence(),
-#             char_gen_info=mimesis_text.sentence(),
-#         )
+@app.command()
+@async_command
+async def create_game(
+    system_id: str = typer.Option("custom", prompt=True),
+    allowed_char_sheets: str = typer.Option(
+        "custom", prompt="Allowed char sheets (comma separated)"
+    ),
+    gm_id: int = typer.Option(1, prompt=True),
+):
+    allowed_char_sheets_list = [
+        s.strip() for s in allowed_char_sheets.split(",") if s.strip()
+    ]
 
-#         print(f"Game {game.id} created: {game.title}")
+    async with session_manager.session() as session:
+        user_repository = UserRepository(session)
+        gm = await user_repository.get_user(gm_id)
+        if gm is None:
+            typer.echo(f"No user with id {gm_id}")
+            raise typer.Exit(code=1)
+
+        game_repository = GameRepository(session, principal=gm)
+        game = await game_repository.create(
+            title=" ".join(mimesis_text.words(3)),
+            system_id=system_id,
+            allowed_char_sheets=allowed_char_sheets_list,
+            gm_id=gm_id,
+            post_frequency=f"{random.randint(1, 5)}/d",
+            num_players=random.randint(1, 6),
+            chars_per_player=1,
+            description=prose(mimesis_text.sentence()),
+            char_gen_info=prose(mimesis_text.sentence()),
+            public=True,
+            recruitment_thread_id=None,
+            advanced_options=None,
+        )
+
+        typer.echo(f"Game {game.id} created: {game.title}")
 
 
 if __name__ == "__main__":
