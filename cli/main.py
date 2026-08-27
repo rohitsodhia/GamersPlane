@@ -9,10 +9,11 @@ from sqlalchemy import text
 
 from app.configs import configs
 from app.database import session_manager
-from app.models import DeckType, Forum, UserMeta
+from app.models import DeckType, Forum, Player, User, UserMeta
 from app.repositories import (
     GameRepository,
     GenreRepository,
+    PlayerRepository,
     PublisherRepository,
     ReferralLinkRepository,
     SystemRepository,
@@ -24,10 +25,9 @@ from app.users.functions import register_user
 def prose(text: str) -> dict:
     return {
         "type": "doc",
-        "content": [
-            {"type": "paragraph", "content": [{"type": "text", "text": text}]}
-        ],
+        "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]}],
     }
+
 
 app = typer.Typer()
 mimesis_text = Text()
@@ -167,7 +167,7 @@ async def create_game(
     allowed_char_sheets: str = typer.Option(
         "custom", prompt="Allowed char sheets (comma separated)"
     ),
-    gm_id: int = typer.Option(1, prompt=True),
+    gm_id: int = typer.Option(1, prompt="GM Id"),
 ):
     allowed_char_sheets_list = [
         s.strip() for s in allowed_char_sheets.split(",") if s.strip()
@@ -194,6 +194,10 @@ async def create_game(
             public=True,
             recruitment_thread_id=None,
             advanced_options=None,
+        )
+        player_repository = PlayerRepository(session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm_id, is_gm=True, state=Player.States.ACCEPTED
         )
 
         typer.echo(f"Game {game.id} created: {game.title}")

@@ -1,11 +1,11 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Forum, Game, Role, System, User
+from app.models import Forum, Game, Player, Role, System, User
 from app.repositories.forum_repository import ForumRepository
 
 GAMES_ROOT_FORUM_ID = 2
@@ -25,6 +25,49 @@ class GameRepository:
                 selectinload(Game.allowed_char_sheets),
             )
         )
+
+    async def get_all(self, mine: bool = False) -> list[Game]:
+        query = (
+            select(Game)
+            .options(selectinload(Game.gm), selectinload(Game.system))
+            .order_by(Game.title.asc())
+        )
+        if mine:
+            if self.principal is None:
+                return []
+            query = query.join(
+                Player,
+                (Player.game_id == Game.id)
+                & (Player.user_id == self.principal.id)
+                & (Player.state == Player.States.ACCEPTED),
+            )
+        return list(await self.db_session.scalars(query))
+
+    async def get_player_counts(self, game_ids: list[int]) -> dict[int, int]:
+        if not game_ids:
+            return {}
+        rows = await self.db_session.execute(
+            select(Player.game_id, func.count())
+            .where(
+                Player.game_id.in_(game_ids),
+                Player.state == Player.States.ACCEPTED,
+                Player.is_gm.is_(False),
+            )
+            .group_by(Player.game_id)
+        )
+        return dict(rows.all())
+
+    async def get_principal_gm_game_ids(self, game_ids: list[int]) -> set[int]:
+        if self.principal is None or not game_ids:
+            return set()
+        rows = await self.db_session.scalars(
+            select(Player.game_id).where(
+                Player.game_id.in_(game_ids),
+                Player.user_id == self.principal.id,
+                Player.is_gm.is_(True),
+            )
+        )
+        return set(rows)
 
     async def exists(self, game_id: int) -> bool:
         return (

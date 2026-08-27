@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { lastActivityText } from "#/lib/users";
@@ -48,7 +48,9 @@ function RouteComponent() {
 				<div className={styles["avatar-wrapper"]}>
 					<img src={user.avatar} className="avatar" alt={`${user.username} Avatar`} />
 					<div>
-						<a href={`/pms/send/?userID=${user.id}`}>Send Private Message</a>
+						<Link to="/pms/send" search={{ userId: user.id }}>
+							Send Private Message
+						</Link>
 					</div>
 				</div>
 				<div className={styles["user-profile-info"]}>

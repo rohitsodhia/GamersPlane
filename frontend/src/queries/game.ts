@@ -44,6 +44,35 @@ export type Deck = {
 	permissions: number[];
 };
 
+export type GameListItem = {
+	id: number;
+	title: string;
+	system: string;
+	gm: { id: number; username: string };
+	post_frequency: { times_per: number; per_period: "d" | "w" };
+	num_players: number;
+	player_count: number;
+	forum_id: number;
+	is_gm: boolean;
+	is_retired: boolean;
+	status: "open" | "closed";
+	favorited: boolean;
+};
+
+export const gamesQueryOptions = (params: { mine?: boolean } = {}) =>
+	queryOptions({
+		queryKey: ["games", params],
+		queryFn: async (): Promise<GameListItem[]> => {
+			const search = new URLSearchParams();
+			if (params.mine) search.set("mine", "true");
+			const qs = search.toString();
+			const res = await apiFetch(`/games/${qs ? `?${qs}` : ""}`);
+			if (!res.ok) throw new Error("Failed to fetch games");
+			return (await res.json()).games;
+		},
+		staleTime: 1000 * 60,
+	});
+
 export const gameDetailsQueryOptions = (gameId: number) =>
 	queryOptions({
 		queryKey: ["game", gameId],

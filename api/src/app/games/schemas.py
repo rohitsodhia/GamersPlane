@@ -68,6 +68,25 @@ class GetGameResponse(SchemaBase):
     favorited: bool
 
 
+class GameData(SchemaBase):
+    id: int
+    title: str
+    system: str
+    gm: UserData
+    post_frequency: PostFrequencyData
+    num_players: int
+    player_count: int
+    forum_id: int
+    is_gm: bool
+    is_retired: bool
+    status: Literal["open", "closed"]
+    favorited: bool
+
+
+class GetGamesResponse(SchemaBase):
+    games: list[GameData]
+
+
 class FavoriteGameResponse(SchemaBase):
     favorite: bool
 

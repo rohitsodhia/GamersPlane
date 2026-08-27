@@ -69,6 +69,58 @@ async def create_game(
     return schemas.GameIdResponse(id=game.id)
 
 
+def _game_to_data(
+    game: Game, player_counts: dict[int, int], favorited_ids: set[int], is_gm: bool
+) -> schemas.GameData:
+    return schemas.GameData(
+        id=game.id,
+        title=game.title,
+        system=game.system.name,
+        gm=schemas.UserData(id=game.gm.id, username=game.gm.username),
+        post_frequency=schemas.PostFrequencyData(
+            times_per=game.post_frequency.times_per,
+            per_period=game.post_frequency.per_period,
+        ),
+        num_players=game.num_players,
+        player_count=player_counts.get(game.id, 0),
+        forum_id=game.root_forum_id,
+        is_gm=is_gm,
+        is_retired=game.retired is not None,
+        status=game.status.name.lower(),
+        favorited=game.id in favorited_ids,
+    )
+
+
+@games.get("/", response_model=schemas.GetGamesResponse)
+@public
+async def get_games(
+    db_session: DBSessionDependency, principal: Principal, mine: bool = False
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    games = await game_repository.get_all(mine=mine)
+
+    game_ids = [game.id for game in games]
+    player_counts = await game_repository.get_player_counts(game_ids)
+    gm_game_ids = await game_repository.get_principal_gm_game_ids(game_ids)
+
+    favorited_ids: set[int] = set()
+    if principal is not None:
+        favorites_repository = FavoritesRepository(db_session, principal)
+        favorited_ids = await favorites_repository.get_favorited_game_ids(game_ids)
+
+    return schemas.GetGamesResponse(
+        games=[
+            _game_to_data(
+                game,
+                player_counts,
+                favorited_ids,
+                is_gm=game.id in gm_game_ids,
+            )
+            for game in games
+        ]
+    )
+
+
 @games.get("/{game_id}", response_model=schemas.GetGameResponse)
 @public
 async def get_game(

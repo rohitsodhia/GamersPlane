@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import FavoriteGame, User
@@ -24,3 +25,14 @@ class FavoritesRepository:
     async def get_game_favorite_status(self, game_id: int):
         favorite = await self.db_session.get(FavoriteGame, (self.principal.id, game_id))
         return favorite is not None
+
+    async def get_favorited_game_ids(self, game_ids: list[int]) -> set[int]:
+        if not game_ids:
+            return set()
+        rows = await self.db_session.scalars(
+            select(FavoriteGame.game_id).where(
+                FavoriteGame.user_id == self.principal.id,
+                FavoriteGame.game_id.in_(game_ids),
+            )
+        )
+        return set(rows)

@@ -830,12 +830,13 @@ function RouteComponent() {
 												</Link>
 											</p>
 											<p>
-												<a
-													href={`/pms/send/?userID=${game.gm.id}`}
+												<Link
+													to="/pms/send"
+													search={{ userId: game.gm.id }}
 													className="skew-btn"
 												>
 													<i className="ra ra-quill-ink" /> Message the GM
-												</a>
+												</Link>
 											</p>
 										</>
 									)}

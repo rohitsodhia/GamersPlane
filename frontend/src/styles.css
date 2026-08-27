@@ -280,6 +280,12 @@ h2.headerbar {
 	line-height: var(--trap-height);
 	padding-inline: calc(var(--trap-slant) + 0.3em);
 
+	a,
+	a:visited,
+	a:active {
+		color: #fff;
+	}
+
 	&::before {
 		content: "";
 		position: absolute;
