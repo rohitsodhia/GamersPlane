@@ -66,7 +66,9 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
     public: Mapped[bool] = mapped_column()
     recruitment_thread_id: Mapped[int | None] = mapped_column(nullable=True)
     advanced_options: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
-    retired: Mapped[datetime.datetime | None] = mapped_column(nullable=True)
+    retired: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     @property
     def post_frequency(self) -> PostFrequency:

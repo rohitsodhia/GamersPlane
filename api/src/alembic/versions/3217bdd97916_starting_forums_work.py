@@ -69,7 +69,7 @@ def upgrade() -> None:
         sa.Column("public", sa.Boolean(), nullable=False),
         sa.Column("recruitment_thread_id", sa.Integer(), nullable=True),
         sa.Column("advanced_options", sa.JSON(), nullable=True),
-        sa.Column("retired", sa.DateTime(), nullable=True),
+        sa.Column("retired", sa.DateTime(timezone=True), nullable=True),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),

@@ -97,6 +97,14 @@ export const toggleGameFlag = async (
 	}
 };
 
+export const toggleRetireGame = async (gameId: number): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/retire`, { method: "PATCH" });
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
 export const applyToGame = async (gameId: number): Promise<void> => {
 	const res = await apiFetch(`/games/${gameId}/apply`, { method: "POST" });
 	if (!res.ok) {

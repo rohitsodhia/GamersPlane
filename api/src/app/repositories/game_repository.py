@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,3 +92,12 @@ class GameRepository:
             setattr(game, key, value)
         await self.db_session.flush()
         return game
+
+    async def toggle_retire(self, game: Game) -> None:
+        if game.retired:
+            game.retired = None
+        else:
+            game.status = Game.Statuses.CLOSED
+            game.retired = datetime.now(timezone.utc)
+
+        await self.db_session.flush()

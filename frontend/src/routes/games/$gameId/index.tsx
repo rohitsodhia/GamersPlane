@@ -26,6 +26,7 @@ import {
 	shuffleDeck,
 	toggleGameFlag,
 	toggleGm,
+	toggleRetireGame,
 } from "#/queries/game";
 import { meQueryOptions } from "#/queries/me";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
@@ -129,9 +130,17 @@ function RouteComponent() {
 		onSuccess: () => setIsPublic((p) => !p),
 	});
 
-	// TODO: no retire/unretire endpoint yet.
 	const [retired, setRetired] = useState(game.retired);
 	const [displayRetireConfirm, setDisplayRetireConfirm] = useState(false);
+	const [retireError, setRetireError] = useState<string | null>(null);
+	const toggleRetireMutation = useMutation({
+		mutationFn: () => toggleRetireGame(gameId),
+		onSuccess: () => {
+			setRetired((r) => (r ? null : new Date().toISOString()));
+			setDisplayRetireConfirm(false);
+		},
+		onError: () => setRetireError("Failed to update retired status"),
+	});
 
 	// TODO: local copy of the player list so the mock GM actions below (remove,
 	// toggle GM, approve, reject, leave) can be demoed without a real endpoint.
@@ -268,12 +277,6 @@ function RouteComponent() {
 		loggedIn,
 		full: game.num_players <= playersInGame.length,
 	});
-
-	const confirmRetire = () => {
-		setRetired(new Date().toISOString());
-		setDisplayRetireConfirm(false);
-	};
-	const confirmUnretire = () => setRetired(null);
 
 	const submitInvite = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -444,7 +447,15 @@ function RouteComponent() {
 							Any future posts in this game will not show up in the normal notification
 							systems and will only be visible by manually checking the game's threads.
 							<p>
-								<button type="button" className="skew-btn" onClick={confirmRetire}>
+								<button
+									type="button"
+									className="skew-btn"
+									onClick={() => {
+										setRetireError(null);
+										toggleRetireMutation.mutate();
+									}}
+									disabled={toggleRetireMutation.isPending}
+								>
 									Retire
 								</button>{" "}
 								<button
@@ -455,6 +466,7 @@ function RouteComponent() {
 									Cancel
 								</button>
 							</p>
+							{retireError && <div className="error">{retireError}</div>}
 						</div>
 					)}
 					{isPrimaryGM && retired && (
@@ -462,10 +474,15 @@ function RouteComponent() {
 							<button
 								type="button"
 								className={styles["inline-action"]}
-								onClick={confirmUnretire}
+								onClick={() => {
+									setRetireError(null);
+									toggleRetireMutation.mutate();
+								}}
+								disabled={toggleRetireMutation.isPending}
 							>
 								I want to restore this retired game
 							</button>
+							{retireError && <div className="error">{retireError}</div>}
 						</DetailRow>
 					)}
 					{game.char_gen_info && (
@@ -484,7 +501,7 @@ function RouteComponent() {
 							<i className="ra ra-double-team" /> Players in Game
 						</h2>
 						<ul
-							className={styles["player-list"]}
+							className={styles["row-list"]}
 							style={{ marginInline: hbMarginedH2.margin }}
 						>
 							{playersInGame.map((player) => (
@@ -639,7 +656,7 @@ function RouteComponent() {
 							</>
 						)}
 
-						<div className={styles.decks}>
+						<div>
 							{!retired && isGM && (
 								<div style={{ marginLeft: hbMarginedH2.margin }}>
 									<button
@@ -664,7 +681,7 @@ function RouteComponent() {
 									</p>
 								)}
 								{decks.length > 0 && (
-									<ul className={styles["deck-list"]}>
+									<ul className={styles["row-list"]}>
 										{decks.map((deck) => {
 											const typeName =
 												deckTypes.find((deckType) => deckType.short === deck.type)
@@ -754,7 +771,7 @@ function RouteComponent() {
 
 					<div className={styles["right-col"]}>
 						{rightPanel === "closed" && (
-							<div className={styles["right-panel"]}>
+							<div>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-round-shield" /> Game Closed
 								</h2>
@@ -767,7 +784,7 @@ function RouteComponent() {
 							</div>
 						)}
 						{rightPanel === "loginRequired" && (
-							<div className={styles["right-panel"]}>
+							<div>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Join Game
 								</h2>
@@ -783,7 +800,7 @@ function RouteComponent() {
 							</div>
 						)}
 						{rightPanel === "full" && (
-							<div className={styles["right-panel"]}>
+							<div>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-round-shield" /> Game Full
 								</h2>
@@ -796,7 +813,7 @@ function RouteComponent() {
 							</div>
 						)}
 						{rightPanel === "canApply" && (
-							<div className={styles["right-panel"]}>
+							<div>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Join Game
 								</h2>
@@ -851,7 +868,7 @@ function RouteComponent() {
 							</div>
 						)}
 						{rightPanel === "awaitingApproval" && (
-							<div className={styles["right-panel"]}>
+							<div>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Join Game
 								</h2>
@@ -878,7 +895,7 @@ function RouteComponent() {
 							</div>
 						)}
 						{rightPanel === "invited" && (
-							<div className={styles["right-panel"]}>
+							<div>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-hourglass" /> Invite Pending
 								</h2>
@@ -912,7 +929,7 @@ function RouteComponent() {
 							</div>
 						)}
 						{rightPanel === "submitCharacter" && (
-							<div className={styles["right-panel"]}>
+							<div>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Submit a Character
 								</h2>

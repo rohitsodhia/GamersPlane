@@ -497,3 +497,16 @@ async def delete_deck(
     await get_deck_or_404(deck_repository, game_id, deck_id)
 
     await deck_repository.delete(deck_id)
+
+
+@games.patch("/{game_id}/retire", status_code=status.HTTP_204_NO_CONTENT)
+async def toggle_retire_game(
+    game_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+
+    if principal.id != game.gm_id:
+        raise ForbiddenException("Only the primary GM can retire a game")
+
+    await game_repository.toggle_retire(game)

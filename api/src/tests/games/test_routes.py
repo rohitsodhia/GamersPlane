@@ -1302,6 +1302,112 @@ class TestToggleGameFlag:
         assert game.status == Game.Statuses.OPEN
 
 
+class TestToggleRetireGame:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        return await game_repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+    def _auth_as(self, client, user):
+        token = user.generate_jwt()
+        client.headers["Authorization"] = f"Bearer {token}"
+        return client
+
+    async def test_toggle_retire_game_requires_auth(self, client, game):
+        response = await client.patch(f"/games/{game.id}/retire")
+
+        assert response.status_code == 403
+
+    async def test_toggle_retire_game_game_not_found(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.patch("/games/999999/retire")
+
+        assert response.status_code == 404
+
+    async def test_toggle_retire_game_not_gm_forbidden(self, authed_client, game):
+        client, _user = authed_client
+
+        response = await client.patch(f"/games/{game.id}/retire")
+
+        assert response.status_code == 403
+
+    async def test_toggle_retire_game_co_gm_forbidden(
+        self, client, game, gm, create, db_session
+    ):
+        co_gm = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, co_gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        client = self._auth_as(client, co_gm)
+
+        response = await client.patch(f"/games/{game.id}/retire")
+
+        assert response.status_code == 403
+
+    async def test_toggle_retire_game_retires_the_game(
+        self, client, game, gm, db_session
+    ):
+        client = self._auth_as(client, gm)
+        assert game.retired is None
+        assert game.status == Game.Statuses.OPEN
+
+        response = await client.patch(f"/games/{game.id}/retire")
+
+        assert response.status_code == 204
+        game = await db_session.get(Game, game.id)
+        assert game.retired is not None
+        assert game.status == Game.Statuses.CLOSED
+
+    async def test_toggle_retire_game_twice_unretires_but_stays_closed(
+        self, client, game, gm, db_session
+    ):
+        client = self._auth_as(client, gm)
+        await client.patch(f"/games/{game.id}/retire")
+
+        response = await client.patch(f"/games/{game.id}/retire")
+
+        assert response.status_code == 204
+        game = await db_session.get(Game, game.id)
+        assert game.retired is None
+        assert game.status == Game.Statuses.CLOSED
+
+
 class TestDeletePlayer:
     @pytest.fixture(autouse=True)
     async def games_root_forum(self, create, db_session):
