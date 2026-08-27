@@ -20,12 +20,8 @@ class Player(Base, TimestampMixin):
         INVITED = "invited", "Invited"
         ACCEPTED = "accepted", "Accepted"
 
-    game_id: Mapped[int] = mapped_column(
-        "gameID", ForeignKey("games.id"), primary_key=True
-    )
-    user_id: Mapped[int] = mapped_column(
-        "userID", ForeignKey("users.id"), primary_key=True
-    )
+    game_id: Mapped[int] = mapped_column(ForeignKey("games.id"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     user: Mapped[User] = relationship()
     state: Mapped[States] = mapped_column(
         LabelEnumType(States, String(8)), default=States.APPLIED
