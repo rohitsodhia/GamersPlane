@@ -15,6 +15,7 @@ class UserOutput(BaseModel):
     id: int
     username: str
     avatar: str
+    acp: bool = False
     joinDate: datetime.datetime | None = None
     pronouns: str | None = filtered_str(pipelines=[strip_whitespace])
     birthday: datetime.date | None = None

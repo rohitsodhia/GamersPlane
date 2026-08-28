@@ -118,6 +118,17 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
                     allowed.add(verb)
         return allowed - denied
 
+    def has_global_permission(self, *verbs: str) -> bool:
+        """True if the user holds any of ``verbs`` at global scope.
+
+        Holding the ``admin`` verb satisfies any check, mirroring ``ADMIN_OVERRIDE``
+        in ``app.middleware``.
+        """
+        held = self.global_permissions
+        if Permission.ValidPermissions.ADMIN.value in held:
+            return True
+        return not held.isdisjoint(verbs)
+
     @property
     def avatar(self) -> str:
         for meta in self.meta:

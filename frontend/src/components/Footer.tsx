@@ -1,10 +1,14 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { meQueryOptions } from "#/queries/me";
 import { referralLinksQueryOptions } from "#/queries/referralLinks";
+import { useAuthStore } from "#/stores/auth";
 import styles from "./Footer.module.css";
 
 function Footer() {
 	const { data } = useSuspenseQuery(referralLinksQueryOptions);
+	const token = useAuthStore((state) => state.token);
+	const { data: me } = useQuery({ ...meQueryOptions, enabled: !!token });
 
 	return (
 		<footer id={styles["site-footer"]} className="page-wrap">
@@ -78,6 +82,11 @@ function Footer() {
 							/>
 						</form>
 					</li>
+					{me?.acp && (
+						<li>
+							<Link to="/acp">ACP</Link>
+						</li>
+					)}{" "}
 				</ul>
 			</div>
 		</footer>
