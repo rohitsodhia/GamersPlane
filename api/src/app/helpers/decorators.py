@@ -1,32 +1,22 @@
-from functools import partial, wraps
-from typing import Callable
-
-from fastapi import status
-
-from app.helpers.functions import error_response
-
-
 def public(route_handler):
     route_handler.is_public = True
     return route_handler
 
 
-def logged_in(func=None, *, permissions=None):
-    if func is None:
-        return partial(logged_in, permissions=permissions)
+def requires(*permissions: str):
+    """Restrict a route to users holding at least one of these global permission verbs.
 
-    @wraps(func)
-    def wrapper(*args, **kwargs) -> Callable:
-        nonlocal permissions
-        if not globals.current_user:
-            return error_response(status_code=status.HTTP_401_UNAUTHORIZED)
-        if permissions:
-            if type(permissions) is str:
-                permissions = [permissions]
-            if not globals.current_user.admin and not bool(
-                set(globals.current_user.permissions) & set(permissions)
-            ):
-                return error_response(status_code=status.HTTP_403_FORBIDDEN)
-        return func(*args, **kwargs)
+    Checked centrally by ``check_authorization`` against ``request.scope["auth"]``.
+    Holding the ``admin`` verb satisfies any such check (see ``ADMIN_OVERRIDE`` in
+    ``app.middleware``). Place below the router decorator:
 
-    return wrapper
+        @router.get("/roles")
+        @requires("access_acp")
+        async def list_roles(...): ...
+    """
+
+    def decorator(route_handler):
+        route_handler.required_permissions = frozenset(permissions)
+        return route_handler
+
+    return decorator

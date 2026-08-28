@@ -11,7 +11,8 @@ from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationshi
 
 from app.configs import configs
 from app.models.base import Base
-from app.models.user_meta import PostSide, UserMeta
+from app.models.rbac import Permission, RolePermission
+from app.models.user_meta import UserMeta
 from app.schemas import ErrorItem
 
 if TYPE_CHECKING:
@@ -98,11 +99,24 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
         )
 
     @property
-    def permissions(self) -> list[str]:
-        permissions: list[str] = []
+    def global_permissions(self) -> set[str]:
+        """Permission verbs granted to this user at global scope (scope_type IS NULL).
+
+        A global ``deny`` for a verb overrides any global ``allow`` for it. Scoped
+        grants (forum/role) are ignored here — those resolve per-resource elsewhere.
+        """
+        allowed: set[str] = set()
+        denied: set[str] = set()
         for role in self.roles:
-            permissions.extend([p.permission for p in role.permissions])
-        return list(set(permissions))
+            for grant in role.grants:
+                if grant.scope_type is not None:
+                    continue
+                verb = grant.permission.permission
+                if grant.effect is RolePermission.Effects.DENY:
+                    denied.add(verb)
+                else:
+                    allowed.add(verb)
+        return allowed - denied
 
     @property
     def avatar(self) -> str:

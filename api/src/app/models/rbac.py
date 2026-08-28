@@ -29,9 +29,6 @@ class Permission(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     permission: Mapped[str] = mapped_column(String(64), unique=True)
-    roles: Mapped[list["Role"]] = relationship(
-        secondary="role_permissions", back_populates="permissions"
-    )
 
 
 class Role(Base, TimestampMixin, SoftDeleteMixin):
@@ -42,12 +39,34 @@ class Role(Base, TimestampMixin, SoftDeleteMixin):
     _plural: Mapped[str] = mapped_column("plural", String(64), unique=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     owner: Mapped[User] = relationship()
-    permissions: Mapped[list["Permission"]] = relationship(
-        secondary="role_permissions", back_populates="roles"
+    grants: Mapped[list["RolePermission"]] = relationship(
+        back_populates="role", cascade="all, delete-orphan"
     )
     users: Mapped[list["User"]] = relationship(
         secondary="user_roles", back_populates="roles"
     )
+
+    def grant(
+        self,
+        permission: "Permission",
+        *,
+        scope_type: "RolePermission.ScopeTypes | None" = None,
+        scope_id: int | None = None,
+        effect: "RolePermission.Effects | None" = None,
+    ) -> "RolePermission":
+        """Attach a permission grant to this role.
+
+        Defaults to a global (unscoped) `allow`. Pass ``scope_type``/``scope_id``
+        to bind the grant to one resource, and ``effect`` to make it a deny.
+        """
+        rp = RolePermission(
+            permission=permission,
+            scope_type=scope_type,
+            scope_id=scope_id,
+            effect=effect or RolePermission.Effects.ALLOW,
+        )
+        self.grants.append(rp)
+        return rp
 
     @hybrid_property
     def name(self):
@@ -88,7 +107,9 @@ class RolePermission(Base, TimestampMixin, SoftDeleteMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
+    role: Mapped["Role"] = relationship(back_populates="grants")
     permission_id: Mapped[int] = mapped_column(ForeignKey("permissions.id"))
+    permission: Mapped["Permission"] = relationship()
     # scope_type/scope_id bind the grant to one resource (e.g. forum 4). Both NULL
     # means the grant is global (e.g. access_acp).
     scope_type: Mapped[ScopeTypes | None] = mapped_column(

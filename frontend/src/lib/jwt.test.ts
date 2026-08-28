@@ -25,6 +25,11 @@ describe("isTokenValid", () => {
 	it("returns false when the payload has no exp", () => {
 		expect(isTokenValid(makeToken(undefined))).toBe(false);
 	});
+
+	it("returns false for a null or undefined token", () => {
+		expect(isTokenValid(null)).toBe(false);
+		expect(isTokenValid(undefined)).toBe(false);
+	});
 });
 
 describe("isTokenExpiringSoon", () => {

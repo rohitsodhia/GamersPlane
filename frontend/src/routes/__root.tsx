@@ -17,9 +17,9 @@ import { isTokenExpiringSoon, isTokenValid } from "#/lib/jwt";
 import { meHeaderQueryOptions, meQueryOptions } from "#/queries/me";
 import { referralLinksQueryOptions } from "#/queries/referralLinks";
 import { refreshToken } from "#/queries/refresh";
+import racCss from "#/rac.css?url";
 import { useAuthStore } from "#/stores/auth";
 import { useLayoutStore } from "#/stores/layout";
-import racCss from "#/rac.css?url";
 import appCss from "#/styles.css?url";
 
 const REFRESH_THRESHOLD_MS = 1000 * 60 * 60 * 24 * 2; // 2 days

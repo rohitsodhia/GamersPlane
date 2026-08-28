@@ -2,9 +2,9 @@ from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
-from app.models import User, UserMeta
+from app.models import Role, RolePermission, User, UserMeta
 
 
 class UserRepository:
@@ -16,7 +16,12 @@ class UserRepository:
             select(User)
             .where(User.id == user_id)
             .limit(1)
-            .options(joinedload(User.meta))
+            .options(
+                joinedload(User.meta),
+                selectinload(User.roles)
+                .selectinload(Role.grants)
+                .joinedload(RolePermission.permission),
+            )
         )
         return user
 
@@ -26,9 +31,7 @@ class UserRepository:
         )
         return user
 
-    async def get_user_by_id(
-        self, id: int, include_meta: bool = False
-    ) -> User | None:
+    async def get_user_by_id(self, id: int, include_meta: bool = False) -> User | None:
         statement = (
             select(User).where(User.id == id, User.activated_on.is_not(None)).limit(1)
         )
