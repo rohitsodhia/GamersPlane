@@ -9,7 +9,14 @@ from sqlalchemy import text
 
 from app.configs import configs
 from app.database import session_manager
-from app.models import DeckType, Forum, Player, User, UserMeta
+from app.models import (
+    DeckType,
+    Forum,
+    Permission,
+    Player,
+    Role,
+    UserMeta,
+)
 from app.repositories import (
     GameRepository,
     GenreRepository,
@@ -97,15 +104,17 @@ async def seed():
             )
         typer.echo("Systems added")
 
-        user = await register_user(
+        primary_user = await register_user(
             session,
             email="contact@gamersplane.com",
             username="Keleth",
             password="test1234",
         )
-        user.activate()
+        primary_user.activate()
         user_repo = UserRepository(session)
-        await user_repo.update_user_meta(user, {UserMeta.MetaKeys.AVATAR_EXT: "png"})
+        await user_repo.update_user_meta(
+            primary_user, {UserMeta.MetaKeys.AVATAR_EXT: "png"}
+        )
         user = await register_user(
             session,
             email="test@test.com",
@@ -121,6 +130,14 @@ async def seed():
         )
         user.activate()
         typer.echo("Users added")
+
+        admin_role = Role(name="Administrator", owner=primary_user)
+        admin_role.permissions.append(
+            Permission(permission=Permission.ValidPermissions.ADMIN.value)
+        )
+        admin_role.users.append(primary_user)
+        session.add(admin_role)
+        typer.echo("Admin role added")
 
         with open("data/forums.json") as f:
             forums_data = json.load(f)
