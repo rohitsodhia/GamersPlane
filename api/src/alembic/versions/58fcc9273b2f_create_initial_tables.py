@@ -35,6 +35,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("permission", sa.String(length=64), nullable=False),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("permission"),
     )
     op.create_table(
         "publishers",
@@ -166,8 +167,17 @@ def upgrade() -> None:
     )
     op.create_table(
         "role_permissions",
+        sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("role_id", sa.Integer(), nullable=False),
         sa.Column("permission_id", sa.Integer(), nullable=False),
+        sa.Column("scope_type", sa.String(length=16), nullable=True),
+        sa.Column("scope_id", sa.Integer(), nullable=True),
+        sa.Column(
+            "effect",
+            sa.String(length=8),
+            nullable=False,
+            server_default="allow",
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
@@ -179,7 +189,15 @@ def upgrade() -> None:
             ["role_id"],
             ["roles.id"],
         ),
-        sa.PrimaryKeyConstraint("role_id", "permission_id"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "role_id",
+            "permission_id",
+            "scope_type",
+            "scope_id",
+            name="uq_role_permissions_grant",
+            postgresql_nulls_not_distinct=True,
+        ),
     )
     op.create_table(
         "system_genres",
