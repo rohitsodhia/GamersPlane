@@ -12,7 +12,7 @@ from app.helpers.functions import pluralize
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
-    from app.models import User
+    from app.models import Game, User
 
 
 class Role(Base, TimestampMixin, SoftDeleteMixin):
@@ -28,6 +28,10 @@ class Role(Base, TimestampMixin, SoftDeleteMixin):
     )
     users: Mapped[list["User"]] = relationship(
         secondary="user_roles", back_populates="roles"
+    )
+    game_role: Mapped[int | None] = mapped_column(ForeignKey("games.id"), nullable=True)
+    game: Mapped[Game | None] = relationship(
+        foreign_keys=[game_role], back_populates="game_roles"
     )
 
     def grant(

@@ -101,6 +101,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=64), nullable=False),
         sa.Column("plural", sa.String(length=64), nullable=False),
         sa.Column("owner_id", sa.Integer(), nullable=False),
+        sa.Column("game_role", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
