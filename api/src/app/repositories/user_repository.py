@@ -4,7 +4,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.models import Role, RolePermission, User, UserMeta
+from app.models import Role, User, UserMeta
 
 
 class UserRepository:
@@ -18,9 +18,7 @@ class UserRepository:
             .limit(1)
             .options(
                 joinedload(User.meta),
-                selectinload(User.roles)
-                .selectinload(Role.grants)
-                .joinedload(RolePermission.permission),
+                selectinload(User.roles).selectinload(Role.grants),
             )
         )
         return user

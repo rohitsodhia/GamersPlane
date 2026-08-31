@@ -15,22 +15,6 @@ if TYPE_CHECKING:
     from app.models import User
 
 
-class Permission(Base):
-    class ValidPermissions(LabelEnum):
-        # value, label. Action verbs only — what a grant applies to (a forum, a role)
-        # is carried by RolePermission.scope_type / scope_id, never baked into the string.
-        ADMIN = "admin", "Administrator"
-        ACP_ACCESS = "access_acp", "Access ACP"
-        ROLE_ADMIN = "role_admin", "Manage Role"
-        FORUM_ACCESS = "access_forum", "View Forum"
-        FORUM_MODERATE = "moderate_forum", "Moderate Forum"
-
-    __tablename__ = "permissions"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    permission: Mapped[str] = mapped_column(String(64), unique=True)
-
-
 class Role(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "roles"
 
@@ -48,7 +32,7 @@ class Role(Base, TimestampMixin, SoftDeleteMixin):
 
     def grant(
         self,
-        permission: "Permission",
+        permission: "RolePermission.ValidPermissions",
         *,
         scope_type: "RolePermission.ScopeTypes | None" = None,
         scope_id: int | None = None,
@@ -83,6 +67,15 @@ class Role(Base, TimestampMixin, SoftDeleteMixin):
 
 
 class RolePermission(Base, TimestampMixin, SoftDeleteMixin):
+    class ValidPermissions(LabelEnum):
+        # value, label. Action verbs only — what a grant applies to (a forum, a role)
+        # is carried by RolePermission.scope_type / scope_id, never baked into the string.
+        ADMIN = "admin", "Administrator"
+        ACP_ACCESS = "access_acp", "Access ACP"
+        ROLE_ADMIN = "role_admin", "Manage Role"
+        FORUM_ACCESS = "access_forum", "View Forum"
+        FORUM_MODERATE = "moderate_forum", "Moderate Forum"
+
     class Effects(str, Enum):
         ALLOW = "allow"
         DENY = "deny"
@@ -97,7 +90,7 @@ class RolePermission(Base, TimestampMixin, SoftDeleteMixin):
         # role can't hold two conflicting global grants for the same permission.
         UniqueConstraint(
             "role_id",
-            "permission_id",
+            "permission",
             "scope_type",
             "scope_id",
             name="uq_role_permissions_grant",
@@ -108,8 +101,9 @@ class RolePermission(Base, TimestampMixin, SoftDeleteMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
     role: Mapped["Role"] = relationship(back_populates="grants")
-    permission_id: Mapped[int] = mapped_column(ForeignKey("permissions.id"))
-    permission: Mapped["Permission"] = relationship()
+    permission: Mapped[ValidPermissions] = mapped_column(
+        LabelEnumType(ValidPermissions, String(64))
+    )
     # scope_type/scope_id bind the grant to one resource (e.g. forum 4). Both NULL
     # means the grant is global (e.g. access_acp).
     scope_type: Mapped[ScopeTypes | None] = mapped_column(

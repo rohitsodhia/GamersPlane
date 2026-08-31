@@ -9,7 +9,7 @@ from .player import Player
 from .pm import PM
 from .post import Post
 from .publisher import Publisher
-from .rbac import Permission, Role, RolePermission, UserRole
+from .rbac import Role, RolePermission, UserRole
 from .referral_link import ReferralLink
 from .system import System
 from .system_genres import SystemGenre

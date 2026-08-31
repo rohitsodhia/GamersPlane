@@ -1,7 +1,6 @@
 from .deck_type_factory import DeckTypeFactory
 from .forum_factory import ForumFactory
 from .genre_factory import GenreFactory
-from .permission_factory import PermissionFactory
 from .pm_factory import PMFactory
 from .post_factory import PostFactory
 from .prose import prose_doc

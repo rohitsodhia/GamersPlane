@@ -1,6 +1,6 @@
 import bcrypt
 
-from app.models import Permission, Role, RolePermission, User, UserMeta
+from app.models import Role, RolePermission, User, UserMeta
 from tests.factories import UserFactory
 
 
@@ -75,20 +75,20 @@ class TestGlobalPermissions:
 
     def test_unions_global_allows_across_roles_and_grants(self):
         user = _user()
-        shared = Permission(permission="admin")
+        shared = RolePermission.ValidPermissions.ADMIN
         admins = Role(name="Admins", owner=user)
         admins.grant(shared)
-        admins.grant(Permission(permission="access_acp"))
+        admins.grant(RolePermission.ValidPermissions.ACP_ACCESS)
         mods = Role(name="Moderators", owner=user)
         mods.grant(shared)
-        mods.grant(Permission(permission="role_admin"))
+        mods.grant(RolePermission.ValidPermissions.ROLE_ADMIN)
         user.roles.extend([admins, mods])
 
         assert user.global_permissions == {"admin", "access_acp", "role_admin"}
 
     def test_global_deny_overrides_global_allow_from_another_role(self):
         user = _user()
-        allow = Permission(permission="admin")
+        allow = RolePermission.ValidPermissions.ADMIN
         grants_role = Role(name="Admins", owner=user)
         grants_role.grant(allow)
         blocks_role = Role(name="Restricted", owner=user)
@@ -101,7 +101,7 @@ class TestGlobalPermissions:
         user = _user()
         role = Role(name="PR Mods", owner=user)
         role.grant(
-            Permission(permission="moderate_forum"),
+            RolePermission.ValidPermissions.FORUM_MODERATE,
             scope_type=RolePermission.ScopeTypes.FORUM,
             scope_id=5,
         )
@@ -111,7 +111,7 @@ class TestGlobalPermissions:
 
     def test_scoped_deny_does_not_suppress_global_allow_of_same_verb(self):
         user = _user()
-        perm = Permission(permission="access_forum")
+        perm = RolePermission.ValidPermissions.FORUM_ACCESS
         role = Role(name="Mixed", owner=user)
         role.grant(perm)
         role.grant(
@@ -128,7 +128,7 @@ class TestGlobalPermissions:
 class TestRoleGrant:
     def test_defaults_to_global_allow(self):
         role = Role(name="Admins", owner=_user())
-        permission = Permission(permission="admin")
+        permission = RolePermission.ValidPermissions.ADMIN
 
         rp = role.grant(permission)
 
@@ -142,7 +142,7 @@ class TestRoleGrant:
         role = Role(name="PR Mods", owner=_user())
 
         rp = role.grant(
-            Permission(permission="moderate_forum"),
+            RolePermission.ValidPermissions.FORUM_MODERATE,
             scope_type=RolePermission.ScopeTypes.FORUM,
             scope_id=7,
             effect=RolePermission.Effects.DENY,

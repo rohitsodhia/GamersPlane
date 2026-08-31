@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationshi
 
 from app.configs import configs
 from app.models.base import Base
-from app.models.rbac import Permission, RolePermission
+from app.models.rbac import RolePermission
 from app.models.user_meta import UserMeta
 from app.schemas import ErrorItem
 
@@ -111,7 +111,7 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
             for grant in role.grants:
                 if grant.scope_type is not None:
                     continue
-                verb = grant.permission.permission
+                verb = grant.permission.value
                 if grant.effect is RolePermission.Effects.DENY:
                     denied.add(verb)
                 else:
@@ -125,7 +125,7 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
         in ``app.middleware``.
         """
         held = self.global_permissions
-        if Permission.ValidPermissions.ADMIN.value in held:
+        if RolePermission.ValidPermissions.ADMIN.value in held:
             return True
         return not held.isdisjoint(verbs)
 

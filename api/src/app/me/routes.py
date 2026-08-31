@@ -10,7 +10,7 @@ from app.database import DBSessionDependency
 from app.helpers.functions import error_response
 from app.me import schemas
 from app.middleware import Principal
-from app.models import Permission, UserMeta
+from app.models import RolePermission, UserMeta
 from app.repositories.pm_repository import PMRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas import ErrorItem
@@ -42,7 +42,7 @@ async def get_current_user(current_user: Principal, full: bool = False):
         "username": current_user.username,
         "avatar": current_user.avatar_url,
         "acp": current_user.has_global_permission(
-            Permission.ValidPermissions.ACP_ACCESS.value
+            RolePermission.ValidPermissions.ACP_ACCESS.value
         ),
     }
     if full:

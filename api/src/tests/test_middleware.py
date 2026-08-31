@@ -8,7 +8,7 @@ from fastapi import Request
 from app.configs import configs
 from app.exceptions import ForbiddenException
 from app.middleware import check_authorization, validate_jwt
-from app.models import Permission, Role
+from app.models import Role, RolePermission
 from tests.factories import UserFactory
 
 
@@ -89,12 +89,12 @@ class TestValidateJwt:
     ):
         user = await create(UserFactory)
         role = Role(name="ACP Admins", owner=user)
-        role.grant(Permission(permission="access_acp"))
+        role.grant(RolePermission.ValidPermissions.ACP_ACCESS)
         user.roles.append(role)
         await db_session.flush()
         token = user.generate_jwt()
         # Detach so validate_jwt's get_user must reload the user cold, exercising
-        # the roles -> grants -> permission eager load under awaitable_attrs.
+        # the roles -> grants eager load under awaitable_attrs.
         db_session.expunge_all()
         request = make_request({"Authorization": f"Bearer {token}"})
 

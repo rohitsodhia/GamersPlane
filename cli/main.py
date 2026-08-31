@@ -12,9 +12,9 @@ from app.database import session_manager
 from app.models import (
     DeckType,
     Forum,
-    Permission,
     Player,
     Role,
+    RolePermission,
     UserMeta,
 )
 from app.repositories import (
@@ -132,9 +132,7 @@ async def seed():
         typer.echo("Users added")
 
         admin_role = Role(name="Administrator", owner=primary_user)
-        admin_role.permissions.append(
-            Permission(permission=Permission.ValidPermissions.ADMIN.value)
-        )
+        admin_role.grant(RolePermission.ValidPermissions.ADMIN)
         admin_role.users.append(primary_user)
         session.add(admin_role)
         typer.echo("Admin role added")

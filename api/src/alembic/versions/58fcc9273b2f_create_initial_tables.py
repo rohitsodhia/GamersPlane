@@ -31,13 +31,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "permissions",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("permission", sa.String(length=64), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("permission"),
-    )
-    op.create_table(
         "publishers",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=40), nullable=False),
@@ -169,7 +162,7 @@ def upgrade() -> None:
         "role_permissions",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("role_id", sa.Integer(), nullable=False),
-        sa.Column("permission_id", sa.Integer(), nullable=False),
+        sa.Column("permission", sa.String(length=64), nullable=False),
         sa.Column("scope_type", sa.String(length=16), nullable=True),
         sa.Column("scope_id", sa.Integer(), nullable=True),
         sa.Column(
@@ -182,17 +175,13 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
-            ["permission_id"],
-            ["permissions.id"],
-        ),
-        sa.ForeignKeyConstraint(
             ["role_id"],
             ["roles.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "role_id",
-            "permission_id",
+            "permission",
             "scope_type",
             "scope_id",
             name="uq_role_permissions_grant",
@@ -249,6 +238,5 @@ def downgrade() -> None:
     op.drop_table("users")
     op.drop_table("referral_links")
     op.drop_table("publishers")
-    op.drop_table("permissions")
     op.drop_table("genres")
     # ### end Alembic commands ###

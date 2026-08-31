@@ -6,12 +6,12 @@ from fastapi import Depends, Request
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException
-from app.models import Permission, User
+from app.models import RolePermission, User
 from app.repositories.user_repository import UserRepository
 
 # Global superuser verb: holding it satisfies any @requires check. Delete this
 # constant and the guard in check_authorization to make `admin` an ordinary verb.
-ADMIN_OVERRIDE = Permission.ValidPermissions.ADMIN.value
+ADMIN_OVERRIDE = RolePermission.ValidPermissions.ADMIN.value
 
 
 async def principal(request: Request) -> User:
