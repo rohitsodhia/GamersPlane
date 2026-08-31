@@ -26,7 +26,7 @@ class TestPostRepository:
 
     @pytest.fixture
     async def repository(self, db_session, wrap_in_savepoint):
-        return PostRepository(db_session, auth=[])
+        return PostRepository(db_session, principal=None)
 
     async def test_create_creates_post(self, repository, thread, author):
         body = prose_doc("Hi there")
@@ -296,7 +296,7 @@ class TestPostRepository:
 class TestCountByAuthor:
     @pytest.fixture
     async def repository(self, db_session, wrap_in_savepoint):
-        return PostRepository(db_session, auth=[])
+        return PostRepository(db_session, principal=None)
 
     @pytest.fixture
     async def author(self, create, wrap_in_savepoint):

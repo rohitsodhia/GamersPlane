@@ -21,13 +21,6 @@ async def principal(request: Request) -> User:
 Principal = Annotated[User, Depends(principal)]
 
 
-async def auth(request: Request) -> set[str]:
-    return request.scope["auth"]
-
-
-Auth = Annotated[set[str], Depends(auth)]
-
-
 async def validate_jwt(request: Request, db_session: DBSessionDependency):
     token = request.headers.get("Authorization")
     request.scope["auth"] = None

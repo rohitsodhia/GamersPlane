@@ -5,7 +5,7 @@ from fastapi import APIRouter, status
 from app.database import DBSessionDependency
 from app.helpers.decorators import public
 from app.helpers.functions import error_response
-from app.middleware import Auth
+from app.middleware import Principal
 from app.models import UserMeta
 from app.repositories import PostRepository, UserRepository
 from app.schemas import ErrorItem
@@ -59,7 +59,7 @@ async def search_user(
     response_model=schemas.GetUserResponse,
 )
 @public
-async def get_user(id: int, db_session: DBSessionDependency, auth: Auth):
+async def get_user(id: int, db_session: DBSessionDependency, principal: Principal):
     user_repository = UserRepository(db_session)
 
     user = await user_repository.get_user_by_id(id, include_meta=True)
@@ -78,7 +78,7 @@ async def get_user(id: int, db_session: DBSessionDependency, auth: Auth):
         else None
     )
 
-    post_repository = PostRepository(db_session, auth=auth)
+    post_repository = PostRepository(db_session, principal=principal)
     game_post_count, community_post_count = await post_repository.count_by_author(
         user.id
     )

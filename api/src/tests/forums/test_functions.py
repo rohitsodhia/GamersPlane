@@ -12,7 +12,7 @@ from tests.factories import ForumFactory
 class TestGetHeritage:
     @pytest.fixture
     async def repository(self, db_session, wrap_in_savepoint):
-        return ForumRepository(db_session, auth=[])
+        return ForumRepository(db_session, principal=None)
 
     async def test_get_heritage_returns_ordered_list(self, repository, create):
         grandparent = await create(ForumFactory, heritage=[], title="Grandparent")

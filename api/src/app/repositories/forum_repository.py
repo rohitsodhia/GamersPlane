@@ -2,13 +2,13 @@ from sqlalchemy import ScalarResult, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import NotFoundException
-from app.models import Forum
+from app.models import Forum, User
 
 
 class ForumRepository:
-    def __init__(self, db_session: AsyncSession, auth: list[str]):
+    def __init__(self, db_session: AsyncSession, principal: User):
         self.db_session = db_session
-        self.auth = auth
+        self.principal = principal
 
     async def add(
         self,

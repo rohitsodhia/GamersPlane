@@ -15,7 +15,7 @@ class TestThreadRepository:
 
     @pytest.fixture
     async def repository(self, db_session, wrap_in_savepoint):
-        return ThreadRepository(db_session, auth=[])
+        return ThreadRepository(db_session, principal=None)
 
     async def test_get_all_returns_threads_for_forum(self, repository, create, forum):
         thread = await create(ThreadFactory, forum=forum)

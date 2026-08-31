@@ -13,7 +13,7 @@ from app.games.functions import (
     require_gm,
 )
 from app.helpers.decorators import public
-from app.middleware import Auth, Principal
+from app.middleware import Principal
 from app.models import Deck, Game, Player
 from app.repositories import (
     DeckRepository,
@@ -31,7 +31,6 @@ games = APIRouter(prefix="/games")
 @games.post("/", response_model=schemas.GameIdResponse)
 async def create_game(
     db_session: DBSessionDependency,
-    auth: Auth,
     principal: Principal,
     game_data: schemas.NewGameInput,
 ):
@@ -120,7 +119,9 @@ async def get_games(
         page = 1
 
     game_repository = GameRepository(db_session, principal=principal)
-    games = await game_repository.get_browse(search=search, system_ids=systems, page=page)
+    games = await game_repository.get_browse(
+        search=search, system_ids=systems, page=page
+    )
     count = await game_repository.count_browse(search=search, system_ids=systems)
 
     game_ids = [game.id for game in games]
@@ -159,9 +160,7 @@ async def get_my_games(db_session: DBSessionDependency, principal: Principal):
 
 @games.get("/{game_id}", response_model=schemas.GetGameResponse)
 @public
-async def get_game(
-    game_id: int, db_session: DBSessionDependency, auth: Auth, principal: Principal
-):
+async def get_game(game_id: int, db_session: DBSessionDependency, principal: Principal):
     game_repository = GameRepository(db_session, principal=principal)
     game = await get_game_or_404(game_repository, game_id)
 

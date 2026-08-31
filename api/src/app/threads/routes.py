@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from app.database import DBSessionDependency
 from app.exceptions import NotFoundException
 from app.helpers.decorators import public
-from app.middleware import Auth, Principal
+from app.middleware import Principal
 from app.models import Post
 from app.repositories import ForumRepository, PostRepository, ThreadRepository
 from app.threads import schemas
@@ -15,17 +15,17 @@ threads = APIRouter(prefix="/threads")
 @threads.get("", response_model=schemas.GetThreadsResponse)
 @public
 async def get_threads(
-    db_session: DBSessionDependency, auth: Auth, forum_id: int, page: int = 1
+    db_session: DBSessionDependency, principal: Principal, forum_id: int, page: int = 1
 ):
     if page < 1:
         page = 1
 
-    forum_repository = ForumRepository(db_session, auth=auth)
+    forum_repository = ForumRepository(db_session, principal=principal)
     forum = await forum_repository.get(forum_id)
     if forum is None:
         raise NotFoundException("Forum not found")
 
-    thread_repository = ThreadRepository(db_session, auth=auth)
+    thread_repository = ThreadRepository(db_session, principal=principal)
     threads = await thread_repository.get_all(forum_id, page=page) or []
 
     threads_data = []
@@ -51,8 +51,10 @@ async def get_threads(
 
 @threads.get("/{thread_id}", response_model=schemas.GetThreadResponse)
 @public
-async def get_thread(db_session: DBSessionDependency, auth: Auth, thread_id: int):
-    thread_repository = ThreadRepository(db_session, auth=auth)
+async def get_thread(
+    db_session: DBSessionDependency, principal: Principal, thread_id: int
+):
+    thread_repository = ThreadRepository(db_session, principal=principal)
     thread = await thread_repository.get(thread_id)
     if thread is None:
         raise NotFoundException("Thread not found")
@@ -70,22 +72,21 @@ async def get_thread(db_session: DBSessionDependency, auth: Auth, thread_id: int
 @threads.post("", response_model=schemas.NewThreadResponse)
 async def create_thread(
     db_session: DBSessionDependency,
-    auth: Auth,
     principal: Principal,
     thread_data: schemas.NewThreadInput,
 ):
-    forum_repository = ForumRepository(db_session, auth=auth)
+    forum_repository = ForumRepository(db_session, principal=principal)
     forum = await forum_repository.get(thread_data.forum_id)
     if forum is None:
         raise NotFoundException("Forum not found")
 
-    thread_repository = ThreadRepository(db_session, auth=auth)
+    thread_repository = ThreadRepository(db_session, principal=principal)
     thread = await thread_repository.create(
         thread_data.forum_id,
         thread_data.options,
     )
 
-    post_repository = PostRepository(db_session, auth=auth)
+    post_repository = PostRepository(db_session, principal=principal)
     post = await post_repository.create(
         thread.id,
         principal.id,

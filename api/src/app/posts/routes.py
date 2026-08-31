@@ -3,7 +3,7 @@ from fastapi import APIRouter, status
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
 from app.helpers.decorators import public
-from app.middleware import Auth, Principal
+from app.middleware import Principal
 from app.models import Post
 from app.posts import schemas
 from app.repositories import PostRepository, ThreadRepository
@@ -14,17 +14,17 @@ posts = APIRouter(prefix="/posts")
 @posts.get("", response_model=schemas.GetPostsResponse)
 @public
 async def get_posts(
-    db_session: DBSessionDependency, auth: Auth, thread_id: int, page: int = 1
+    db_session: DBSessionDependency, principal: Principal, thread_id: int, page: int = 1
 ):
     if page < 1:
         page = 1
 
-    thread_repository = ThreadRepository(db_session, auth=auth)
+    thread_repository = ThreadRepository(db_session, principal=principal)
     thread = await thread_repository.get(thread_id)
     if thread is None:
         raise NotFoundException("Thread not found")
 
-    post_repository = PostRepository(db_session, auth=auth)
+    post_repository = PostRepository(db_session, principal=principal)
     posts = await post_repository.get_all(thread_id, page=page)
 
     posts_data = []
@@ -52,8 +52,8 @@ async def get_posts(
 
 
 @posts.get("/{post_id}", response_model=schemas.GetPostResponse)
-async def get_post(db_session: DBSessionDependency, auth: Auth, post_id: int):
-    post_repository = PostRepository(db_session, auth=auth)
+async def get_post(db_session: DBSessionDependency, principal: Principal, post_id: int):
+    post_repository = PostRepository(db_session, principal=principal)
     post = await post_repository.get(post_id)
     if post is None:
         raise NotFoundException("Post not found")
@@ -78,18 +78,17 @@ async def get_post(db_session: DBSessionDependency, auth: Auth, post_id: int):
 @posts.post("", response_model=schemas.NewPostResponse)
 async def create_post(
     db_session: DBSessionDependency,
-    auth: Auth,
     principal: Principal,
     post_data: schemas.NewPostInput,
 ):
-    thread_repository = ThreadRepository(db_session, auth=auth)
+    thread_repository = ThreadRepository(db_session, principal=principal)
     thread = await thread_repository.get(post_data.thread_id)
     if thread is None:
         raise NotFoundException("Thread not found")
     if thread.options.locked:
         raise ForbiddenException("Thread is locked")
 
-    post_repository = PostRepository(db_session, auth=auth)
+    post_repository = PostRepository(db_session, principal=principal)
     post = await post_repository.create(
         thread.id,
         principal.id,
@@ -105,12 +104,11 @@ async def create_post(
 @posts.patch("/{post_id}", response_model=schemas.EditPostResponse)
 async def edit_post(
     db_session: DBSessionDependency,
-    auth: Auth,
     principal: Principal,
     post_id: int,
     post_data: schemas.EditPostInput,
 ):
-    post_repository = PostRepository(db_session, auth=auth)
+    post_repository = PostRepository(db_session, principal=principal)
     post = await post_repository.get(post_id)
     if post is None:
         raise NotFoundException("Post not found")
@@ -126,9 +124,11 @@ async def edit_post(
 
 @posts.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_post(
-    db_session: DBSessionDependency, auth: Auth, principal: Principal, post_id: int
+    db_session: DBSessionDependency,
+    principal: Principal,
+    post_id: int,
 ):
-    post_repository = PostRepository(db_session, auth=auth)
+    post_repository = PostRepository(db_session, principal=principal)
     post = await post_repository.get(post_id)
     if post is None:
         raise NotFoundException("Post not found")
@@ -137,7 +137,7 @@ async def delete_post(
     if post.author_id != principal.id:
         raise ForbiddenException("You are not the author of this post")
 
-    thread_repository = ThreadRepository(db_session, auth=auth)
+    thread_repository = ThreadRepository(db_session, principal=principal)
     thread = post.thread
     await post_repository.delete(post)
     if post.id == thread.first_post_id:

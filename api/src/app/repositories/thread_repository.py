@@ -4,13 +4,13 @@ from sqlalchemy import ScalarResult, false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.configs import configs
-from app.models import Post, Thread
+from app.models import Post, Thread, User
 
 
 class ThreadRepository:
-    def __init__(self, db_session: AsyncSession, auth: list[str]):
+    def __init__(self, db_session: AsyncSession, principal: User):
         self.db_session = db_session
-        self.auth = auth
+        self.principal = principal
 
     async def count_by_forum(self, forum_id: int) -> int:
         return (

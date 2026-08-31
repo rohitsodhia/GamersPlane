@@ -5,7 +5,7 @@ from app.exceptions import NotFoundException
 from app.forums import schemas
 from app.forums.functions import build_forum_tree, get_heritage
 from app.helpers.decorators import public
-from app.middleware import Auth
+from app.middleware import Principal
 from app.repositories import ForumRepository, ThreadRepository
 
 forums = APIRouter(prefix="/forums")
@@ -16,9 +16,9 @@ forums = APIRouter(prefix="/forums")
 )
 @public
 async def get_forum_breadcrumbs(
-    forum_id: int, db_session: DBSessionDependency, auth: Auth
+    forum_id: int, db_session: DBSessionDependency, principal: Principal
 ):
-    forum_repository = ForumRepository(db_session, auth=auth)
+    forum_repository = ForumRepository(db_session, principal=principal)
     forum = await forum_repository.get(forum_id)
     if forum is None:
         raise NotFoundException("Forum not found")
@@ -38,8 +38,10 @@ async def get_forum_breadcrumbs(
 
 @forums.get("/{forum_id}")
 @public
-async def get_forum(forum_id: int, db_session: DBSessionDependency, auth: Auth):
-    forum_repository = ForumRepository(db_session, auth=auth)
+async def get_forum(
+    forum_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    forum_repository = ForumRepository(db_session, principal=principal)
     forum = await forum_repository.get(forum_id)
     if forum is None:
         raise NotFoundException("Forum not found")
@@ -52,7 +54,7 @@ async def get_forum(forum_id: int, db_session: DBSessionDependency, auth: Auth):
 
     descendants = list(await forum_repository.get_descendants(forum_id))
 
-    thread_repository = ThreadRepository(db_session, auth=auth)
+    thread_repository = ThreadRepository(db_session, principal=principal)
     last_posts_by_forum_id = await thread_repository.get_last_posts_by_forum_ids(
         [descendant.id for descendant in descendants]
     )
