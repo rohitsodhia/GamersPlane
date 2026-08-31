@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from app.schema_base import SchemaBase
 
 
-class ActiveGameData(BaseModel):
+class ActiveGameData(SchemaBase):
     id: int
     name: str
     isGM: bool
@@ -11,22 +11,22 @@ class ActiveGameData(BaseModel):
     forumId: int | None
 
 
-class SystemData(BaseModel):
+class SystemData(SchemaBase):
     id: str
     name: str
 
 
-class SystemCountData(BaseModel):
+class SystemCountData(SchemaBase):
     system: SystemData
     count: int
 
 
-class SystemsCountData(BaseModel):
+class SystemsCountData(SchemaBase):
     count: int
     systems: list[SystemCountData]
 
 
-class UserDict(BaseModel):
+class UserDict(SchemaBase):
     id: int
     username: str
     avatar: str
@@ -44,14 +44,14 @@ class UserDict(BaseModel):
     gmStats: SystemsCountData
 
 
-class GetUserResponse(BaseModel):
+class GetUserResponse(SchemaBase):
     user: UserDict
 
 
-class SearchUserDict(BaseModel):
+class SearchUserDict(SchemaBase):
     id: int
     username: str
 
 
-class SearchUserResponse(BaseModel):
+class SearchUserResponse(SchemaBase):
     user: SearchUserDict
