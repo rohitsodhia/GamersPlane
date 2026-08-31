@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,6 +13,40 @@ from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models import Game, User
+
+
+class Effects(str, Enum):
+    ALLOW = "allow"
+    DENY = "deny"
+
+
+class ScopeTypes(str, Enum):
+    FORUM = "forum"
+    ROLE = "role"
+
+
+class ValidPermissions(LabelEnum):
+    # value, label, allowed scope types. Action verbs only — what a grant applies
+    # to (a forum, a role) is carried by scope_type / scope_id, never baked into
+    # the string. The third field is the single source of truth for verb<->scope
+    # legality (``None`` == global/unscoped): enforced by the repository on write
+    # and surfaced via GET /rbac/permissions. The DB check only guarantees
+    # scope_type/scope_id are both-or-neither set.
+    #
+    # Forum verbs are always forum-scoped: there is no global forum grant. To
+    # cover every forum, grant against the root forum (id 0); it cascades down.
+    ADMIN = "admin", "Administrator", frozenset({None})
+    ACP_ACCESS = "access_acp", "Access ACP", frozenset({None})
+    ROLE_ADMIN = "role_admin", "Manage Role", frozenset({ScopeTypes.ROLE})
+    FORUM_ACCESS = "access_forum", "View Forum", frozenset({ScopeTypes.FORUM})
+    FORUM_MODERATE = "moderate_forum", "Moderate Forum", frozenset({ScopeTypes.FORUM})
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.allowed_scopes = args[2]
+
+    def scope_allowed(self, scope_type: ScopeTypes | None) -> bool:
+        return scope_type in self.allowed_scopes
 
 
 class Role(Base, TimestampMixin, SoftDeleteMixin):
@@ -71,22 +105,10 @@ class Role(Base, TimestampMixin, SoftDeleteMixin):
 
 
 class RolePermission(Base, TimestampMixin, SoftDeleteMixin):
-    class ValidPermissions(LabelEnum):
-        # value, label. Action verbs only — what a grant applies to (a forum, a role)
-        # is carried by RolePermission.scope_type / scope_id, never baked into the string.
-        ADMIN = "admin", "Administrator"
-        ACP_ACCESS = "access_acp", "Access ACP"
-        ROLE_ADMIN = "role_admin", "Manage Role"
-        FORUM_ACCESS = "access_forum", "View Forum"
-        FORUM_MODERATE = "moderate_forum", "Moderate Forum"
-
-    class Effects(str, Enum):
-        ALLOW = "allow"
-        DENY = "deny"
-
-    class ScopeTypes(str, Enum):
-        FORUM = "forum"
-        ROLE = "role"
+    # Re-exported for callers that reach them as RolePermission.<Enum>.
+    Effects = Effects
+    ScopeTypes = ScopeTypes
+    ValidPermissions = ValidPermissions
 
     __tablename__ = "role_permissions"
     __table_args__ = (
@@ -99,6 +121,13 @@ class RolePermission(Base, TimestampMixin, SoftDeleteMixin):
             "scope_id",
             name="uq_role_permissions_grant",
             postgresql_nulls_not_distinct=True,
+        ),
+        # A grant is either global (both NULL) or bound to one resource (both set).
+        # This does not check that the scope_type is valid for the permission verb
+        # (e.g. access_acp must be global) — that stays in the route/repo layer.
+        CheckConstraint(
+            "(scope_type IS NULL) = (scope_id IS NULL)",
+            name="ck_role_permissions_scope_complete",
         ),
     )
 

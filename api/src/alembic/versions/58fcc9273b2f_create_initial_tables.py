@@ -188,6 +188,10 @@ def upgrade() -> None:
             name="uq_role_permissions_grant",
             postgresql_nulls_not_distinct=True,
         ),
+        sa.CheckConstraint(
+            "(scope_type IS NULL) = (scope_id IS NULL)",
+            name="ck_role_permissions_scope_complete",
+        ),
     )
     op.create_table(
         "system_genres",
