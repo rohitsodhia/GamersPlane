@@ -1,0 +1,99 @@
+.acp-wrapper {
+	display: grid;
+	grid-template-columns: 150px 1fr;
+	gap: 1em;
+}
+
+nav {
+	border-right: 1px solid #999;
+	padding-right: 1em;
+
+	h2 {
+		font-size: 1.2em;
+		margin-bottom: 0.5em;
+	}
+}
+
+:global(h2.headerbar) {
+	margin-top: 0;
+}
+
+.roles-switch-btn {
+	margin-bottom: 1em;
+}
+
+.role-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+
+	li {
+		&:not(:first-child) {
+			margin-top: 1em;
+		}
+
+		& > div {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.25em 1em;
+
+			&:nth-child(2) {
+				font-size: 0.85em;
+				color: #666;
+			}
+		}
+	}
+}
+
+.role-section {
+	border-top: 1px solid #999;
+	margin-top: 1.5em;
+	padding-top: 1.5em;
+
+	h3 {
+		font-size: 1.1em;
+		margin-bottom: 0.5em;
+	}
+}
+
+.entity-list {
+	list-style: none;
+	margin: 0 0 1em;
+	padding: 0;
+
+	li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.25em 1em;
+		padding: 0.4em 0;
+	}
+
+	li > span:first-child {
+		flex: 1;
+	}
+}
+
+.role-form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 0.75em 1em;
+
+	label {
+		display: block;
+		font-size: 0.85em;
+	}
+
+	~ section {
+		border-top: 1px solid #999;
+		margin-top: 1.5em;
+		padding-top: 1.5em;
+	}
+}
+
+.save-row {
+	display: flex;
+	align-items: center;
+	gap: 0.75em;
+}

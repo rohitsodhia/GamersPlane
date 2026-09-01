@@ -2,7 +2,12 @@ from datetime import date
 
 from app.models import UserMeta
 from app.repositories.user_repository import UserRepository
-from tests.factories import ActivatedUserFactory, PostFactory, ThreadFactory
+from tests.factories import (
+    ActivatedUserFactory,
+    PostFactory,
+    ThreadFactory,
+    UserFactory,
+)
 
 
 class TestSearchUser:
@@ -56,6 +61,50 @@ class TestSearchUser:
 
         assert response.status_code == 400
         assert response.json()["errors"][0]["code"] == "missing_query"
+
+
+class TestAutocompleteUsers:
+    async def test_requires_auth(self, client):
+        response = await client.get("/users/autocomplete", params={"username": "user"})
+
+        assert response.status_code == 403
+
+    async def test_returns_prefix_matches_case_insensitively_sorted(
+        self, authed_client, create
+    ):
+        client, _user = authed_client
+        await create(ActivatedUserFactory, username="Zeta")
+        await create(ActivatedUserFactory, username="zebra")
+        await create(ActivatedUserFactory, username="zoo")
+
+        response = await client.get("/users/autocomplete", params={"username": "ZE"})
+
+        assert response.status_code == 200
+        assert [u["username"] for u in response.json()["users"]] == [
+            "zebra",
+            "Zeta",
+        ]
+
+    async def test_excludes_unactivated_users(self, authed_client, create):
+        client, _user = authed_client
+        await create(UserFactory, username="pending")
+
+        response = await client.get(
+            "/users/autocomplete", params={"username": "pending"}
+        )
+
+        assert response.json()["users"] == []
+
+    async def test_respects_limit(self, authed_client, create):
+        client, _user = authed_client
+        for suffix in range(3):
+            await create(ActivatedUserFactory, username=f"limited{suffix}")
+
+        response = await client.get(
+            "/users/autocomplete", params={"username": "limited", "limit": 2}
+        )
+
+        assert len(response.json()["users"]) == 2
 
 
 class TestGetUser:

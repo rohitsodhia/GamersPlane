@@ -6,8 +6,20 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.exceptions import ConflictException, NotFoundException, ValidationError
+from app.exceptions import (
+    ConflictException,
+    ForbiddenException,
+    NotFoundException,
+    ValidationError,
+)
 from app.models import Forum, Game, Role, RolePermission, User
+
+# Role #1 is the bootstrap "site owner" role and user #1 its permanent member.
+# Both are hard-locked below so no API caller can rename, delete, re-own, or
+# re-grant the role, or drop the primary account out of it — the goal is that
+# the primary user can never be locked out, even by another admin.
+PROTECTED_ROLE_ID = 1
+PROTECTED_ROLE_MEMBER_ID = 1
 
 
 class RBACkRepository:
@@ -20,8 +32,13 @@ class RBACkRepository:
             {
                 "value": permission.value,
                 "label": permission.label,
+                "scopes": sorted(
+                    "global" if scope is None else scope.value
+                    for scope in permission.allowed_scopes
+                ),
             }
             for permission in RolePermission.ValidPermissions
+            if permission.api_grantable
         ]
 
     def _manageable_role_ids(self) -> set[int]:
@@ -59,7 +76,9 @@ class RBACkRepository:
             return True
         return role_id in self._manageable_role_ids()
 
-    async def get_roles(self, name_filter: str | None = None) -> Sequence[Role]:
+    async def get_roles(
+        self, name_filter: str | None = None, game_roles: bool = False
+    ) -> Sequence[Role]:
         """Roles visible to the principal.
 
         Holders of the global ``admin`` verb get every role; everyone else gets
@@ -72,6 +91,10 @@ class RBACkRepository:
         )
         if name_filter:
             query = query.where(Role._name.ilike(f"%{name_filter}%"))
+        if game_roles:
+            query = query.where(Role.game_role.is_not(None))
+        else:
+            query = query.where(Role.game_role.is_(None))
         if not self.principal.has_global_permission(
             RolePermission.ValidPermissions.ADMIN.value
         ):
@@ -143,6 +166,8 @@ class RBACkRepository:
         owner: User | None = None,
     ) -> Role:
         """Apply a partial update. ``None`` means "leave this field alone"."""
+        if role.id == PROTECTED_ROLE_ID:
+            raise ForbiddenException("This role is protected and can't be edited")
         if name is not None:
             role.name = name
         if owner is not None:
@@ -170,11 +195,17 @@ class RBACkRepository:
         scope_id: int | None = None,
         effect: RolePermission.Effects = RolePermission.Effects.ALLOW,
     ) -> RolePermission:
+        if role.id == PROTECTED_ROLE_ID:
+            raise ForbiddenException(
+                "This role is protected and its grants can't be changed"
+            )
         if not permission.scope_allowed(scope_type):
             scope_label = scope_type.value if scope_type else "global"
             raise ValidationError(
                 f"{permission.label} cannot be granted at {scope_label} scope"
             )
+        if not permission.api_grantable:
+            raise ValidationError(f"{permission.label} cannot be granted via API")
 
         if scope_type is RolePermission.ScopeTypes.FORUM:
             await self._require_scope_target(Forum, scope_id, "Forum")
@@ -197,6 +228,10 @@ class RBACkRepository:
     async def update_grant(
         self, grant: RolePermission, effect: RolePermission.Effects
     ) -> RolePermission:
+        if grant.role_id == PROTECTED_ROLE_ID:
+            raise ForbiddenException(
+                "This role is protected and its grants can't be changed"
+            )
         grant.effect = effect
         await self.db_session.flush()
         return grant
@@ -208,6 +243,10 @@ class RBACkRepository:
         bare ``session.delete`` keeps the in-memory collection consistent, so a
         later read in the same session can't resurrect it.
         """
+        if role.id == PROTECTED_ROLE_ID:
+            raise ForbiddenException(
+                "This role is protected and its grants can't be changed"
+            )
         role.grants.remove(grant)
         await self.db_session.flush()
 
@@ -220,6 +259,8 @@ class RBACkRepository:
 
     async def remove_user_from_role(self, role: Role, user_id: int) -> None:
         """Idempotent: no-op if the user isn't in the role."""
+        if role.id == PROTECTED_ROLE_ID and user_id == PROTECTED_ROLE_MEMBER_ID:
+            raise ForbiddenException("This user can't be removed from this role")
         member = next((m for m in role.users if m.id == user_id), None)
         if member is None:
             return
@@ -228,6 +269,8 @@ class RBACkRepository:
 
     async def delete_role(self, role: Role) -> None:
         """Soft-delete a role. Refuses if the role is a game's primary role."""
+        if role.id == PROTECTED_ROLE_ID:
+            raise ForbiddenException("This role is protected and can't be deleted")
         backing_game = await self.db_session.execute(
             select(Game.id).where(Game.role_id == role.id).limit(1)
         )

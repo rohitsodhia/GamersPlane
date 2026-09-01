@@ -20,8 +20,14 @@ class PermissionData(SchemaBase):
     label: str
 
 
+class PermissionWithScopesData(PermissionData):
+    # Allowed scope types for this verb: ["global"] == unscoped-only, otherwise a
+    # single scope type such as ["forum"] or ["role"].
+    scopes: list[str] = []
+
+
 class GetPermissionsResponse(SchemaBase):
-    permissions: list[PermissionData]
+    permissions: list[PermissionWithScopesData]
 
 
 class RoleData(SchemaBase):

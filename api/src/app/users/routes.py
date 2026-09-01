@@ -55,6 +55,22 @@ async def search_user(
 
 
 @users.get(
+    "/autocomplete",
+    response_model=schemas.SearchUsersResponse,
+)
+async def autocomplete_users(
+    db_session: DBSessionDependency,
+    username: str,
+    limit: int = 10,
+):
+    user_repository = UserRepository(db_session)
+    users = await user_repository.search_users_by_username_prefix(
+        username, limit=min(limit, 25)
+    )
+    return {"users": [{"id": user.id, "username": user.username} for user in users]}
+
+
+@users.get(
     "/{id}",
     response_model=schemas.GetUserResponse,
 )

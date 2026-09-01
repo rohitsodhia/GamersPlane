@@ -24,7 +24,7 @@
 
 /* List reset shared by the two scrollable option lists (menu, select listbox). */
 .react-aria-Menu,
-.react-aria-Select .react-aria-Popover .react-aria-ListBox {
+.react-aria-Select-Popover .react-aria-ListBox {
 	list-style: none;
 	margin: 0;
 	padding: 0;
@@ -54,6 +54,12 @@
 
 	.react-aria-Input {
 		width: 100%;
+
+		/* Native clear button on input[type="search"] (WebKit/Blink) — signal
+		   it's clickable. */
+		&::-webkit-search-cancel-button {
+			cursor: pointer;
+		}
 	}
 }
 
@@ -167,10 +173,19 @@
 			outline-offset: 1px;
 		}
 	}
+}
 
-	.react-aria-Popover .react-aria-ListBox {
+/* The Select's Popover is portalled to <body>, so it can't be reached through a
+   .react-aria-Select ancestor — it carries an explicit .react-aria-Select-Popover
+   class instead (see Select.tsx). --trigger-width is the trigger's
+   getBoundingClientRect width (borders included) and box-sizing: border-box is
+   global, so matching it here keeps the dropdown's outer edge aligned with the
+   trigger; the ListBox then fills the popover. */
+.react-aria-Select-Popover {
+	width: var(--trigger-width);
+
+	.react-aria-ListBox {
 		outline: none;
-		width: var(--trigger-width);
 	}
 
 	.react-aria-ListBoxItem[data-selected] {

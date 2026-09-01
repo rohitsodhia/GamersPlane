@@ -39,6 +39,28 @@ async def make_role(db_session, *, name=None, owner=None, members=(), grants=())
     return role
 
 
+@pytest.fixture
+def protect_role(monkeypatch):
+    """Point the repository's hard-lock at a role built by the test.
+
+    The production lock targets role id 1 / member id 1; rather than force those
+    ids past a shared, non-resetting Postgres sequence, we repoint the module
+    constants at whatever role/user the test made.
+    """
+
+    def _protect(role, *, member_id=None):
+        monkeypatch.setattr(
+            "app.repositories.rbac_repository.PROTECTED_ROLE_ID", role.id
+        )
+        if member_id is not None:
+            monkeypatch.setattr(
+                "app.repositories.rbac_repository.PROTECTED_ROLE_MEMBER_ID",
+                member_id,
+            )
+
+    return _protect
+
+
 async def make_game_backed_by(db_session, create, role):
     system = await create(SystemFactory)
     gm = await create(UserFactory)
@@ -58,28 +80,55 @@ async def make_game_backed_by(db_session, create, role):
     return game
 
 
+async def make_game_role(db_session, create, *, name=None):
+    """A role scoped to a game (``Role.game_role`` points at that game).
+
+    Also builds the backing game graph (system/GM/forum/game) plus a plain
+    ``primary`` role to satisfy the game's NOT NULL ``role_id``; that primary
+    role has ``game_role IS NULL``, so callers asserting on exact result sets
+    should account for it.
+    """
+    primary = await make_role(db_session)
+    game = await make_game_backed_by(db_session, create, primary)
+    role = await make_role(db_session, name=name)
+    role.game = game
+    await db_session.flush()
+    return role
+
+
 class TestGetPermissions:
     async def test_requires_auth(self, client):
         response = await client.get("/rbac/permissions")
 
         assert response.status_code == 403
 
-    async def test_lists_every_permission_verb_with_label(self, authed_client):
+    async def test_lists_every_api_grantable_verb_with_label(self, authed_client):
         client, _user = authed_client
 
         response = await client.get("/rbac/permissions")
 
         assert response.status_code == 200
         permissions = response.json()["permissions"]
+        # Exact set: the seed-only `admin` verb (api_grantable=False) must be
+        # filtered out, every other verb must be present.
         assert {p["value"] for p in permissions} == {
-            "admin",
             "access_acp",
             "role_admin",
             "access_forum",
             "moderate_forum",
         }
-        admin = next(p for p in permissions if p["value"] == "admin")
-        assert admin["label"] == "Administrator"
+        acp = next(p for p in permissions if p["value"] == "access_acp")
+        assert acp["label"] == "Access ACP"
+
+    async def test_reports_allowed_scope_types_per_verb(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.get("/rbac/permissions")
+
+        by_value = {p["value"]: p["scopes"] for p in response.json()["permissions"]}
+        assert by_value["access_acp"] == ["global"]
+        assert by_value["access_forum"] == ["forum"]
+        assert by_value["role_admin"] == ["role"]
 
 
 class TestGetRoles:
@@ -106,8 +155,11 @@ class TestGetRoles:
         managed = await make_role(db_session)
         await make_role(db_session)  # unmanaged
         await give_permission(
-            db_session, user, Verbs.ROLE_ADMIN,
-            scope_type=Scopes.ROLE, scope_id=managed.id,
+            db_session,
+            user,
+            Verbs.ROLE_ADMIN,
+            scope_type=Scopes.ROLE,
+            scope_id=managed.id,
         )
 
         response = await client.get("/rbac/roles")
@@ -130,12 +182,18 @@ class TestGetRoles:
         client, user = authed_client
         role = await make_role(db_session)
         await give_permission(
-            db_session, user, Verbs.ROLE_ADMIN,
-            scope_type=Scopes.ROLE, scope_id=role.id,
+            db_session,
+            user,
+            Verbs.ROLE_ADMIN,
+            scope_type=Scopes.ROLE,
+            scope_id=role.id,
         )
         denier = await give_permission(
-            db_session, user, Verbs.ROLE_ADMIN,
-            scope_type=Scopes.ROLE, scope_id=role.id,
+            db_session,
+            user,
+            Verbs.ROLE_ADMIN,
+            scope_type=Scopes.ROLE,
+            scope_id=role.id,
         )
         denier.grants[0].effect = Effects.DENY
         await db_session.flush()
@@ -153,6 +211,36 @@ class TestGetRoles:
         response = await client.get("/rbac/roles", params={"filter": "alpha"})
 
         assert {r["id"] for r in response.json()["roles"]} == {alpha.id}
+
+    async def test_defaults_to_non_game_roles(
+        self, authed_client, db_session, create
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        plain = await make_role(db_session)
+        game_role = await make_game_role(db_session, create)
+
+        response = await client.get("/rbac/roles")
+
+        assert response.status_code == 200
+        returned = {r["id"] for r in response.json()["roles"]}
+        assert plain.id in returned
+        assert game_role.id not in returned
+
+    async def test_game_roles_true_returns_only_game_roles(
+        self, authed_client, db_session, create
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        plain = await make_role(db_session)
+        game_role = await make_game_role(db_session, create)
+
+        response = await client.get("/rbac/roles", params={"game_roles": "true"})
+
+        assert response.status_code == 200
+        returned = {r["id"] for r in response.json()["roles"]}
+        assert game_role.id in returned
+        assert plain.id not in returned
 
     async def test_role_row_reports_owner_and_counts(self, authed_client, db_session):
         client, user = authed_client
@@ -232,6 +320,19 @@ class TestCreateRole:
         # so the swallowed IntegrityError would poison later tests otherwise.
         await db_session.rollback()
 
+    async def test_name_of_soft_deleted_role_can_be_reused(
+        self, authed_client, db_session
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        stale = await make_role(db_session, name="Editors")
+        await client.delete(f"/rbac/roles/{stale.id}")
+
+        response = await client.post("/rbac/roles", json={"name": "Editors"})
+
+        assert response.status_code == 200
+        assert response.json()["id"] != stale.id
+
     @pytest.mark.parametrize("name", ["   ", "x" * 49])
     async def test_invalid_name_returns_422(self, authed_client, db_session, name):
         client, user = authed_client
@@ -279,8 +380,11 @@ class TestGetRole:
         client, user = authed_client
         role = await make_role(db_session)
         await give_permission(
-            db_session, user, Verbs.ROLE_ADMIN,
-            scope_type=Scopes.ROLE, scope_id=role.id,
+            db_session,
+            user,
+            Verbs.ROLE_ADMIN,
+            scope_type=Scopes.ROLE,
+            scope_id=role.id,
         )
 
         response = await client.get(f"/rbac/roles/{role.id}")
@@ -369,9 +473,7 @@ class TestUpdateRole:
         await make_admin(db_session, user)
         role = await make_role(db_session, name="Old")
 
-        response = await client.patch(
-            f"/rbac/roles/{role.id}", json={"name": "New"}
-        )
+        response = await client.patch(f"/rbac/roles/{role.id}", json={"name": "New"})
 
         assert response.status_code == 204
         assert (await client.get(f"/rbac/roles/{role.id}")).json()["name"] == "New"
@@ -425,12 +527,27 @@ class TestUpdateRole:
         await make_role(db_session, name="Taken")
         role = await make_role(db_session, name="Free")
 
-        response = await client.patch(
-            f"/rbac/roles/{role.id}", json={"name": "Taken"}
-        )
+        response = await client.patch(f"/rbac/roles/{role.id}", json={"name": "Taken"})
 
         assert response.status_code == 409
         await db_session.rollback()
+
+    async def test_protected_role_cannot_be_edited(
+        self, authed_client, db_session, protect_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session, name="Site Owner")
+        protect_role(role)
+
+        response = await client.patch(
+            f"/rbac/roles/{role.id}", json={"name": "Renamed"}
+        )
+
+        assert response.status_code == 403
+        assert (await client.get(f"/rbac/roles/{role.id}")).json()[
+            "name"
+        ] == "Site Owner"
 
 
 class TestDeleteRole:
@@ -470,6 +587,19 @@ class TestDeleteRole:
         response = await client.delete(f"/rbac/roles/{role.id}")
 
         assert response.status_code == 409
+        assert (await client.get(f"/rbac/roles/{role.id}")).status_code == 200
+
+    async def test_protected_role_cannot_be_deleted(
+        self, authed_client, db_session, protect_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session)
+        protect_role(role)
+
+        response = await client.delete(f"/rbac/roles/{role.id}")
+
+        assert response.status_code == 403
         assert (await client.get(f"/rbac/roles/{role.id}")).status_code == 200
 
 
@@ -547,10 +677,22 @@ class TestCreateGrant:
 
         response = await client.post(
             f"/rbac/roles/{role.id}/grants",
-            json={"permission": "admin", "scope_type": "forum", "scope_id": 1},
+            json={"permission": "access_acp", "scope_type": "forum", "scope_id": 1},
         )
 
         assert response.status_code == 400
+
+    async def test_admin_verb_cannot_be_granted_via_api(self, authed_client, db_session):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session)
+
+        response = await client.post(
+            f"/rbac/roles/{role.id}/grants", json={"permission": "admin"}
+        )
+
+        assert response.status_code == 400
+        assert (await client.get(f"/rbac/roles/{role.id}")).json()["grants"] == []
 
     @pytest.mark.parametrize("permission", ["role_admin", "access_forum"])
     async def test_scope_requiring_verb_without_scope_returns_400(
@@ -573,16 +715,12 @@ class TestCreateGrant:
             {"permission": "access_acp", "scope_id": 5},
         ],
     )
-    async def test_lopsided_scope_returns_422(
-        self, authed_client, db_session, extra
-    ):
+    async def test_lopsided_scope_returns_422(self, authed_client, db_session, extra):
         client, user = authed_client
         await make_admin(db_session, user)
         role = await make_role(db_session)
 
-        response = await client.post(
-            f"/rbac/roles/{role.id}/grants", json=extra
-        )
+        response = await client.post(f"/rbac/roles/{role.id}/grants", json=extra)
 
         assert response.status_code == 422
 
@@ -630,23 +768,34 @@ class TestCreateGrant:
         assert response.status_code == 409
         await db_session.rollback()
 
+    async def test_protected_role_grants_cannot_be_added(
+        self, authed_client, db_session, protect_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session)
+        protect_role(role)
+
+        response = await client.post(
+            f"/rbac/roles/{role.id}/grants", json={"permission": "access_acp"}
+        )
+
+        assert response.status_code == 403
+        assert (await client.get(f"/rbac/roles/{role.id}")).json()["grants"] == []
+
 
 class TestUpdateGrant:
     async def test_requires_admin(self, authed_client):
         client, _user = authed_client
 
-        response = await client.patch(
-            "/rbac/roles/1/grants/1", json={"effect": "deny"}
-        )
+        response = await client.patch("/rbac/roles/1/grants/1", json={"effect": "deny"})
 
         assert response.status_code == 403
 
     async def test_toggles_effect(self, authed_client, db_session):
         client, user = authed_client
         await make_admin(db_session, user)
-        role = await make_role(
-            db_session, grants=[(Verbs.ACP_ACCESS, None, None)]
-        )
+        role = await make_role(db_session, grants=[(Verbs.ACP_ACCESS, None, None)])
         grant_id = role.grants[0].id
 
         response = await client.patch(
@@ -682,6 +831,23 @@ class TestUpdateGrant:
 
         assert response.status_code == 404
 
+    async def test_protected_role_grant_cannot_be_edited(
+        self, authed_client, db_session, protect_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session, grants=[(Verbs.ACP_ACCESS, None, None)])
+        protect_role(role)
+        grant_id = role.grants[0].id
+
+        response = await client.patch(
+            f"/rbac/roles/{role.id}/grants/{grant_id}", json={"effect": "deny"}
+        )
+
+        assert response.status_code == 403
+        body = (await client.get(f"/rbac/roles/{role.id}")).json()
+        assert body["grants"][0]["effect"] == "allow"
+
 
 class TestDeleteGrant:
     async def test_requires_admin(self, authed_client):
@@ -694,22 +860,22 @@ class TestDeleteGrant:
     async def test_hard_deletes_the_grant(self, authed_client, db_session):
         client, user = authed_client
         await make_admin(db_session, user)
-        role = await make_role(
-            db_session, grants=[(Verbs.ACP_ACCESS, None, None)]
-        )
+        role = await make_role(db_session, grants=[(Verbs.ACP_ACCESS, None, None)])
         grant_id = role.grants[0].id
 
-        response = await client.delete(
-            f"/rbac/roles/{role.id}/grants/{grant_id}"
-        )
+        response = await client.delete(f"/rbac/roles/{role.id}/grants/{grant_id}")
 
         assert response.status_code == 204
         assert (await client.get(f"/rbac/roles/{role.id}")).json()["grants"] == []
         rows = (
-            await db_session.execute(
-                select(RolePermission).where(RolePermission.id == grant_id)
+            (
+                await db_session.execute(
+                    select(RolePermission).where(RolePermission.id == grant_id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert rows == []
 
     async def test_unknown_role_returns_404(self, authed_client, db_session):
@@ -719,6 +885,20 @@ class TestDeleteGrant:
         response = await client.delete("/rbac/roles/999999/grants/1")
 
         assert response.status_code == 404
+
+    async def test_protected_role_grant_cannot_be_deleted(
+        self, authed_client, db_session, protect_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session, grants=[(Verbs.ACP_ACCESS, None, None)])
+        protect_role(role)
+        grant_id = role.grants[0].id
+
+        response = await client.delete(f"/rbac/roles/{role.id}/grants/{grant_id}")
+
+        assert response.status_code == 403
+        assert len((await client.get(f"/rbac/roles/{role.id}")).json()["grants"]) == 1
 
 
 class TestAddUserToRole:
@@ -778,6 +958,23 @@ class TestAddUserToRole:
         body = (await client.get(f"/rbac/roles/{role.id}")).json()
         assert [u["id"] for u in body["users"]] == [target.id]
 
+    async def test_users_can_still_be_added_to_the_protected_role(
+        self, authed_client, db_session, protect_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session)
+        protect_role(role)
+        target = (await make_role(db_session)).owner
+
+        response = await client.post(
+            f"/rbac/roles/{role.id}/users", json={"user_id": target.id}
+        )
+
+        assert response.status_code == 204
+        body = (await client.get(f"/rbac/roles/{role.id}")).json()
+        assert target.id in [u["id"] for u in body["users"]]
+
 
 class TestRemoveUserFromRole:
     async def test_requires_admin(self, authed_client):
@@ -801,9 +998,7 @@ class TestRemoveUserFromRole:
         target = (await make_role(db_session)).owner
         role = await make_role(db_session, members=[target])
 
-        response = await client.delete(
-            f"/rbac/roles/{role.id}/users/{target.id}"
-        )
+        response = await client.delete(f"/rbac/roles/{role.id}/users/{target.id}")
 
         assert response.status_code == 204
         assert (await client.get(f"/rbac/roles/{role.id}")).json()["users"] == []
@@ -814,8 +1009,39 @@ class TestRemoveUserFromRole:
         role = await make_role(db_session)
         stranger = (await make_role(db_session)).owner
 
-        response = await client.delete(
-            f"/rbac/roles/{role.id}/users/{stranger.id}"
-        )
+        response = await client.delete(f"/rbac/roles/{role.id}/users/{stranger.id}")
 
         assert response.status_code == 204
+
+    async def test_protected_member_cannot_be_removed_from_protected_role(
+        self, authed_client, db_session, protect_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        protected_member = (await make_role(db_session)).owner
+        role = await make_role(db_session, members=[protected_member])
+        protect_role(role, member_id=protected_member.id)
+
+        response = await client.delete(
+            f"/rbac/roles/{role.id}/users/{protected_member.id}"
+        )
+
+        assert response.status_code == 403
+        body = (await client.get(f"/rbac/roles/{role.id}")).json()
+        assert [u["id"] for u in body["users"]] == [protected_member.id]
+
+    async def test_other_members_can_be_removed_from_the_protected_role(
+        self, authed_client, db_session, protect_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        protected_member = (await make_role(db_session)).owner
+        other_member = (await make_role(db_session)).owner
+        role = await make_role(db_session, members=[protected_member, other_member])
+        protect_role(role, member_id=protected_member.id)
+
+        response = await client.delete(f"/rbac/roles/{role.id}/users/{other_member.id}")
+
+        assert response.status_code == 204
+        body = (await client.get(f"/rbac/roles/{role.id}")).json()
+        assert [u["id"] for u in body["users"]] == [protected_member.id]

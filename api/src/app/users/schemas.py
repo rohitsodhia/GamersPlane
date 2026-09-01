@@ -55,3 +55,7 @@ class SearchUserDict(SchemaBase):
 
 class SearchUserResponse(SchemaBase):
     user: SearchUserDict
+
+
+class SearchUsersResponse(SchemaBase):
+    users: list[SearchUserDict]

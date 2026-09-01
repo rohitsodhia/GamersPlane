@@ -35,9 +35,10 @@ async def get_roles(
     db_session: DBSessionDependency,
     principal: Principal,
     name_filter: Annotated[str | None, Query(alias="filter")] = None,
+    game_roles: Annotated[bool, Query()] = False,
 ):
     rbac_repository = RBACkRepository(db_session, principal=principal)
-    roles = await rbac_repository.get_roles(name_filter)
+    roles = await rbac_repository.get_roles(name_filter, game_roles=game_roles)
     return {
         "roles": [
             schemas.RoleData(

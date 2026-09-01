@@ -110,8 +110,20 @@ def upgrade() -> None:
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("name"),
-        sa.UniqueConstraint("plural"),
+    )
+    op.create_index(
+        "uq_roles_name_active",
+        "roles",
+        ["name"],
+        unique=True,
+        postgresql_where=sa.text("deleted IS NULL"),
+    )
+    op.create_index(
+        "uq_roles_plural_active",
+        "roles",
+        ["plural"],
+        unique=True,
+        postgresql_where=sa.text("deleted IS NULL"),
     )
     op.create_table(
         "systems",

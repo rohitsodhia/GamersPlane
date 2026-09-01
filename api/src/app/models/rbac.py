@@ -3,7 +3,14 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,24 +33,36 @@ class ScopeTypes(str, Enum):
 
 
 class ValidPermissions(LabelEnum):
-    # value, label, allowed scope types. Action verbs only — what a grant applies
-    # to (a forum, a role) is carried by scope_type / scope_id, never baked into
-    # the string. The third field is the single source of truth for verb<->scope
-    # legality (``None`` == global/unscoped): enforced by the repository on write
-    # and surfaced via GET /rbac/permissions. The DB check only guarantees
+    # value, label, allowed scope types, api_grantable. Action verbs only — what a
+    # grant applies to (a forum, a role) is carried by scope_type / scope_id,
+    # never baked into the string.
+    #
+    # The third field is the single source of truth for verb<->scope legality
+    # (``None`` == global/unscoped): enforced by the repository on write and
+    # surfaced via GET /rbac/permissions. The DB check only guarantees
     # scope_type/scope_id are both-or-neither set.
+    #
+    # The fourth field, api_grantable, gates whether the verb can be handed out
+    # through the API at all: ``admin`` is seed-only, so it is hidden from GET
+    # /rbac/permissions and rejected by create_grant. Defaults to True.
     #
     # Forum verbs are always forum-scoped: there is no global forum grant. To
     # cover every forum, grant against the root forum (id 0); it cascades down.
-    ADMIN = "admin", "Administrator", frozenset({None})
-    ACP_ACCESS = "access_acp", "Access ACP", frozenset({None})
-    ROLE_ADMIN = "role_admin", "Manage Role", frozenset({ScopeTypes.ROLE})
-    FORUM_ACCESS = "access_forum", "View Forum", frozenset({ScopeTypes.FORUM})
-    FORUM_MODERATE = "moderate_forum", "Moderate Forum", frozenset({ScopeTypes.FORUM})
+    ADMIN = "admin", "Administrator", frozenset({None}), False
+    ACP_ACCESS = "access_acp", "Access ACP", frozenset({None}), True
+    ROLE_ADMIN = "role_admin", "Manage Role", frozenset({ScopeTypes.ROLE}), True
+    FORUM_ACCESS = "access_forum", "View Forum", frozenset({ScopeTypes.FORUM}), True
+    FORUM_MODERATE = (
+        "moderate_forum",
+        "Moderate Forum",
+        frozenset({ScopeTypes.FORUM}),
+        True,
+    )
 
     def __init__(self, *args):
         super().__init__(*args)
         self.allowed_scopes = args[2]
+        self.api_grantable = args[3] if len(args) > 3 else True
 
     def scope_allowed(self, scope_type: ScopeTypes | None) -> bool:
         return scope_type in self.allowed_scopes
@@ -51,10 +70,28 @@ class ValidPermissions(LabelEnum):
 
 class Role(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "roles"
+    __table_args__ = (
+        # Names are unique among *live* roles only. A soft-deleted role must not
+        # block reusing its name, and the IntegrityError in
+        # RbacRepository.create_role/update_role should only fire on a real
+        # collision with an active role.
+        Index(
+            "uq_roles_name_active",
+            "name",
+            unique=True,
+            postgresql_where=text("deleted IS NULL"),
+        ),
+        Index(
+            "uq_roles_plural_active",
+            "plural",
+            unique=True,
+            postgresql_where=text("deleted IS NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    _name: Mapped[str] = mapped_column("name", String(64), unique=True)
-    _plural: Mapped[str] = mapped_column("plural", String(64), unique=True)
+    _name: Mapped[str] = mapped_column("name", String(64))
+    _plural: Mapped[str] = mapped_column("plural", String(64))
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     owner: Mapped[User] = relationship()
     grants: Mapped[list["RolePermission"]] = relationship(

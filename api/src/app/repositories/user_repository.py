@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import func, or_, select
@@ -46,6 +47,21 @@ class UserRepository:
             )
             .limit(1)
         )
+
+    async def search_users_by_username_prefix(
+        self, prefix: str, limit: int = 10
+    ) -> Sequence[User]:
+        return (
+            await self.db_session.scalars(
+                select(User)
+                .where(
+                    func.lower(User.username).startswith(prefix.lower()),
+                    User.activated_on.is_not(None),
+                )
+                .order_by(func.lower(User.username))
+                .limit(limit)
+            )
+        ).all()
 
     async def get_user_by_identifier(self, identifier: str) -> User | None:
         return await self.db_session.scalar(

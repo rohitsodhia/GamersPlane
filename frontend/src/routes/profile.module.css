@@ -6,23 +6,6 @@
 			height: calc(var(--line-height) * 3);
 		}
 
-		:global(.success-banner) {
-			margin-bottom: 0;
-			width: fit-content;
-			opacity: 0;
-			transition: opacity 1s ease;
-		}
-
-		:global(.success-banner.is-visible) {
-			opacity: 1;
-		}
-
-		@media (prefers-reduced-motion: reduce) {
-			:global(.success-banner) {
-				transition: none;
-			}
-		}
-
 		:global(.error) {
 			margin-top: 0.5em;
 		}
@@ -36,6 +19,10 @@
 			}
 		}
 	}
+}
+
+.save-indicator {
+	margin-left: 0.75em;
 }
 
 .edit-settings_avatar {

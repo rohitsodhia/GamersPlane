@@ -1,0 +1,14 @@
+.fade {
+	opacity: 0;
+	transition: opacity 1s ease;
+}
+
+.visible {
+	opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fade {
+		transition: none;
+	}
+}
