@@ -141,7 +141,7 @@ class GameRepository:
         self.db_session.add(player_role)
         await self.db_session.flush()
 
-        forum_repository = ForumRepository(self.db_session, auth=[])
+        forum_repository = ForumRepository(self.db_session, principal=self.principal)
         root_forum = await forum_repository.add(
             title=title,
             forum_type=Forum.ForumTypes.FORUM,

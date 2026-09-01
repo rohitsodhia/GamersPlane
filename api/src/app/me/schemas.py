@@ -2,7 +2,7 @@ import datetime
 from typing import Annotated
 
 from annotated_types import Len
-from pydantic import BaseModel, field_validator
+from pydantic import field_validator
 
 from app.models import User
 from app.models.user_meta import PostSide
@@ -11,10 +11,11 @@ from app.schema_base import SchemaBase, filtered_str, strip_whitespace
 Password = Annotated[str, Len(min_length=User.MIN_PASSWORD_LENGTH)]
 
 
-class UserOutput(BaseModel):
+class UserOutput(SchemaBase):
     id: int
     username: str
     avatar: str
+    acp: bool = False
     joinDate: datetime.datetime | None = None
     pronouns: str | None = filtered_str(pipelines=[strip_whitespace])
     birthday: datetime.date | None = None
@@ -48,7 +49,7 @@ class UpdateProfileInput(SchemaBase):
         return v
 
 
-class UpdatedProfileFields(BaseModel):
+class UpdatedProfileFields(SchemaBase):
     pronouns: str | None = None
     birthday: datetime.date | None = None
     showAge: bool | None = None
@@ -61,31 +62,31 @@ class UpdatedProfileFields(BaseModel):
     games: str | None = None
 
 
-class UpdateProfileResponse(BaseModel):
+class UpdateProfileResponse(SchemaBase):
     success: bool = True
     updated: UpdatedProfileFields
 
 
-class UpdateAvatarResponse(BaseModel):
+class UpdateAvatarResponse(SchemaBase):
     success: bool = True
     avatar: str
 
 
-class DeleteAvatarResponse(BaseModel):
+class DeleteAvatarResponse(SchemaBase):
     success: bool = True
 
 
-class UpdatePasswordInput(BaseModel):
+class UpdatePasswordInput(SchemaBase):
     oldPassword: str
     password: Password
     confirmPassword: Password
 
 
-class UpdatePasswordResponse(BaseModel):
+class UpdatePasswordResponse(SchemaBase):
     success: bool = True
 
 
-class GetHeaderResponse(BaseModel):
+class GetHeaderResponse(SchemaBase):
     characters: list = []
     games: list = []
     pmCount: int = 0

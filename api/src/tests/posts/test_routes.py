@@ -349,7 +349,7 @@ class TestDeletePost:
         self, authed_client, create, db_session
     ):
         client, user = authed_client
-        thread_repository = ThreadRepository(db_session, auth=[])
+        thread_repository = ThreadRepository(db_session, principal=None)
         thread = await create(ThreadFactory)
         first_post = await create(PostFactory, thread=thread)
         await thread_repository.attach_new_post(thread, first_post)
@@ -359,7 +359,7 @@ class TestDeletePost:
         response = await client.delete(f"/posts/{reply.id}")
 
         assert response.status_code == 204
-        post_repository = PostRepository(db_session, auth=[])
+        post_repository = PostRepository(db_session, principal=None)
         found = await post_repository.get(reply.id)
         assert found is None
 
@@ -367,7 +367,7 @@ class TestDeletePost:
         self, authed_client, create, db_session
     ):
         client, user = authed_client
-        thread_repository = ThreadRepository(db_session, auth=[])
+        thread_repository = ThreadRepository(db_session, principal=None)
         thread = await create(ThreadFactory)
         first_post = await create(PostFactory, thread=thread)
         await thread_repository.attach_new_post(thread, first_post)
@@ -383,7 +383,7 @@ class TestDeletePost:
         self, authed_client, create, db_session
     ):
         client, user = authed_client
-        thread_repository = ThreadRepository(db_session, auth=[])
+        thread_repository = ThreadRepository(db_session, principal=None)
         thread = await create(ThreadFactory)
         first_post = await create(PostFactory, thread=thread, author=user)
         await thread_repository.attach_new_post(thread, first_post)

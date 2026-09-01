@@ -2,6 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import Paginate from "#/components/Paginate";
+import { DEBOUNCE_MS } from "#/lib/constants";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { systemsQueryOptions } from "#/queries/systems";
 import styles from "./systems.module.css";
@@ -21,7 +22,7 @@ function RouteComponent() {
 		const timer = setTimeout(() => {
 			setDebouncedSearch(search);
 			setPage(1);
-		}, 300);
+		}, DEBOUNCE_MS);
 		return () => clearTimeout(timer);
 	}, [search]);
 

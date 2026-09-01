@@ -1,17 +1,17 @@
-from pydantic import BaseModel
+from app.schema_base import SchemaBase
 
 
-class PublisherSchema(BaseModel):
+class PublisherSchema(SchemaBase):
     name: str
     website: str | None
 
 
-class BasicsSchema(BaseModel):
+class BasicsSchema(SchemaBase):
     label: str
     url: str
 
 
-class SystemSchema(BaseModel):
+class SystemSchema(SchemaBase):
     id: str
     name: str
     sort_name: str
@@ -22,11 +22,11 @@ class SystemSchema(BaseModel):
     enabled: bool
 
 
-class GetSystemsResponse(BaseModel):
+class GetSystemsResponse(SchemaBase):
     systems: list[SystemSchema]
 
 
-class BasicSystemSchema(BaseModel):
+class BasicSystemSchema(SchemaBase):
     id: str
     name: str
     sort_name: str
@@ -34,5 +34,5 @@ class BasicSystemSchema(BaseModel):
     has_char_sheet: bool
 
 
-class GetBasicSystemsResponse(BaseModel):
+class GetBasicSystemsResponse(SchemaBase):
     systems: list[BasicSystemSchema]

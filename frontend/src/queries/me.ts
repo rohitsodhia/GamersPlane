@@ -7,6 +7,7 @@ type MeResponse = {
 	id: number;
 	username: string;
 	avatar: string;
+	acp: boolean;
 };
 
 type MeFullApiResponse = MeResponse & {
@@ -80,6 +81,7 @@ export const refreshMe = async (queryClient: QueryClient) => {
 		id: full.id,
 		username: full.username,
 		avatar: full.avatar,
+		acp: full.acp,
 	});
 };
 

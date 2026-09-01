@@ -1,10 +1,11 @@
+from collections.abc import Sequence
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
-from app.models import User, UserMeta
+from app.models import Role, User, UserMeta
 
 
 class UserRepository:
@@ -16,7 +17,10 @@ class UserRepository:
             select(User)
             .where(User.id == user_id)
             .limit(1)
-            .options(joinedload(User.meta))
+            .options(
+                joinedload(User.meta),
+                selectinload(User.roles).selectinload(Role.grants),
+            )
         )
         return user
 
@@ -26,9 +30,7 @@ class UserRepository:
         )
         return user
 
-    async def get_user_by_id(
-        self, id: int, include_meta: bool = False
-    ) -> User | None:
+    async def get_user_by_id(self, id: int, include_meta: bool = False) -> User | None:
         statement = (
             select(User).where(User.id == id, User.activated_on.is_not(None)).limit(1)
         )
@@ -45,6 +47,21 @@ class UserRepository:
             )
             .limit(1)
         )
+
+    async def search_users_by_username_prefix(
+        self, prefix: str, limit: int = 10
+    ) -> Sequence[User]:
+        return (
+            await self.db_session.scalars(
+                select(User)
+                .where(
+                    func.lower(User.username).startswith(prefix.lower()),
+                    User.activated_on.is_not(None),
+                )
+                .order_by(func.lower(User.username))
+                .limit(limit)
+            )
+        ).all()
 
     async def get_user_by_identifier(self, identifier: str) -> User | None:
         return await self.db_session.scalar(

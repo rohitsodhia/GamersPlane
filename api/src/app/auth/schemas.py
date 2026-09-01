@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, EmailStr, Field
+from pydantic import AfterValidator, EmailStr, Field
 
 from app.models import User
+from app.schema_base import SchemaBase
 
 
 def _validate_password_length(v: str) -> str:
@@ -16,36 +17,36 @@ def _validate_password_length(v: str) -> str:
 Password = Annotated[str, AfterValidator(_validate_password_length)]
 
 
-class UserInput(BaseModel):
+class UserInput(SchemaBase):
     identifier: str
     password: Password
 
 
-class RegistrationResponse(BaseModel):
+class RegistrationResponse(SchemaBase):
     registered: bool = True
 
 
-class AuthResponse(BaseModel):
+class AuthResponse(SchemaBase):
     logged_in: bool
     jwt: str
     user: dict
 
 
-class RegisterInput(BaseModel):
+class RegisterInput(SchemaBase):
     email: EmailStr
     username: str = Field(..., pattern=r"^[a-zA-Z]\w+$")
     password: Password
 
 
-class PasswordResetResponse(BaseModel):
+class PasswordResetResponse(SchemaBase):
     valid_token: bool
 
 
-class RefreshResponse(BaseModel):
+class RefreshResponse(SchemaBase):
     jwt: str
 
 
-class ResetPasswordInput(BaseModel):
+class ResetPasswordInput(SchemaBase):
     email: EmailStr
     token: str
     password: Password

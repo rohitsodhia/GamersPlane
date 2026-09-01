@@ -9,7 +9,7 @@ from tests.factories import ForumFactory
 class TestForumRepository:
     @pytest.fixture
     async def repository(self, db_session, wrap_in_savepoint):
-        return ForumRepository(db_session, auth=[])
+        return ForumRepository(db_session, principal=None)
 
     async def test_add(self, repository, create):
         parent = await create(ForumFactory, heritage=[])

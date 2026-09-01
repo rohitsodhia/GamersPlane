@@ -7,6 +7,7 @@ from .player_repository import PlayerRepository
 from .pm_repository import PMRepository
 from .post_repository import PostRepository
 from .publisher_repository import PublisherRepository
+from .rbac_repository import RBACkRepository
 from .referral_link_repository import ReferralLinkRepository
 from .system_repository import SystemRepository
 from .thread_repository import ThreadRepository

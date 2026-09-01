@@ -31,12 +31,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "permissions",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("permission", sa.String(length=64), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_table(
         "publishers",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=40), nullable=False),
@@ -107,6 +101,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=64), nullable=False),
         sa.Column("plural", sa.String(length=64), nullable=False),
         sa.Column("owner_id", sa.Integer(), nullable=False),
+        sa.Column("game_role", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
@@ -115,8 +110,20 @@ def upgrade() -> None:
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("name"),
-        sa.UniqueConstraint("plural"),
+    )
+    op.create_index(
+        "uq_roles_name_active",
+        "roles",
+        ["name"],
+        unique=True,
+        postgresql_where=sa.text("deleted IS NULL"),
+    )
+    op.create_index(
+        "uq_roles_plural_active",
+        "roles",
+        ["plural"],
+        unique=True,
+        postgresql_where=sa.text("deleted IS NULL"),
     )
     op.create_table(
         "systems",
@@ -166,20 +173,37 @@ def upgrade() -> None:
     )
     op.create_table(
         "role_permissions",
+        sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("role_id", sa.Integer(), nullable=False),
-        sa.Column("permission_id", sa.Integer(), nullable=False),
+        sa.Column("permission", sa.String(length=64), nullable=False),
+        sa.Column("scope_type", sa.String(length=16), nullable=True),
+        sa.Column("scope_id", sa.Integer(), nullable=True),
+        sa.Column(
+            "effect",
+            sa.String(length=8),
+            nullable=False,
+            server_default="allow",
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
-            ["permission_id"],
-            ["permissions.id"],
-        ),
-        sa.ForeignKeyConstraint(
             ["role_id"],
             ["roles.id"],
         ),
-        sa.PrimaryKeyConstraint("role_id", "permission_id"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "role_id",
+            "permission",
+            "scope_type",
+            "scope_id",
+            name="uq_role_permissions_grant",
+            postgresql_nulls_not_distinct=True,
+        ),
+        sa.CheckConstraint(
+            "(scope_type IS NULL) = (scope_id IS NULL)",
+            name="ck_role_permissions_scope_complete",
+        ),
     )
     op.create_table(
         "system_genres",
@@ -231,6 +255,5 @@ def downgrade() -> None:
     op.drop_table("users")
     op.drop_table("referral_links")
     op.drop_table("publishers")
-    op.drop_table("permissions")
     op.drop_table("genres")
     # ### end Alembic commands ###

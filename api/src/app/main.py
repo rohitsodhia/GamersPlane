@@ -31,6 +31,7 @@ from app.me.routes import me
 from app.pms.legacy_routes import pms as legacy_pms
 from app.pms.routes import pms
 from app.posts.routes import posts
+from app.rbac.routes import rbac
 from app.referral_links.routes import referral_links
 from app.schemas import ErrorItem
 from app.systems.legacy_routes import systems as legacy_systems
@@ -159,5 +160,6 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(tools)
     app.include_router(games)
     app.include_router(deck_types)
+    app.include_router(rbac)
 
     return app

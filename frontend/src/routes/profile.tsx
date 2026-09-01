@@ -1,9 +1,10 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { FadeOut } from "#/components/FadeOut";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
+import { useFlash } from "#/lib/use-flash";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	deleteUserAvatar,
@@ -28,8 +29,8 @@ export const Route = createFileRoute("/profile")({
 function RouteComponent() {
 	const { data: me } = useSuspenseQuery(meFullQueryOptions);
 	const queryClient = useQueryClient();
-	const [showProfileSuccess, setShowProfileSuccess] = useState(false);
-	const [showSecuritySuccess, setShowSecuritySuccess] = useState(false);
+	const [profileSaved, flashProfileSaved] = useFlash();
+	const [securitySaved, flashSecuritySaved] = useFlash();
 
 	const updateSettingsMutation = useMutation({ mutationFn: updateUserSettings });
 	const updateAvatarMutation = useMutation({ mutationFn: updateUserAvatar });
@@ -66,8 +67,7 @@ function RouteComponent() {
 
 			await refreshMe(queryClient);
 
-			setShowProfileSuccess(true);
-			setTimeout(() => setShowProfileSuccess(false), 3000);
+			flashProfileSaved();
 		},
 	});
 
@@ -82,8 +82,7 @@ function RouteComponent() {
 
 			formApi.reset();
 
-			setShowSecuritySuccess(true);
-			setTimeout(() => setShowSecuritySuccess(false), 3000);
+			flashSecuritySaved();
 		},
 	});
 
@@ -392,19 +391,12 @@ function RouteComponent() {
 							<button type="submit" disabled={!canSubmit} className="skew-btn">
 								Save
 							</button>
+							<FadeOut active={profileSaved} className={styles["save-indicator"]}>
+								Saved
+							</FadeOut>
 						</div>
 					)}
 				</profileSettingsForm.Subscribe>
-				<div className="is-container">
-					<div
-						className={`banner success-banner ${showProfileSuccess ? "is-visible" : ""}`}
-					>
-						Settings saved
-					</div>
-					<output aria-live="polite" className="visually-hidden">
-						{showProfileSuccess ? "Settings saved" : ""}
-					</output>{" "}
-				</div>
 			</form>
 
 			<h2 className="headerbar hb-dark" ref={securityHbMargined.ref}>
@@ -523,19 +515,12 @@ function RouteComponent() {
 							<button type="submit" disabled={!canSubmit} className="skew-btn">
 								Save
 							</button>
+							<FadeOut active={securitySaved} className={styles["save-indicator"]}>
+								Saved
+							</FadeOut>
 						</div>
 					)}
 				</securityForm.Subscribe>
-				<div className="is-container">
-					<div
-						className={`banner success-banner ${showSecuritySuccess ? "is-visible" : ""}`}
-					>
-						Settings saved
-					</div>
-					<output aria-live="polite" className="visually-hidden">
-						{showSecuritySuccess ? "Settings saved" : ""}
-					</output>{" "}
-				</div>
 			</form>
 		</div>
 	);

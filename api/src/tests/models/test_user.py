@@ -1,6 +1,6 @@
 import bcrypt
 
-from app.models import Permission, Role, User, UserMeta
+from app.models import Role, RolePermission, User, UserMeta
 from tests.factories import UserFactory
 
 
@@ -59,44 +59,95 @@ class TestAvatar:
         self, create, db_session
     ):
         user = await create(UserFactory)
-        user.meta.append(
-            UserMeta(key=UserMeta.MetaKeys.AVATAR_EXT.value, value="png")
-        )
+        user.meta.append(UserMeta(key=UserMeta.MetaKeys.AVATAR_EXT.value, value="png"))
         await db_session.flush()
 
         assert user.avatar == f"{user.id}.png"
 
 
-class TestPermissions:
-    async def test_no_roles_returns_empty_list(self, create):
-        user = await create(UserFactory)
+def _user() -> User:
+    return User(username="perm-test", email="perm-test@example.com")
 
-        assert user.permissions == []
 
-    async def test_aggregates_permissions_across_roles(
-        self, create, db_session, wrap_in_savepoint
-    ):
-        user = await create(UserFactory)
-        role = Role(name="Admins", owner=user)
-        permission = Permission(permission="admin")
-        role.permissions.append(permission)
+class TestGlobalPermissions:
+    def test_no_roles_returns_empty_set(self):
+        assert _user().global_permissions == set()
+
+    def test_unions_global_allows_across_roles_and_grants(self):
+        user = _user()
+        shared = RolePermission.ValidPermissions.ADMIN
+        admins = Role(name="Admins", owner=user)
+        admins.grant(shared)
+        admins.grant(RolePermission.ValidPermissions.ACP_ACCESS)
+        mods = Role(name="Moderators", owner=user)
+        mods.grant(shared)
+        mods.grant(RolePermission.ValidPermissions.ROLE_ADMIN)
+        user.roles.extend([admins, mods])
+
+        assert user.global_permissions == {"admin", "access_acp", "role_admin"}
+
+    def test_global_deny_overrides_global_allow_from_another_role(self):
+        user = _user()
+        allow = RolePermission.ValidPermissions.ADMIN
+        grants_role = Role(name="Admins", owner=user)
+        grants_role.grant(allow)
+        blocks_role = Role(name="Restricted", owner=user)
+        blocks_role.grant(allow, effect=RolePermission.Effects.DENY)
+        user.roles.extend([grants_role, blocks_role])
+
+        assert user.global_permissions == set()
+
+    def test_scoped_grant_is_ignored(self):
+        user = _user()
+        role = Role(name="PR Mods", owner=user)
+        role.grant(
+            RolePermission.ValidPermissions.FORUM_MODERATE,
+            scope_type=RolePermission.ScopeTypes.FORUM,
+            scope_id=5,
+        )
         user.roles.append(role)
-        db_session.add_all([role, permission])
-        await db_session.flush()
 
-        assert user.permissions == ["admin"]
+        assert user.global_permissions == set()
 
-    async def test_dedupes_permissions_shared_across_roles(
-        self, create, db_session, wrap_in_savepoint
-    ):
-        user = await create(UserFactory)
-        shared = Permission(permission="admin")
-        role_a = Role(name="Admins", owner=user)
-        role_b = Role(name="Moderators", owner=user)
-        role_a.permissions.append(shared)
-        role_b.permissions.append(shared)
-        user.roles.extend([role_a, role_b])
-        db_session.add_all([role_a, role_b, shared])
-        await db_session.flush()
+    def test_scoped_deny_does_not_suppress_global_allow_of_same_verb(self):
+        user = _user()
+        perm = RolePermission.ValidPermissions.FORUM_ACCESS
+        role = Role(name="Mixed", owner=user)
+        role.grant(perm)
+        role.grant(
+            perm,
+            scope_type=RolePermission.ScopeTypes.FORUM,
+            scope_id=5,
+            effect=RolePermission.Effects.DENY,
+        )
+        user.roles.append(role)
 
-        assert user.permissions == ["admin"]
+        assert user.global_permissions == {"access_forum"}
+
+
+class TestRoleGrant:
+    def test_defaults_to_global_allow(self):
+        role = Role(name="Admins", owner=_user())
+        permission = RolePermission.ValidPermissions.ADMIN
+
+        rp = role.grant(permission)
+
+        assert rp in role.grants
+        assert rp.permission is permission
+        assert rp.scope_type is None
+        assert rp.scope_id is None
+        assert rp.effect is RolePermission.Effects.ALLOW
+
+    def test_passes_scope_and_effect_through(self):
+        role = Role(name="PR Mods", owner=_user())
+
+        rp = role.grant(
+            RolePermission.ValidPermissions.FORUM_MODERATE,
+            scope_type=RolePermission.ScopeTypes.FORUM,
+            scope_id=7,
+            effect=RolePermission.Effects.DENY,
+        )
+
+        assert rp.scope_type is RolePermission.ScopeTypes.FORUM
+        assert rp.scope_id == 7
+        assert rp.effect is RolePermission.Effects.DENY

@@ -59,7 +59,12 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
     root_forum_id: Mapped[int] = mapped_column(ForeignKey("forums.id"))
     root_forum: Mapped[Forum] = relationship(foreign_keys=[root_forum_id])
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
-    role: Mapped[Role] = relationship()
+    role: Mapped[Role] = relationship(foreign_keys=[role_id])
+    # Roles created within this game (Role.game_role points back here). The game's
+    # primary role is `role` above; this collection is every role scoped to the game.
+    game_roles: Mapped[list[Role]] = relationship(
+        "Role", foreign_keys="Role.game_role", back_populates="game"
+    )
     status: Mapped[Statuses] = mapped_column(
         LabelEnumType(Statuses, Boolean), default=Statuses.OPEN
     )

@@ -59,6 +59,16 @@ export function userQueryOptions(userId: number) {
 	});
 }
 
+export const searchUsers = async (username: string): Promise<SearchUser[]> => {
+	const res = await apiFetch(
+		`/users/autocomplete?username=${encodeURIComponent(username)}`,
+	);
+	if (!res.ok) {
+		throw new Error("Failed to search users");
+	}
+	return ((await res.json()) as { users: SearchUser[] }).users;
+};
+
 export const searchUserByUsername = async (
 	username: string,
 ): Promise<SearchUser | null> => {

@@ -1,5 +1,5 @@
-function getTokenExpiry(token: string): number | null {
-	const payload = token.split(".")[1];
+function getTokenExpiry(token: string | null | undefined): number | null {
+	const payload = token?.split(".")[1];
 	if (!payload) return null;
 
 	try {
@@ -11,12 +11,15 @@ function getTokenExpiry(token: string): number | null {
 	}
 }
 
-export function isTokenValid(token: string): boolean {
+export function isTokenValid(token: string | null | undefined): boolean {
 	const expiry = getTokenExpiry(token);
 	return expiry !== null && Date.now() < expiry;
 }
 
-export function isTokenExpiringSoon(token: string, withinMs: number): boolean {
+export function isTokenExpiringSoon(
+	token: string | null | undefined,
+	withinMs: number,
+): boolean {
 	const expiry = getTokenExpiry(token);
 	return expiry !== null && expiry - Date.now() < withinMs;
 }

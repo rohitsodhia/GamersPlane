@@ -9,9 +9,9 @@ from app.models import Forum, Post, Thread, User
 
 
 class PostRepository:
-    def __init__(self, db_session: AsyncSession, auth: list[str]):
+    def __init__(self, db_session: AsyncSession, principal: User):
         self.db_session = db_session
-        self.auth = auth
+        self.principal = principal
 
     async def count_by_author(self, author_id: int) -> tuple[int, int]:
         """Returns (game_post_count, community_post_count) for a user."""

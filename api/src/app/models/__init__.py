@@ -5,18 +5,15 @@ from .forum import Forum
 from .game import Game
 from .game_allowed_char_sheets import GameAllowedSystem
 from .genre import Genre
-from .permission import Permission
 from .player import Player
 from .pm import PM
 from .post import Post
 from .publisher import Publisher
+from .rbac import Role, RolePermission, UserRole
 from .referral_link import ReferralLink
-from .role import Role
-from .role_permission import RolePermission
 from .system import System
 from .system_genres import SystemGenre
 from .thread import Thread
 from .token import AccountActivationToken, PasswordResetToken, Token
 from .user import User
 from .user_meta import UserMeta
-from .user_roles import UserRoles

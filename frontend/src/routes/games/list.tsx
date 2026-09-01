@@ -3,6 +3,7 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { Autocomplete } from "#/components/Autocomplete";
+import { DEBOUNCE_MS } from "#/lib/constants";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import styles from "./list.module.css";
@@ -37,7 +38,7 @@ function RouteComponent() {
 					page: undefined,
 				}),
 			});
-		}, 300);
+		}, DEBOUNCE_MS);
 		return () => clearTimeout(timer);
 	}, [searchInput]);
 
