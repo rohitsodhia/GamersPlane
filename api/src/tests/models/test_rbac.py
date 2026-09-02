@@ -19,7 +19,7 @@ class TestScopeAllowed:
         assert Verbs.ROLE_ADMIN.scope_allowed(Scopes.FORUM) is False
 
     def test_forum_verbs_only_allow_forum_scope(self):
-        for verb in (Verbs.FORUM_ACCESS, Verbs.FORUM_MODERATE):
+        for verb in (Verbs.FORUM_READ, Verbs.FORUM_WRITE, Verbs.FORUM_MODERATE):
             assert verb.scope_allowed(Scopes.FORUM) is True
             assert verb.scope_allowed(None) is False
             assert verb.scope_allowed(Scopes.ROLE) is False

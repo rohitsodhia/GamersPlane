@@ -13,7 +13,7 @@ from app.database import DBSessionDependency
 from app.helpers.decorators import public
 from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
-from app.middleware import Principal
+from app.middleware import Principal, enforce_login_eligibility
 from app.models import PasswordResetToken, User
 from app.repositories import UserRepository
 from app.schemas import ErrorItem
@@ -33,18 +33,20 @@ async def login(user_details: schemas.UserInput, db_session: DBSessionDependency
 
     identifier = user_details.identifier.lower()
     user = await user_repository.get_user_by_identifier(identifier)
-    if user:
-        password = user_details.password
-        if user.check_pass(password):
-            await user_repository.update_last_activity(user)
-            return {
-                "logged_in": True,
-                "jwt": user.generate_jwt(),
-                "user": {
-                    "username": user.username,
-                    "email": user.email,
-                },
-            }
+    if user and user.check_pass(user_details.password):
+        # Only disclose a ban/suspension once the password checks out, so it
+        # isn't a probe for which accounts exist. Raises BannedException /
+        # SuspendedException, handled as a 403 with a "banned"/"suspended" code.
+        enforce_login_eligibility(user)
+        await user_repository.update_last_activity(user)
+        return {
+            "logged_in": True,
+            "jwt": user.generate_jwt(),
+            "user": {
+                "username": user.username,
+                "email": user.email,
+            },
+        }
     return error_response(
         status_code=status.HTTP_404_NOT_FOUND,
         errors=[ErrorItem(code="invalid_user", detail="Invalid username or password")],
@@ -56,6 +58,8 @@ async def login(user_details: schemas.UserInput, db_session: DBSessionDependency
     response_model=schemas.RefreshResponse,
 )
 async def refresh(current_user: Principal):
+    # check_authorization already rejects banned/suspended users on this
+    # (non-public) route before the handler runs.
     return {"jwt": current_user.generate_jwt()}
 
 

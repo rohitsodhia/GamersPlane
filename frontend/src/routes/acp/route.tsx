@@ -1,7 +1,8 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 import { requireAuth } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { meQueryOptions } from "#/queries/me";
+import { hasPermission, meQueryOptions } from "#/queries/me";
 import styles from "./acp.module.css";
 
 export const Route = createFileRoute("/acp")({
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/acp")({
 
 function RouteComponent() {
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
+	const { data: me } = useSuspenseQuery(meQueryOptions);
 
 	return (
 		<div>
@@ -30,12 +32,19 @@ function RouteComponent() {
 				className={styles["acp-wrapper"]}
 				style={{ marginInline: `${hbMargined.margin}px` }}
 			>
-				<nav>
+				<nav className={styles.sidebar}>
 					<h2>Menu</h2>
 					<ul>
-						<li>
-							<Link to="/acp/rbac">RBAC</Link>
-						</li>
+						{hasPermission(me, "admin") && (
+							<li>
+								<Link to="/acp/rbac">RBAC</Link>
+							</li>
+						)}
+						{hasPermission(me, "manage_users") && (
+							<li>
+								<Link to="/acp/users">Users</Link>
+							</li>
+						)}
 					</ul>
 				</nav>
 				<Outlet />

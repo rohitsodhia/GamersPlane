@@ -50,10 +50,12 @@ class ValidPermissions(LabelEnum):
     # cover every forum, grant against the root forum (id 0); it cascades down.
     ADMIN = "admin", "Administrator", frozenset({None}), False
     ACP_ACCESS = "access_acp", "Access ACP", frozenset({None}), True
+    MANAGE_USERS = "manage_users", "Manage Users", frozenset({None}), True
     ROLE_ADMIN = "role_admin", "Manage Role", frozenset({ScopeTypes.ROLE}), True
-    FORUM_ACCESS = "access_forum", "View Forum", frozenset({ScopeTypes.FORUM}), True
+    FORUM_READ = "forum_read", "View Forum", frozenset({ScopeTypes.FORUM}), True
+    FORUM_WRITE = "forum_write", "Write Forum", frozenset({ScopeTypes.FORUM}), True
     FORUM_MODERATE = (
-        "moderate_forum",
+        "forum_moderate",
         "Moderate Forum",
         frozenset({ScopeTypes.FORUM}),
         True,

@@ -6,7 +6,7 @@ import pytest
 from fastapi import Request
 
 from app.configs import configs
-from app.exceptions import ForbiddenException
+from app.exceptions import BannedException, ForbiddenException, SuspendedException
 from app.middleware import check_authorization, validate_jwt
 from app.models import Role, RolePermission
 from tests.factories import UserFactory
@@ -117,6 +117,11 @@ class TestValidateJwt:
 _OMIT = object()
 
 
+def fake_user(block=None, suspended_until=None):
+    """Stand-in user for check_authorization: only login_block matters here."""
+    return SimpleNamespace(login_block=lambda: block, suspended_until=suspended_until)
+
+
 class TestCheckAuthorization:
     def route_scope(
         self, is_public=False, user=None, required=None, auth=_OMIT
@@ -137,7 +142,7 @@ class TestCheckAuthorization:
         await check_authorization(request)
 
     async def test_public_route_with_user_is_allowed(self):
-        request = make_request(scope=self.route_scope(is_public=True, user=object()))
+        request = make_request(scope=self.route_scope(is_public=True, user=fake_user()))
 
         await check_authorization(request)
 
@@ -148,14 +153,14 @@ class TestCheckAuthorization:
             await check_authorization(request)
 
     async def test_private_route_with_user_is_allowed(self):
-        request = make_request(scope=self.route_scope(is_public=False, user=object()))
+        request = make_request(scope=self.route_scope(is_public=False, user=fake_user()))
 
         await check_authorization(request)
 
     async def test_required_permission_held_is_allowed(self):
         request = make_request(
             scope=self.route_scope(
-                user=object(), required=["access_acp"], auth=["access_acp"]
+                user=fake_user(), required=["access_acp"], auth=["access_acp"]
             )
         )
 
@@ -164,7 +169,7 @@ class TestCheckAuthorization:
     async def test_required_permission_missing_is_forbidden(self):
         request = make_request(
             scope=self.route_scope(
-                user=object(), required=["access_acp"], auth=["moderate_forum"]
+                user=fake_user(), required=["access_acp"], auth=["forum_moderate"]
             )
         )
 
@@ -174,9 +179,9 @@ class TestCheckAuthorization:
     async def test_any_one_of_the_required_permissions_suffices(self):
         request = make_request(
             scope=self.route_scope(
-                user=object(),
-                required=["access_acp", "moderate_forum"],
-                auth=["moderate_forum"],
+                user=fake_user(),
+                required=["access_acp", "forum_moderate"],
+                auth=["forum_moderate"],
             )
         )
 
@@ -185,7 +190,7 @@ class TestCheckAuthorization:
     async def test_admin_verb_overrides_missing_required_permission(self):
         request = make_request(
             scope=self.route_scope(
-                user=object(), required=["access_acp"], auth=["admin"]
+                user=fake_user(), required=["access_acp"], auth=["admin"]
             )
         )
 
@@ -193,7 +198,7 @@ class TestCheckAuthorization:
 
     async def test_required_permission_with_no_auth_in_scope_is_forbidden(self):
         request = make_request(
-            scope=self.route_scope(user=object(), required=["access_acp"])
+            scope=self.route_scope(user=fake_user(), required=["access_acp"])
         )
 
         with pytest.raises(ForbiddenException):
@@ -201,7 +206,33 @@ class TestCheckAuthorization:
 
     async def test_empty_requires_is_ignored(self):
         request = make_request(
-            scope=self.route_scope(user=object(), required=[], auth=[])
+            scope=self.route_scope(user=fake_user(), required=[], auth=[])
+        )
+
+        await check_authorization(request)
+
+    async def test_banned_user_on_private_route_raises_banned(self):
+        request = make_request(
+            scope=self.route_scope(user=fake_user(block="banned"))
+        )
+
+        with pytest.raises(BannedException):
+            await check_authorization(request)
+
+    async def test_suspended_user_on_private_route_raises_suspended(self):
+        until = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
+        request = make_request(
+            scope=self.route_scope(
+                user=fake_user(block="suspended", suspended_until=until)
+            )
+        )
+
+        with pytest.raises(SuspendedException):
+            await check_authorization(request)
+
+    async def test_banned_user_on_public_route_is_allowed(self):
+        request = make_request(
+            scope=self.route_scope(is_public=True, user=fake_user(block="banned"))
         )
 
         await check_authorization(request)

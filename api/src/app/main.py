@@ -17,9 +17,11 @@ from app.database import (
 )
 from app.deck_types.routes import deck_types
 from app.exceptions import (
+    BannedException,
     ConflictException,
     ForbiddenException,
     NotFoundException,
+    SuspendedException,
     ValidationError,
 )
 from app.forums.routes import forums
@@ -127,6 +129,18 @@ def create_app(init_db=True) -> FastAPI:
     async def forbidden_exception_handler(request: Request, exc: ForbiddenException):
         return error_response(
             status_code=403, errors=[ErrorItem(code="forbidden", detail=str(exc))]
+        )
+
+    @app.exception_handler(BannedException)
+    async def banned_exception_handler(request: Request, exc: BannedException):
+        return error_response(
+            status_code=403, errors=[ErrorItem(code="banned", detail=str(exc))]
+        )
+
+    @app.exception_handler(SuspendedException)
+    async def suspended_exception_handler(request: Request, exc: SuspendedException):
+        return error_response(
+            status_code=403, errors=[ErrorItem(code="suspended", detail=str(exc))]
         )
 
     @app.exception_handler(ValidationError)

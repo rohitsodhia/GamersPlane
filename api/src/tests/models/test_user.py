@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import bcrypt
 
 from app.models import Role, RolePermission, User, UserMeta
@@ -47,6 +49,38 @@ class TestActivate:
         user.activate()
 
         assert user.activated_on is not None
+
+
+class TestLoginBlock:
+    async def test_clean_user_is_not_blocked(self, create):
+        user = await create(UserFactory)
+
+        assert user.login_block() is None
+
+    async def test_banned_user_is_blocked(self, create):
+        user = await create(UserFactory)
+        user.banned = datetime.now(timezone.utc)
+
+        assert user.login_block() == "banned"
+
+    async def test_future_suspension_blocks(self, create):
+        user = await create(UserFactory)
+        user.suspended_until = datetime.now(timezone.utc) + timedelta(days=1)
+
+        assert user.login_block() == "suspended"
+
+    async def test_past_suspension_does_not_block(self, create):
+        user = await create(UserFactory)
+        user.suspended_until = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+        assert user.login_block() is None
+
+    async def test_ban_takes_precedence_over_suspension(self, create):
+        user = await create(UserFactory)
+        user.banned = datetime.now(timezone.utc)
+        user.suspended_until = datetime.now(timezone.utc) + timedelta(days=1)
+
+        assert user.login_block() == "banned"
 
 
 class TestAvatar:
@@ -111,7 +145,7 @@ class TestGlobalPermissions:
 
     def test_scoped_deny_does_not_suppress_global_allow_of_same_verb(self):
         user = _user()
-        perm = RolePermission.ValidPermissions.FORUM_ACCESS
+        perm = RolePermission.ValidPermissions.FORUM_READ
         role = Role(name="Mixed", owner=user)
         role.grant(perm)
         role.grant(
@@ -122,7 +156,7 @@ class TestGlobalPermissions:
         )
         user.roles.append(role)
 
-        assert user.global_permissions == {"access_forum"}
+        assert user.global_permissions == {"forum_read"}
 
 
 class TestRoleGrant:

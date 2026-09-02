@@ -85,6 +85,22 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
     def check_pass(self, password: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), self.password.encode("utf-8"))
 
+    def login_block(self) -> str | None:
+        """Why this user may not hold an authenticated session, or ``None``.
+
+        ``"banned"`` is permanent; ``"suspended"`` lasts until ``suspended_until``
+        (a past timestamp no longer blocks). Checked both at ``/auth/login`` and
+        on every authenticated request by ``app.middleware.check_authorization``.
+        """
+        if self.banned is not None:
+            return "banned"
+        if (
+            self.suspended_until is not None
+            and self.suspended_until > datetime.datetime.now(datetime.timezone.utc)
+        ):
+            return "suspended"
+        return None
+
     def generate_jwt(self, exp_len: dict | None = None) -> str:
         if not exp_len:
             exp_len = {"weeks": 2}

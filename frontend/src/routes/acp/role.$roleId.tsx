@@ -6,6 +6,7 @@ import { FadeOut } from "#/components/FadeOut";
 import { Select } from "#/components/Select";
 import { UserAutocomplete, type UserRef } from "#/components/UserAutocomplete";
 import { ApiError } from "#/lib/api";
+import { requireAcpPermission } from "#/lib/auth-route";
 import { useFlash } from "#/lib/use-flash";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
@@ -29,7 +30,9 @@ export const Route = createFileRoute("/acp/role/$roleId")({
 		parse: ({ roleId }) => ({ roleId: Number(roleId) }),
 		stringify: ({ roleId }) => ({ roleId: String(roleId) }),
 	},
-	loader: async ({ context, params }) => {
+	loader: async (opts) => {
+		await requireAcpPermission("admin")(opts);
+		const { context, params } = opts;
 		await Promise.all([
 			context.queryClient.ensureQueryData(roleQueryOptions(params.roleId)),
 			context.queryClient.ensureQueryData(permissionsQueryOptions),

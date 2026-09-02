@@ -1,9 +1,16 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import {
+	useMutation,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { lastActivityText } from "#/lib/users";
-import { userQueryOptions } from "#/queries/users";
+import { hasPermission, meQueryOptions } from "#/queries/me";
+import { toggleUserBan, userQueryOptions } from "#/queries/users";
+import { useAuthStore } from "#/stores/auth";
 import styles from "./user.$userId.module.css";
 
 export const Route = createFileRoute("/user/$userId")({
@@ -27,8 +34,18 @@ function RouteComponent() {
 	const { userId } = Route.useParams();
 	const { data: user } = useSuspenseQuery(userQueryOptions(userId));
 
-	const allowBan = true;
-	const banState = 0;
+	const queryClient = useQueryClient();
+	const token = useAuthStore((state) => state.token);
+	const { data: me } = useQuery({ ...meQueryOptions, enabled: !!token });
+
+	// user 1 is the protected system account and can't be banned
+	const allowBan = hasPermission(me, "manage_users") && user.id !== 1;
+
+	const ban = useMutation({
+		mutationFn: () => toggleUserBan(user.id),
+		onSuccess: () =>
+			queryClient.invalidateQueries({ queryKey: userQueryOptions(userId).queryKey }),
+	});
 
 	const charCount = user.characters.count;
 	const gameCount = user.gmStats.count;
@@ -56,8 +73,13 @@ function RouteComponent() {
 				<div className={styles["user-profile-info"]}>
 					{allowBan && (
 						<div className="align-right">
-							<button type="button" onClick={() => {}} className="skew-btn">
-								{banState === 1 ? "Unban" : "Ban"} User
+							<button
+								type="button"
+								onClick={() => ban.mutate()}
+								disabled={ban.isPending}
+								className="skew-btn"
+							>
+								{user.banned ? "Unban" : "Ban"} User
 							</button>
 						</div>
 					)}
