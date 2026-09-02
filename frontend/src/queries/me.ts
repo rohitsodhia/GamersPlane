@@ -3,11 +3,28 @@ import { ApiError, apiFetch } from "#/lib/api";
 
 export type PostSide = "r" | "l" | "c";
 
-type MeResponse = {
+export type MeResponse = {
 	id: number;
 	username: string;
 	avatar: string;
 	acp: boolean;
+	permissions: string[];
+};
+
+// Global permission verb that satisfies every check (mirrors the API's ADMIN_OVERRIDE).
+const ADMIN_VERB = "admin";
+
+/**
+ * True if the current user holds any of `verbs` as a global permission. Holding
+ * the `admin` verb satisfies any check.
+ */
+export const hasPermission = (
+	me: Pick<MeResponse, "permissions"> | null | undefined,
+	...verbs: string[]
+): boolean => {
+	if (!me) return false;
+	if (me.permissions.includes(ADMIN_VERB)) return true;
+	return verbs.some((verb) => me.permissions.includes(verb));
 };
 
 type MeFullApiResponse = MeResponse & {
@@ -82,6 +99,7 @@ export const refreshMe = async (queryClient: QueryClient) => {
 		username: full.username,
 		avatar: full.avatar,
 		acp: full.acp,
+		permissions: full.permissions,
 	});
 };
 

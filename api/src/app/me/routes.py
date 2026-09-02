@@ -44,6 +44,7 @@ async def get_current_user(current_user: Principal, full: bool = False):
         "acp": current_user.has_global_permission(
             RolePermission.ValidPermissions.ACP_ACCESS.value
         ),
+        "permissions": sorted(current_user.global_permissions),
     }
     if full:
         output["joinDate"] = current_user.join_date

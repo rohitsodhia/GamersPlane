@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
+from app.configs import configs
 from app.models import Role, User, UserMeta
 
 
@@ -63,6 +64,49 @@ class UserRepository:
             )
         ).all()
 
+    @staticmethod
+    def _list_users_filters(prefix: str | None, banned: bool | None):
+        # Unlike search/autocomplete this deliberately includes unactivated
+        # accounts: the user-management screen needs them to resend activation.
+        filters = []
+        if prefix:
+            filters.append(func.lower(User.username).startswith(prefix.lower()))
+        if banned is True:
+            filters.append(User.banned.is_not(None))
+        elif banned is False:
+            filters.append(User.banned.is_(None))
+        return filters
+
+    async def get_users(
+        self,
+        *,
+        prefix: str | None = None,
+        banned: bool | None = None,
+        page: int = 1,
+        limit: int = configs.PAGINATE_PER_PAGE,
+    ) -> Sequence[User]:
+        # meta is always eager-loaded: User.avatar reads it even for lightweight rows.
+        statement = (
+            select(User)
+            .where(*self._list_users_filters(prefix, banned))
+            .order_by(User.join_date, User.id)
+            .limit(limit)
+            .offset((page - 1) * limit)
+            .options(selectinload(User.meta))
+        )
+        return (await self.db_session.scalars(statement)).all()
+
+    async def count_users(
+        self, *, prefix: str | None = None, banned: bool | None = None
+    ) -> int:
+        return (
+            await self.db_session.scalar(
+                select(func.count())
+                .select_from(User)
+                .where(*self._list_users_filters(prefix, banned))
+            )
+        ) or 0
+
     async def get_user_by_identifier(self, identifier: str) -> User | None:
         return await self.db_session.scalar(
             select(User)
@@ -101,6 +145,13 @@ class UserRepository:
             user.meta.remove(existing_user_meta)
             await self.db_session.delete(existing_user_meta)
             await self.db_session.flush()
+
+    async def toggle_ban(self, user: User) -> datetime | None:
+        """Flip a user's ban state: unbanned -> banned now, banned -> unbanned."""
+        user.banned = None if user.banned else datetime.now(timezone.utc)
+        self.db_session.add(user)
+        await self.db_session.flush()
+        return user.banned
 
     async def update_last_activity(self, user: User) -> None:
         now = datetime.now(timezone.utc)

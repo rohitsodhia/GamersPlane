@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta, timezone
+
+import pytest
 from sqlalchemy import select
 
 from app.models import AccountActivationToken, PasswordResetToken, User
@@ -105,6 +108,75 @@ class TestLogin:
         assert response.status_code == 404
         assert user.last_activity is None
 
+    async def test_login_banned_user_is_told_they_are_banned(
+        self, client, create, db_session
+    ):
+        user = await create(
+            ActivatedUserFactory, username="bannedlogin", password="ValidPass1!"
+        )
+        user.banned = datetime.now(timezone.utc)
+        await db_session.flush()
+
+        response = await client.post(
+            "/auth/login",
+            json={"identifier": "bannedlogin", "password": "ValidPass1!"},
+        )
+
+        assert response.status_code == 403
+        assert response.json()["errors"][0]["code"] == "banned"
+        assert user.last_activity is None
+
+    async def test_login_suspended_user_is_told_they_are_suspended(
+        self, client, create, db_session
+    ):
+        user = await create(
+            ActivatedUserFactory, username="suspendedlogin", password="ValidPass1!"
+        )
+        user.suspended_until = datetime.now(timezone.utc) + timedelta(days=3)
+        await db_session.flush()
+
+        response = await client.post(
+            "/auth/login",
+            json={"identifier": "suspendedlogin", "password": "ValidPass1!"},
+        )
+
+        assert response.status_code == 403
+        assert response.json()["errors"][0]["code"] == "suspended"
+
+    async def test_login_succeeds_once_suspension_has_elapsed(
+        self, client, create, db_session
+    ):
+        user = await create(
+            ActivatedUserFactory, username="unsuspended", password="ValidPass1!"
+        )
+        user.suspended_until = datetime.now(timezone.utc) - timedelta(seconds=1)
+        await db_session.flush()
+
+        response = await client.post(
+            "/auth/login",
+            json={"identifier": "unsuspended", "password": "ValidPass1!"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["logged_in"] is True
+
+    async def test_login_ban_is_not_disclosed_on_wrong_password(
+        self, client, create, db_session
+    ):
+        user = await create(
+            ActivatedUserFactory, username="bannedwrong", password="ValidPass1!"
+        )
+        user.banned = datetime.now(timezone.utc)
+        await db_session.flush()
+
+        response = await client.post(
+            "/auth/login",
+            json={"identifier": "bannedwrong", "password": "WrongPass1!"},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["errors"][0]["code"] == "invalid_user"
+
 
 class TestRefresh:
     async def test_refresh_requires_auth(self, client):
@@ -119,6 +191,31 @@ class TestRefresh:
 
         assert response.status_code == 200
         assert response.json()["jwt"]
+
+    @pytest.mark.parametrize(
+        "field, value, code",
+        [
+            ("banned", datetime.now(timezone.utc), "banned"),
+            (
+                "suspended_until",
+                datetime.now(timezone.utc) + timedelta(days=1),
+                "suspended",
+            ),
+        ],
+    )
+    async def test_refresh_rejected_for_blocked_user(
+        self, authed_client, db_session, field, value, code
+    ):
+        # /auth/refresh has no ban check of its own; the middleware rejects the
+        # blocked user (still resolved as an identity by validate_jwt) first.
+        client, user = authed_client
+        setattr(user, field, value)
+        await db_session.flush()
+
+        response = await client.post("/auth/refresh")
+
+        assert response.status_code == 403
+        assert response.json()["errors"][0]["code"] == code
 
 
 class TestRegister:

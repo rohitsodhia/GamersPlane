@@ -19,6 +19,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SystemsRouteImport } from './routes/systems'
 import { Route as AcpIndexRouteImport } from './routes/acp/index'
 import { Route as AcpRbacRouteImport } from './routes/acp/rbac'
+import { Route as AcpUsersRouteImport } from './routes/acp/users'
 import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
 import { Route as GamesIndexRouteImport } from './routes/games/index'
 import { Route as GamesListRouteImport } from './routes/games/list'
@@ -89,6 +90,11 @@ const AcpIndexRoute = AcpIndexRouteImport.update({
 const AcpRbacRoute = AcpRbacRouteImport.update({
   id: '/rbac',
   path: '/rbac',
+  getParentRoute: () => AcpRouteRoute,
+} as any)
+const AcpUsersRoute = AcpUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => AcpRouteRoute,
 } as any)
 const ForumsChar123ForumIdChar125Route =
@@ -208,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
+  '/acp/users': typeof AcpUsersRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
   '/games/new': typeof GamesNewRoute
@@ -240,6 +247,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
+  '/acp/users': typeof AcpUsersRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/new': typeof GamesNewRoute
   '/pms/$pmId': typeof PmsPmIdRoute
@@ -273,6 +281,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
+  '/acp/users': typeof AcpUsersRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
   '/games/new': typeof GamesNewRoute
@@ -308,6 +317,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/systems'
     | '/acp/rbac'
+    | '/acp/users'
     | '/forums/{-$forumId}'
     | '/games/list'
     | '/games/new'
@@ -340,6 +350,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/systems'
     | '/acp/rbac'
+    | '/acp/users'
     | '/forums/{-$forumId}'
     | '/games/new'
     | '/pms/$pmId'
@@ -372,6 +383,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/systems'
     | '/acp/rbac'
+    | '/acp/users'
     | '/forums/{-$forumId}'
     | '/games/list'
     | '/games/new'
@@ -496,6 +508,13 @@ declare module '@tanstack/react-router' {
       path: '/rbac'
       fullPath: '/acp/rbac'
       preLoaderRoute: typeof AcpRbacRouteImport
+      parentRoute: typeof AcpRouteRoute
+    }
+    '/acp/users': {
+      id: '/acp/users'
+      path: '/users'
+      fullPath: '/acp/users'
+      preLoaderRoute: typeof AcpUsersRouteImport
       parentRoute: typeof AcpRouteRoute
     }
     '/forums/{-$forumId}': {
@@ -650,12 +669,14 @@ declare module '@tanstack/react-router' {
 
 interface AcpRouteRouteChildren {
   AcpRbacRoute: typeof AcpRbacRoute
+  AcpUsersRoute: typeof AcpUsersRoute
   AcpIndexRoute: typeof AcpIndexRoute
   AcpRoleRoleIdRoute: typeof AcpRoleRoleIdRoute
 }
 
 const AcpRouteRouteChildren: AcpRouteRouteChildren = {
   AcpRbacRoute: AcpRbacRoute,
+  AcpUsersRoute: AcpUsersRoute,
   AcpIndexRoute: AcpIndexRoute,
   AcpRoleRoleIdRoute: AcpRoleRoleIdRoute,
 }

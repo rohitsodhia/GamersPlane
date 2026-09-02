@@ -5,11 +5,13 @@ import { useState } from "react";
 import { z } from "zod";
 import { UserAutocomplete, type UserRef } from "#/components/UserAutocomplete";
 import { ApiError } from "#/lib/api";
+import { requireAcpPermission } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { createRole, rolesQueryOptions } from "#/queries/rbac";
 import styles from "./acp.module.css";
 
 export const Route = createFileRoute("/acp/rbac")({
+	loader: requireAcpPermission("admin"),
 	component: RouteComponent,
 	validateSearch: z.object({
 		gameRoles: z.boolean().optional().catch(undefined),

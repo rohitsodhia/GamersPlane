@@ -113,9 +113,11 @@ class TestGetPermissions:
         # filtered out, every other verb must be present.
         assert {p["value"] for p in permissions} == {
             "access_acp",
+            "manage_users",
             "role_admin",
-            "access_forum",
-            "moderate_forum",
+            "forum_read",
+            "forum_write",
+            "forum_moderate",
         }
         acp = next(p for p in permissions if p["value"] == "access_acp")
         assert acp["label"] == "Access ACP"
@@ -127,7 +129,7 @@ class TestGetPermissions:
 
         by_value = {p["value"]: p["scopes"] for p in response.json()["permissions"]}
         assert by_value["access_acp"] == ["global"]
-        assert by_value["access_forum"] == ["forum"]
+        assert by_value["forum_read"] == ["forum"]
         assert by_value["role_admin"] == ["role"]
 
 
@@ -646,7 +648,7 @@ class TestCreateGrant:
         response = await client.post(
             f"/rbac/roles/{role.id}/grants",
             json={
-                "permission": "moderate_forum",
+                "permission": "forum_moderate",
                 "scope_type": "forum",
                 "scope_id": forum.id,
             },
@@ -694,7 +696,7 @@ class TestCreateGrant:
         assert response.status_code == 400
         assert (await client.get(f"/rbac/roles/{role.id}")).json()["grants"] == []
 
-    @pytest.mark.parametrize("permission", ["role_admin", "access_forum"])
+    @pytest.mark.parametrize("permission", ["role_admin", "forum_read"])
     async def test_scope_requiring_verb_without_scope_returns_400(
         self, authed_client, db_session, permission
     ):
@@ -711,7 +713,7 @@ class TestCreateGrant:
     @pytest.mark.parametrize(
         "extra",
         [
-            {"permission": "access_forum", "scope_type": "forum"},
+            {"permission": "forum_read", "scope_type": "forum"},
             {"permission": "access_acp", "scope_id": 5},
         ],
     )
@@ -732,7 +734,7 @@ class TestCreateGrant:
         response = await client.post(
             f"/rbac/roles/{role.id}/grants",
             json={
-                "permission": "moderate_forum",
+                "permission": "forum_moderate",
                 "scope_type": "forum",
                 "scope_id": 999999,
             },

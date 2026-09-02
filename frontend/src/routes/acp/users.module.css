@@ -1,0 +1,33 @@
+.search {
+	display: flex;
+	gap: 0.5em;
+	margin-bottom: 1em;
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+}
+
+.row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5em 1em;
+	padding: 0.5em;
+
+	&:hover {
+		background: light-dark(#f5f5f5, #222);
+	}
+}
+
+.actions {
+	display: flex;
+	gap: 0.5em;
+}
+
+.no-results {
+	padding: 1em 0;
+	color: #666;
+}

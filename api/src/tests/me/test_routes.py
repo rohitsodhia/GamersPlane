@@ -4,13 +4,23 @@ import pytest
 from PIL import Image
 
 from app.configs import configs
-from tests.factories import PMFactory, UserFactory
+from app.models import RolePermission
+from tests.factories import PMFactory, RoleFactory, UserFactory
 
 
 def _make_png_bytes(size=(10, 10)):
     buffer = io.BytesIO()
     Image.new("RGB", size, color="red").save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+async def _give_permission(db_session, user, verb):
+    """Attach a role holding one global grant so the auth middleware sees it."""
+    role = RoleFactory.build(owner=user)
+    db_session.add(role)
+    role.grant(verb)
+    user.roles.append(role)
+    await db_session.flush()
 
 
 class TestGetCurrentUser:
@@ -30,6 +40,33 @@ class TestGetCurrentUser:
         assert body["username"] == user.username
         assert "joinDate" not in body
         assert "pronouns" not in body
+
+    async def test_get_current_user_permissions_empty_without_grants(
+        self, authed_client
+    ):
+        client, _user = authed_client
+
+        response = await client.get("/me")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["permissions"] == []
+        assert body["acp"] is False
+
+    async def test_get_current_user_reports_global_permission_verbs(
+        self, authed_client, db_session
+    ):
+        client, user = authed_client
+        await _give_permission(
+            db_session, user, RolePermission.ValidPermissions.MANAGE_USERS
+        )
+
+        response = await client.get("/me")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["permissions"] == ["manage_users"]
+        assert body["acp"] is False
 
     async def test_get_current_user_full_includes_profile_fields(self, authed_client):
         client, _user = authed_client

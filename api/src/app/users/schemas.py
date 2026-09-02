@@ -32,16 +32,21 @@ class UserDict(SchemaBase):
     avatar: str
     joinDate: datetime
     lastActivity: datetime | None = None
-    pronouns: str | None
+    activated: bool = True
+    banned: datetime | None = None
+    # Everything below is "full" data: populated by GET /users/{id} always, and by
+    # GET /users only when full=true. Optional so response_model_exclude_none can
+    # omit it on the lightweight list rows.
+    pronouns: str | None = None
     showAge: bool = False
-    age: str | None
-    location: str | None
-    postCount: int
-    communityPostCount: int
-    gamePostCount: int
-    activeGames: list[ActiveGameData]
-    characters: SystemsCountData
-    gmStats: SystemsCountData
+    age: str | None = None
+    location: str | None = None
+    postCount: int | None = None
+    communityPostCount: int | None = None
+    gamePostCount: int | None = None
+    activeGames: list[ActiveGameData] | None = None
+    characters: SystemsCountData | None = None
+    gmStats: SystemsCountData | None = None
 
 
 class GetUserResponse(SchemaBase):
@@ -59,3 +64,13 @@ class SearchUserResponse(SchemaBase):
 
 class SearchUsersResponse(SchemaBase):
     users: list[SearchUserDict]
+
+
+class GetUsersResponse(SchemaBase):
+    users: list[UserDict]
+    count: int
+    page: int
+
+
+class BanUserResponse(SchemaBase):
+    banned: datetime | None
