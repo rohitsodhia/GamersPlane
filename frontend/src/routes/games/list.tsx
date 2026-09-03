@@ -80,7 +80,10 @@ function RouteComponent() {
 							items={availableSystems}
 							getId={(system: BasicSystem) => system.id}
 							getLabel={(system: BasicSystem) => system.name}
-							onAction={(id) => setSelectedSystemIds((prev) => [...prev, id])}
+							onAction={(id, { clear }) => {
+								setSelectedSystemIds((prev) => [...prev, id]);
+								clear();
+							}}
 						/>
 						{selectedSystemIds.length > 0 && (
 							<ul className={styles["systems-list"]}>

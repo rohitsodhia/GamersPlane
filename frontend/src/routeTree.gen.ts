@@ -20,6 +20,8 @@ import { Route as SystemsRouteImport } from './routes/systems'
 import { Route as AcpIndexRouteImport } from './routes/acp/index'
 import { Route as AcpRbacRouteImport } from './routes/acp/rbac'
 import { Route as AcpUsersRouteImport } from './routes/acp/users'
+import { Route as CharactersIndexRouteImport } from './routes/characters/index'
+import { Route as CharactersNewRouteImport } from './routes/characters/new'
 import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
 import { Route as GamesIndexRouteImport } from './routes/games/index'
 import { Route as GamesListRouteImport } from './routes/games/list'
@@ -35,6 +37,8 @@ import { Route as ToolsCardsRouteImport } from './routes/tools/cards'
 import { Route as ToolsDiceRouteImport } from './routes/tools/dice'
 import { Route as UserUserIdRouteImport } from './routes/user.$userId'
 import { Route as AcpRoleRoleIdRouteImport } from './routes/acp/role.$roleId'
+import { Route as CharactersSheetsIndexRouteImport } from './routes/characters/sheets/index'
+import { Route as CharactersSheetsSheetIdRouteImport } from './routes/characters/sheets/$sheetId'
 import { Route as ForumsEditPostPostIdRouteImport } from './routes/forums/edit-post.$postId'
 import { Route as ForumsNewThreadForumIdRouteImport } from './routes/forums/new-thread.$forumId'
 import { Route as ForumsThreadThreadIdRouteImport } from './routes/forums/thread.$threadId'
@@ -96,6 +100,16 @@ const AcpUsersRoute = AcpUsersRouteImport.update({
   id: '/users',
   path: '/users',
   getParentRoute: () => AcpRouteRoute,
+} as any)
+const CharactersIndexRoute = CharactersIndexRouteImport.update({
+  id: '/characters/',
+  path: '/characters/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CharactersNewRoute = CharactersNewRouteImport.update({
+  id: '/characters/new',
+  path: '/characters/new',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ForumsChar123ForumIdChar125Route =
   ForumsChar123ForumIdChar125RouteImport.update({
@@ -173,6 +187,16 @@ const AcpRoleRoleIdRoute = AcpRoleRoleIdRouteImport.update({
   path: '/role/$roleId',
   getParentRoute: () => AcpRouteRoute,
 } as any)
+const CharactersSheetsIndexRoute = CharactersSheetsIndexRouteImport.update({
+  id: '/characters/sheets/',
+  path: '/characters/sheets/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CharactersSheetsSheetIdRoute = CharactersSheetsSheetIdRouteImport.update({
+  id: '/characters/sheets/$sheetId',
+  path: '/characters/sheets/$sheetId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ForumsEditPostPostIdRoute = ForumsEditPostPostIdRouteImport.update({
   id: '/forums/edit-post/$postId',
   path: '/forums/edit-post/$postId',
@@ -215,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
+  '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
   '/games/new': typeof GamesNewRoute
@@ -227,14 +252,17 @@ export interface FileRoutesByFullPath {
   '/tools/dice': typeof ToolsDiceRoute
   '/user/$userId': typeof UserUserIdRoute
   '/acp/': typeof AcpIndexRoute
+  '/characters/': typeof CharactersIndexRoute
   '/games/': typeof GamesIndexRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
+  '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
+  '/characters/sheets/': typeof CharactersSheetsIndexRoute
   '/games/$gameId/': typeof GamesGameIdIndexRoute
   '/games/list/': typeof GamesListIndexRoute
 }
@@ -248,6 +276,7 @@ export interface FileRoutesByTo {
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
+  '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/new': typeof GamesNewRoute
   '/pms/$pmId': typeof PmsPmIdRoute
@@ -259,14 +288,17 @@ export interface FileRoutesByTo {
   '/tools/dice': typeof ToolsDiceRoute
   '/user/$userId': typeof UserUserIdRoute
   '/acp': typeof AcpIndexRoute
+  '/characters': typeof CharactersIndexRoute
   '/games': typeof GamesIndexRoute
   '/pms': typeof PmsIndexRoute
   '/register': typeof RegisterIndexRoute
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
+  '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
+  '/characters/sheets': typeof CharactersSheetsIndexRoute
   '/games/$gameId': typeof GamesGameIdIndexRoute
   '/games/list': typeof GamesListIndexRoute
 }
@@ -282,6 +314,7 @@ export interface FileRoutesById {
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
+  '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
   '/games/new': typeof GamesNewRoute
@@ -294,14 +327,17 @@ export interface FileRoutesById {
   '/tools/dice': typeof ToolsDiceRoute
   '/user/$userId': typeof UserUserIdRoute
   '/acp/': typeof AcpIndexRoute
+  '/characters/': typeof CharactersIndexRoute
   '/games/': typeof GamesIndexRoute
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
+  '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
+  '/characters/sheets/': typeof CharactersSheetsIndexRoute
   '/games/$gameId/': typeof GamesGameIdIndexRoute
   '/games/list/': typeof GamesListIndexRoute
 }
@@ -318,6 +354,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/acp/rbac'
     | '/acp/users'
+    | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/list'
     | '/games/new'
@@ -330,14 +367,17 @@ export interface FileRouteTypes {
     | '/tools/dice'
     | '/user/$userId'
     | '/acp/'
+    | '/characters/'
     | '/games/'
     | '/pms/'
     | '/register/'
     | '/acp/role/$roleId'
+    | '/characters/sheets/$sheetId'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
+    | '/characters/sheets/'
     | '/games/$gameId/'
     | '/games/list/'
   fileRoutesByTo: FileRoutesByTo
@@ -351,6 +391,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/acp/rbac'
     | '/acp/users'
+    | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/new'
     | '/pms/$pmId'
@@ -362,14 +403,17 @@ export interface FileRouteTypes {
     | '/tools/dice'
     | '/user/$userId'
     | '/acp'
+    | '/characters'
     | '/games'
     | '/pms'
     | '/register'
     | '/acp/role/$roleId'
+    | '/characters/sheets/$sheetId'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
+    | '/characters/sheets'
     | '/games/$gameId'
     | '/games/list'
   id:
@@ -384,6 +428,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/acp/rbac'
     | '/acp/users'
+    | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/list'
     | '/games/new'
@@ -396,14 +441,17 @@ export interface FileRouteTypes {
     | '/tools/dice'
     | '/user/$userId'
     | '/acp/'
+    | '/characters/'
     | '/games/'
     | '/pms/'
     | '/register/'
     | '/acp/role/$roleId'
+    | '/characters/sheets/$sheetId'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
+    | '/characters/sheets/'
     | '/games/$gameId/'
     | '/games/list/'
   fileRoutesById: FileRoutesById
@@ -417,6 +465,7 @@ export interface RootRouteChildren {
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
+  CharactersNewRoute: typeof CharactersNewRoute
   ForumsChar123ForumIdChar125Route: typeof ForumsChar123ForumIdChar125Route
   GamesListRoute: typeof GamesListRouteWithChildren
   GamesNewRoute: typeof GamesNewRoute
@@ -428,13 +477,16 @@ export interface RootRouteChildren {
   ToolsCardsRoute: typeof ToolsCardsRoute
   ToolsDiceRoute: typeof ToolsDiceRoute
   UserUserIdRoute: typeof UserUserIdRoute
+  CharactersIndexRoute: typeof CharactersIndexRoute
   GamesIndexRoute: typeof GamesIndexRoute
   PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
+  CharactersSheetsSheetIdRoute: typeof CharactersSheetsSheetIdRoute
   ForumsEditPostPostIdRoute: typeof ForumsEditPostPostIdRoute
   ForumsNewThreadForumIdRoute: typeof ForumsNewThreadForumIdRoute
   ForumsThreadThreadIdRoute: typeof ForumsThreadThreadIdRoute
   GamesGameIdEditRoute: typeof GamesGameIdEditRoute
+  CharactersSheetsIndexRoute: typeof CharactersSheetsIndexRoute
   GamesGameIdIndexRoute: typeof GamesGameIdIndexRoute
 }
 
@@ -516,6 +568,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/acp/users'
       preLoaderRoute: typeof AcpUsersRouteImport
       parentRoute: typeof AcpRouteRoute
+    }
+    '/characters/': {
+      id: '/characters/'
+      path: '/characters'
+      fullPath: '/characters/'
+      preLoaderRoute: typeof CharactersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/characters/new': {
+      id: '/characters/new'
+      path: '/characters/new'
+      fullPath: '/characters/new'
+      preLoaderRoute: typeof CharactersNewRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/forums/{-$forumId}': {
       id: '/forums/{-$forumId}'
@@ -622,6 +688,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AcpRoleRoleIdRouteImport
       parentRoute: typeof AcpRouteRoute
     }
+    '/characters/sheets/': {
+      id: '/characters/sheets/'
+      path: '/characters/sheets'
+      fullPath: '/characters/sheets/'
+      preLoaderRoute: typeof CharactersSheetsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/characters/sheets/$sheetId': {
+      id: '/characters/sheets/$sheetId'
+      path: '/characters/sheets/$sheetId'
+      fullPath: '/characters/sheets/$sheetId'
+      preLoaderRoute: typeof CharactersSheetsSheetIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forums/edit-post/$postId': {
       id: '/forums/edit-post/$postId'
       path: '/forums/edit-post/$postId'
@@ -706,6 +786,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,
+  CharactersNewRoute: CharactersNewRoute,
   ForumsChar123ForumIdChar125Route: ForumsChar123ForumIdChar125Route,
   GamesListRoute: GamesListRouteWithChildren,
   GamesNewRoute: GamesNewRoute,
@@ -717,13 +798,16 @@ const rootRouteChildren: RootRouteChildren = {
   ToolsCardsRoute: ToolsCardsRoute,
   ToolsDiceRoute: ToolsDiceRoute,
   UserUserIdRoute: UserUserIdRoute,
+  CharactersIndexRoute: CharactersIndexRoute,
   GamesIndexRoute: GamesIndexRoute,
   PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
+  CharactersSheetsSheetIdRoute: CharactersSheetsSheetIdRoute,
   ForumsEditPostPostIdRoute: ForumsEditPostPostIdRoute,
   ForumsNewThreadForumIdRoute: ForumsNewThreadForumIdRoute,
   ForumsThreadThreadIdRoute: ForumsThreadThreadIdRoute,
   GamesGameIdEditRoute: GamesGameIdEditRoute,
+  CharactersSheetsIndexRoute: CharactersSheetsIndexRoute,
   GamesGameIdIndexRoute: GamesGameIdIndexRoute,
 }
 export const routeTree = rootRouteImport

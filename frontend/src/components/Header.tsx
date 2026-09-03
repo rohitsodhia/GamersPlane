@@ -102,6 +102,11 @@ function Header() {
 						<li>
 							<Link to="/systems">Systems</Link>
 						</li>
+						{me && (
+							<li>
+								<Link to="/characters">Characters</Link>
+							</li>
+						)}
 						<li>
 							<Link to="/games">Games</Link>
 						</li>

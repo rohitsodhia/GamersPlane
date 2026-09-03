@@ -21,7 +21,10 @@ export function Autocomplete<T>({
 	items: T[];
 	getId: (item: T) => string;
 	getLabel: (item: T) => string;
-	onAction: (id: string) => void;
+	// Fired when an item is picked. By default the picked item's label stays in
+	// the box (single-value picker). `controls.clear()` empties it — call it from
+	// pickers that accumulate a list and want a fresh input for the next pick.
+	onAction: (id: string, controls: { clear: () => void }) => void;
 	onInputChange?: (value: string) => void;
 	// When supplied, the caller drives the input value (and must keep it in sync
 	// via onInputChange). Left undefined, the input stays uncontrolled.
@@ -53,7 +56,7 @@ export function Autocomplete<T>({
 		>
 			<RACAutocomplete
 				filter={isAsync ? undefined : contains}
-				inputValue={controlledValue}
+				inputValue={inputValue}
 				onInputChange={(value) => {
 					setUncontrolledValue(value);
 					onInputChange?.(value);
@@ -66,7 +69,19 @@ export function Autocomplete<T>({
 					<Menu
 						items={items}
 						onAction={(key) => {
-							onAction(key as string);
+							// Behave like an input: keep the picked item's label in the box.
+							// The caller can override via controls.clear(). Controlled callers
+							// drive the value themselves through onInputChange.
+							if (controlledValue === undefined) {
+								const picked = items.find((item) => getId(item) === String(key));
+								if (picked) setUncontrolledValue(getLabel(picked));
+							}
+							onAction(key as string, {
+								clear: () => {
+									setUncontrolledValue("");
+									onInputChange?.("");
+								},
+							});
 							setIsOpen(false);
 						}}
 					>
