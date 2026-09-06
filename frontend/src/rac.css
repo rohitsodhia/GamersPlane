@@ -158,12 +158,18 @@
 
 .react-aria-Select {
 	display: inline-flex;
+	max-width: 100%;
 
 	.react-aria-Button {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5em;
-		width: min(100%, var(--rac-field-width));
+		/* Fixed target width rather than `min(100%, …)`: the Select box is
+		   `inline-flex`, so a `100%` here resolves against its own shrink-wrapped
+		   size and the trigger collapses to the selected label's width (nothing,
+		   when blank). `max-width` still lets it shrink inside a narrow parent. */
+		width: var(--rac-field-width);
+		max-width: 100%;
 		justify-content: space-between;
 		padding: var(--rac-item-padding);
 		cursor: pointer;
@@ -173,6 +179,37 @@
 			outline-offset: 1px;
 		}
 	}
+}
+
+/* Auto-width mode: the trigger sizes to the widest option label (native
+   `<select>` behaviour). The Button and a hidden per-option sizer share one
+   grid cell, so the column grows to whichever is wider — the sizer, since it
+   covers every label. Each sizer row mirrors the Button's box (padding, border,
+   gap, arrow) so the reserved width matches what the trigger actually needs. */
+.react-aria-Select--auto-width {
+	display: inline-grid;
+	max-width: 100%;
+}
+
+.react-aria-Select--auto-width > .react-aria-Button {
+	grid-area: 1 / 1;
+	width: 100%;
+}
+
+.react-aria-Select-sizer {
+	grid-area: 1 / 1;
+	height: 0;
+	overflow: hidden;
+	visibility: hidden;
+}
+
+.react-aria-Select-sizer-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+	padding: var(--rac-item-padding);
+	border: 1px solid transparent;
+	white-space: pre;
 }
 
 /* The Select's Popover is portalled to <body>, so it can't be reached through a
