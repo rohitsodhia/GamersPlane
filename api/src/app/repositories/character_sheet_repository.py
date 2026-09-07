@@ -1,5 +1,8 @@
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload, undefer
 
+from app.character_sheets.defaults import empty_sheet_layout
 from app.models import CharacterSheet, User
 
 
@@ -8,11 +11,34 @@ class CharacterSheetRepository:
         self.db_session = db_session
         self.principal = principal
 
-    async def create(self, label: str, system_id: str) -> CharacterSheet:
+    async def create(
+        self, name: str, system_id: str, layout: dict | None = None
+    ) -> CharacterSheet:
         char_sheet = CharacterSheet(
-            creator_id=self.principal.id, label=label, system_id=system_id
+            creator_id=self.principal.id,
+            name=name,
+            system_id=system_id,
+            layout=layout if layout is not None else empty_sheet_layout(),
         )
         self.db_session.add(char_sheet)
         await self.db_session.flush()
 
         return char_sheet
+
+    async def update(self, char_sheet: CharacterSheet, *, layout: dict) -> CharacterSheet:
+        char_sheet.layout = layout
+        await self.db_session.flush()
+
+        return char_sheet
+
+    async def get(self, id: int) -> CharacterSheet | None:
+        query = (
+            select(CharacterSheet)
+            .where(CharacterSheet.id == id)
+            .options(
+                selectinload(CharacterSheet.creator),
+                selectinload(CharacterSheet.system),
+                undefer(CharacterSheet.layout),
+            )
+        )
+        return await self.db_session.scalar(query)
