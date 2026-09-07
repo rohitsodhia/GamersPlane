@@ -25,7 +25,7 @@ async def create_char_sheet(
 
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
     char_sheet = await char_sheet_repository.create(
-        label=data.label, system_id=data.system_id
+        name=data.name, system_id=data.system_id
     )
 
     return schemas.CreateCharSheetResponse(id=char_sheet.id)

@@ -26,19 +26,19 @@ function RouteComponent() {
 
 	const form = useForm({
 		defaultValues: {
-			label: "",
+			name: "",
 			systemId: "",
 		},
 		onSubmit: async ({ value }) => {
 			setApiErrors([]);
 			try {
 				const result = await mutation.mutateAsync({
-					label: value.label,
+					name: value.name,
 					system_id: value.systemId,
 				});
 				navigate({
 					to: "/characters/sheets/$sheetId",
-					params: { sheetId: String(result.id) },
+					params: { sheetId: result.id },
 				});
 			} catch (exception) {
 				if (exception instanceof ApiError) {
@@ -75,7 +75,7 @@ function RouteComponent() {
 					className="grid-layout"
 				>
 					<form.Field
-						name="label"
+						name="name"
 						validators={{
 							onBlur: ({ value }) => (value ? undefined : "Label is required."),
 						}}
@@ -83,7 +83,7 @@ function RouteComponent() {
 						{(field) => (
 							<div>
 								<label htmlFor={field.name} className="center-vertically">
-									Label
+									Name
 								</label>
 								<div>
 									<input

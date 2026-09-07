@@ -28,7 +28,7 @@ class CharacterSheet(Base, SoftDeleteMixin, TimestampMixin):
     root_id: Mapped[int | None] = mapped_column(
         ForeignKey("character_sheets.id"), index=True
     )
-    label: Mapped[str] = mapped_column()
+    name: Mapped[str] = mapped_column()
     system_id: Mapped[str] = mapped_column(
         String(20), ForeignKey("systems.id"), index=True
     )

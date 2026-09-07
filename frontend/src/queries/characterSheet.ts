@@ -1,7 +1,7 @@
 import { ApiError, apiFetch } from "#/lib/api";
 
 export type NewCharacterSheetInput = {
-	label: string;
+	name: string;
 	system_id: string;
 };
 

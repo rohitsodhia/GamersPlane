@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column("creator_id", sa.Integer(), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
         sa.Column("root_id", sa.Integer(), nullable=True),
-        sa.Column("label", sa.String(), nullable=False),
+        sa.Column("name", sa.String(), nullable=False),
         sa.Column("system_id", sa.String(length=20), nullable=False),
         sa.Column("layout", sa.JSON(), nullable=False),
         sa.Column("status", sa.String(length=12), nullable=False),
@@ -149,13 +149,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_posts_thread_id"), table_name="posts")
     op.drop_table("posts")
     op.drop_table("characters")
-    op.drop_index(
-        op.f("ix_character_sheets_status"), table_name="character_sheets"
-    )
-    op.drop_index(
-        op.f("ix_character_sheets_system_id"), table_name="character_sheets"
-    )
-    op.drop_index(
-        op.f("ix_character_sheets_root_id"), table_name="character_sheets"
-    )
+    op.drop_index(op.f("ix_character_sheets_status"), table_name="character_sheets")
+    op.drop_index(op.f("ix_character_sheets_system_id"), table_name="character_sheets")
+    op.drop_index(op.f("ix_character_sheets_root_id"), table_name="character_sheets")
     op.drop_table("character_sheets")
