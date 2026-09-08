@@ -1,0 +1,30 @@
+/*
+ * Full-height sheet editor: body already stretches `main` via its `auto 1fr auto`
+ * rows, but `.page-wrap` is itself a grid with content-sized (auto) implicit rows.
+ * `minmax(0, 1fr)` hands that height down to the editor and lets it shrink instead
+ * of overflowing. Scoped with `:has()` so other routes keep their natural height.
+ */
+:global(.page-wrap):has(> .sheet-editor) {
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.sheet-editor {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.sheet-editor > .code-display {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+}
+
+.sheet-editor > .code-display > textarea {
+	flex: 1;
+	width: 100%;
+	min-height: 0;
+	box-sizing: border-box;
+	resize: none;
+	font-family: var(--font-mono, ui-monospace, monospace);
+}
