@@ -24,10 +24,18 @@
 
 .char-sheet-section {
 	display: flex;
+	/* Stack by default, matching `.char-sheet` and `.char-sheet-group`. Authors
+	   opt into a row with `char-sheet-section--row`. */
+	flex-direction: column;
 	gap: 0.75rem;
 	padding: 0.75rem;
 	border: 1px solid light-dark(oklch(0.85 0 0), oklch(0.4 0 0));
 	border-radius: 4px;
+}
+
+.char-sheet-section--row {
+	flex-direction: row;
+	align-items: flex-start;
 }
 
 /* --- Group (label + control wrapper) ----------------------------------- */
@@ -326,4 +334,10 @@
    iteration is an <li>). Block so iterations stack. */
 .char-sheet-loop-item {
 	display: block;
+}
+
+/* --- Header ----------------------------------------------------------------- */
+
+.char-sheet h2 {
+	margin-block: 0;
 }
