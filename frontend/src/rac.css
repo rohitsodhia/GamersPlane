@@ -47,6 +47,44 @@
 	}
 }
 
+/* A SearchField driving a persistent ListBox beneath it (FilterableListBox):
+   stack label / input / list instead of the inline combobox layout. */
+.filterable-listbox {
+	.react-aria-SearchField {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.react-aria-Label {
+		font-weight: bold;
+		margin-bottom: 0.2em;
+	}
+
+	.react-aria-ListBox {
+		width: min(100%, var(--rac-field-width));
+		margin-top: 0.3em;
+		padding: 0;
+		list-style: none;
+		max-height: var(--rac-list-max-height);
+		overflow-y: auto;
+		border: 1px solid var(--rac-border-color);
+		border-radius: var(--rac-radius);
+		background-color: var(--rac-bg);
+		color: var(--text);
+		outline: none;
+
+		&[data-empty] {
+			padding: var(--rac-item-padding);
+			color: light-dark(#666, #999);
+		}
+	}
+
+	.react-aria-ListBoxItem[data-selected] {
+		font-weight: bold;
+	}
+}
+
 .react-aria-SearchField {
 	display: inline-flex;
 	align-items: center;
