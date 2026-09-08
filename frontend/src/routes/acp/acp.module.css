@@ -2,6 +2,10 @@
 	display: grid;
 	grid-template-columns: 150px 1fr;
 	gap: 1em;
+
+	:global(h2.headerbar) {
+		margin-top: 0;
+	}
 }
 
 .sidebar {
@@ -12,10 +16,6 @@
 		font-size: 1.2em;
 		margin-bottom: 0.5em;
 	}
-}
-
-:global(h2.headerbar) {
-	margin-top: 0;
 }
 
 .roles-switch-btn {
