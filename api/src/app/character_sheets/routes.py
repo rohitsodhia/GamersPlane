@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.character_sheets import schemas
 from app.character_sheets.defaults import default_sheet_layout
+from app.character_sheets.layout_validation import validate_sheet_layout
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
 from app.middleware import Principal
@@ -80,6 +81,8 @@ async def update_char_sheet(
 
     if char_sheet.creator_id != principal.id:
         raise ForbiddenException("Only the creator can edit this character sheet")
+
+    validate_sheet_layout(data.layout)
 
     char_sheet = await char_sheet_repository.update(char_sheet, layout=data.layout)
 

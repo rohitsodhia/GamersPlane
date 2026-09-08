@@ -112,3 +112,19 @@ class TestUpdateCharSheet:
 
         await db_session.refresh(sheet, ["layout"])
         assert sheet.layout == new_layout
+
+    async def test_rejects_a_layout_off_the_sheet_profile(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        auth_as(creator)
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={"layout": {"version": 1, "elements": [{"type": "bogus"}]}},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["errors"][0]["code"] == "validation_error"
+
+        await db_session.refresh(sheet, ["layout"])
+        assert sheet.layout == {"version": 1, "elements": []}
