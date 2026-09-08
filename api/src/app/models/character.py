@@ -23,6 +23,6 @@ class Character(Base, SoftDeleteMixin, TimestampMixin):
     character_sheet_id: Mapped[int] = mapped_column(ForeignKey("character_sheets.id"))
     character_sheet: Mapped[CharacterSheet] = relationship()
     label: Mapped[str] = mapped_column()
-    name: Mapped[str] = mapped_column()
+    name: Mapped[str] = mapped_column(nullable=True)
     type: Mapped[Type] = mapped_column(LabelEnumType(Type, String(5)))
     values: Mapped[dict | None] = mapped_column(JSON(), nullable=True)

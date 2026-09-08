@@ -70,7 +70,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("character_sheet_id", sa.Integer(), nullable=False),
         sa.Column("label", sa.String(), nullable=False),
-        sa.Column("name", sa.String(), nullable=False),
+        sa.Column("name", sa.String(), nullable=True),
         sa.Column("type", sa.String(length=5), nullable=False),
         sa.Column("values", sa.JSON(), nullable=True),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
