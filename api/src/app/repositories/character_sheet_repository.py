@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
 from app.character_sheets.defaults import empty_sheet_layout
-from app.models import CharacterSheet, User
+from app.models import CharacterSheet, CharacterSheetFavorite, User
 
 
 class CharacterSheetRepository:
@@ -30,6 +30,32 @@ class CharacterSheetRepository:
         await self.db_session.flush()
 
         return char_sheet
+
+    async def get_by_creator_id(self, creator_id: int) -> list[CharacterSheet]:
+        query = (
+            select(CharacterSheet)
+            .where(CharacterSheet.creator_id == creator_id)
+            .options(
+                selectinload(CharacterSheet.creator),
+                selectinload(CharacterSheet.system),
+            )
+        )
+        return list(await self.db_session.scalars(query))
+
+    async def get_favorited_by_user_id(self, user_id: int) -> list[CharacterSheet]:
+        query = (
+            select(CharacterSheet)
+            .join(
+                CharacterSheetFavorite,
+                CharacterSheetFavorite.character_sheet_id == CharacterSheet.id,
+            )
+            .where(CharacterSheetFavorite.user_id == user_id)
+            .options(
+                selectinload(CharacterSheet.creator),
+                selectinload(CharacterSheet.system),
+            )
+        )
+        return list(await self.db_session.scalars(query))
 
     async def get(self, id: int) -> CharacterSheet | None:
         query = (

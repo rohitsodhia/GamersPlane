@@ -4,19 +4,6 @@ from app.models import CharacterSheet
 from app.schema_base import SchemaBase, filtered_str
 
 
-class CreateCharSheetInput(SchemaBase):
-    name: str = filtered_str()
-    system_id: str
-
-
-class CreateCharSheetResponse(SchemaBase):
-    id: int
-
-
-class UpdateCharSheetInput(SchemaBase):
-    layout: dict
-
-
 class UserData(SchemaBase):
     id: int
     username: str
@@ -26,6 +13,31 @@ class UserData(SchemaBase):
 class SystemData(SchemaBase):
     id: str
     name: str
+
+
+class CreateCharSheetInput(SchemaBase):
+    name: str = filtered_str()
+    system_id: str
+
+
+class CreateCharSheetResponse(SchemaBase):
+    id: int
+
+
+class BasicCharSheetData(SchemaBase):
+    id: int
+    name: str
+    creator: UserData
+    system: SystemData
+    favorited: bool
+
+
+class GetMyCharSheetsResponse(SchemaBase):
+    char_sheets: list[BasicCharSheetData]
+
+
+class UpdateCharSheetInput(SchemaBase):
+    layout: dict
 
 
 class GetCharSheetResponse(SchemaBase):

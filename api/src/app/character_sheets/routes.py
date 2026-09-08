@@ -53,6 +53,44 @@ async def create_char_sheet(
     return schemas.CreateCharSheetResponse(id=char_sheet.id)
 
 
+@character_sheets.get("/my", response_model=schemas.GetMyCharSheetsResponse)
+async def get_my_char_sheets(db_session: DBSessionDependency, principal: Principal):
+    char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
+    created = await char_sheet_repository.get_by_creator_id(principal.id)
+    favorited = await char_sheet_repository.get_favorited_by_user_id(principal.id)
+
+    favorited_ids = {char_sheet.id for char_sheet in favorited}
+    by_id = {char_sheet.id: char_sheet for char_sheet in (*created, *favorited)}
+
+    ordered = sorted(
+        by_id.values(),
+        key=lambda char_sheet: (
+            char_sheet.id not in favorited_ids,
+            char_sheet.name.lower(),
+        ),
+    )
+
+    return schemas.GetMyCharSheetsResponse(
+        char_sheets=[
+            schemas.BasicCharSheetData(
+                id=char_sheet.id,
+                name=char_sheet.name,
+                creator=schemas.UserData(
+                    id=char_sheet.creator.id,
+                    username=char_sheet.creator.username,
+                    avatar=char_sheet.creator.avatar,
+                ),
+                system=schemas.SystemData(
+                    id=char_sheet.system.id,
+                    name=char_sheet.system.name,
+                ),
+                favorited=char_sheet.id in favorited_ids,
+            )
+            for char_sheet in ordered
+        ]
+    )
+
+
 @character_sheets.get("/{char_sheet_id}", response_model=schemas.GetCharSheetResponse)
 async def get_char_sheet(
     char_sheet_id: int, db_session: DBSessionDependency, principal: Principal
@@ -65,9 +103,7 @@ async def get_char_sheet(
     return _char_sheet_response(char_sheet)
 
 
-@character_sheets.patch(
-    "/{char_sheet_id}", response_model=schemas.GetCharSheetResponse
-)
+@character_sheets.patch("/{char_sheet_id}", response_model=schemas.GetCharSheetResponse)
 async def update_char_sheet(
     char_sheet_id: int,
     db_session: DBSessionDependency,
