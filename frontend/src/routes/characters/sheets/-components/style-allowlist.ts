@@ -153,16 +153,58 @@ export function resolveStyles(
 	return Object.keys(resolved).length > 0 ? (resolved as CSSProperties) : undefined;
 }
 
+// --- `class` token allowlist ----------------------------------------------
+//
+// A sheet is user-authored, so — like `styles` — `class` is an allowlist. A
+// token that names a `classes` bundle never reaches the DOM (it expands to
+// inline style); every other token must be one of the curated `char-sheet-*`
+// utilities, or `headerbar` (the single site-wide class a sheet may pull in).
+// Anything else — an app utility, a global layout class, a token crafted to
+// spoof chrome — is dropped with a DEV warning, never forwarded to the DOM.
+// The `char-sheet-*` shape is checked by pattern, not against the closed list
+// in `char-sheet.css`: a made-up `char-sheet-foo` simply has no rule behind
+// it, exactly like any other unknown class.
+
+const UTILITY_CLASS_RE = /^char-sheet-[a-z0-9-]+$/;
+
+/** A curated `char-sheet-*` utility, or `headerbar`. */
+export function isAllowedUtilityClass(token: string): boolean {
+	return token === "headerbar" || UTILITY_CLASS_RE.test(token);
+}
+
+/**
+ * Filters raw author class strings down to the tokens `isAllowedUtilityClass`
+ * permits, DEV-warning on every drop. Each input string may itself hold
+ * whitespace-separated tokens (a `class_when` key can), so every entry is
+ * split and checked token by token. `context` is only used in the warning.
+ */
+export function filterUtilityClasses(raw: Iterable<string>, context: string): string[] {
+	const out: string[] = [];
+	for (const group of raw) {
+		for (const token of group.split(/\s+/).filter(Boolean)) {
+			if (isAllowedUtilityClass(token)) {
+				out.push(token);
+			} else if (import.meta.env.DEV) {
+				console.warn(
+					`[sheet] ${context}: class "${token}" is not a char-sheet-* utility or a classes bundle; dropped`,
+				);
+			}
+		}
+	}
+	return out;
+}
+
 /**
  * Resolves an element's `class` + `styles` into `{ className, style }`.
  *
  * `class` tokens are split on whitespace: a token that names a `bundles` entry
  * (from `SheetSchema.classes`) contributes that bundle's properties; every
- * other token is kept as a real CSS class name (a `char-sheet-*` utility). The
- * final inline style layers, per-property: earlier bundle < later bundle <
- * the element's own `styles`. The merged bag goes through `resolveStyles`, so
- * a bad value in a bundle is dropped and DEV-warned exactly as an inline one
- * would be.
+ * other token survives only if `filterUtilityClasses` allows it (a
+ * `char-sheet-*` utility or `headerbar`) — anything else is dropped and
+ * DEV-warned. The final inline style layers, per-property: earlier bundle <
+ * later bundle < the element's own `styles`. The merged bag goes through
+ * `resolveStyles`, so a bad value in a bundle is dropped and DEV-warned
+ * exactly as an inline one would be.
  */
 export function resolveElementStyles(
 	classAttr: string | undefined,
@@ -170,14 +212,15 @@ export function resolveElementStyles(
 	bundles: Record<string, StyleBundle> | undefined,
 	context: string,
 ): { className?: string; style?: CSSProperties } {
-	const utilityClasses: string[] = [];
+	const looseTokens: string[] = [];
 	const merged: Record<string, string | undefined> = {};
 
 	for (const token of classAttr?.split(/\s+/).filter(Boolean) ?? []) {
 		const bundle = bundles?.[token];
 		if (bundle) Object.assign(merged, bundle);
-		else utilityClasses.push(token);
+		else looseTokens.push(token);
 	}
+	const utilityClasses = filterUtilityClasses(looseTokens, context);
 	if (ownStyles) Object.assign(merged, ownStyles);
 
 	return {

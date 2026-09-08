@@ -20,7 +20,11 @@ import { Loop } from "./Loop";
 import { Repeater } from "./Repeater";
 import { Section } from "./Section";
 import { Select } from "./Select";
-import { resolveElementStyles, validateColumns } from "./style-allowlist";
+import {
+	filterUtilityClasses,
+	resolveElementStyles,
+	validateColumns,
+} from "./style-allowlist";
 import { Text } from "./Text";
 import { Textarea } from "./Textarea";
 import type {
@@ -95,6 +99,21 @@ function commonDomProps(
 	if (className != null) props.className = className;
 	if (style != null) props.style = style;
 	return props;
+}
+
+/**
+ * A container's row / add-control class string (`row_class`, `add_class`, a
+ * `grid_row`'s `class`) reduced to the tokens the `char-sheet-*` allowlist
+ * permits — the same rule `resolveElementStyles` applies to an element's own
+ * `class`. Returns undefined when nothing survives.
+ */
+function sanitizeClassAttr(
+	raw: string | undefined,
+	context: string,
+): string | undefined {
+	if (raw == null) return undefined;
+	const kept = filterUtilityClasses([raw], context);
+	return kept.length > 0 ? kept.join(" ") : undefined;
 }
 
 /**
@@ -195,7 +214,7 @@ function normalizeGrid(node: GridElement): {
 		rows: rowNodes.map((r) => ({
 			key: r.key,
 			cells: r.content,
-			rowClass: r.class,
+			rowClass: sanitizeClassAttr(r.class, `grid_row "${r.key}"`),
 		})),
 	};
 }
@@ -222,9 +241,15 @@ function renderNode(node: SheetElement, path: string, bundles: StyleBundles) {
 				header={node.header}
 				rowLayout={node.row_layout}
 				gridTemplateColumns={validateColumns(node.columns, `repeater "${node.name}"`)}
-				rowClass={node.row_class}
+				rowClass={sanitizeClassAttr(
+					node.row_class,
+					`repeater "${node.name}" row_class`,
+				)}
 				addLabel={node.add_label}
-				addClass={node.add_class}
+				addClass={sanitizeClassAttr(
+					node.add_class,
+					`repeater "${node.name}" add_class`,
+				)}
 				addButtonPos={node.add_button_pos}
 				min={node.min}
 				max={node.max}
@@ -267,7 +292,7 @@ function renderNode(node: SheetElement, path: string, bundles: StyleBundles) {
 				key={key}
 				name={node.name}
 				gridTemplateColumns={validateColumns(node.columns, `grid "${node.name}"`)}
-				rowClass={node.row_class}
+				rowClass={sanitizeClassAttr(node.row_class, `grid "${node.name}" row_class`)}
 				{...dom}
 				header={header}
 				rows={rows}

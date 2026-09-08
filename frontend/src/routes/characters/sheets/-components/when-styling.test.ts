@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Expr } from "./formula";
 import { resolveWhen } from "./when-styling";
 
-// A formula error DEV-warns; silence it so only real failures show.
+// A formula error — and a `class_when` key outside the `char-sheet-*` allowlist
+// — DEV-warns; silence it so only real failures show.
 beforeEach(() => {
 	vi.spyOn(console, "warn").mockImplementation(() => {});
 });
@@ -34,50 +35,64 @@ describe("resolveWhen — class_when", () => {
 	it("includes a class whose condition is truthy, drops a falsy one", () => {
 		const { classes } = resolveWhen(
 			{
-				"is-on": { ref: "on" },
-				"is-off": { ref: "off" },
+				"char-sheet-on": { ref: "on" },
+				"char-sheet-off": { ref: "off" },
 			},
 			undefined,
 			from({ on: true, off: false }),
 			ctx,
 		);
-		expect(classes).toEqual(["is-on"]);
+		expect(classes).toEqual(["char-sheet-on"]);
 	});
 
 	it("treats a zero number as falsy and a non-zero as truthy", () => {
 		const cw: Record<string, Expr> = {
-			zero: { ref: "z" },
-			nonzero: { ref: "n" },
+			"char-sheet-zero": { ref: "z" },
+			"char-sheet-nonzero": { ref: "n" },
 		};
 		expect(resolveWhen(cw, undefined, from({ z: 0, n: 3 }), ctx).classes).toEqual([
-			"nonzero",
+			"char-sheet-nonzero",
 		]);
 	});
 
 	it("evaluates a comparison formula against the resolver", () => {
 		const cw: Record<string, Expr> = {
-			high: { op: ">=", args: [{ ref: "score" }, 16] },
+			"char-sheet-high": { op: ">=", args: [{ ref: "score" }, 16] },
 		};
 		expect(resolveWhen(cw, undefined, from({ score: 16 }), ctx).classes).toEqual([
-			"high",
+			"char-sheet-high",
 		]);
 		expect(resolveWhen(cw, undefined, from({ score: 15 }), ctx).classes).toEqual([]);
 	});
 
 	it("keeps only the truthy keys when several are given", () => {
 		const { classes } = resolveWhen(
-			{ a: true, b: false, c: true },
+			{ "char-sheet-a": true, "char-sheet-b": false, "char-sheet-c": true },
 			undefined,
 			from({}),
 			ctx,
 		);
-		expect(classes).toEqual(["a", "c"]);
+		expect(classes).toEqual(["char-sheet-a", "char-sheet-c"]);
+	});
+
+	it("drops a truthy key that isn't a char-sheet-* utility, and warns", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const { classes } = resolveWhen(
+			{ "char-sheet-ok": true, "evil-class": true },
+			undefined,
+			from({}),
+			ctx,
+		);
+		expect(classes).toEqual(["char-sheet-ok"]);
+		expect(warn).toHaveBeenCalledWith(expect.stringContaining("evil-class"));
 	});
 
 	it("treats a formula error as falsy, warns with the context, does not throw", () => {
 		const bad = { op: "not-an-op", args: [] } as unknown as Expr;
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-		expect(resolveWhen({ boom: bad }, undefined, from({}), ctx).classes).toEqual([]);
+		expect(
+			resolveWhen({ "char-sheet-boom": bad }, undefined, from({}), ctx).classes,
+		).toEqual([]);
 		expect(warn).toHaveBeenCalledWith(expect.stringContaining(ctx));
 	});
 });
@@ -120,7 +135,7 @@ describe("resolveWhen — style_when", () => {
 describe("resolveWhen — class_when and style_when together", () => {
 	it("resolves both from the same scope", () => {
 		const result = resolveWhen(
-			{ neg: { op: "<", args: [{ ref: "mod" }, 0] } },
+			{ "char-sheet-neg": { op: "<", args: [{ ref: "mod" }, 0] } },
 			[
 				{
 					when: { op: ">=", args: [{ ref: "score" }, 16] },
@@ -131,7 +146,7 @@ describe("resolveWhen — class_when and style_when together", () => {
 			ctx,
 		);
 		expect(result).toEqual({
-			classes: ["neg"],
+			classes: ["char-sheet-neg"],
 			styleBundle: { "background-color": "#e6f5e6" },
 		});
 	});

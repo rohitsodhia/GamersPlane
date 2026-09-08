@@ -9,12 +9,13 @@ import {
 import { type Expr, evaluate, FormulaError } from "./formula";
 import { useRefResolver } from "./loop-context";
 import { useScopePrefix, useSheetStore } from "./sheet-values";
-import { resolveStyles } from "./style-allowlist";
+import { filterUtilityClasses, resolveStyles } from "./style-allowlist";
 import type { StyleBundle, StyleWhen } from "./types";
 
 /**
  * Pure part of `class_when` / `style_when`: given a ref resolver, returns the
- * currently-active class tokens and the merged conditional style bundle. A
+ * currently-active class tokens (filtered to the `char-sheet-*` allowlist, same
+ * as an element's static `class`) and the merged conditional style bundle. A
  * formula that throws (`FormulaError`) counts as falsy (DEV-warned), matching
  * `computed`'s leniency. Kept resolver-injected — like `evaluate` — so it can be
  * unit-tested without the store or React.
@@ -37,7 +38,10 @@ export function resolveWhen(
 	};
 
 	const classes = classWhen
-		? Object.keys(classWhen).filter((token) => truthy(classWhen[token]))
+		? filterUtilityClasses(
+				Object.keys(classWhen).filter((token) => truthy(classWhen[token])),
+				context,
+			)
 		: [];
 	const styleBundle: StyleBundle = styleWhen
 		? Object.assign(
