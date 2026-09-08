@@ -7,6 +7,26 @@ export type NewCharacterSheetInput = {
 	system_id: string;
 };
 
+export type BasicCharacterSheet = {
+	id: number;
+	name: string;
+	creator: { id: number; username: string; avatar: string };
+	system: { id: string; name: string };
+	favorited: boolean;
+};
+
+export const myCharacterSheetsQueryOptions = queryOptions({
+	queryKey: ["characterSheets", "my"],
+	queryFn: async (): Promise<BasicCharacterSheet[]> => {
+		const res = await apiFetch("/character_sheets/my");
+		if (!res.ok) {
+			const { errors } = await res.json();
+			throw new ApiError(res.status, errors);
+		}
+		return (await res.json()).char_sheets;
+	},
+});
+
 export type CharacterSheetStatus = "private" | "public" | "official" | "retired";
 
 export type CharacterSheet = {
