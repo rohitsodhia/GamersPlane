@@ -12,7 +12,7 @@ def empty_sheet_layout() -> dict:
     Used as the fallback when a sheet is created without an explicit layout, so
     a row never holds a shape the frontend can't render.
     """
-    return {"version": 1, "classes": {}, "elements": []}
+    return {"schema_version": 1, "classes": {}, "elements": []}
 
 
 def default_sheet_layout() -> dict:

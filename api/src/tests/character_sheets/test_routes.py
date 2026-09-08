@@ -66,7 +66,10 @@ class TestGetCharSheet:
         return await repository.create(
             name="Fighter",
             system_id=system.id,
-            layout={"version": 1, "elements": [{"type": "header", "text": "Combat"}]},
+            layout={
+                "schema_version": 1,
+                "elements": [{"type": "header", "text": "Combat"}],
+            },
         )
 
     async def test_returns_404_when_sheet_missing(self, authed_client):
@@ -94,7 +97,7 @@ class TestGetCharSheet:
             "name": "Fighter",
             "system": {"id": "dnd5e", "name": "D&D 5e"},
             "layout": {
-                "version": 1,
+                "schema_version": 1,
                 "elements": [{"type": "header", "text": "Combat"}],
             },
             "status": "private",
@@ -125,7 +128,9 @@ class TestUpdateCharSheet:
         system = await create(SystemFactory, id="dnd5e")
         repository = CharacterSheetRepository(db_session, principal=creator)
         return await repository.create(
-            name="Fighter", system_id=system.id, layout={"version": 1, "elements": []}
+            name="Fighter",
+            system_id=system.id,
+            layout={"schema_version": 1, "elements": []},
         )
 
     async def test_requires_auth(self, client, sheet):
@@ -160,7 +165,7 @@ class TestUpdateCharSheet:
     ):
         auth_as(creator)
         new_layout = {
-            "version": 1,
+            "schema_version": 1,
             "elements": [{"type": "header", "text": "Combat"}],
         }
 
@@ -181,11 +186,11 @@ class TestUpdateCharSheet:
 
         response = await client.patch(
             f"/character_sheets/{sheet.id}",
-            json={"layout": {"version": 1, "elements": [{"type": "bogus"}]}},
+            json={"layout": {"schema_version": 1, "elements": [{"type": "bogus"}]}},
         )
 
         assert response.status_code == 400
         assert response.json()["errors"][0]["code"] == "validation_error"
 
         await db_session.refresh(sheet, ["layout"])
-        assert sheet.layout == {"version": 1, "elements": []}
+        assert sheet.layout == {"schema_version": 1, "elements": []}

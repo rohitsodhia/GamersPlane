@@ -63,8 +63,8 @@ def validate_sheet_layout(layout: object) -> None:
     if not isinstance(layout, dict):
         raise ValidationError("Sheet layout must be a JSON object")
 
-    if layout.get("version") != SCHEMA_VERSION:
-        raise ValidationError(f"Sheet layout 'version' must be {SCHEMA_VERSION}")
+    if layout.get("schema_version") != SCHEMA_VERSION:
+        raise ValidationError(f"Sheet layout 'schema_version' must be {SCHEMA_VERSION}")
 
     if "classes" in layout and not isinstance(layout["classes"], dict):
         raise ValidationError("Sheet layout 'classes' must be a JSON object")

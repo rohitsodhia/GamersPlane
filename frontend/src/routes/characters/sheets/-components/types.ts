@@ -579,7 +579,7 @@ export type SheetElement =
 	| GridHeaderElement;
 
 export interface SheetSchema {
-	version: number;
+	schema_version: number;
 	/**
 	 * Named, reusable `styles` bundles, keyed by name. An element references one
 	 * (or several, space-separated) by putting the name in its `class` alongside

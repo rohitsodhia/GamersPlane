@@ -17,7 +17,7 @@ Everything here reflects the code in
 
 ```jsonc
 {
-  "version": 1,
+  "schema_version": 1,
   "classes": {                // optional — reusable style bundles (§8.3)
     "bubble": { "position": "absolute", "width": "30px" }
   },
@@ -28,7 +28,7 @@ Everything here reflects the code in
 }
 ```
 
-- `version` — schema version number. Currently `1`.
+- `schema_version` — schema version number. Currently `1`.
 - `classes` — named style bundles any element can pull in by name (see §8.3).
 - `elements` — an ordered array of **element nodes**. Each node has a `type`
   discriminator that selects the component that renders it. Container nodes carry
@@ -94,7 +94,7 @@ Regardless of `type`, any node may include:
 | Key | Type | Purpose |
 |---|---|---|
 | `id` | string | Stable identifier, used as the React key. Optional in hand-written JSON (the renderer falls back to the tree path). Give containers and repeated things an `id` when you can. |
-| `class` | string | Space-separated class tokens. Each token is either a `char-sheet-*` utility class (§8.1) or the name of a `classes` bundle (§8.3). Authored as `class`, not `className`. |
+| `class` | string | Space-separated class tokens. Each token is either a `char-sheet-*` utility class (§8.1) or `headerbar`, or the name of a `classes` bundle (§8.3); any other token is dropped (§8.1). Authored as `class`, not `className`. |
 | `styles` | object | Inline style overrides, restricted to an allowlist of properties and value formats (§8.2). Authored kebab-case like CSS. |
 | `class_when` | object | Conditional classes — `{ "token": <formula> }`. The token is added while its formula is truthy. Re-evaluated reactively. (§7.4) |
 | `style_when` | array | Conditional inline styles — `[ { "when": <formula>, "styles": { ... } } ]`. Merged on while `when` is truthy. (§7.4) |
@@ -118,6 +118,9 @@ hook. Transparent for values.
   ] }
 ] }
 ```
+
+Children stack (flex column) by default, like `group`. Add
+`char-sheet-section--row` to lay them out on one row instead.
 
 ### 2.2 `group`
 
@@ -307,6 +310,7 @@ Single boolean. Renders a box in edit mode, `✓` / `—` in display mode.
 |---|---|---|
 | `name` | string | Required. |
 | `default` | boolean | Optional. |
+| `attach_label` | boolean | Optional. See §2.2. |
 
 ```jsonc
 { "type": "checkbox", "name": "save_prof" }
@@ -327,17 +331,17 @@ is an array of row records, each keyed by its child elements' own `name`s.
 | `content` | array | Required. The **row template** — rendered once per row. |
 | `header` | array | Optional. Column headers, rendered once above the rows. Use literal `text`, never `label` (a header describes a whole column, not one control). When `header` is set, put no `label`s in the row template. |
 | `row_layout` | `"stack"` \| `"row"` | Optional. Field arrangement within a row. Default `"stack"`. |
-| `columns` | string[] | Optional. Grid track list (§8.4). One entry per header cell **plus one for every non-header cell a row can render** (a `collapseable`, a marker, a toggle), in template order. Only meaningful with `row_layout: "row"`. When present, header and rows lay out as aligned CSS-grid subgrids so headers sit over their inputs. |
+| `columns` | string[] | Optional. Grid track list (§8.4). One entry per header cell **plus one for every non-header cell a row can render** (a `collapsible`, an add/remove `button`, a toggle), in template order. Only meaningful with `row_layout: "row"`. When present, header and rows lay out as aligned CSS-grid subgrids so headers sit over their inputs. |
 | `row_class` | string | Optional. Extra class on each row wrapper. |
 | `add_label` | string | Optional. Text for the auto-rendered add control. Default `"Add"`. |
 | `add_class` | string | Optional. Extra class on the add control. |
-| `add_button_pos` | string | Optional. `"top"`, `"bottom"` (default), `"header"` (needs `header`), `"row-end"` (trailing the last row). Ignored when the template contains a `repeater_add` marker. |
+| `add_button_pos` | string | Optional. `"top"`, `"bottom"` (default), `"header"` (needs `header`), `"row-end"` (trailing the last row). Ignored when the template places its own add button (§5.2). |
 | `min` | number | Optional. Minimum rows; remove is hidden at this floor. Default `0`. |
 | `max` | number | Optional. Maximum rows; add is hidden at this ceiling. |
 
 **Which template cells get a header column:** `group`, `input`, `textarea`,
-`select`, `checkbox`, `text`. Markers (`repeater_add` / `repeater_remove`),
-`collapseable-toggle`, and `collapseable` consume no header slot and don't shift
+`select`, `checkbox`, `text`. An add/remove `button` (§5.2),
+`collapsible-toggle`, and `collapsible` consume no header slot and don't shift
 column alignment.
 
 ```jsonc
@@ -353,26 +357,38 @@ column alignment.
   "content": [
     { "type": "group", "content": [ { "type": "input", "name": "class" } ] },
     { "type": "group", "content": [ { "type": "input", "name": "level" } ] },
-    { "type": "collapseable-toggle", "target": "note", "label": "Note" },
-    { "type": "collapseable", "name": "note", "collapsed": true, "content": [
+    { "type": "collapsible-toggle", "target": "note", "label": "Note" },
+    { "type": "collapsible", "name": "note", "collapsed": true, "content": [
       { "type": "textarea", "name": "note", "rows": 2 }
     ] },
-    { "type": "repeater_add", "label": "[ Add Class ]" }
+    { "type": "button", "label": "[ Add Class ]", "on_click": { "row": "add" } }
   ]
 }
 ```
 
-### 5.2 `repeater_add` / `repeater_remove` — control markers
+### 5.2 Add / remove controls
 
-Place inside a repeater's `content` to position its controls precisely. A marker
-always wins over `add_button_pos`.
+The add / remove controls are owned by the repeater — never authorable elements.
+By default the add control auto-renders (position via `add_button_pos`,
+text via `add_label`) and there is no remove control.
 
-- `repeater_add` — rendered once, trailing the last row, at the marker's spot.
-  Optional `label`.
-- `repeater_remove` — rendered on every row at the marker's spot. Optional
-  `label` (default `×`).
+To place either precisely, drop a `button` into the row template with an
+`on_click` of `{ "row": "add" }` or `{ "row": "remove" }`. It binds to the
+enclosing repeater **by position** — no `name` reference — and the repeater still
+owns it:
 
-Both accept `class`. They are meaningless outside a repeater.
+- `{ "row": "add" }` — rendered once, on the last row, at the button's spot.
+  Suppresses the auto-rendered add control and `add_button_pos`. Hidden at `max`.
+- `{ "row": "remove" }` — rendered on every row at the button's spot. Hidden at
+  `min`.
+
+Because it is a real `button` (§9.1) it takes `label`, `class`, `class_when`,
+`style_when`, and is inert in display mode. A `row` action outside a repeater is
+a no-op (DEV-warned).
+
+```jsonc
+{ "type": "button", "label": "×", "on_click": { "row": "remove" } }
+```
 
 ### 5.3 `grid` — fixed table
 
@@ -584,7 +600,8 @@ Reactive visual state driven by values.
 - `style_when` entries merge in order (later wins per property), layered on top
   of the static `styles`.
 - `class_when` keys are class tokens (space-separated allowed) added while their
-  formula is truthy.
+  formula is truthy. Each token must be a `char-sheet-*` utility or `headerbar`
+  (§8.1) — bundle names are not resolved here, and any other token is dropped.
 - Both re-evaluate whenever a referenced field changes.
 
 ---
@@ -600,19 +617,26 @@ orange ribbon heading). This is the curated vocabulary sheets may reference:
 |---|---|
 | `char-sheet-group--inline` | Lay a `group` out as label + control on one row, label in a fixed column. |
 | `char-sheet-section` | Applied automatically to `section`; available for re-use. |
+| `char-sheet-section--row` | Lay a `section`'s children out on one row instead of stacked. |
 | `char-sheet-label` | Applied automatically to `label`. |
 | `char-sheet-field` | The bare wrapper around label-less controls (`checkbox`, computed `text`). |
 | `char-sheet-textarea` | Applied automatically to `textarea` (full width, vertical resize). |
 | `char-sheet-select` | Applied automatically to `select`. |
 | `char-sheet-value--multiline` | Preserve newlines in a display-mode value. |
 | `char-sheet-button` | Applied automatically to `button` (generic; compose a clock look with `styles` + `style_when`). |
-| `char-sheet-collapseable-toggle` | Applied automatically to `collapseable-toggle` (link styling). |
+| `char-sheet-collapsible-toggle` | Applied automatically to `collapsible-toggle` (link styling). |
 | `char-sheet-list` | Applied automatically to `list`. |
 | `char-sheet-loop-item` | Applied automatically to a `loop` iteration outside a `list`. |
 | `char-sheet-repeater*`, `char-sheet-grid*` | Structural classes applied automatically by those components. |
 
 A `class` token that isn't one of these is treated as the name of a `classes`
-bundle (§8.3).
+bundle (§8.3). If it's neither — not a `char-sheet-*` utility (or `headerbar`),
+and not a defined bundle name — it is **dropped** with a dev warning and never
+reaches the DOM. The `char-sheet-*` check is by shape (`char-sheet-` + lowercase
+letters, digits, hyphens), so a misspelled utility class is silently inert
+rather than rejected, same as an unknown class has always been. The same rule
+applies to `class_when` keys (§7.5) and to `row_class` / `add_class` on
+`repeater` / `grid`.
 
 ### 8.2 Inline `styles` allowlist
 
@@ -695,23 +719,31 @@ Allowed per entry:
 
 ## 9. Interaction
 
-### 9.1 `button` — click-to-set
+### 9.1 `button`
 
-Writes one sibling scalar in the current scope. This is the schema's only
-"an element changes another element's value" interaction, and the basis of
-clocks / stress tracks. Carries no value of its own. Inert in display mode.
+A button with one declarative `on_click`. Carries no value of its own. Inert in
+display mode.
 
 | Key | Type | Notes |
 |---|---|---|
 | `label` | string | Required. Button text (may be `""` for a bare segment). |
-| `on_click` | object | Required. `{ "set": "<sibling name>", "to": <formula> }`. `to` is evaluated at click time, so it can read `$index`, the target's current value, and siblings. |
+| `on_click` | object | Required. One of the two shapes below. |
+
+**`{ "set": "<sibling name>", "to": <formula> }`** — write one sibling scalar in
+the current scope. The schema's only "an element changes another element's value"
+interaction, and the basis of clocks / stress tracks. `to` is evaluated at click
+time, so it can read `$index`, the target's current value, and siblings.
 
 ```jsonc
-{
-  "type": "button",
-  "label": "Reset",
-  "on_click": { "set": "harm", "to": 0 }
-}
+{ "type": "button", "label": "Reset", "on_click": { "set": "harm", "to": 0 } }
+```
+
+**`{ "row": "add" | "remove" }`** — add / remove a row of the enclosing
+`repeater`. Valid only inside a repeater's row template; see §5.2 for placement
+and `min` / `max` gating.
+
+```jsonc
+{ "type": "button", "label": "[ Add Row ]", "on_click": { "row": "add" } }
 ```
 
 **Clock / track pattern** — a `loop` of buttons, each setting a shared counter to
@@ -753,13 +785,13 @@ its 1-based position, with `style_when` filling every segment at or below it:
 (Clicking the current top segment clears back down to it; clicking any other
 segment fills up to it.)
 
-### 9.2 `collapseable` + `collapseable-toggle`
+### 9.2 `collapsible` + `collapsible-toggle`
 
 A region that shows/hides. The region has **no trigger of its own** — a separate
-`collapseable-toggle` drives it by name, kept outside so it stays visible when
+`collapsible-toggle` drives it by name, kept outside so it stays visible when
 the region is closed.
 
-`collapseable`:
+`collapsible`:
 
 | Key | Type | Notes |
 |---|---|---|
@@ -767,22 +799,22 @@ the region is closed.
 | `collapsed` | boolean | Optional. Start collapsed. Default `false` (open). |
 | `content` | array | The hidden/shown content. |
 
-`collapseable-toggle`:
+`collapsible-toggle`:
 
 | Key | Type | Notes |
 |---|---|---|
-| `target` | string | Required. The `name` of the `collapseable` it toggles. |
+| `target` | string | Required. The `name` of the `collapsible` it toggles. |
 | `label` | string | Required. Button text. |
 
 The two are matched within the **nearest disclosure scope**: one is minted at
-the sheet root, and one per `repeater` / `grid` row. So a `collapseable` named
+the sheet root, and one per `repeater` / `grid` row. So a `collapsible` named
 `note` and its toggle can appear in every repeater row and each pair toggles
 independently.
 
 ```jsonc
 { "type": "section", "content": [
-  { "type": "collapseable-toggle", "target": "gm_notes", "label": "GM Notes" },
-  { "type": "collapseable", "name": "gm_notes", "collapsed": true, "content": [
+  { "type": "collapsible-toggle", "target": "gm_notes", "label": "GM Notes" },
+  { "type": "collapsible", "name": "gm_notes", "collapsed": true, "content": [
     { "type": "group", "content": [
       { "type": "label", "text": "Secret" },
       { "type": "textarea", "name": "gm_notes_text", "rows": 3 }
@@ -821,26 +853,25 @@ only), so downstream formulas and the saved character can read it.
 | `select` | `name → string` | — | `name`, `values` |
 | `checkbox` | `name → boolean` | — | `name` |
 | `repeater` | `name → array` | yes | `name`, `content` |
-| `repeater_add` / `repeater_remove` | — | — | (marker; repeater-only) |
 | `grid` | `name → object` | yes | `name` + (`items`+`row`) or `content` |
 | `grid_row` | — | yes | `key`, `content` (grid-only) |
 | `grid_header` | — | yes | `content` (grid-only) |
 | `list` | — | yes (transparent) | `variant`, `content` |
 | `loop` | — (no scope) | yes (transparent) | `content` + (`items` or `count`) |
-| `button` | — | — | `label`, `on_click` |
-| `collapseable` | — | yes (transparent) | `name`, `content` |
-| `collapseable-toggle` | — | — | `target`, `label` |
+| `button` | — | — | `label`, `on_click` (`{set,to}` or `{row}`) |
+| `collapsible` | — | yes (transparent) | `name`, `content` |
+| `collapsible-toggle` | — | — | `target`, `label` |
 
 ---
 
 ## 12. Worked example
 
 A compact d20-style sheet: identity, an ability grid with live modifiers, a
-skills repeater, a harm clock, and notes with a GM-only collapseable.
+skills repeater, a harm clock, and notes with a GM-only collapsible.
 
 ```jsonc
 {
-  "version": 1,
+  "schema_version": 1,
   "elements": [
     {
       "type": "section",
@@ -923,7 +954,7 @@ skills repeater, a harm clock, and notes with a GM-only collapseable.
           "content": [
             { "type": "group", "content": [ { "type": "input", "name": "skill" } ] },
             { "type": "group", "content": [ { "type": "input", "name": "bonus", "maxlength": 3 } ] },
-            { "type": "repeater_remove" }
+            { "type": "button", "label": "×", "on_click": { "row": "remove" } }
           ]
         }
       ]
@@ -981,8 +1012,8 @@ skills repeater, a harm clock, and notes with a GM-only collapseable.
           { "type": "label", "text": "Player Notes" },
           { "type": "textarea", "name": "notes", "rows": 4 }
         ] },
-        { "type": "collapseable-toggle", "target": "gm", "label": "GM Notes" },
-        { "type": "collapseable", "name": "gm", "collapsed": true, "content": [
+        { "type": "collapsible-toggle", "target": "gm", "label": "GM Notes" },
+        { "type": "collapsible", "name": "gm", "collapsed": true, "content": [
           { "type": "group", "content": [
             { "type": "label", "text": "Secret" },
             { "type": "textarea", "name": "gm_notes", "rows": 3 }
@@ -1024,8 +1055,10 @@ Resulting value document (after some editing):
 Every class defined in `-components/char-sheet.css`. This is the complete
 `char-sheet-*` vocabulary a sheet's `class` may reference (plus `headerbar`, the
 site-wide orange-ribbon heading class from outside this file). A `class` token
-that is not on this list and is not a `classes` bundle name has no styling
-behind it.
+that matches the `char-sheet-*` shape but is not on this list is inert — no
+styling behind it. A token that is neither `char-sheet-*`/`headerbar` nor a
+`classes` bundle name is dropped entirely (dev-warned) and never written to the
+DOM.
 
 Most are **auto-applied** by their component — you'd only name one explicitly to
 attach it to a *different* element (e.g. `char-sheet-value--multiline` on a
@@ -1042,7 +1075,8 @@ actually reach for while authoring are marked **author knob**.
 
 | Class | Applied to | Notes |
 |---|---|---|
-| `char-sheet-section` | `section` (auto) | Border, padding, `gap: 0.75rem`, flex row. |
+| `char-sheet-section` | `section` (auto) | Border, padding, `gap: 0.75rem`, flex column. |
+| `char-sheet-section--row` | `section` — **author knob** | Switches the section to a row (`align-items: flex-start`). |
 | `char-sheet-group` | `group` (auto) | Inline-flex column, `align-items: flex-start`, `gap: 0.35rem`. |
 | `char-sheet-group--inline` | `group` — **author knob** | Switches the group to a row: label + control on one line, label pinned to `--char-sheet-label-col`. |
 | `char-sheet-label` | `label` (auto) | `font-weight: 600`, small font. |
@@ -1057,14 +1091,14 @@ actually reach for while authoring are marked **author knob**.
 | `char-sheet-value--multiline` | display-mode `textarea` value (auto); **author knob** elsewhere | `white-space: pre-wrap` so newlines survive in display mode. |
 | `char-sheet-text-value` | computed `text` result `<span>` (auto) | Muted colour, `tabular-nums`. |
 
-### Collapseable
+### Collapsible
 
 | Class | Applied to | Notes |
 |---|---|---|
-| `char-sheet-collapseable` | `collapseable` region (auto) | Carries `data-open` for the transition. |
-| `char-sheet-collapseable-body` | inner body wrapper (auto) | Height animates via the grid-rows `0fr`/`1fr` trick. |
-| `char-sheet-collapseable-body-inner` | innermost clip wrapper (auto) | `overflow: hidden`, `min-height: 0`. |
-| `char-sheet-collapseable-toggle` | `collapseable-toggle` (auto) | Renders as a link (orange, underline on hover). |
+| `char-sheet-collapsible` | `collapsible` region (auto) | Carries `data-open` for the transition. |
+| `char-sheet-collapsible-body` | inner body wrapper (auto) | Height animates via the grid-rows `0fr`/`1fr` trick. |
+| `char-sheet-collapsible-body-inner` | innermost clip wrapper (auto) | `overflow: hidden`, `min-height: 0`. |
+| `char-sheet-collapsible-toggle` | `collapsible-toggle` (auto) | Renders as a link (orange, underline on hover). |
 
 ### Button
 
@@ -1087,10 +1121,10 @@ actually reach for while authoring are marked **author knob**.
 | `char-sheet-repeater-row--stack` | each row when `row_layout: "stack"` (auto) | Column, `align-items: flex-start`. |
 | `char-sheet-repeater-row--row` | each row when `row_layout: "row"` (auto) | Row, `align-items: flex-end`, wraps. |
 | `char-sheet-repeater-row--grid` | each row in grid mode (auto) | Subgrid of the repeater's tracks. |
-| `char-sheet-repeater-add-cell` | inline add-control wrapper (auto) | Keeps a `row-end` / marker add control aligned to the inputs. |
+| `char-sheet-repeater-add-cell` | inline add-control wrapper (auto) | Keeps a `row-end` add control aligned to the inputs. |
 | `char-sheet-repeater-add-wrap` | standalone add-control wrapper (auto) | Used for `top` / `bottom` placement. |
-| `char-sheet-repeater-add` | the add control (auto) | Link styling (orange). |
-| `char-sheet-repeater-remove` | the remove control (auto) | Link styling (red, small). |
+| `char-sheet-repeater-add` | the add control — auto-rendered, or a template `button` with `on_click: { "row": "add" }` | Link styling (orange). |
+| `char-sheet-repeater-remove` | the remove control — a template `button` with `on_click: { "row": "remove" }` | Link styling (red, small). |
 
 ### Grid
 
