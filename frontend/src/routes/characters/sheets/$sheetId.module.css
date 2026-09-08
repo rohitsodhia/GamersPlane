@@ -8,6 +8,24 @@
 	grid-template-rows: minmax(0, 1fr);
 }
 
+.sheet-logo {
+	margin-bottom: 1em;
+
+	img {
+		margin-inline: auto;
+	}
+}
+
+:global(.controls-container) {
+	gap: 1em;
+	align-items: center;
+}
+
+.save-indicator {
+	color: var(--gp-success-green);
+	font-weight: bold;
+}
+
 .sheet-editor {
 	display: flex;
 	flex-direction: column;

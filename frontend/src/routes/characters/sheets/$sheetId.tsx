@@ -1,7 +1,13 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { characterSheetQueryOptions } from "#/queries/characterSheet";
+import { FadeOut } from "#/components/FadeOut";
+import { ApiError } from "#/lib/api";
+import { useFlash } from "#/lib/use-flash";
+import {
+	characterSheetQueryOptions,
+	updateCharacterSheet,
+} from "#/queries/characterSheet";
 import { SheetRenderer } from "./-components/SheetRenderer";
 import { SheetValuesProvider, useSheetStore } from "./-components/sheet-values";
 import type { SheetSchema } from "./-components/types";
@@ -25,20 +31,36 @@ function RouteComponent() {
 
 	// Remount the editor when switching sheets so the code draft re-seeds from
 	// the newly loaded layout.
-	return <SheetEditor key={sheetId} name={sheet.name} layout={sheet.layout} />;
+	return (
+		<SheetEditor
+			key={sheetId}
+			sheetId={sheetId}
+			name={sheet.name}
+			system={sheet.system.id}
+			layout={sheet.layout}
+		/>
+	);
 }
 
 type SheetView = "visual" | "code";
 
 function SheetEditor({
+	sheetId,
 	name,
+	system,
 	layout,
 }: {
+	sheetId: number;
 	name: string;
+	system: string;
 	layout: SheetSchema | null | undefined;
 }) {
+	const queryClient = useQueryClient();
 	const [view, setView] = useState<SheetView>("visual");
 	const [draft, setDraft] = useState(() => JSON.stringify(layout ?? {}, null, 4));
+	const [saved, flashSaved] = useFlash();
+	const [saving, setSaving] = useState(false);
+	const [saveError, setSaveError] = useState<string | null>(null);
 
 	// The textarea is the source of truth in "code" mode — parse it on every
 	// render so edits flow straight into the renderer.
@@ -52,6 +74,25 @@ function SheetEditor({
 
 	const hasLayout = Array.isArray(schema?.elements) && schema.elements.length > 0;
 
+	const handleSave = async () => {
+		if (!schema || saving) return;
+		setSaving(true);
+		setSaveError(null);
+		try {
+			const updated = await updateCharacterSheet(sheetId, schema);
+			queryClient.setQueryData(characterSheetQueryOptions(sheetId).queryKey, updated);
+			flashSaved();
+		} catch (err) {
+			setSaveError(
+				err instanceof ApiError
+					? err.errors.map((e) => e.detail).join(" ")
+					: "Something went wrong.",
+			);
+		} finally {
+			setSaving(false);
+		}
+	};
+
 	// TODO: seed `initialValues` from the character's stored `values` once the
 	// character fill route exists — this route currently just exercises the
 	// renderer + value store against the sheet's own layout.
@@ -59,10 +100,23 @@ function SheetEditor({
 		<div className={styles["sheet-editor"]}>
 			<h1 className="headerbar">{name}</h1>
 
+			<div className={styles["sheet-logo"]}>
+				<img src={`/images/logos/${system}.png`} alt={system} title={system} />
+			</div>
+
 			<div className="controls-container">
-				<button type="button" className="skew-btn" onClick={() => {}}>
+				<button
+					type="button"
+					className="skew-btn"
+					onClick={handleSave}
+					disabled={saving || !schema}
+				>
 					Save
 				</button>
+				<FadeOut active={saved} className={styles["save-indicator"]}>
+					Saved
+				</FadeOut>
+				{saveError ? <span className="error">{saveError}</span> : null}
 				<div className="trapezoid">
 					<button
 						type="button"
@@ -118,7 +172,6 @@ function SheetFillForm({ schema }: { schema: SheetSchema }) {
 			}}
 		>
 			<SheetRenderer schema={schema} />
-			<button type="submit">Save</button>
 		</form>
 	);
 }

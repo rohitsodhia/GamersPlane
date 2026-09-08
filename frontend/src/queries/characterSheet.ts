@@ -45,3 +45,18 @@ export const createCharacterSheet = async (
 	}
 	return res.json();
 };
+
+export const updateCharacterSheet = async (
+	sheetId: number,
+	layout: SheetSchema,
+): Promise<CharacterSheet> => {
+	const res = await apiFetch(`/character_sheets/${sheetId}`, {
+		method: "PATCH",
+		body: JSON.stringify({ layout }),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};

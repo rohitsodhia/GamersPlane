@@ -19,6 +19,9 @@
 	--gp-orange: oklch(0.62 0.16 53.46);
 	--gp-light-blue: #06f;
 
+	--gp-success-green: light-dark(#070, #4a4);
+	--gp-error-red: light-dark(#faa, #400);
+
 	--font-size-sm: 0.8em;
 	--line-height: 1.5em;
 
@@ -157,12 +160,12 @@ p {
 }
 
 .success-banner {
-	background-color: light-dark(#4a4, #040);
+	background-color: var(--gp-success-green);
 	border-color: light-dark(#070, #090);
 }
 
 .error-banner {
-	background-color: light-dark(#faa, #400);
+	background-color: var(--gp-error-red);
 	border-color: light-dark(#b00, #c00);
 }
 
