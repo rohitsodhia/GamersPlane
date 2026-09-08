@@ -54,6 +54,67 @@ class TestCreateCharSheet:
         assert sheet.layout == default_sheet_layout()
 
 
+class TestGetCharSheet:
+    @pytest.fixture
+    async def creator(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def sheet(self, creator, create, db_session, wrap_in_savepoint):
+        system = await create(SystemFactory, id="dnd5e", name="D&D 5e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        return await repository.create(
+            name="Fighter",
+            system_id=system.id,
+            layout={"version": 1, "elements": [{"type": "header", "text": "Combat"}]},
+        )
+
+    async def test_returns_404_when_sheet_missing(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.get("/character_sheets/999999")
+
+        assert response.status_code == 404
+        assert response.json()["errors"][0]["code"] == "not_found"
+
+    async def test_returns_the_serialized_sheet(self, client, sheet, creator, auth_as):
+        auth_as(creator)
+
+        response = await client.get(f"/character_sheets/{sheet.id}")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "id": sheet.id,
+            "creator": {
+                "id": creator.id,
+                "username": creator.username,
+                "avatar": creator.avatar,
+            },
+            "root_id": None,
+            "name": "Fighter",
+            "system": {"id": "dnd5e", "name": "D&D 5e"},
+            "layout": {
+                "version": 1,
+                "elements": [{"type": "header", "text": "Combat"}],
+            },
+            "status": "private",
+        }
+
+    async def test_any_authed_user_can_read_another_users_private_sheet(
+        self, client, sheet, create, auth_as
+    ):
+        # The endpoint has no creator/status gate today; pin that so a future
+        # change to it is a deliberate one.
+        assert sheet.status == CharacterSheet.Status.PRIVATE
+        other = await create(ActivatedUserFactory)
+        auth_as(other)
+
+        response = await client.get(f"/character_sheets/{sheet.id}")
+
+        assert response.status_code == 200
+        assert response.json()["id"] == sheet.id
+
+
 class TestUpdateCharSheet:
     @pytest.fixture
     async def creator(self, create):
