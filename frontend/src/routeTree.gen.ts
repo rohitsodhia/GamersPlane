@@ -21,6 +21,7 @@ import { Route as AcpIndexRouteImport } from './routes/acp/index'
 import { Route as AcpRbacRouteImport } from './routes/acp/rbac'
 import { Route as AcpUsersRouteImport } from './routes/acp/users'
 import { Route as CharactersIndexRouteImport } from './routes/characters/index'
+import { Route as CharactersCharacterIdRouteImport } from './routes/characters/$characterId'
 import { Route as CharactersNewRouteImport } from './routes/characters/new'
 import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
 import { Route as GamesIndexRouteImport } from './routes/games/index'
@@ -104,6 +105,11 @@ const AcpUsersRoute = AcpUsersRouteImport.update({
 const CharactersIndexRoute = CharactersIndexRouteImport.update({
   id: '/characters/',
   path: '/characters/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CharactersCharacterIdRoute = CharactersCharacterIdRouteImport.update({
+  id: '/characters/$characterId',
+  path: '/characters/$characterId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CharactersNewRoute = CharactersNewRouteImport.update({
@@ -239,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
+  '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
@@ -276,6 +283,7 @@ export interface FileRoutesByTo {
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
+  '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/new': typeof GamesNewRoute
@@ -314,6 +322,7 @@ export interface FileRoutesById {
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
+  '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
@@ -354,6 +363,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/acp/rbac'
     | '/acp/users'
+    | '/characters/$characterId'
     | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/list'
@@ -391,6 +401,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/acp/rbac'
     | '/acp/users'
+    | '/characters/$characterId'
     | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/new'
@@ -428,6 +439,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/acp/rbac'
     | '/acp/users'
+    | '/characters/$characterId'
     | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/list'
@@ -465,6 +477,7 @@ export interface RootRouteChildren {
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
+  CharactersCharacterIdRoute: typeof CharactersCharacterIdRoute
   CharactersNewRoute: typeof CharactersNewRoute
   ForumsChar123ForumIdChar125Route: typeof ForumsChar123ForumIdChar125Route
   GamesListRoute: typeof GamesListRouteWithChildren
@@ -574,6 +587,13 @@ declare module '@tanstack/react-router' {
       path: '/characters'
       fullPath: '/characters/'
       preLoaderRoute: typeof CharactersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/characters/$characterId': {
+      id: '/characters/$characterId'
+      path: '/characters/$characterId'
+      fullPath: '/characters/$characterId'
+      preLoaderRoute: typeof CharactersCharacterIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/characters/new': {
@@ -786,6 +806,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,
+  CharactersCharacterIdRoute: CharactersCharacterIdRoute,
   CharactersNewRoute: CharactersNewRoute,
   ForumsChar123ForumIdChar125Route: ForumsChar123ForumIdChar125Route,
   GamesListRoute: GamesListRouteWithChildren,
