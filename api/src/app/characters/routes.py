@@ -30,3 +30,39 @@ async def create_character(
     )
 
     return schemas.CreateCharacterResponse(id=character.id)
+
+
+@characters.get("/{character_id}", response_model=schemas.GetCharacterResponse)
+async def get_character(
+    character_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    character_repository = CharacterRepository(db_session, principal)
+    character = await character_repository.get(character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+
+    sheet = character.character_sheet
+
+    return schemas.GetCharacterResponse(
+        id=character.id,
+        label=character.label,
+        name=character.name,
+        type=character.type,
+        values=character.values,
+        character_sheet=schemas.CharacterSheetData(
+            id=sheet.id,
+            name=sheet.name,
+            creator=schemas.UserData(
+                id=sheet.creator.id,
+                username=sheet.creator.username,
+                avatar=sheet.creator.avatar,
+            ),
+            system=schemas.SystemData(
+                id=sheet.system.id,
+                name=sheet.system.name,
+            ),
+            layout=sheet.layout,
+        ),
+    )

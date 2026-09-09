@@ -1,6 +1,8 @@
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload, undefer
 
-from app.models import Character, User
+from app.models import Character, CharacterSheet, User
 
 
 class CharacterRepository:
@@ -24,3 +26,17 @@ class CharacterRepository:
         await self.db_session.flush()
 
         return character
+
+    async def get(self, id: int) -> Character | None:
+        query = (
+            select(Character)
+            .where(Character.id == id)
+            .options(
+                selectinload(Character.character_sheet).options(
+                    selectinload(CharacterSheet.creator),
+                    selectinload(CharacterSheet.system),
+                    undefer(CharacterSheet.layout),
+                ),
+            )
+        )
+        return await self.db_session.scalar(query)
