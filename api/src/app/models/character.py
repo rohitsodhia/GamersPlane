@@ -9,7 +9,7 @@ from app.helpers.enums import LabelEnum, LabelEnumType
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
-    from app.models import CharacterSheet
+    from app.models import CharacterSheet, User
 
 
 class Character(Base, SoftDeleteMixin, TimestampMixin):
@@ -20,6 +20,8 @@ class Character(Base, SoftDeleteMixin, TimestampMixin):
         NPC = "npc", "NPC"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user: Mapped[User] = relationship()
     character_sheet_id: Mapped[int] = mapped_column(ForeignKey("character_sheets.id"))
     character_sheet: Mapped[CharacterSheet] = relationship()
     label: Mapped[str] = mapped_column()

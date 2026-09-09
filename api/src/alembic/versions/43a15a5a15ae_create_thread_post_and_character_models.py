@@ -68,6 +68,7 @@ def upgrade() -> None:
     op.create_table(
         "characters",
         sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("character_sheet_id", sa.Integer(), nullable=False),
         sa.Column("label", sa.String(), nullable=False),
         sa.Column("name", sa.String(), nullable=True),
@@ -79,6 +80,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["character_sheet_id"],
             ["character_sheets.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )

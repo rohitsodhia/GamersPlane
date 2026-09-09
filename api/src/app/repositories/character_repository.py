@@ -15,6 +15,7 @@ class CharacterRepository:
         type: Character.Type = Character.Type.PC,
     ) -> Character:
         character = Character(
+            user_id=self.principal.id,
             character_sheet_id=character_sheet_id,
             label=label,
             type=type,
