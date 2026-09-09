@@ -27,6 +27,12 @@ class CharacterRepository:
 
         return character
 
+    async def update(self, character: Character, values: dict) -> Character:
+        character.values = values
+        await self.db_session.flush()
+
+        return character
+
     async def get(self, id: int) -> Character | None:
         query = (
             select(Character)

@@ -43,6 +43,29 @@ async def get_character(
     if character is None:
         raise NotFoundException("Character not found")
 
+    return _character_response(character)
+
+
+@characters.patch("/{character_id}", response_model=schemas.GetCharacterResponse)
+async def update_character(
+    character_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    data: schemas.UpdateCharacterInput,
+):
+    character_repository = CharacterRepository(db_session, principal)
+    character = await character_repository.get(character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+    if character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
+
+    await character_repository.update(character, data.values)
+
+    return _character_response(character)
+
+
+def _character_response(character) -> schemas.GetCharacterResponse:
     sheet = character.character_sheet
 
     return schemas.GetCharacterResponse(

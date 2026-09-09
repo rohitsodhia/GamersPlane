@@ -25,6 +25,10 @@ class CreateCharacterResponse(SchemaBase):
     id: int
 
 
+class UpdateCharacterInput(SchemaBase):
+    values: dict
+
+
 class CharacterSheetData(SchemaBase):
     id: int
     name: str
