@@ -99,3 +99,57 @@ class TestGetForum:
         response = await client.get(f"/forums/{forum.id}")
 
         assert response.json()["children"] == []
+
+
+class TestGetForumBreadcrumbs:
+    async def test_is_public(self, client, create):
+        forum = await create(ForumFactory, heritage=[])
+
+        response = await client.get(f"/forums/{forum.id}/breadcrumbs")
+
+        assert response.status_code == 200
+
+    async def test_not_found(self, client):
+        response = await client.get("/forums/999999/breadcrumbs")
+
+        assert response.status_code == 404
+
+    async def test_returns_id_and_title_with_empty_heritage(self, client, create):
+        forum = await create(ForumFactory, title="General", heritage=[])
+
+        response = await client.get(f"/forums/{forum.id}/breadcrumbs")
+
+        assert response.json() == {"id": forum.id, "title": "General", "heritage": []}
+
+    async def test_includes_heritage_in_order(self, client, create):
+        grandparent = await create(
+            ForumFactory, title="Grandparent", heritage=[], order=1
+        )
+        parent = await create(
+            ForumFactory,
+            title="Parent",
+            parent_id=grandparent.id,
+            heritage=[grandparent.id],
+            order=1,
+        )
+        forum = await create(
+            ForumFactory,
+            title="Forum",
+            parent_id=parent.id,
+            heritage=[grandparent.id, parent.id],
+            order=1,
+        )
+
+        response = await client.get(f"/forums/{forum.id}/breadcrumbs")
+
+        assert response.json()["heritage"] == [
+            {"id": grandparent.id, "title": "Grandparent"},
+            {"id": parent.id, "title": "Parent"},
+        ]
+
+    async def test_missing_heritage_forum_returns_404(self, client, create):
+        forum = await create(ForumFactory, heritage=[999999])
+
+        response = await client.get(f"/forums/{forum.id}/breadcrumbs")
+
+        assert response.status_code == 404
