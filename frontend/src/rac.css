@@ -50,6 +50,11 @@
 /* A SearchField driving a persistent ListBox beneath it (FilterableListBox):
    stack label / input / list instead of the inline combobox layout. */
 .filterable-listbox {
+	/* Rendered height of one ListBoxItem: the global --line-height line box plus
+	   the vertical half of --rac-item-padding (0.3em top + 0.3em bottom). Used by
+	   the `maxVisibleItems` prop to size max-height in whole-row units. */
+	--rac-list-item-height: calc(var(--line-height) + 0.6em);
+
 	.react-aria-SearchField {
 		display: flex;
 		flex-direction: column;
@@ -80,8 +85,22 @@
 		}
 	}
 
-	.react-aria-ListBoxItem[data-selected] {
-		font-weight: bold;
+	/* Solid red is reserved for the selected row here so persistent selection
+	   reads at a glance without focus on the list. Focus/hover therefore can't
+	   also be solid red (a focused-but-unselected row would be indistinguishable
+	   from a selected one, and would linger red until blur) — downgrade it to a
+	   neutral highlight, overriding the shared rule above. */
+	.react-aria-ListBoxItem {
+		&[data-focused],
+		&[data-hovered] {
+			background-color: light-dark(#dcdcdc, #555);
+			color: var(--text);
+		}
+
+		&[data-selected] {
+			background-color: var(--gp-red);
+			color: #fff;
+		}
 	}
 }
 
@@ -194,19 +213,26 @@
 	}
 }
 
+/* The trigger sizes to the widest option label (native `<select>` behaviour):
+   the Button and a hidden per-option sizer share one grid cell, so the column
+   grows to whichever is wider — the sizer, since it covers every label. Each
+   sizer row mirrors the Button's box (padding, border, gap, arrow) so the
+   reserved width matches what the trigger actually needs.
+
+   To pin the trigger to a fixed width instead, a consumer sets `--rac-select-width`
+   (any CSS length) on `.react-aria-Select` from its own stylesheet — the sizer is
+   clipped (it's already hidden) and the Button follows the fixed column. */
 .react-aria-Select {
-	display: inline-flex;
+	display: inline-grid;
+	width: var(--rac-select-width, max-content);
 	max-width: 100%;
 
 	.react-aria-Button {
+		grid-area: 1 / 1;
+		width: 100%;
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5em;
-		/* Fixed target width rather than `min(100%, …)`: the Select box is
-		   `inline-flex`, so a `100%` here resolves against its own shrink-wrapped
-		   size and the trigger collapses to the selected label's width (nothing,
-		   when blank). `max-width` still lets it shrink inside a narrow parent. */
-		width: var(--rac-field-width);
 		max-width: 100%;
 		justify-content: space-between;
 		padding: var(--rac-item-padding);
@@ -217,21 +243,6 @@
 			outline-offset: 1px;
 		}
 	}
-}
-
-/* Auto-width mode: the trigger sizes to the widest option label (native
-   `<select>` behaviour). The Button and a hidden per-option sizer share one
-   grid cell, so the column grows to whichever is wider — the sizer, since it
-   covers every label. Each sizer row mirrors the Button's box (padding, border,
-   gap, arrow) so the reserved width matches what the trigger actually needs. */
-.react-aria-Select--auto-width {
-	display: inline-grid;
-	max-width: 100%;
-}
-
-.react-aria-Select--auto-width > .react-aria-Button {
-	grid-area: 1 / 1;
-	width: 100%;
 }
 
 .react-aria-Select-sizer {

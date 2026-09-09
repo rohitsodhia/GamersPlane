@@ -8,6 +8,7 @@ import { ApiError } from "#/lib/api";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { type CharacterType, createCharacter } from "#/queries/character";
 import { myCharacterSheetsQueryOptions } from "#/queries/characterSheet";
+import styles from "./index.module.css";
 
 export const Route = createFileRoute("/characters/")({
 	loader: async ({ context }) => {
@@ -15,8 +16,6 @@ export const Route = createFileRoute("/characters/")({
 	},
 	component: RouteComponent,
 });
-
-const ALL_SYSTEMS = "all";
 
 const TYPE_OPTIONS: { id: CharacterType; name: string }[] = [
 	{ id: "pc", name: "PC" },
@@ -28,7 +27,7 @@ function RouteComponent() {
 	const hbMarginedH2 = useHbMargined<HTMLHeadingElement>();
 	const { data: sheets } = useSuspenseQuery(myCharacterSheetsQueryOptions);
 
-	const [selectedSystem, setSelectedSystem] = useState(ALL_SYSTEMS);
+	const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
 	const [apiErrors, setApiErrors] = useState<string[]>([]);
 	const [createdId, setCreatedId] = useState<number | null>(null);
 
@@ -63,35 +62,40 @@ function RouteComponent() {
 		},
 	});
 
-	// Deduped systems drawn from the user's sheets, sorted by name, with an
-	// "All" pseudo-option pinned to the top.
+	// Deduped systems drawn from the user's sheets, sorted by name.
 	const systems = [
-		{ id: ALL_SYSTEMS, name: "All" },
-		...[
-			...new Map(sheets.map((sheet) => [sheet.system.id, sheet.system])).values(),
-		].sort((a, b) => a.name.localeCompare(b.name)),
-	];
+		...new Map(sheets.map((sheet) => [sheet.system.id, sheet.system])).values(),
+	].sort((a, b) => a.name.localeCompare(b.name));
 
-	// Second listbox: every sheet under "All", otherwise just the chosen system's.
+	// Second listbox: every sheet when no system is picked, otherwise just the
+	// chosen system's.
 	const visibleSheets = sheets.filter(
-		(sheet) => selectedSystem === ALL_SYSTEMS || sheet.system.id === selectedSystem,
+		(sheet) => selectedSystem === null || sheet.system.id === selectedSystem,
 	);
 
 	const handleSystemChange = (systemId: string | null) => {
-		const next = systemId ?? ALL_SYSTEMS;
-		setSelectedSystem(next);
+		setSelectedSystem(systemId);
 		// Drop the sheet selection if it no longer belongs to the chosen system.
 		const currentSheetId = form.getFieldValue("characterSheetId");
 		const stillVisible = sheets.some(
 			(sheet) =>
 				String(sheet.id) === currentSheetId &&
-				(next === ALL_SYSTEMS || sheet.system.id === next),
+				(systemId === null || sheet.system.id === systemId),
 		);
-		if (!stillVisible) form.setFieldValue("characterSheetId", "");
+		if (!stillVisible) {
+			// Clearing the sheet here is our doing, not the user's — skip the
+			// touched/validate side effects so the "pick a sheet" error doesn't
+			// fire just because they chose a system. It still surfaces on submit,
+			// or if the user clears a sheet themselves in the sheet list.
+			form.setFieldValue("characterSheetId", "", {
+				dontUpdateMeta: true,
+				dontValidate: true,
+			});
+		}
 	};
 
 	return (
-		<div>
+		<div className={styles["my-characters"]}>
 			<h1 className="headerbar" ref={hbMarginedH1.ref}>
 				My Characters
 			</h1>
@@ -115,6 +119,7 @@ function RouteComponent() {
 						e.preventDefault();
 						form.handleSubmit();
 					}}
+					className="grid-layout"
 				>
 					<form.Field
 						name="label"
@@ -124,56 +129,22 @@ function RouteComponent() {
 					>
 						{(field) => (
 							<div>
-								<label htmlFor={field.name}>Character Label</label>
-								<input
-									id={field.name}
-									name={field.name}
-									type="text"
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-								/>
-								{field.state.meta.errors[0] && (
-									<div className="error">{field.state.meta.errors[0]}</div>
-								)}
-							</div>
-						)}
-					</form.Field>
-
-					<FilterableListBox
-						id="system-filter"
-						label="System"
-						placeholder="Filter systems"
-						items={systems}
-						getId={(system) => system.id}
-						getLabel={(system) => system.name}
-						selectedId={selectedSystem}
-						onChange={handleSystemChange}
-						disallowEmptySelection
-					/>
-
-					<form.Field
-						name="characterSheetId"
-						validators={{
-							onChange: ({ value }) => (value ? undefined : "You must pick a sheet."),
-						}}
-					>
-						{(field) => (
-							<div>
-								<FilterableListBox
-									id="sheet-filter"
-									label="Sheets"
-									placeholder="Filter sheets"
-									items={visibleSheets}
-									getId={(sheet) => String(sheet.id)}
-									getLabel={(sheet) => sheet.name}
-									selectedId={field.state.value || null}
-									onChange={(id) => field.handleChange(id ?? "")}
-									emptyState="No sheets"
-								/>
-								{field.state.meta.errors[0] && (
-									<div className="error">{field.state.meta.errors[0]}</div>
-								)}
+								<label htmlFor={field.name} className="center-vertically">
+									Label
+								</label>
+								<div>
+									<input
+										id={field.name}
+										name={field.name}
+										type="text"
+										value={field.state.value}
+										onBlur={field.handleBlur}
+										onChange={(e) => field.handleChange(e.target.value)}
+									/>
+									{field.state.meta.errors[0] && (
+										<div className="error">{field.state.meta.errors[0]}</div>
+									)}
+								</div>
 							</div>
 						)}
 					</form.Field>
@@ -181,7 +152,9 @@ function RouteComponent() {
 					<form.Field name="type">
 						{(field) => (
 							<div>
-								<span id="character-type-label">Type</span>
+								<span id="character-type-label" className="center-vertically">
+									Type
+								</span>
 								<Select
 									id="character-type"
 									ariaLabelledBy="character-type-label"
@@ -194,6 +167,48 @@ function RouteComponent() {
 							</div>
 						)}
 					</form.Field>
+
+					<div className={styles["sheet-selector"]}>
+						<FilterableListBox
+							id="system-filter"
+							label="System"
+							placeholder="Filter systems"
+							items={systems}
+							getId={(system) => system.id}
+							getLabel={(system) => system.name}
+							selectedId={selectedSystem}
+							onChange={handleSystemChange}
+							maxVisibleItems={5}
+						/>
+
+						<form.Field
+							name="characterSheetId"
+							validators={{
+								onChange: ({ value }) => (value ? undefined : "You must pick a sheet."),
+								onSubmit: ({ value }) => (value ? undefined : "You must pick a sheet."),
+							}}
+						>
+							{(field) => (
+								<div>
+									<FilterableListBox
+										id="sheet-filter"
+										label="Sheets"
+										placeholder="Filter sheets"
+										items={visibleSheets}
+										getId={(sheet) => String(sheet.id)}
+										getLabel={(sheet) => sheet.name}
+										selectedId={field.state.value || null}
+										onChange={(id) => field.handleChange(id ?? "")}
+										emptyState="No sheets"
+										maxVisibleItems={5}
+									/>
+									{field.state.meta.errors[0] && (
+										<div className="error">{field.state.meta.errors[0]}</div>
+									)}
+								</div>
+							)}
+						</form.Field>
+					</div>
 
 					<form.Subscribe selector={(state) => state.canSubmit}>
 						{(canSubmit) => (

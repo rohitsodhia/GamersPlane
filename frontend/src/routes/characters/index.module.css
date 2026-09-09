@@ -1,0 +1,24 @@
+.my-characters {
+	:global(form.grid-layout) {
+		--label-col-width: 100px;
+
+		.sheet-selector {
+			grid-column: span 2;
+			display: flex;
+			gap: 1em;
+
+			/* The System picker lands as the first child of this wrapper, so the
+			   grid-layout label rule (form.grid-layout > div > *:nth-child(1))
+			   bolds the whole listbox — which hides FilterableListBox's own
+			   [data-selected] bold cue. Reset it; the Label and selected-item
+			   rules set their own weight explicitly. */
+			:global(.filterable-listbox) {
+				font-weight: normal;
+			}
+		}
+	}
+
+	input {
+		width: 200px;
+	}
+}
