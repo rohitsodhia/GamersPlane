@@ -24,7 +24,8 @@
                 },
                 {
                     "type": "textarea",
-                    "name": "notes"
+                    "name": "notes",
+                    "richtext": true
                 }
             ]
         }

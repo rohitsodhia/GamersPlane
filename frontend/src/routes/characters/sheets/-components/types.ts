@@ -166,19 +166,26 @@ export interface InputElement extends BaseElement {
 /**
  * A multi-line text field. Label wiring is the same as `input`: no label of its
  * own — a sibling `label` in the enclosing `group` binds to it. Value doc:
- * `name -> "<text>"`.
+ * `name -> "<text>"`, or `name -> <Tiptap JSON document>` when `richtext` is set.
  */
 export interface TextareaElement extends BaseElement {
 	type: "textarea";
 	/** Form-field name; the key this field's value lives under in sheet state. */
 	name: string;
-	/** Visible row count; forwarded to the `<textarea>`'s `rows`. */
+	/** Visible row count; forwarded to the `<textarea>`'s `rows`. Ignored when `richtext`. */
 	rows?: number;
-	/** Forwarded to the `<textarea>`'s `maxLength`. */
+	/** Forwarded to the `<textarea>`'s `maxLength`. Ignored when `richtext`. */
 	maxlength?: number;
 	/**
+	 * When `true`, the edit control is the full rich-text `Editor` (Tiptap)
+	 * instead of a plain `<textarea>`, and the value is stored as a Tiptap JSON
+	 * document rather than a string. Display mode renders that document as
+	 * formatted HTML. `rows` / `maxlength` / `default` are ignored in this mode.
+	 */
+	richtext?: boolean;
+	/**
 	 * Seed value used while nothing is stored (and written into the value
-	 * document on first mount, in edit mode).
+	 * document on first mount, in edit mode). Ignored when `richtext`.
 	 */
 	default?: string;
 	/**

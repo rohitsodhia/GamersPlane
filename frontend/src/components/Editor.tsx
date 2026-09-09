@@ -343,9 +343,18 @@ type EditorProps = {
 	onChange: (value: JSONContent) => void;
 	onBlur?: () => void;
 	className?: string;
+	/** Forwarded to the editable element as `aria-labelledby`. */
+	ariaLabelledBy?: string;
 };
 
-const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
+const Editor = ({
+	id,
+	value,
+	onChange,
+	onBlur,
+	className,
+	ariaLabelledBy,
+}: EditorProps) => {
 	const isMobile = useIsBreakpoint();
 	const { height } = useWindowSize();
 	const [mobileView, setMobileView] = useState<"main" | "color" | "link">("main");
@@ -406,6 +415,7 @@ const Editor = ({ id, value, onChange, onBlur, className }: EditorProps) => {
 				autocapitalize: "off",
 				class: "simple-editor",
 				...(id ? { id } : {}),
+				...(ariaLabelledBy ? { "aria-labelledby": ariaLabelledBy } : {}),
 			},
 		},
 	});

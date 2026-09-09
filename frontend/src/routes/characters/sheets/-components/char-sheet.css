@@ -93,6 +93,13 @@
 	white-space: pre-wrap;
 }
 
+/* `richtext` textarea: let the shared Editor own its own chrome, just size it. */
+.char-sheet-textarea--richtext,
+.char-sheet-value--richtext {
+	width: 100%;
+	box-sizing: border-box;
+}
+
 /* --- Collapsible ------------------------------------------------------------ */
 
 .char-sheet-collapsible-toggle {

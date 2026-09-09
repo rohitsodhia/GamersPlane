@@ -1,5 +1,8 @@
+import type { JSONContent } from "@tiptap/core";
 import clsx from "clsx";
 import type { CSSProperties } from "react";
+import Editor, { emptyContent } from "#/components/Editor";
+import { TiptapContent } from "#/components/TiptapContent";
 import { useControlBinding } from "./sheet-values";
 
 interface TextareaProps {
@@ -9,6 +12,13 @@ interface TextareaProps {
 	/** Forwarded to the `<textarea>`'s `maxLength`. */
 	maxlength?: number;
 	default?: string;
+	/**
+	 * When true, the edit control is the full rich-text `Editor` (Tiptap) instead
+	 * of a plain `<textarea>`, and the value is stored as a Tiptap JSON document
+	 * rather than a string. `rows` / `maxlength` / `default` are ignored in this
+	 * mode; display mode renders the document as formatted HTML.
+	 */
+	richtext?: boolean;
 	className?: string;
 	style?: CSSProperties;
 }
@@ -19,9 +29,14 @@ interface TextareaProps {
  *
  * The value is bound to the sheet value store by `name`, scoped to the field's
  * position in the tree (see `sheet-values`). In display mode it renders the
- * stored text with newlines preserved instead of a textarea.
+ * stored text with newlines preserved instead of a textarea. With `richtext` it
+ * swaps the plain textarea for the shared rich-text `Editor` (see `RichTextarea`).
  */
-export function Textarea({
+export function Textarea(props: TextareaProps) {
+	return props.richtext ? <RichTextarea {...props} /> : <PlainTextarea {...props} />;
+}
+
+function PlainTextarea({
 	name,
 	rows,
 	maxlength,
@@ -53,5 +68,30 @@ export function Textarea({
 			onChange={(e) => setValue(e.target.value)}
 			aria-labelledby={ariaLabelledBy}
 		/>
+	);
+}
+
+function RichTextarea({ name, className, style }: TextareaProps) {
+	const { domId, mode, ariaLabelledBy, value, setValue } = useControlBinding<
+		JSONContent | undefined
+	>(name);
+
+	return mode === "display" ? (
+		<div
+			id={domId}
+			className={clsx("char-sheet-value", "char-sheet-value--richtext", className)}
+			style={style}
+		>
+			<TiptapContent content={value ?? emptyContent} />
+		</div>
+	) : (
+		<div className={clsx("char-sheet-textarea--richtext", className)} style={style}>
+			<Editor
+				id={domId}
+				value={value}
+				onChange={setValue}
+				ariaLabelledBy={ariaLabelledBy}
+			/>
+		</div>
 	);
 }

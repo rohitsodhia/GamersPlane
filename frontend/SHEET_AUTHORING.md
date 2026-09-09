@@ -263,13 +263,15 @@ Multi-line text field. Display mode preserves newlines.
 | Key | Type | Notes |
 |---|---|---|
 | `name` | string | Required. |
-| `rows` | number | Optional. Visible row count. |
-| `maxlength` | number | Optional. |
-| `default` | string | Optional. |
+| `rows` | number | Optional. Visible row count. Ignored when `richtext`. |
+| `maxlength` | number | Optional. Ignored when `richtext`. |
+| `default` | string | Optional. Ignored when `richtext`. |
+| `richtext` | boolean | Optional. When `true`, the edit control is the full rich-text `Editor` instead of a plain `<textarea>`, and the value is stored as a Tiptap JSON document (not a string). Display mode renders it as formatted HTML. |
 | `attach_label` | boolean | Optional. |
 
 ```jsonc
 { "type": "textarea", "name": "backstory", "rows": 4 }
+{ "type": "textarea", "name": "bio", "richtext": true }
 ```
 
 ### 4.3 `select`
@@ -621,8 +623,10 @@ orange ribbon heading). This is the curated vocabulary sheets may reference:
 | `char-sheet-label` | Applied automatically to `label`. |
 | `char-sheet-field` | The bare wrapper around label-less controls (`checkbox`, computed `text`). |
 | `char-sheet-textarea` | Applied automatically to `textarea` (full width, vertical resize). |
+| `char-sheet-textarea--richtext` | Wraps a `richtext` `textarea`'s `Editor` in edit mode. |
 | `char-sheet-select` | Applied automatically to `select`. |
 | `char-sheet-value--multiline` | Preserve newlines in a display-mode value. |
+| `char-sheet-value--richtext` | Wraps a `richtext` `textarea`'s formatted HTML in display mode. |
 | `char-sheet-button` | Applied automatically to `button` (generic; compose a clock look with `styles` + `style_when`). |
 | `char-sheet-collapsible-toggle` | Applied automatically to `collapsible-toggle` (link styling). |
 | `char-sheet-list` | Applied automatically to `list`. |
@@ -849,7 +853,7 @@ only), so downstream formulas and the saved character can read it.
 | `text` (literal) | — | — | `text` |
 | `text` (computed) | writes `name` | — | `formula`, `name` |
 | `input` | `name → string` | — | `name` |
-| `textarea` | `name → string` | — | `name` |
+| `textarea` | `name → string` (Tiptap JSON doc when `richtext`) | — | `name` |
 | `select` | `name → string` | — | `name`, `values` |
 | `checkbox` | `name → boolean` | — | `name` |
 | `repeater` | `name → array` | yes | `name`, `content` |
@@ -1088,7 +1092,9 @@ actually reach for while authoring are marked **author knob**.
 |---|---|---|
 | `char-sheet-select` | `select` (auto) | `max-width: 100%`; the dropdown itself is styled globally. |
 | `char-sheet-textarea` | `textarea` (auto) | Full width, `resize: vertical`, inherits font. |
+| `char-sheet-textarea--richtext` | `richtext` `textarea` edit-mode wrapper (auto) | Full width; the shared `Editor` supplies its own chrome. |
 | `char-sheet-value--multiline` | display-mode `textarea` value (auto); **author knob** elsewhere | `white-space: pre-wrap` so newlines survive in display mode. |
+| `char-sheet-value--richtext` | `richtext` `textarea` display-mode wrapper (auto) | Full width; wraps the formatted HTML rendered from the stored Tiptap document. |
 | `char-sheet-text-value` | computed `text` result `<span>` (auto) | Muted colour, `tabular-nums`. |
 
 ### Collapsible
