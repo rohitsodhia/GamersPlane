@@ -18,6 +18,7 @@ from app.models import (
     UserMeta,
 )
 from app.repositories import (
+    CharacterSheetRepository,
     GameRepository,
     GenreRepository,
     PlayerRepository,
@@ -155,6 +156,13 @@ async def seed():
         for deck_type_data in deck_types_data:
             session.add(DeckType(**deck_type_data))
         typer.echo("Deck Types added")
+
+        character_sheet_repo = CharacterSheetRepository(session, primary_user)
+        await character_sheet_repo.create(
+            name="Test 1",
+            system_id="dnd5",
+        )
+        typer.echo("Character Sheet added")
 
 
 @app.command()

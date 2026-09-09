@@ -1,32 +1,32 @@
 {
-  "schema_version": 1,
-  "classes": {},
-  "elements": [
-    {
-      "type": "section",
-      "content": [
+    "schema_version": 1,
+    "classes": {},
+    "elements": [
         {
-          "type": "group",
-          "content": [
-            { "type": "label", "text": "Name" },
-            { "type": "input", "name": "name" }
-          ]
-        }
-      ]
-    },
-    {
-      "type": "section",
-      "content": [
-        {
-          "type": "header",
-          "text": "Notes",
-          "headerbar": true
+            "type": "section",
+            "content": [
+                {
+                    "type": "group",
+                    "content": [
+                        { "type": "label", "text": "Name" },
+                        { "type": "input", "name": "name" }
+                    ]
+                }
+            ]
         },
         {
-          "type": "textarea",
-          "name": "notes"
+            "type": "section",
+            "content": [
+                {
+                    "type": "header",
+                    "text": "Notes",
+                    "headerbar": true
+                },
+                {
+                    "type": "textarea",
+                    "name": "notes"
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }

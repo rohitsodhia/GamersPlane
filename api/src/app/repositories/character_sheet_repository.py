@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
-from app.character_sheets.defaults import empty_sheet_layout
+from app.character_sheets.defaults import default_sheet_layout
 from app.models import CharacterSheet, CharacterSheetFavorite, User
 
 
@@ -18,14 +18,16 @@ class CharacterSheetRepository:
             creator_id=self.principal.id,
             name=name,
             system_id=system_id,
-            layout=layout if layout is not None else empty_sheet_layout(),
+            layout=layout if layout is not None else default_sheet_layout(),
         )
         self.db_session.add(char_sheet)
         await self.db_session.flush()
 
         return char_sheet
 
-    async def update(self, char_sheet: CharacterSheet, *, layout: dict) -> CharacterSheet:
+    async def update(
+        self, char_sheet: CharacterSheet, *, layout: dict
+    ) -> CharacterSheet:
         char_sheet.layout = layout
         await self.db_session.flush()
 
