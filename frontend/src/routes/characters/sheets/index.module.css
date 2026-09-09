@@ -1,3 +1,5 @@
-:global(form.grid-layout) {
-	--label-col-width: 100px;
+.my-sheets {
+	:global(form.grid-layout) {
+		--label-col-width: 100px;
+	}
 }

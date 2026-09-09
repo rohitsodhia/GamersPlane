@@ -72,9 +72,9 @@
 
 /* --- Select ----------------------------------------------------------------- */
 
-/* The dropdown itself (trigger + popover) is styled globally in rac.css, and the
-   sheet renders it in `autoWidth` mode (trigger sizes to the widest option). This
-   hook is for sheet-context tweaks only; keep it thin. */
+/* The dropdown itself (trigger + popover) is styled globally in rac.css, where
+   the trigger sizes to the widest option by default. This hook is for
+   sheet-context tweaks only; keep it thin. */
 .char-sheet-select {
 	max-width: 100%;
 }

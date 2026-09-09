@@ -86,7 +86,6 @@ export function Select({
 			getLabel={(o) => o.label}
 			selectedId={value == null || value === "" ? BLANK : value}
 			onChange={(id) => setValue(id === BLANK ? "" : id)}
-			autoWidth
 			ariaLabelledBy={ariaLabelledBy}
 		/>
 	);

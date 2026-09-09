@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { useFilter } from "react-aria";
 import {
 	Autocomplete,
@@ -23,6 +24,7 @@ export function FilterableListBox<T>({
 	onChange,
 	disallowEmptySelection,
 	emptyState = "No matches",
+	maxVisibleItems,
 }: {
 	id?: string;
 	label: string;
@@ -34,11 +36,24 @@ export function FilterableListBox<T>({
 	onChange: (id: string | null) => void;
 	disallowEmptySelection?: boolean;
 	emptyState?: string;
+	// Cap the visible list at roughly this many rows before it scrolls. Rows are
+	// measured in `--rac-list-item-height` units (see rac.css); leave unset to
+	// use the shared `--rac-list-max-height` default.
+	maxVisibleItems?: number;
 }) {
 	const { contains } = useFilter({ sensitivity: "base" });
 
 	return (
-		<div className="filterable-listbox">
+		<div
+			className="filterable-listbox"
+			style={
+				maxVisibleItems == null
+					? undefined
+					: ({
+							"--rac-list-max-height": `calc(${maxVisibleItems} * var(--rac-list-item-height))`,
+						} as CSSProperties)
+			}
+		>
 			<Autocomplete filter={contains}>
 				<SearchField id={id}>
 					<Label>{label}</Label>

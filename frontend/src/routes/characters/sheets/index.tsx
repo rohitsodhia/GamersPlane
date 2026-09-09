@@ -49,7 +49,7 @@ function RouteComponent() {
 	});
 
 	return (
-		<div>
+		<div className={styles["my-sheets"]}>
 			<h1 className="headerbar" ref={hbMarginedH1.ref}>
 				My Character Sheets
 			</h1>

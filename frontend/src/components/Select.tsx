@@ -17,7 +17,6 @@ export function Select<T>({
 	selectedId,
 	onChange,
 	isDisabled,
-	autoWidth,
 	className,
 	style,
 	ariaLabelledBy,
@@ -31,23 +30,13 @@ export function Select<T>({
 	isDisabled?: boolean;
 	/** Forwarded to the trigger button's `aria-labelledby`. */
 	ariaLabelledBy?: string;
-	/**
-	 * Size the trigger to the widest option label (like a native `<select>`)
-	 * instead of the fixed `--rac-field-width`. Renders a hidden sizer that
-	 * mirrors the trigger's box for every option.
-	 */
-	autoWidth?: boolean;
 	/** Extra classes on the RAC Select wrapper (the RAC default class is kept). */
 	className?: string;
 	style?: CSSProperties;
 }) {
 	return (
 		<RACSelect
-			className={clsx(
-				"react-aria-Select",
-				autoWidth && "react-aria-Select--auto-width",
-				className,
-			)}
+			className={clsx("react-aria-Select", className)}
 			style={style}
 			selectedKey={selectedId}
 			isDisabled={isDisabled}
@@ -57,16 +46,18 @@ export function Select<T>({
 				<SelectValue />
 				<span aria-hidden="true">▼</span>
 			</Button>
-			{autoWidth && (
-				<span className="react-aria-Select-sizer" aria-hidden="true">
-					{items.map((item) => (
-						<span key={getId(item)} className="react-aria-Select-sizer-row">
-							<span>{getLabel(item)}</span>
-							<span>▼</span>
-						</span>
-					))}
-				</span>
-			)}
+			{/* Hidden sizer: mirrors the trigger's box for every option so the trigger
+			    column grows to fit the widest label (native `<select>` behaviour).
+			    A consumer that sets `--rac-select-width` in its own stylesheet opts
+			    back into a fixed width. */}
+			<span className="react-aria-Select-sizer" aria-hidden="true">
+				{items.map((item) => (
+					<span key={getId(item)} className="react-aria-Select-sizer-row">
+						<span>{getLabel(item)}</span>
+						<span>▼</span>
+					</span>
+				))}
+			</span>
 			<Popover className="react-aria-Popover react-aria-Select-Popover">
 				<ListBox items={items}>
 					{(item) => (
