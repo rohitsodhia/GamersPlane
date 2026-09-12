@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
-from app.models import Character, CharacterSheet, User
+from app.models import Character, CharacterAvatar, CharacterSheet, User
 
 
 class CharacterRepository:
@@ -43,6 +43,50 @@ class CharacterRepository:
                     selectinload(CharacterSheet.system),
                     undefer(CharacterSheet.layout),
                 ),
+                selectinload(Character.avatars),
             )
         )
         return await self.db_session.scalar(query)
+
+    async def add_avatar(self, character: Character, ext: str) -> CharacterAvatar:
+        avatar = CharacterAvatar(
+            character_id=character.id,
+            ext=ext,
+            is_primary=not character.avatars,
+        )
+        self.db_session.add(avatar)
+        character.avatars.append(avatar)
+        await self.db_session.flush()
+
+        return avatar
+
+    async def delete_avatar(
+        self, character: Character, avatar_id: int
+    ) -> CharacterAvatar | None:
+        avatar = next((a for a in character.avatars if a.id == avatar_id), None)
+        if avatar is None:
+            return None
+
+        character.avatars.remove(avatar)
+        await self.db_session.delete(avatar)
+        await self.db_session.flush()
+
+        if avatar.is_primary and character.avatars:
+            character.avatars[0].is_primary = True
+            await self.db_session.flush()
+
+        return avatar
+
+    async def set_primary_avatar(
+        self, character: Character, avatar_id: int
+    ) -> CharacterAvatar | None:
+        target = next((a for a in character.avatars if a.id == avatar_id), None)
+        if target is None:
+            return None
+
+        for avatar in character.avatars:
+            avatar.is_primary = avatar.id == avatar_id
+
+        await self.db_session.flush()
+
+        return target

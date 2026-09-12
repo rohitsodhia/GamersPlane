@@ -9,7 +9,7 @@ from app.helpers.enums import LabelEnum, LabelEnumType
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
-    from app.models import CharacterSheet, User
+    from app.models import CharacterAvatar, CharacterSheet, User
 
 
 class Character(Base, SoftDeleteMixin, TimestampMixin):
@@ -28,3 +28,4 @@ class Character(Base, SoftDeleteMixin, TimestampMixin):
     name: Mapped[str] = mapped_column(nullable=True)
     type: Mapped[Type] = mapped_column(LabelEnumType(Type, String(5)))
     values: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
+    avatars: Mapped[list[CharacterAvatar]] = relationship(back_populates="character")

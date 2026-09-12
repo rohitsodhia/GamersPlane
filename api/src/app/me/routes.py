@@ -1,12 +1,11 @@
-import io
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from PIL import Image, UnidentifiedImageError
+from fastapi import APIRouter, File, UploadFile, status
 
 from app.auth.functions import validate_password_change
 from app.configs import configs
 from app.database import DBSessionDependency
+from app.helpers.avatars import process_avatar_upload, save_avatar
 from app.helpers.functions import error_response
 from app.me import schemas
 from app.middleware import Principal
@@ -16,10 +15,6 @@ from app.repositories.user_repository import UserRepository
 from app.schemas import ErrorItem
 
 me = APIRouter(prefix="/me")
-
-AVATAR_MAX_DIMENSION = 150
-AVATAR_MAX_BYTES = 5 * 1024 * 1024
-_AVATAR_FORMAT_EXTENSIONS = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}
 
 _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
     "pronouns": UserMeta.MetaKeys.PRONOUNS,
@@ -106,29 +101,9 @@ async def update_current_user_avatar(
     avatar: UploadFile = File(...),
 ):
     contents = await avatar.read()
-    if len(contents) > AVATAR_MAX_BYTES:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Avatar must be smaller than 5MB"
-        )
+    image, ext = process_avatar_upload(contents)
 
-    try:
-        image = Image.open(io.BytesIO(contents))
-        image.verify()
-        image = Image.open(io.BytesIO(contents))
-    except UnidentifiedImageError:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "File is not a valid image")
-
-    ext = _AVATAR_FORMAT_EXTENSIONS.get(image.format or "")
-    if not ext:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Avatar must be a JPEG, PNG, or WEBP image"
-        )
-
-    image.thumbnail((AVATAR_MAX_DIMENSION, AVATAR_MAX_DIMENSION))
-    if ext == "jpg" and image.mode in ("RGBA", "P"):
-        image = image.convert("RGB")
-
-    avatars_dir = Path(configs.AVATARS_DIR)
+    avatars_dir = Path(configs.AVATARS_DIR + "/users")
     old_ext = next(
         (
             meta.value
@@ -138,8 +113,7 @@ async def update_current_user_avatar(
         None,
     )
 
-    new_path = avatars_dir / f"{current_user.id}.{ext}"
-    image.save(new_path, format=image.format)
+    save_avatar(image, avatars_dir / f"{current_user.id}.{ext}")
 
     if old_ext and old_ext != ext:
         (avatars_dir / f"{current_user.id}.{old_ext}").unlink(missing_ok=True)
@@ -149,7 +123,7 @@ async def update_current_user_avatar(
 
     return {
         "success": True,
-        "avatar": f"{configs.AVATARS_ROOT}/{current_user.id}.{ext}",
+        "avatar": f"{configs.AVATARS_ROOT}/users/{current_user.id}.{ext}",
     }
 
 
@@ -172,7 +146,7 @@ async def delete_current_user_avatar(
         None,
     )
     if old_ext:
-        avatars_dir = Path(configs.AVATARS_DIR)
+        avatars_dir = Path(configs.AVATARS_DIR + "/users")
         (avatars_dir / f"{current_user.id}.{old_ext}").unlink(missing_ok=True)
 
     await user_repo.delete_user_meta(current_user, UserMeta.MetaKeys.AVATAR_EXT)

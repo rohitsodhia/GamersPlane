@@ -37,6 +37,12 @@ class CharacterSheetData(SchemaBase):
     layout: dict
 
 
+class CharacterAvatarData(SchemaBase):
+    id: int
+    url: str
+    is_primary: bool
+
+
 class GetCharacterResponse(SchemaBase):
     id: int
     label: str
@@ -44,3 +50,18 @@ class GetCharacterResponse(SchemaBase):
     type: Character.Type
     values: dict | None = None
     character_sheet: CharacterSheetData
+    avatars: list[CharacterAvatarData]
+
+
+class UpdateCharacterAvatarResponse(SchemaBase):
+    success: bool = True
+    avatar: CharacterAvatarData
+
+
+class DeleteCharacterAvatarResponse(SchemaBase):
+    success: bool = True
+
+
+class SetPrimaryCharacterAvatarResponse(SchemaBase):
+    success: bool = True
+    avatar: CharacterAvatarData

@@ -139,8 +139,8 @@ class TestUpdateCurrentUserAvatar:
         assert response.status_code == 200
         body = response.json()
         assert body["success"] is True
-        assert body["avatar"] == f"{configs.AVATARS_ROOT}/{user.id}.png"
-        assert (_avatars_dir / f"{user.id}.png").exists()
+        assert body["avatar"] == f"{configs.AVATARS_ROOT}/users/{user.id}.png"
+        assert (_avatars_dir / "users" / f"{user.id}.png").exists()
 
     async def test_update_avatar_rejects_oversized_file(self, authed_client):
         client, _user = authed_client
@@ -186,7 +186,7 @@ class TestDeleteCurrentUserAvatar:
 
         assert response.status_code == 200
         assert response.json()["success"] is True
-        assert not (_avatars_dir / f"{user.id}.png").exists()
+        assert not (_avatars_dir / "users" / f"{user.id}.png").exists()
 
     async def test_delete_avatar_without_existing_avatar(self, authed_client):
         client, _user = authed_client

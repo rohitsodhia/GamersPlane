@@ -1,12 +1,18 @@
-from fastapi import APIRouter
+from pathlib import Path
+
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from app.characters import schemas
+from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
+from app.helpers.avatars import process_avatar_upload, save_avatar
 from app.middleware import Principal
 from app.repositories import CharacterRepository, CharacterSheetRepository
 
 characters = APIRouter(prefix="/characters")
+
+AVATAR_MAX_COUNT = 5
 
 
 @characters.post("/", response_model=schemas.CreateCharacterResponse)
@@ -65,6 +71,98 @@ async def update_character(
     return _character_response(character)
 
 
+@characters.post(
+    "/{character_id}/avatar",
+    response_model=schemas.UpdateCharacterAvatarResponse,
+)
+async def add_character_avatar(
+    character_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    avatar: UploadFile = File(...),
+):
+    character_repository = CharacterRepository(db_session, principal)
+    character = await character_repository.get(character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+    if character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
+    if len(character.avatars) >= AVATAR_MAX_COUNT:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"A character can have at most {AVATAR_MAX_COUNT} avatars",
+        )
+
+    contents = await avatar.read()
+    image, ext = process_avatar_upload(contents)
+
+    new_avatar = await character_repository.add_avatar(character, ext)
+
+    avatars_dir = Path(configs.AVATARS_DIR + "/characters")
+    save_avatar(image, avatars_dir / f"{new_avatar.id}.{ext}")
+
+    return {"success": True, "avatar": _avatar_data(new_avatar)}
+
+
+@characters.delete(
+    "/{character_id}/avatar/{avatar_id}",
+    response_model=schemas.DeleteCharacterAvatarResponse,
+)
+async def delete_character_avatar(
+    character_id: int,
+    avatar_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    character_repository = CharacterRepository(db_session, principal)
+    character = await character_repository.get(character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+    if character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
+
+    deleted_avatar = await character_repository.delete_avatar(character, avatar_id)
+    if deleted_avatar is None:
+        raise NotFoundException("Avatar not found")
+
+    avatars_dir = Path(configs.AVATARS_DIR + "/characters")
+    (avatars_dir / f"{deleted_avatar.id}.{deleted_avatar.ext}").unlink(missing_ok=True)
+
+    return {"success": True}
+
+
+@characters.patch(
+    "/{character_id}/avatar/{avatar_id}",
+    response_model=schemas.SetPrimaryCharacterAvatarResponse,
+)
+async def set_primary_character_avatar(
+    character_id: int,
+    avatar_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    character_repository = CharacterRepository(db_session, principal)
+    character = await character_repository.get(character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+    if character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
+
+    avatar = await character_repository.set_primary_avatar(character, avatar_id)
+    if avatar is None:
+        raise NotFoundException("Avatar not found")
+
+    return {"success": True, "avatar": _avatar_data(avatar)}
+
+
+def _avatar_data(avatar) -> schemas.CharacterAvatarData:
+    return schemas.CharacterAvatarData(
+        id=avatar.id,
+        url=f"{configs.AVATARS_ROOT}/characters/{avatar.id}.{avatar.ext}",
+        is_primary=avatar.is_primary,
+    )
+
+
 def _character_response(character) -> schemas.GetCharacterResponse:
     sheet = character.character_sheet
 
@@ -88,4 +186,5 @@ def _character_response(character) -> schemas.GetCharacterResponse:
             ),
             layout=sheet.layout,
         ),
+        avatars=[_avatar_data(avatar) for avatar in character.avatars],
     )
