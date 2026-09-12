@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import select
 
-from app.character_sheets.defaults import empty_sheet_layout
+from app.character_sheets.defaults import default_sheet_layout
 from app.models import CharacterSheet
 from app.repositories import CharacterSheetRepository
 from tests.factories import ActivatedUserFactory, SystemFactory
@@ -44,7 +44,7 @@ class TestCreate:
 
         assert sheet.layout == layout
 
-    async def test_create_falls_back_to_the_empty_layout(self, repository, system):
+    async def test_create_falls_back_to_the_default_layout(self, repository, system):
         sheet = await repository.create(name="Fighter", system_id=system.id)
 
-        assert sheet.layout == empty_sheet_layout()
+        assert sheet.layout == default_sheet_layout()

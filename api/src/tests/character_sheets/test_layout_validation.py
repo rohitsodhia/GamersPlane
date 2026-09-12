@@ -14,7 +14,7 @@ class TestValidateSheetLayoutAccepts:
 
     def test_accepts_deeply_nested_containers_and_child_array_keys(self):
         layout = {
-            "version": 1,
+            "schema_version": 1,
             "classes": {"bubble": {"width": "30px"}},
             "elements": [
                 {
@@ -43,7 +43,7 @@ class TestValidateSheetLayoutAccepts:
         # `items` (loop entries) and `values` (select options) are not element
         # arrays -- their bare-object entries must not be walked as nodes.
         layout = {
-            "version": 1,
+            "schema_version": 1,
             "elements": [
                 {
                     "type": "select",
@@ -68,7 +68,7 @@ class TestValidateSheetLayoutRejects:
 
     @pytest.mark.parametrize(
         "layout",
-        [{"elements": []}, {"version": 2, "elements": []}],
+        [{"elements": []}, {"schema_version": 2, "elements": []}],
         ids=["missing", "unsupported"],
     )
     def test_rejects_a_bad_version(self, layout):
@@ -77,32 +77,32 @@ class TestValidateSheetLayoutRejects:
 
     def test_rejects_elements_that_is_not_an_array(self):
         with pytest.raises(ValidationError, match="elements"):
-            validate_sheet_layout({"version": 1, "elements": {}})
+            validate_sheet_layout({"schema_version": 1, "elements": {}})
 
     def test_rejects_classes_that_is_not_an_object(self):
         with pytest.raises(ValidationError, match="classes"):
-            validate_sheet_layout({"version": 1, "classes": [], "elements": []})
+            validate_sheet_layout({"schema_version": 1, "classes": [], "elements": []})
 
     def test_rejects_an_element_that_is_not_an_object(self):
         with pytest.raises(ValidationError, match=r"elements\[0\]"):
-            validate_sheet_layout({"version": 1, "elements": ["header"]})
+            validate_sheet_layout({"schema_version": 1, "elements": ["header"]})
 
     @pytest.mark.parametrize(
         "node", [{"text": "hi"}, {"type": ""}], ids=["absent", "empty-string"]
     )
     def test_rejects_an_element_without_a_usable_type(self, node):
         with pytest.raises(ValidationError, match="missing a 'type'"):
-            validate_sheet_layout({"version": 1, "elements": [node]})
+            validate_sheet_layout({"schema_version": 1, "elements": [node]})
 
     def test_rejects_an_unknown_element_type(self):
         with pytest.raises(ValidationError, match="unknown type 'sektion'"):
             validate_sheet_layout(
-                {"version": 1, "elements": [{"type": "sektion", "content": []}]}
+                {"schema_version": 1, "elements": [{"type": "sektion", "content": []}]}
             )
 
     def test_reports_the_path_to_a_nested_bad_node(self):
         layout = {
-            "version": 1,
+            "schema_version": 1,
             "elements": [
                 {"type": "section", "content": [{"type": "bogus"}]},
             ],
@@ -113,7 +113,7 @@ class TestValidateSheetLayoutRejects:
 
     def test_rejects_a_child_array_key_that_is_not_an_array(self):
         layout = {
-            "version": 1,
+            "schema_version": 1,
             "elements": [{"type": "section", "content": {"type": "header"}}],
         }
 
@@ -129,4 +129,4 @@ class TestValidateSheetLayoutRejects:
             node = child
 
         with pytest.raises(ValidationError, match="nests too deeply"):
-            validate_sheet_layout({"version": 1, "elements": [root]})
+            validate_sheet_layout({"schema_version": 1, "elements": [root]})
