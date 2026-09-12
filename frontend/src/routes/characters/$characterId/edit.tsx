@@ -3,12 +3,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ApiError } from "#/lib/api";
 import { characterQueryOptions, updateCharacter } from "#/queries/character";
-import styles from "./$characterId.module.css";
-import { SheetRenderer } from "./sheets/-components/SheetRenderer";
-import { SheetValuesProvider, useSheetStore } from "./sheets/-components/sheet-values";
-import type { SheetSchema } from "./sheets/-components/types";
+import { SheetRenderer } from "../sheets/-components/SheetRenderer";
+import { SheetValuesProvider, useSheetStore } from "../sheets/-components/sheet-values";
+import type { SheetSchema } from "../sheets/-components/types";
+import AvatarPopover from "./-avatar-popover";
+import styles from "./character.module.css";
 
-export const Route = createFileRoute("/characters/$characterId")({
+export const Route = createFileRoute("/characters/$characterId/edit")({
 	params: {
 		parse: (params) => ({ characterId: Number(params.characterId) }),
 	},
@@ -24,6 +25,7 @@ function RouteComponent() {
 	const { characterId } = Route.useParams();
 	const { data: character } = useSuspenseQuery(characterQueryOptions(characterId));
 	const { character_sheet: sheet } = character;
+	const primaryAvatar = character.avatars.find((avatar) => avatar.is_primary);
 
 	// Remount when switching characters so the value store re-seeds from the
 	// newly loaded `values`.
@@ -39,6 +41,31 @@ function RouteComponent() {
 				/>
 			</div>
 
+			<div className={styles["avatar-wrapper"]}>
+				<button type="button" popoverTarget="character-avatar-popover">
+					Edit Avatar
+				</button>{" "}
+				(Avatar Set:{" "}
+				{primaryAvatar ? (
+					<img
+						src="/images/icons/green_check.png"
+						title="Avatar set"
+						alt="Avatar set"
+					/>
+				) : (
+					<img
+						src="/images/icons/cross.png"
+						title="No avatar set"
+						alt="No avatar set"
+					/>
+				)}
+				)
+			</div>
+			<AvatarPopover
+				id="character-avatar-popover"
+				characterId={characterId}
+				avatars={character.avatars}
+			/>
 			<SheetValuesProvider
 				key={characterId}
 				mode="edit"

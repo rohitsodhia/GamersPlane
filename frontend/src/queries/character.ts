@@ -5,6 +5,12 @@ import type { SheetSchema } from "#/routes/characters/sheets/-components/types";
 
 export type CharacterType = "pc" | "npc";
 
+export type CharacterAvatar = {
+	id: number;
+	url: string;
+	is_primary: boolean;
+};
+
 export type Character = {
 	id: number;
 	label: string;
@@ -18,6 +24,7 @@ export type Character = {
 		system: { id: string; name: string };
 		layout: SheetSchema;
 	};
+	avatars: CharacterAvatar[];
 };
 
 export const characterQueryOptions = (characterId: number) =>
@@ -60,6 +67,52 @@ export const createCharacter = async (
 	const res = await apiFetch("/characters/", {
 		method: "POST",
 		body: JSON.stringify(data),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+export const addCharacterAvatar = async (
+	characterId: number,
+	avatar: File,
+): Promise<{ success: boolean; avatar: CharacterAvatar }> => {
+	const formData = new FormData();
+	formData.append("avatar", avatar);
+
+	const res = await apiFetch(`/characters/${characterId}/avatar`, {
+		method: "POST",
+		body: formData,
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+export const deleteCharacterAvatar = async (
+	characterId: number,
+	avatarId: number,
+): Promise<{ success: boolean }> => {
+	const res = await apiFetch(`/characters/${characterId}/avatar/${avatarId}`, {
+		method: "DELETE",
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+export const setPrimaryCharacterAvatar = async (
+	characterId: number,
+	avatarId: number,
+): Promise<{ success: boolean; avatar: CharacterAvatar }> => {
+	const res = await apiFetch(`/characters/${characterId}/avatar/${avatarId}`, {
+		method: "PATCH",
 	});
 	if (!res.ok) {
 		const { errors } = await res.json();

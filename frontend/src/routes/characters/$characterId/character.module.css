@@ -1,0 +1,52 @@
+.character-sheet {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.sheet-logo {
+	margin-bottom: 1em;
+
+	img {
+		margin-inline: auto;
+	}
+}
+
+.btn-wrapper {
+	display: flex;
+	justify-content: center;
+	margin-top: 1em;
+}
+
+.top-links {
+	position: sticky;
+	top: 70px;
+	z-index: 100;
+
+	button {
+		height: stretch;
+	}
+}
+
+h1:has(+ .top-links) {
+	margin-bottom: 0;
+}
+
+.avatar-wrapper {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	margin-bottom: 1em;
+
+	button {
+		margin-right: 0.5ex;
+	}
+
+	img {
+		display: inline-block;
+		margin-left: 0.5ex;
+		height: 1em;
+		line-height: 1em;
+		transform: translateY(-0.1em);
+	}
+}
