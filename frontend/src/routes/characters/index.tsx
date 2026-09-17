@@ -5,15 +5,19 @@ import { useState } from "react";
 import { FilterableListBox } from "#/components/FilterableListBox";
 import { Select } from "#/components/Select";
 import { ApiError } from "#/lib/api";
+import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { type CharacterType, createCharacter } from "#/queries/character";
 import { myCharacterSheetsQueryOptions } from "#/queries/characterSheet";
 import styles from "./index.module.css";
 
 export const Route = createFileRoute("/characters/")({
-	loader: async ({ context }) => {
-		await context.queryClient.ensureQueryData(myCharacterSheetsQueryOptions);
-	},
+	beforeLoad: requireAuth,
+	loader: ({ context, location }) =>
+		redirectToLoginOnAuthFailure(
+			context.queryClient.ensureQueryData(myCharacterSheetsQueryOptions),
+			location,
+		),
 	component: RouteComponent,
 });
 

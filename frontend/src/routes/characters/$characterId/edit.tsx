@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ApiError } from "#/lib/api";
+import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import { characterQueryOptions, updateCharacter } from "#/queries/character";
 import { SheetRenderer } from "../sheets/-components/SheetRenderer";
 import { SheetValuesProvider, useSheetStore } from "../sheets/-components/sheet-values";
@@ -13,11 +14,11 @@ export const Route = createFileRoute("/characters/$characterId/edit")({
 	params: {
 		parse: (params) => ({ characterId: Number(params.characterId) }),
 	},
-	loader: async ({ context, params }) => {
-		await context.queryClient.ensureQueryData(
-			characterQueryOptions(params.characterId),
-		);
-	},
+	loader: ({ context, params, location }) =>
+		redirectToLoginOnAuthFailure(
+			context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
+			location,
+		),
 	component: RouteComponent,
 });
 

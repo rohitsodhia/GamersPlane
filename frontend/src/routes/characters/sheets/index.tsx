@@ -4,12 +4,14 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Autocomplete } from "#/components/Autocomplete";
 import { ApiError } from "#/lib/api";
+import { requireAuth } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { createCharacterSheet } from "#/queries/characterSheet";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import styles from "./index.module.css";
 
 export const Route = createFileRoute("/characters/sheets/")({
+	beforeLoad: requireAuth,
 	loader: async ({ context }) => {
 		await context.queryClient.ensureQueryData(systemsQueryOptions({ basic: true }));
 	},

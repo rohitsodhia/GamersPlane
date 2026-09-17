@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { FadeOut } from "#/components/FadeOut";
 import { ApiError } from "#/lib/api";
+import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import { useFlash } from "#/lib/use-flash";
 import {
 	characterSheetQueryOptions,
@@ -17,11 +18,11 @@ export const Route = createFileRoute("/characters/sheets/$sheetId")({
 	params: {
 		parse: (params) => ({ sheetId: Number(params.sheetId) }),
 	},
-	loader: async ({ context, params }) => {
-		await context.queryClient.ensureQueryData(
-			characterSheetQueryOptions(params.sheetId),
-		);
-	},
+	loader: ({ context, params, location }) =>
+		redirectToLoginOnAuthFailure(
+			context.queryClient.ensureQueryData(characterSheetQueryOptions(params.sheetId)),
+			location,
+		),
 	component: RouteComponent,
 });
 

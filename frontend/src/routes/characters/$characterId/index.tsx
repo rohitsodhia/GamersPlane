@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import clsx from "clsx";
+import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { characterQueryOptions } from "#/queries/character";
 import { SheetRenderer } from "../sheets/-components/SheetRenderer";
@@ -11,11 +12,11 @@ export const Route = createFileRoute("/characters/$characterId/")({
 	params: {
 		parse: (params) => ({ characterId: Number(params.characterId) }),
 	},
-	loader: async ({ context, params }) => {
-		await context.queryClient.ensureQueryData(
-			characterQueryOptions(params.characterId),
-		);
-	},
+	loader: ({ context, params, location }) =>
+		redirectToLoginOnAuthFailure(
+			context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
+			location,
+		),
 	component: RouteComponent,
 });
 
