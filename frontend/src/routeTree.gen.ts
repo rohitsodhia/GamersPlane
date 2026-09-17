@@ -191,15 +191,15 @@ const AcpRoleRoleIdRoute = AcpRoleRoleIdRouteImport.update({
 } as any)
 const CharactersCharacterIdIndexRoute =
   CharactersCharacterIdIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => CharactersCharacterIdRoute,
+    id: '/characters/$characterId/',
+    path: '/characters/$characterId/',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const CharactersCharacterIdEditRoute =
   CharactersCharacterIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => CharactersCharacterIdRoute,
+    id: '/characters/$characterId/edit',
+    path: '/characters/$characterId/edit',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const CharactersSheetsIndexRoute = CharactersSheetsIndexRouteImport.update({
   id: '/characters/sheets/',
@@ -507,11 +507,13 @@ export interface RootRouteChildren {
   GamesIndexRoute: typeof GamesIndexRoute
   PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
+  CharactersCharacterIdEditRoute: typeof CharactersCharacterIdEditRoute
   CharactersSheetsSheetIdRoute: typeof CharactersSheetsSheetIdRoute
   ForumsEditPostPostIdRoute: typeof ForumsEditPostPostIdRoute
   ForumsNewThreadForumIdRoute: typeof ForumsNewThreadForumIdRoute
   ForumsThreadThreadIdRoute: typeof ForumsThreadThreadIdRoute
   GamesGameIdEditRoute: typeof GamesGameIdEditRoute
+  CharactersCharacterIdIndexRoute: typeof CharactersCharacterIdIndexRoute
   CharactersSheetsIndexRoute: typeof CharactersSheetsIndexRoute
   GamesGameIdIndexRoute: typeof GamesGameIdIndexRoute
 }
@@ -716,17 +718,17 @@ declare module '@tanstack/react-router' {
     }
     '/characters/$characterId/': {
       id: '/characters/$characterId/'
-      path: '/'
+      path: '/characters/$characterId'
       fullPath: '/characters/$characterId/'
       preLoaderRoute: typeof CharactersCharacterIdIndexRouteImport
-      parentRoute: typeof CharactersCharacterIdRoute
+      parentRoute: typeof rootRouteImport
     }
     '/characters/$characterId/edit': {
       id: '/characters/$characterId/edit'
-      path: '/edit'
+      path: '/characters/$characterId/edit'
       fullPath: '/characters/$characterId/edit'
       preLoaderRoute: typeof CharactersCharacterIdEditRouteImport
-      parentRoute: typeof CharactersCharacterIdRoute
+      parentRoute: typeof rootRouteImport
     }
     '/characters/sheets/': {
       id: '/characters/sheets/'
@@ -842,11 +844,13 @@ const rootRouteChildren: RootRouteChildren = {
   GamesIndexRoute: GamesIndexRoute,
   PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
+  CharactersCharacterIdEditRoute: CharactersCharacterIdEditRoute,
   CharactersSheetsSheetIdRoute: CharactersSheetsSheetIdRoute,
   ForumsEditPostPostIdRoute: ForumsEditPostPostIdRoute,
   ForumsNewThreadForumIdRoute: ForumsNewThreadForumIdRoute,
   ForumsThreadThreadIdRoute: ForumsThreadThreadIdRoute,
   GamesGameIdEditRoute: GamesGameIdEditRoute,
+  CharactersCharacterIdIndexRoute: CharactersCharacterIdIndexRoute,
   CharactersSheetsIndexRoute: CharactersSheetsIndexRoute,
   GamesGameIdIndexRoute: GamesGameIdIndexRoute,
 }
