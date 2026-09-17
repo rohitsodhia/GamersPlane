@@ -22,8 +22,8 @@
 	--gp-success-green: light-dark(#070, #4a4);
 	--gp-error-red: light-dark(#faa, #400);
 
-	--font-size-sm: 0.8em;
-	--line-height: 1.5em;
+	--font-size-sm: 0.8rem;
+	--line-height: 1.5rem;
 
 	--skew-angle: 20deg;
 
