@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from PIL import Image, UnidentifiedImageError
 
 AVATAR_MAX_DIMENSION = 150
-AVATAR_MAX_BYTES = 5 * 1024 * 1024
+AVATAR_MAX_BYTES = 10 * 1024 * 1024
 AVATAR_FORMAT_EXTENSIONS = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}
 
 
