@@ -21,4 +21,40 @@
 	input {
 		width: 200px;
 	}
+
+	.character-list {
+		margin-bottom: 2em;
+
+		ul {
+			list-style: none;
+			margin: 0;
+			padding: 0;
+		}
+
+		.character-row {
+			display: flex;
+			align-items: center;
+			gap: 1em;
+			padding: 0.5em 0;
+			border-bottom: 1px solid var(--border-color, #ccc);
+
+			.label {
+				flex: 2;
+			}
+
+			.char-type,
+			.system-type {
+				flex: 1;
+			}
+
+			.links {
+				display: flex;
+				gap: 0.5em;
+			}
+		}
+
+		.no-results {
+			padding: 1em 0;
+		}
+	}
 }

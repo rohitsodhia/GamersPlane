@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { ScopeValues } from "#/routes/characters/sheets/-components/sheet-values";
 import type { SheetSchema } from "#/routes/characters/sheets/-components/types";
@@ -26,6 +26,39 @@ export type Character = {
 	};
 	avatars: CharacterAvatar[];
 };
+
+export type CharacterListItem = {
+	id: number;
+	label: string;
+	type: CharacterType;
+	character_sheet: { id: number; name: string; system: { id: string; name: string } };
+};
+
+export type GetCharactersResponse = {
+	characters: CharacterListItem[];
+	total: number;
+	page: number;
+};
+
+export const myCharactersQueryOptions = (
+	params: { search?: string; page?: number } = {},
+) =>
+	queryOptions({
+		queryKey: ["characters", "mine", params],
+		queryFn: async (): Promise<GetCharactersResponse> => {
+			const search = new URLSearchParams();
+			if (params.search) search.set("search", params.search);
+			if (params.page) search.set("page", String(params.page));
+			const qs = search.toString();
+			const res = await apiFetch(`/characters${qs ? `?${qs}` : ""}`);
+			if (!res.ok) {
+				const { errors } = await res.json();
+				throw new ApiError(res.status, errors);
+			}
+			return res.json();
+		},
+		placeholderData: keepPreviousData,
+	});
 
 export const characterQueryOptions = (characterId: number) =>
 	queryOptions({

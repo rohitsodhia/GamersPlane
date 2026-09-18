@@ -1,23 +1,51 @@
 import { useForm } from "@tanstack/react-form";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import {
+	useMutation,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { z } from "zod";
 import { FilterableListBox } from "#/components/FilterableListBox";
+import LoadingSpinner from "#/components/LoadingSpinner";
+import Paginate from "#/components/Paginate";
 import { Select } from "#/components/Select";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
+import { DEBOUNCE_MS } from "#/lib/constants";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { type CharacterType, createCharacter } from "#/queries/character";
+import {
+	type CharacterType,
+	createCharacter,
+	myCharactersQueryOptions,
+} from "#/queries/character";
 import { myCharacterSheetsQueryOptions } from "#/queries/characterSheet";
 import styles from "./index.module.css";
 
 export const Route = createFileRoute("/characters/")({
 	beforeLoad: requireAuth,
-	loader: ({ context, location }) =>
-		redirectToLoginOnAuthFailure(
+	validateSearch: z.object({
+		page: z.number().optional(),
+		search: z.string().optional(),
+	}),
+	// No loaderDeps, and the character list is deliberately not fetched here at
+	// all: with defaultPendingMs: 0, ANY loader invocation for this route (even
+	// one that resolves from cache) crosses an async boundary and paints the
+	// router's full-page pendingComponent for a tick. loaderDeps on page/search
+	// would re-run this loader on every debounced search navigation, causing
+	// that flash on every keystroke. Leaving those out of loaderDeps means the
+	// loader only runs once, on initial entry to the route — CharacterList's own
+	// useQuery (not useSuspenseQuery) handles all later page/search fetches
+	// entirely client-side, with keepPreviousData + isFetching driving a spinner
+	// scoped to the results area instead.
+	loader: ({ context, location }) => {
+		return redirectToLoginOnAuthFailure(
 			context.queryClient.ensureQueryData(myCharacterSheetsQueryOptions),
 			location,
-		),
+		);
+	},
 	component: RouteComponent,
 });
 
@@ -35,7 +63,13 @@ function RouteComponent() {
 	const [apiErrors, setApiErrors] = useState<string[]>([]);
 	const [createdId, setCreatedId] = useState<number | null>(null);
 
-	const mutation = useMutation({ mutationFn: createCharacter });
+	const queryClient = useQueryClient();
+	const mutation = useMutation({
+		mutationFn: createCharacter,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["characters", "mine"] });
+		},
+	});
 
 	const navigate = useNavigate();
 
@@ -103,6 +137,8 @@ function RouteComponent() {
 			<h1 className="headerbar" ref={hbMarginedH1.ref}>
 				My Characters
 			</h1>
+
+			<CharacterList />
 
 			<h2 className="headerbar" ref={hbMarginedH2.ref}>
 				New Character
@@ -229,6 +265,110 @@ function RouteComponent() {
 			</div>
 
 			<Link to="/characters/sheets">Character Sheets</Link>
+		</div>
+	);
+}
+
+function CharacterList() {
+	const navigate = useNavigate({ from: Route.fullPath });
+	const { page: urlPage, search: urlSearch } = Route.useSearch();
+	const page = urlPage ?? 1;
+
+	// Plain useQuery (not useSuspenseQuery): with placeholderData: keepPreviousData,
+	// suspense queries still suspend on every key change (search/page), which would
+	// hand rendering to the router's full-page pendingComponent. useQuery instead
+	// just flips isFetching and keeps rendering the previous data, so the spinner
+	// stays scoped to character-results below.
+	const { data, isFetching } = useQuery(
+		myCharactersQueryOptions({ search: urlSearch, page }),
+	);
+	const characters = data?.characters ?? [];
+	const total = data?.total ?? 0;
+
+	const [searchInput, setSearchInput] = useState(urlSearch ?? "");
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: navigate is stable and re-running on it would loop
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			navigate({
+				search: (prev) => ({
+					...prev,
+					search: searchInput || undefined,
+					page: undefined,
+				}),
+			});
+		}, DEBOUNCE_MS);
+		return () => clearTimeout(timer);
+	}, [searchInput]);
+
+	return (
+		<div className={styles["character-list"]}>
+			<input
+				type="text"
+				placeholder="Search..."
+				value={searchInput}
+				onChange={(e) => setSearchInput(e.target.value)}
+			/>
+
+			<div className={styles["character-results"]}>
+				{isFetching && (
+					<div className={styles["results-loading"]}>
+						<LoadingSpinner />
+					</div>
+				)}
+
+				{isFetching ? null : data && characters.length > 0 ? (
+					<ul>
+						{characters.map((character) => (
+							<li key={character.id} className={styles["character-row"]}>
+								<div className={styles.label}>
+									<Link
+										to="/characters/$characterId"
+										params={{ characterId: character.id }}
+									>
+										{character.label}
+									</Link>
+								</div>
+								<div className={styles["char-type"]}>{character.type}</div>
+								<div className={styles["system-type"]}>
+									{character.character_sheet.system.name}
+								</div>
+								<div className={styles.links}>
+									<button
+										type="button"
+										// TODO: inline-edit label/type, mirroring the legacy editBasic flow.
+										onClick={() => {}}
+									>
+										<img src="/images/icons/gear.png" alt="Edit Label/Type" />
+									</button>
+									<button
+										type="button"
+										// TODO: wire up once a library/favorites concept exists for the new Character model.
+										onClick={() => {}}
+									>
+										<img src="/images/icons/bookmark_off.png" alt="Add to Library" />
+									</button>
+									<button
+										type="button"
+										// TODO: wire up once a delete endpoint exists for characters.
+										onClick={() => {}}
+									>
+										<img src="/images/icons/cross.png" alt="Delete Character" />
+									</button>
+								</div>
+							</li>
+						))}
+					</ul>
+				) : !isFetching && data ? (
+					<div className={styles["no-results"]}>
+						{urlSearch
+							? "No characters match your search."
+							: "You have no characters yet."}
+					</div>
+				) : null}
+			</div>
+
+			<Paginate numItems={total} current={page} onPageChange={() => {}} />
 		</div>
 	);
 }
