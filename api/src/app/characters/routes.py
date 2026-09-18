@@ -38,6 +38,27 @@ async def create_character(
     return schemas.CreateCharacterResponse(id=character.id)
 
 
+@characters.get("", response_model=schemas.GetCharactersResponse)
+async def get_characters(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    search: str | None = None,
+    page: int = 1,
+):
+    if page < 1:
+        page = 1
+
+    character_repository = CharacterRepository(db_session, principal)
+    characters = await character_repository.get_all(search=search, page=page)
+    total = await character_repository.count_all(search=search)
+
+    return schemas.GetCharactersResponse(
+        characters=[_character_response(character) for character in characters],
+        total=total,
+        page=page,
+    )
+
+
 @characters.get("/{character_id}", response_model=schemas.GetCharacterResponse)
 async def get_character(
     character_id: int,

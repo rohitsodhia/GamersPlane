@@ -209,6 +209,102 @@ class TestGetCharacter:
         assert response.json()["id"] == character.id
 
 
+class TestGetCharacters:
+    @pytest.fixture
+    async def owner(self, create):
+        return await create(ActivatedUserFactory)
+
+    async def _make_character(self, db_session, owner, sheet, label):
+        repository = CharacterRepository(db_session, principal=owner)
+        return await repository.create(
+            character_sheet_id=sheet.id, label=label, type=Character.Type.PC
+        )
+
+    async def test_requires_auth(self, client):
+        response = await client.get("/characters")
+
+        assert response.status_code == 403
+
+    async def test_only_returns_the_principals_characters(
+        self, client, public_sheet, owner, create, auth_as, db_session, wrap_in_savepoint
+    ):
+        stranger = await create(ActivatedUserFactory)
+        await self._make_character(db_session, stranger, public_sheet, "Legolas")
+        await self._make_character(db_session, owner, public_sheet, "Aragorn")
+        auth_as(owner)
+
+        response = await client.get("/characters")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        assert [c["label"] for c in body["characters"]] == ["Aragorn"]
+
+    async def test_orders_by_system_then_label(
+        self, client, owner, sheet_creator, create, auth_as, db_session, wrap_in_savepoint
+    ):
+        # ids are deliberately the reverse of sort_name, so the assertion
+        # below only passes if ordering actually uses System.sort_name.
+        system_a = await create(SystemFactory, id="zzz", sort_name="AAA System")
+        system_z = await create(SystemFactory, id="aaa", sort_name="ZZZ System")
+        sheet_a = await _make_sheet(
+            db_session, sheet_creator, system_a, status=CharacterSheet.Status.PUBLIC
+        )
+        sheet_z = await _make_sheet(
+            db_session, sheet_creator, system_z, status=CharacterSheet.Status.PUBLIC
+        )
+        await self._make_character(db_session, owner, sheet_z, "Zed")
+        await self._make_character(db_session, owner, sheet_a, "Beta")
+        await self._make_character(db_session, owner, sheet_a, "Alpha")
+        auth_as(owner)
+
+        response = await client.get("/characters")
+
+        assert response.status_code == 200
+        assert [c["label"] for c in response.json()["characters"]] == [
+            "Alpha",
+            "Beta",
+            "Zed",
+        ]
+
+    async def test_filters_by_search(
+        self, client, public_sheet, owner, auth_as, db_session, wrap_in_savepoint
+    ):
+        await self._make_character(db_session, owner, public_sheet, "Aragorn")
+        await self._make_character(db_session, owner, public_sheet, "Legolas")
+        auth_as(owner)
+
+        response = await client.get("/characters", params={"search": "arag"})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        assert [c["label"] for c in body["characters"]] == ["Aragorn"]
+
+    async def test_paginates_results(
+        self, client, public_sheet, owner, auth_as, db_session, wrap_in_savepoint
+    ):
+        per_page = configs.PAGINATE_PER_PAGE
+        for i in range(per_page + 1):
+            await self._make_character(
+                db_session, owner, public_sheet, f"Char {i:03}"
+            )
+        auth_as(owner)
+
+        first_page = await client.get("/characters")
+        second_page = await client.get("/characters", params={"page": 2})
+
+        assert first_page.status_code == 200
+        assert second_page.status_code == 200
+        first_body = first_page.json()
+        second_body = second_page.json()
+        assert first_body["total"] == per_page + 1
+        assert first_body["page"] == 1
+        assert len(first_body["characters"]) == per_page
+        assert second_body["page"] == 2
+        assert len(second_body["characters"]) == 1
+
+
 class TestUpdateCharacter:
     @pytest.fixture
     async def owner(self, create):

@@ -53,6 +53,12 @@ class GetCharacterResponse(SchemaBase):
     avatars: list[CharacterAvatarData]
 
 
+class GetCharactersResponse(SchemaBase):
+    characters: list[GetCharacterResponse]
+    total: int
+    page: int
+
+
 class UpdateCharacterAvatarResponse(SchemaBase):
     success: bool = True
     avatar: CharacterAvatarData

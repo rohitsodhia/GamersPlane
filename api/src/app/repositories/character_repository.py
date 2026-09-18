@@ -1,8 +1,9 @@
-from sqlalchemy import select
+from sqlalchemy import ScalarResult, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
-from app.models import Character, CharacterAvatar, CharacterSheet, User
+from app.configs import configs
+from app.models import Character, CharacterAvatar, CharacterSheet, System, User
 
 
 class CharacterRepository:
@@ -47,6 +48,45 @@ class CharacterRepository:
             )
         )
         return await self.db_session.scalar(query)
+
+    def _list_query(self, search: str | None = None):
+        query = select(Character).where(Character.user_id == self.principal.id)
+        if search:
+            query = query.where(Character.label.ilike(f"%{search}%"))
+        return query
+
+    async def get_all(
+        self,
+        search: str | None = None,
+        page: int = 1,
+        limit: int = configs.PAGINATE_PER_PAGE,
+    ) -> ScalarResult[Character]:
+        query = (
+            self._list_query(search)
+            .join(Character.character_sheet)
+            .join(CharacterSheet.system)
+            .order_by(System.sort_name.asc(), Character.label.asc())
+            .options(
+                selectinload(Character.character_sheet).options(
+                    selectinload(CharacterSheet.creator),
+                    selectinload(CharacterSheet.system),
+                    undefer(CharacterSheet.layout),
+                ),
+                selectinload(Character.avatars),
+            )
+            .limit(limit)
+            .offset((page - 1) * limit)
+        )
+        return await self.db_session.scalars(query)
+
+    async def count_all(self, search: str | None = None) -> int:
+        query = self._list_query(search)
+        return (
+            await self.db_session.scalar(
+                select(func.count()).select_from(query.subquery())
+            )
+            or 0
+        )
 
     async def add_avatar(self, character: Character, ext: str) -> CharacterAvatar:
         avatar = CharacterAvatar(
