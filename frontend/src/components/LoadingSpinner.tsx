@@ -1,6 +1,10 @@
 function LoadingSpinner({ fullScreen = false }: { fullScreen?: boolean }) {
 	return (
-		<div className="loading-spinner">
+		<div
+			className={
+				fullScreen ? "loading-spinner loading-spinner--fullscreen" : "loading-spinner"
+			}
+		>
 			<svg
 				version="1.2"
 				baseProfile="tiny"
