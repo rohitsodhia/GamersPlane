@@ -162,11 +162,6 @@ class TestGetGame:
             None,
         )
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_get_game_not_found(self, client):
         response = await client.get("/games/999999")
 
@@ -233,7 +228,7 @@ class TestGetGame:
         assert response.json()["status"] == "closed"
 
     async def test_get_game_as_gm_returns_players_in_all_states(
-        self, client, db_session, gm, game, create
+        self, auth_as, client, db_session, gm, game, create
     ):
         player_repository = PlayerRepository(db_session, principal=gm)
         applied = await create(ActivatedUserFactory)
@@ -247,7 +242,7 @@ class TestGetGame:
             game.id, invited.id, state=Player.States.INVITED
         )
 
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         response = await client.get(f"/games/{game.id}")
 
         player_user_ids = {p["id"] for p in response.json()["players"]}
@@ -276,7 +271,7 @@ class TestGetGame:
         assert player_user_ids == {accepted.id}
 
     async def test_get_game_viewer_state_reflects_own_invite(
-        self, client, db_session, gm, game, create
+        self, auth_as, client, db_session, gm, game, create
     ):
         player_repository = PlayerRepository(db_session, principal=gm)
         invitee = await create(ActivatedUserFactory)
@@ -284,7 +279,7 @@ class TestGetGame:
             game.id, invitee.id, state=Player.States.INVITED
         )
 
-        client = self._auth_as(client, invitee)
+        client = auth_as(invitee)
         response = await client.get(f"/games/{game.id}")
 
         body = response.json()
@@ -294,11 +289,11 @@ class TestGetGame:
         assert body["players"] == []
 
     async def test_get_game_viewer_state_none_when_not_a_player(
-        self, client, db_session, gm, game, create
+        self, auth_as, client, db_session, gm, game, create
     ):
         other_user = await create(ActivatedUserFactory)
 
-        client = self._auth_as(client, other_user)
+        client = auth_as(other_user)
         response = await client.get(f"/games/{game.id}")
 
         assert response.json()["viewer_state"] is None
@@ -382,11 +377,6 @@ class _GameFixtures:
 
         return _make_game
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
 
 class TestGetGames(_GameFixtures):
     """GET /games/ - the public "browse games" listing."""
@@ -416,12 +406,12 @@ class TestGetGames(_GameFixtures):
         assert games[0]["public"] is False
 
     async def test_get_games_excludes_games_viewer_already_accepted_in(
-        self, client, gm, make_game, create
+        self, auth_as, client, gm, make_game, create
     ):
         other_gm = await create(ActivatedUserFactory)
         game_mine = await make_game(gm, title="A Game")
         game_other = await make_game(other_gm, title="B Game")
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.get("/games/")
 
@@ -440,7 +430,7 @@ class TestGetGames(_GameFixtures):
         assert game_ids == {game.id}
 
     async def test_get_games_includes_games_viewer_only_applied_to(
-        self, client, db_session, gm, make_game, create
+        self, auth_as, client, db_session, gm, make_game, create
     ):
         game = await make_game(gm, title="A Game")
         applicant = await create(ActivatedUserFactory)
@@ -448,7 +438,7 @@ class TestGetGames(_GameFixtures):
         await player_repository.attach_player_to_game(
             game.id, applicant.id, state=Player.States.APPLIED
         )
-        client = self._auth_as(client, applicant)
+        client = auth_as(applicant)
 
         response = await client.get("/games/")
 
@@ -505,9 +495,7 @@ class TestGetGames(_GameFixtures):
         game_pf2e = await make_game(gm, title="B Game", system_id=other_system.id)
         await make_game(gm, title="C Game", system_id=third_system.id)
 
-        response = await client.get(
-            "/games/", params={"systems": ["dnd5e", "pf2e"]}
-        )
+        response = await client.get("/games/", params={"systems": ["dnd5e", "pf2e"]})
 
         game_ids = {g["id"] for g in response.json()["games"]}
         assert game_ids == {game_dnd.id, game_pf2e.id}
@@ -574,10 +562,10 @@ class TestGetGames(_GameFixtures):
         assert response.json()["games"][0]["player_count"] == 1
 
     async def test_get_games_favorited_false_when_unauthenticated(
-        self, client, gm, make_game
+        self, auth_as, client, gm, make_game
     ):
         game = await make_game(gm)
-        favorite_client = self._auth_as(client, gm)
+        favorite_client = auth_as(gm)
         await favorite_client.post(f"/games/{game.id}/favorite")
         del favorite_client.headers["Authorization"]
 
@@ -585,7 +573,9 @@ class TestGetGames(_GameFixtures):
 
         assert response.json()["games"][0]["favorited"] is False
 
-    async def test_get_games_returns_expected_fields(self, client, gm, system, make_game):
+    async def test_get_games_returns_expected_fields(
+        self, client, gm, system, make_game
+    ):
         game = await make_game(gm, title="My Campaign")
 
         response = await client.get("/games/")
@@ -617,19 +607,19 @@ class TestGetMyGames(_GameFixtures):
         assert response.status_code == 403
 
     async def test_get_my_games_excludes_other_users_games(
-        self, client, gm, make_game, create
+        self, auth_as, client, gm, make_game, create
     ):
         other_gm = await create(ActivatedUserFactory)
         await make_game(other_gm)
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.get("/games/my")
 
         assert response.json()["games"] == []
 
-    async def test_get_my_games_includes_gm_games(self, client, gm, make_game):
+    async def test_get_my_games_includes_gm_games(self, auth_as, client, gm, make_game):
         game = await make_game(gm)
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.get("/games/my")
 
@@ -637,7 +627,7 @@ class TestGetMyGames(_GameFixtures):
         assert game_ids == {game.id}
 
     async def test_get_my_games_includes_accepted_player_games(
-        self, client, db_session, gm, make_game, create
+        self, auth_as, client, db_session, gm, make_game, create
     ):
         game = await make_game(gm)
         player = await create(ActivatedUserFactory)
@@ -645,7 +635,7 @@ class TestGetMyGames(_GameFixtures):
         await player_repository.attach_player_to_game(
             game.id, player.id, state=Player.States.ACCEPTED
         )
-        client = self._auth_as(client, player)
+        client = auth_as(player)
 
         response = await client.get("/games/my")
 
@@ -653,7 +643,7 @@ class TestGetMyGames(_GameFixtures):
         assert game_ids == {game.id}
 
     async def test_get_my_games_excludes_applied_and_invited_games(
-        self, client, db_session, gm, make_game, create
+        self, auth_as, client, db_session, gm, make_game, create
     ):
         game = await make_game(gm)
         applicant = await create(ActivatedUserFactory)
@@ -666,14 +656,14 @@ class TestGetMyGames(_GameFixtures):
             game.id, invitee.id, state=Player.States.INVITED
         )
 
-        applicant_response = await self._auth_as(client, applicant).get("/games/my")
-        invitee_response = await self._auth_as(client, invitee).get("/games/my")
+        applicant_response = await auth_as(applicant).get("/games/my")
+        invitee_response = await auth_as(invitee).get("/games/my")
 
         assert applicant_response.json()["games"] == []
         assert invitee_response.json()["games"] == []
 
     async def test_get_my_games_is_not_paginated(
-        self, client, db_session, gm, make_game, create
+        self, auth_as, client, db_session, gm, make_game, create
     ):
         # "My Games" groups the full list into playing/running/retired
         # sections client-side, so it must never be truncated by pagination.
@@ -684,14 +674,14 @@ class TestGetMyGames(_GameFixtures):
             await player_repository.attach_player_to_game(
                 game.id, player.id, state=Player.States.ACCEPTED
             )
-        client = self._auth_as(client, player)
+        client = auth_as(player)
 
         response = await client.get("/games/my")
 
         assert len(response.json()["games"]) == configs.PAGINATE_PER_PAGE + 5
 
     async def test_get_my_games_per_game_fields_are_not_cross_contaminated(
-        self, client, db_session, gm, make_game, create
+        self, auth_as, client, db_session, gm, make_game, create
     ):
         # A regression guard for the bulk per-game lookups (player_counts,
         # gm_game_ids, favorited_ids): each is keyed by game id, so a game
@@ -704,7 +694,7 @@ class TestGetMyGames(_GameFixtures):
         await player_repository.attach_player_to_game(
             game_b.id, gm.id, state=Player.States.ACCEPTED
         )
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         await client.post(f"/games/{game_b.id}/favorite")
 
         response = await client.get("/games/my")
@@ -719,7 +709,7 @@ class TestGetMyGames(_GameFixtures):
         assert games[1]["player_count"] == 1
 
     async def test_get_my_games_is_gm_true_for_delegated_co_gm(
-        self, client, db_session, gm, make_game, create
+        self, auth_as, client, db_session, gm, make_game, create
     ):
         game = await make_game(gm)
         co_gm = await create(ActivatedUserFactory)
@@ -727,14 +717,14 @@ class TestGetMyGames(_GameFixtures):
         await player_repository.attach_player_to_game(
             game.id, co_gm.id, is_gm=True, state=Player.States.ACCEPTED
         )
-        client = self._auth_as(client, co_gm)
+        client = auth_as(co_gm)
 
         response = await client.get("/games/my")
 
         assert response.json()["games"][0]["is_gm"] is True
 
     async def test_get_my_games_is_gm_false_for_regular_player(
-        self, client, db_session, gm, make_game, create
+        self, auth_as, client, db_session, gm, make_game, create
     ):
         game = await make_game(gm)
         player = await create(ActivatedUserFactory)
@@ -742,26 +732,28 @@ class TestGetMyGames(_GameFixtures):
         await player_repository.attach_player_to_game(
             game.id, player.id, state=Player.States.ACCEPTED
         )
-        client = self._auth_as(client, player)
+        client = auth_as(player)
 
         response = await client.get("/games/my")
 
         assert response.json()["games"][0]["is_gm"] is False
 
     async def test_get_my_games_is_retired_reflects_retired_field(
-        self, client, gm, make_game
+        self, auth_as, client, gm, make_game
     ):
         game = await make_game(gm)
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         await client.patch(f"/games/{game.id}/retire")
 
         response = await client.get("/games/my")
 
         assert response.json()["games"][0]["is_retired"] is True
 
-    async def test_get_my_games_status_reflects_closed(self, client, gm, make_game):
+    async def test_get_my_games_status_reflects_closed(
+        self, auth_as, client, gm, make_game
+    ):
         game = await make_game(gm)
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         await client.patch(f"/games/{game.id}/toggle/status")
 
         response = await client.get("/games/my")
@@ -769,10 +761,10 @@ class TestGetMyGames(_GameFixtures):
         assert response.json()["games"][0]["status"] == "closed"
 
     async def test_get_my_games_favorited_true_when_favorited(
-        self, client, gm, make_game
+        self, auth_as, client, gm, make_game
     ):
         game = await make_game(gm)
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         await client.post(f"/games/{game.id}/favorite")
 
         response = await client.get("/games/my")
@@ -780,10 +772,10 @@ class TestGetMyGames(_GameFixtures):
         assert response.json()["games"][0]["favorited"] is True
 
     async def test_get_my_games_returns_expected_fields(
-        self, client, gm, system, make_game
+        self, auth_as, client, gm, system, make_game
     ):
         game = await make_game(gm, title="My Campaign")
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.get("/games/my")
 
@@ -846,11 +838,6 @@ class TestUpdateGame:
             None,
         )
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_update_game_requires_auth(self, client, game):
         response = await client.patch(f"/games/{game.id}", json=_payload())
 
@@ -870,8 +857,10 @@ class TestUpdateGame:
 
         assert response.status_code == 403
 
-    async def test_update_game_as_gm_updates_fields(self, client, db_session, game, gm):
-        client = self._auth_as(client, gm)
+    async def test_update_game_as_gm_updates_fields(
+        self, auth_as, client, db_session, game, gm
+    ):
+        client = auth_as(gm)
 
         response = await client.patch(
             f"/games/{game.id}",
@@ -903,9 +892,9 @@ class TestUpdateGame:
         assert updated.advanced_options == {"foo": "bar"}
 
     async def test_update_game_strips_and_converts_title(
-        self, client, db_session, game, gm
+        self, auth_as, client, db_session, game, gm
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.patch(
             f"/games/{game.id}", json=_payload(title="  Line one\nLine two  ")
@@ -916,9 +905,9 @@ class TestUpdateGame:
         assert updated.title == "Line one<br>Line two"
 
     async def test_update_game_soft_deleted_not_found(
-        self, client, db_session, game, gm
+        self, auth_as, client, db_session, game, gm
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         game.deleted = game.created
         db_session.add(game)
         await db_session.flush()
@@ -928,9 +917,9 @@ class TestUpdateGame:
         assert response.status_code == 404
 
     async def test_update_game_allowed_char_sheets(
-        self, client, db_session, game, gm, create
+        self, auth_as, client, db_session, game, gm, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         sheet = await create(SystemFactory, id="sheet-a")
 
         response = await client.patch(
@@ -944,8 +933,8 @@ class TestUpdateGame:
         )
         assert [s.id for s in updated.allowed_char_sheets] == [sheet.id]
 
-    async def test_update_game_system_not_found(self, client, game, gm):
-        client = self._auth_as(client, gm)
+    async def test_update_game_system_not_found(self, auth_as, client, game, gm):
+        client = auth_as(gm)
 
         response = await client.patch(
             f"/games/{game.id}", json=_payload(system_id="does-not-exist")
@@ -953,8 +942,10 @@ class TestUpdateGame:
 
         assert response.status_code == 404
 
-    async def test_update_game_allowed_char_sheet_not_found(self, client, game, gm):
-        client = self._auth_as(client, gm)
+    async def test_update_game_allowed_char_sheet_not_found(
+        self, auth_as, client, game, gm
+    ):
+        client = auth_as(gm)
 
         response = await client.patch(
             f"/games/{game.id}",
@@ -1100,11 +1091,6 @@ class TestInvitePlayer:
         )
         return game
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_invite_player_requires_auth(self, client, game):
         response = await client.post(
             f"/games/{game.id}/invite", json={"username": "someone"}
@@ -1130,8 +1116,8 @@ class TestInvitePlayer:
 
         assert response.status_code == 403
 
-    async def test_invite_player_user_not_found(self, client, game, gm):
-        client = self._auth_as(client, gm)
+    async def test_invite_player_user_not_found(self, auth_as, client, game, gm):
+        client = auth_as(gm)
 
         response = await client.post(
             f"/games/{game.id}/invite", json={"username": "does-not-exist"}
@@ -1140,9 +1126,9 @@ class TestInvitePlayer:
         assert response.status_code == 404
 
     async def test_invite_player_creates_invited_player(
-        self, client, db_session, game, gm, create
+        self, auth_as, client, db_session, game, gm, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         invitee = await create(ActivatedUserFactory)
 
         response = await client.post(
@@ -1158,9 +1144,9 @@ class TestInvitePlayer:
         assert player.is_gm is False
 
     async def test_invite_player_already_invited_conflict(
-        self, client, db_session, game, gm, create
+        self, auth_as, client, db_session, game, gm, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         invitee = await create(ActivatedUserFactory)
         await client.post(
             f"/games/{game.id}/invite", json={"username": invitee.username}
@@ -1223,11 +1209,6 @@ class TestApplyToGame:
         )
         return game
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_apply_to_game_requires_auth(self, client, game):
         response = await client.post(f"/games/{game.id}/apply")
 
@@ -1241,34 +1222,34 @@ class TestApplyToGame:
         assert response.status_code == 404
 
     async def test_apply_to_game_closed_forbidden(
-        self, client, db_session, game, gm, create
+        self, auth_as, client, db_session, game, gm, create
     ):
         game_repository = GameRepository(db_session, principal=gm)
         await game_repository.update(game, status=Game.Statuses.CLOSED)
         applicant = await create(ActivatedUserFactory)
-        client = self._auth_as(client, applicant)
+        client = auth_as(applicant)
 
         response = await client.post(f"/games/{game.id}/apply")
 
         assert response.status_code == 403
 
     async def test_apply_to_game_not_public_forbidden(
-        self, client, db_session, game, gm, create
+        self, auth_as, client, db_session, game, gm, create
     ):
         game_repository = GameRepository(db_session, principal=gm)
         await game_repository.update(game, public=False)
         applicant = await create(ActivatedUserFactory)
-        client = self._auth_as(client, applicant)
+        client = auth_as(applicant)
 
         response = await client.post(f"/games/{game.id}/apply")
 
         assert response.status_code == 403
 
     async def test_apply_to_game_creates_applied_player(
-        self, client, db_session, game, create
+        self, auth_as, client, db_session, game, create
     ):
         applicant = await create(ActivatedUserFactory)
-        client = self._auth_as(client, applicant)
+        client = auth_as(applicant)
 
         response = await client.post(f"/games/{game.id}/apply")
 
@@ -1281,10 +1262,10 @@ class TestApplyToGame:
         assert player.is_gm is False
 
     async def test_apply_to_game_apply_twice_conflict(
-        self, client, db_session, game, create
+        self, auth_as, client, db_session, game, create
     ):
         applicant = await create(ActivatedUserFactory)
-        client = self._auth_as(client, applicant)
+        client = auth_as(applicant)
         await client.post(f"/games/{game.id}/apply")
 
         response = await client.post(f"/games/{game.id}/apply")
@@ -1345,11 +1326,6 @@ class TestApprovePlayer:
         )
         return game
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_approve_player_requires_auth(self, client, game, gm):
         response = await client.post(f"/games/{game.id}/player/{gm.id}/approve")
 
@@ -1370,30 +1346,34 @@ class TestApprovePlayer:
 
         assert response.status_code == 403
 
-    async def test_approve_player_not_in_game_not_found(self, client, game, gm, create):
-        client = self._auth_as(client, gm)
+    async def test_approve_player_not_in_game_not_found(
+        self, auth_as, client, game, gm, create
+    ):
+        client = auth_as(gm)
         stranger = await create(ActivatedUserFactory)
 
         response = await client.post(f"/games/{game.id}/player/{stranger.id}/approve")
 
         assert response.status_code == 404
 
-    async def test_approve_player_already_accepted_conflict(self, client, game, gm):
-        client = self._auth_as(client, gm)
+    async def test_approve_player_already_accepted_conflict(
+        self, auth_as, client, game, gm
+    ):
+        client = auth_as(gm)
 
         response = await client.post(f"/games/{game.id}/player/{gm.id}/approve")
 
         assert response.status_code == 409
 
     async def test_approve_player_accepts_player(
-        self, client, db_session, game, gm, create
+        self, auth_as, client, db_session, game, gm, create
     ):
         target = await create(ActivatedUserFactory)
         player_repository = PlayerRepository(db_session, principal=gm)
         await player_repository.attach_player_to_game(
             game.id, target.id, state=Player.States.APPLIED
         )
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.post(f"/games/{game.id}/player/{target.id}/approve")
 
@@ -1449,11 +1429,6 @@ class TestAcceptInvite:
         )
         return game
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_accept_invite_requires_auth(self, client, game):
         response = await client.post(f"/games/{game.id}/accept_invite")
 
@@ -1474,35 +1449,37 @@ class TestAcceptInvite:
         assert response.status_code == 404
 
     async def test_accept_invite_already_applied_conflict(
-        self, client, db_session, game, gm, create
+        self, auth_as, client, db_session, game, gm, create
     ):
         applicant = await create(ActivatedUserFactory)
         player_repository = PlayerRepository(db_session, principal=gm)
         await player_repository.attach_player_to_game(
             game.id, applicant.id, state=Player.States.APPLIED
         )
-        client = self._auth_as(client, applicant)
+        client = auth_as(applicant)
 
         response = await client.post(f"/games/{game.id}/accept_invite")
 
         assert response.status_code == 409
 
-    async def test_accept_invite_already_accepted_conflict(self, client, game, gm):
-        client = self._auth_as(client, gm)
+    async def test_accept_invite_already_accepted_conflict(
+        self, auth_as, client, game, gm
+    ):
+        client = auth_as(gm)
 
         response = await client.post(f"/games/{game.id}/accept_invite")
 
         assert response.status_code == 409
 
     async def test_accept_invite_accepts_own_invite(
-        self, client, db_session, game, gm, create
+        self, auth_as, client, db_session, game, gm, create
     ):
         invitee = await create(ActivatedUserFactory)
         player_repository = PlayerRepository(db_session, principal=gm)
         await player_repository.attach_player_to_game(
             game.id, invitee.id, state=Player.States.INVITED
         )
-        client = self._auth_as(client, invitee)
+        client = auth_as(invitee)
 
         response = await client.post(f"/games/{game.id}/accept_invite")
 
@@ -1513,7 +1490,7 @@ class TestAcceptInvite:
         assert player.state == Player.States.ACCEPTED
 
     async def test_accept_invite_does_not_accept_other_players_invite(
-        self, client, db_session, game, gm, create
+        self, auth_as, client, db_session, game, gm, create
     ):
         invitee = await create(ActivatedUserFactory)
         other_user = await create(ActivatedUserFactory)
@@ -1521,7 +1498,7 @@ class TestAcceptInvite:
         await player_repository.attach_player_to_game(
             game.id, invitee.id, state=Player.States.INVITED
         )
-        client = self._auth_as(client, other_user)
+        client = auth_as(other_user)
 
         response = await client.post(f"/games/{game.id}/accept_invite")
 
@@ -1589,11 +1566,6 @@ class TestToggleGm:
         )
         return target
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_toggle_gm_requires_auth(self, client, game, accepted_player):
         response = await client.post(
             f"/games/{game.id}/player/{accepted_player.id}/toggle_gm"
@@ -1619,25 +1591,27 @@ class TestToggleGm:
 
         assert response.status_code == 403
 
-    async def test_toggle_gm_not_in_game_not_found(self, client, game, gm, create):
-        client = self._auth_as(client, gm)
+    async def test_toggle_gm_not_in_game_not_found(
+        self, auth_as, client, game, gm, create
+    ):
+        client = auth_as(gm)
         stranger = await create(ActivatedUserFactory)
 
         response = await client.post(f"/games/{game.id}/player/{stranger.id}/toggle_gm")
 
         assert response.status_code == 404
 
-    async def test_toggle_gm_primary_gm_forbidden(self, client, game, gm):
-        client = self._auth_as(client, gm)
+    async def test_toggle_gm_primary_gm_forbidden(self, auth_as, client, game, gm):
+        client = auth_as(gm)
 
         response = await client.post(f"/games/{game.id}/player/{gm.id}/toggle_gm")
 
         assert response.status_code == 403
 
     async def test_toggle_gm_promotes_player(
-        self, client, db_session, game, gm, accepted_player
+        self, auth_as, client, db_session, game, gm, accepted_player
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.post(
             f"/games/{game.id}/player/{accepted_player.id}/toggle_gm"
@@ -1650,9 +1624,9 @@ class TestToggleGm:
         assert player.is_gm is True
 
     async def test_toggle_gm_twice_demotes_player(
-        self, client, db_session, game, gm, accepted_player
+        self, auth_as, client, db_session, game, gm, accepted_player
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         await client.post(f"/games/{game.id}/player/{accepted_player.id}/toggle_gm")
 
         response = await client.post(
@@ -1706,11 +1680,6 @@ class TestToggleGameFlag:
             None,
         )
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_toggle_game_flag_requires_auth(self, client, game):
         response = await client.patch(f"/games/{game.id}/toggle/public")
 
@@ -1737,8 +1706,10 @@ class TestToggleGameFlag:
 
         assert response.status_code == 422
 
-    async def test_toggle_public_flips_the_flag(self, client, game, gm, db_session):
-        client = self._auth_as(client, gm)
+    async def test_toggle_public_flips_the_flag(
+        self, auth_as, client, game, gm, db_session
+    ):
+        client = auth_as(gm)
         assert game.public is True
 
         response = await client.patch(f"/games/{game.id}/toggle/public")
@@ -1747,8 +1718,10 @@ class TestToggleGameFlag:
         game = await db_session.get(Game, game.id)
         assert game.public is False
 
-    async def test_toggle_public_twice_flips_back(self, client, game, gm, db_session):
-        client = self._auth_as(client, gm)
+    async def test_toggle_public_twice_flips_back(
+        self, auth_as, client, game, gm, db_session
+    ):
+        client = auth_as(gm)
         await client.patch(f"/games/{game.id}/toggle/public")
 
         response = await client.patch(f"/games/{game.id}/toggle/public")
@@ -1757,8 +1730,10 @@ class TestToggleGameFlag:
         game = await db_session.get(Game, game.id)
         assert game.public is True
 
-    async def test_toggle_status_flips_the_flag(self, client, game, gm, db_session):
-        client = self._auth_as(client, gm)
+    async def test_toggle_status_flips_the_flag(
+        self, auth_as, client, game, gm, db_session
+    ):
+        client = auth_as(gm)
         assert game.status == Game.Statuses.OPEN
 
         response = await client.patch(f"/games/{game.id}/toggle/status")
@@ -1767,8 +1742,10 @@ class TestToggleGameFlag:
         game = await db_session.get(Game, game.id)
         assert game.status == Game.Statuses.CLOSED
 
-    async def test_toggle_status_twice_flips_back(self, client, game, gm, db_session):
-        client = self._auth_as(client, gm)
+    async def test_toggle_status_twice_flips_back(
+        self, auth_as, client, game, gm, db_session
+    ):
+        client = auth_as(gm)
         await client.patch(f"/games/{game.id}/toggle/status")
 
         response = await client.patch(f"/games/{game.id}/toggle/status")
@@ -1818,11 +1795,6 @@ class TestToggleRetireGame:
             None,
         )
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_toggle_retire_game_requires_auth(self, client, game):
         response = await client.patch(f"/games/{game.id}/retire")
 
@@ -1843,23 +1815,23 @@ class TestToggleRetireGame:
         assert response.status_code == 403
 
     async def test_toggle_retire_game_co_gm_forbidden(
-        self, client, game, gm, create, db_session
+        self, auth_as, client, game, gm, create, db_session
     ):
         co_gm = await create(ActivatedUserFactory)
         player_repository = PlayerRepository(db_session, principal=gm)
         await player_repository.attach_player_to_game(
             game.id, co_gm.id, is_gm=True, state=Player.States.ACCEPTED
         )
-        client = self._auth_as(client, co_gm)
+        client = auth_as(co_gm)
 
         response = await client.patch(f"/games/{game.id}/retire")
 
         assert response.status_code == 403
 
     async def test_toggle_retire_game_retires_the_game(
-        self, client, game, gm, db_session
+        self, auth_as, client, game, gm, db_session
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         assert game.retired is None
         assert game.status == Game.Statuses.OPEN
 
@@ -1871,9 +1843,9 @@ class TestToggleRetireGame:
         assert game.status == Game.Statuses.CLOSED
 
     async def test_toggle_retire_game_twice_unretires_but_stays_closed(
-        self, client, game, gm, db_session
+        self, auth_as, client, game, gm, db_session
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         await client.patch(f"/games/{game.id}/retire")
 
         response = await client.patch(f"/games/{game.id}/retire")
@@ -1941,11 +1913,6 @@ class TestDeletePlayer:
         )
         return invitee
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_delete_player_requires_auth(self, client, game, invitee):
         response = await client.delete(f"/games/{game.id}/player/{invitee.id}")
 
@@ -1968,14 +1935,14 @@ class TestDeletePlayer:
         assert response.status_code == 403
 
     async def test_delete_player_as_gm_removes_player(
-        self, client, db_session, game, gm, create
+        self, auth_as, client, db_session, game, gm, create
     ):
         target = await create(ActivatedUserFactory)
         player_repository = PlayerRepository(db_session, principal=gm)
         await player_repository.attach_player_to_game(
             game.id, target.id, state=Player.States.ACCEPTED
         )
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.delete(f"/games/{game.id}/player/{target.id}")
 
@@ -1986,14 +1953,14 @@ class TestDeletePlayer:
         assert player is None
 
     async def test_delete_player_as_self_removes_own_player(
-        self, client, db_session, game, gm, create
+        self, auth_as, client, db_session, game, gm, create
     ):
         target = await create(ActivatedUserFactory)
         player_repository = PlayerRepository(db_session, principal=gm)
         await player_repository.attach_player_to_game(
             game.id, target.id, state=Player.States.ACCEPTED
         )
-        client = self._auth_as(client, target)
+        client = auth_as(target)
 
         response = await client.delete(f"/games/{game.id}/player/{target.id}")
 
@@ -2003,16 +1970,18 @@ class TestDeletePlayer:
         )
         assert player is None
 
-    async def test_delete_player_not_in_game_not_found(self, client, game, gm, create):
-        client = self._auth_as(client, gm)
+    async def test_delete_player_not_in_game_not_found(
+        self, auth_as, client, game, gm, create
+    ):
+        client = auth_as(gm)
         stranger = await create(ActivatedUserFactory)
 
         response = await client.delete(f"/games/{game.id}/player/{stranger.id}")
 
         assert response.status_code == 404
 
-    async def test_delete_player_primary_gm_forbidden(self, client, game, gm):
-        client = self._auth_as(client, gm)
+    async def test_delete_player_primary_gm_forbidden(self, auth_as, client, game, gm):
+        client = auth_as(gm)
 
         response = await client.delete(f"/games/{game.id}/player/{gm.id}")
 
@@ -2071,11 +2040,6 @@ class TestCreateDeck:
         )
         return game
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     def _payload(self, deck_type, **overrides):
         fields = {
             "label": "Fate Deck",
@@ -2110,8 +2074,8 @@ class TestCreateDeck:
 
         assert response.status_code == 403
 
-    async def test_create_deck_type_not_found(self, client, game, gm):
-        client = self._auth_as(client, gm)
+    async def test_create_deck_type_not_found(self, auth_as, client, game, gm):
+        client = auth_as(gm)
 
         response = await client.post(
             f"/games/{game.id}/decks",
@@ -2121,9 +2085,9 @@ class TestCreateDeck:
         assert response.status_code == 404
 
     async def test_create_deck_permission_user_not_in_game_not_found(
-        self, client, game, gm, deck_type, create
+        self, auth_as, client, game, gm, deck_type, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         stranger = await create(ActivatedUserFactory)
 
         response = await client.post(
@@ -2134,9 +2098,9 @@ class TestCreateDeck:
         assert response.status_code == 404
 
     async def test_create_deck_permission_target_must_be_accepted(
-        self, client, db_session, game, gm, deck_type, create
+        self, auth_as, client, db_session, game, gm, deck_type, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         applicant = await create(ActivatedUserFactory)
         player_repository = PlayerRepository(db_session, principal=gm)
         await player_repository.attach_player_to_game(
@@ -2151,9 +2115,9 @@ class TestCreateDeck:
         assert response.status_code == 404
 
     async def test_create_deck_creates_deck(
-        self, client, db_session, game, gm, deck_type
+        self, auth_as, client, db_session, game, gm, deck_type
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.post(
             f"/games/{game.id}/decks", json=self._payload(deck_type)
@@ -2168,9 +2132,9 @@ class TestCreateDeck:
         assert deck.position == 0
 
     async def test_create_deck_order_is_a_shuffled_full_range(
-        self, client, db_session, game, gm, deck_type
+        self, auth_as, client, db_session, game, gm, deck_type
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.post(
             f"/games/{game.id}/decks", json=self._payload(deck_type)
@@ -2180,9 +2144,9 @@ class TestCreateDeck:
         assert set(deck.order) == set(range(deck_type.deck_size))
 
     async def test_create_deck_last_shuffled_is_timezone_aware(
-        self, client, db_session, game, gm, deck_type
+        self, auth_as, client, db_session, game, gm, deck_type
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.post(
             f"/games/{game.id}/decks", json=self._payload(deck_type)
@@ -2192,9 +2156,9 @@ class TestCreateDeck:
         assert deck.last_shuffled.tzinfo is not None
 
     async def test_create_deck_grants_permissions_to_listed_users(
-        self, client, db_session, game, gm, deck_type, create
+        self, auth_as, client, db_session, game, gm, deck_type, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         player_repository = PlayerRepository(db_session, principal=gm)
         player_a = await create(ActivatedUserFactory)
         player_b = await create(ActivatedUserFactory)
@@ -2218,9 +2182,9 @@ class TestCreateDeck:
         assert user_ids == {player_a.id, player_b.id}
 
     async def test_create_deck_duplicate_permission_ids_deduplicated(
-        self, client, db_session, game, gm, deck_type, create
+        self, auth_as, client, db_session, game, gm, deck_type, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         player_repository = PlayerRepository(db_session, principal=gm)
         player = await create(ActivatedUserFactory)
         await player_repository.attach_player_to_game(
@@ -2284,11 +2248,6 @@ class TestGetDecks:
             None,
         )
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_get_decks_requires_auth(self, client, game):
         response = await client.get(f"/games/{game.id}/decks")
 
@@ -2301,8 +2260,8 @@ class TestGetDecks:
 
         assert response.status_code == 404
 
-    async def test_get_decks_empty_when_no_decks(self, client, gm, game):
-        client = self._auth_as(client, gm)
+    async def test_get_decks_empty_when_no_decks(self, auth_as, client, gm, game):
+        client = auth_as(gm)
 
         response = await client.get(f"/games/{game.id}/decks")
 
@@ -2310,9 +2269,9 @@ class TestGetDecks:
         assert response.json() == {"decks": []}
 
     async def test_get_decks_returns_decks_for_game(
-        self, client, db_session, gm, game, deck_type, create
+        self, auth_as, client, db_session, gm, game, deck_type, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         deck_repository = DeckRepository(db_session, principal=gm)
         player = await create(ActivatedUserFactory)
         deck = await deck_repository.create(
@@ -2337,9 +2296,9 @@ class TestGetDecks:
         }
 
     async def test_get_decks_excludes_decks_from_other_games(
-        self, client, db_session, gm, game, system, deck_type
+        self, auth_as, client, db_session, gm, game, system, deck_type
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         game_repository = GameRepository(db_session, principal=gm)
         other_game = await game_repository.create(
             "Other Campaign",
@@ -2423,11 +2382,6 @@ class TestGetDeck:
             permissions=[],
         )
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_get_deck_requires_auth(self, client, game, deck):
         response = await client.get(f"/games/{game.id}/decks/{deck.id}")
 
@@ -2440,17 +2394,17 @@ class TestGetDeck:
 
         assert response.status_code == 404
 
-    async def test_get_deck_not_found(self, client, gm, game):
-        client = self._auth_as(client, gm)
+    async def test_get_deck_not_found(self, auth_as, client, gm, game):
+        client = auth_as(gm)
 
         response = await client.get(f"/games/{game.id}/decks/999999")
 
         assert response.status_code == 404
 
     async def test_get_deck_belonging_to_another_game_not_found(
-        self, client, db_session, gm, game, system, deck_type
+        self, auth_as, client, db_session, gm, game, system, deck_type
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         game_repository = GameRepository(db_session, principal=gm)
         other_game = await game_repository.create(
             "Other Campaign",
@@ -2478,8 +2432,10 @@ class TestGetDeck:
 
         assert response.status_code == 404
 
-    async def test_get_deck_returns_deck(self, client, gm, game, deck, deck_type):
-        client = self._auth_as(client, gm)
+    async def test_get_deck_returns_deck(
+        self, auth_as, client, gm, game, deck, deck_type
+    ):
+        client = auth_as(gm)
 
         response = await client.get(f"/games/{game.id}/decks/{deck.id}")
 
@@ -2558,11 +2514,6 @@ class TestUpdateDeck:
             permissions=[],
         )
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     def _payload(self, deck_type, **overrides):
         fields = {
             "label": "Fate Deck",
@@ -2599,8 +2550,8 @@ class TestUpdateDeck:
 
         assert response.status_code == 403
 
-    async def test_update_deck_not_found(self, client, gm, game, deck_type):
-        client = self._auth_as(client, gm)
+    async def test_update_deck_not_found(self, auth_as, client, gm, game, deck_type):
+        client = auth_as(gm)
 
         response = await client.patch(
             f"/games/{game.id}/decks/999999", json=self._payload(deck_type)
@@ -2609,9 +2560,9 @@ class TestUpdateDeck:
         assert response.status_code == 404
 
     async def test_update_deck_belonging_to_another_game_not_found(
-        self, client, db_session, gm, game, system, deck_type
+        self, auth_as, client, db_session, gm, game, system, deck_type
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         game_repository = GameRepository(db_session, principal=gm)
         other_game = await game_repository.create(
             "Other Campaign",
@@ -2641,8 +2592,8 @@ class TestUpdateDeck:
 
         assert response.status_code == 404
 
-    async def test_update_deck_type_not_found(self, client, gm, game, deck):
-        client = self._auth_as(client, gm)
+    async def test_update_deck_type_not_found(self, auth_as, client, gm, game, deck):
+        client = auth_as(gm)
 
         response = await client.patch(
             f"/games/{game.id}/decks/{deck.id}",
@@ -2652,9 +2603,9 @@ class TestUpdateDeck:
         assert response.status_code == 404
 
     async def test_update_deck_permission_user_not_in_game_not_found(
-        self, client, game, gm, deck, deck_type, create
+        self, auth_as, client, game, gm, deck, deck_type, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         stranger = await create(ActivatedUserFactory)
 
         response = await client.patch(
@@ -2665,9 +2616,9 @@ class TestUpdateDeck:
         assert response.status_code == 404
 
     async def test_update_deck_updates_label(
-        self, client, db_session, game, gm, deck, deck_type
+        self, auth_as, client, db_session, game, gm, deck, deck_type
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
 
         response = await client.patch(
             f"/games/{game.id}/decks/{deck.id}",
@@ -2679,9 +2630,9 @@ class TestUpdateDeck:
         assert deck.label == "Renamed Deck"
 
     async def test_update_deck_same_type_does_not_reshuffle(
-        self, client, db_session, game, gm, deck, deck_type
+        self, auth_as, client, db_session, game, gm, deck, deck_type
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         original_order = list(deck.order)
         original_shuffled_at = deck.last_shuffled
 
@@ -2695,9 +2646,9 @@ class TestUpdateDeck:
         assert deck.last_shuffled == original_shuffled_at
 
     async def test_update_deck_changing_type_reshuffles(
-        self, client, db_session, game, gm, deck, deck_type, create
+        self, auth_as, client, db_session, game, gm, deck, deck_type, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         new_type = await create(DeckTypeFactory, deck_size=20)
 
         response = await client.patch(
@@ -2712,9 +2663,9 @@ class TestUpdateDeck:
         assert deck.position == 0
 
     async def test_update_deck_replaces_permissions(
-        self, client, db_session, game, gm, deck, deck_type, create
+        self, auth_as, client, db_session, game, gm, deck, deck_type, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         player_repository = PlayerRepository(db_session, principal=gm)
         old_player = await create(ActivatedUserFactory)
         new_player = await create(ActivatedUserFactory)
@@ -2803,11 +2754,6 @@ class TestShuffleDeck:
             permissions=[],
         )
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_shuffle_deck_requires_auth(self, client, game, deck):
         response = await client.patch(f"/games/{game.id}/decks/{deck.id}/shuffle")
 
@@ -2827,17 +2773,17 @@ class TestShuffleDeck:
 
         assert response.status_code == 403
 
-    async def test_shuffle_deck_not_found(self, client, gm, game):
-        client = self._auth_as(client, gm)
+    async def test_shuffle_deck_not_found(self, auth_as, client, gm, game):
+        client = auth_as(gm)
 
         response = await client.patch(f"/games/{game.id}/decks/999999/shuffle")
 
         assert response.status_code == 404
 
     async def test_shuffle_deck_belonging_to_another_game_not_found(
-        self, client, db_session, gm, game, system, deck_type
+        self, auth_as, client, db_session, gm, game, system, deck_type
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         game_repository = GameRepository(db_session, principal=gm)
         other_game = await game_repository.create(
             "Other Campaign",
@@ -2861,18 +2807,16 @@ class TestShuffleDeck:
             permissions=[],
         )
 
-        response = await client.patch(
-            f"/games/{game.id}/decks/{other_deck.id}/shuffle"
-        )
+        response = await client.patch(f"/games/{game.id}/decks/{other_deck.id}/shuffle")
 
         assert response.status_code == 404
         await db_session.refresh(other_deck)
         assert other_deck.game_id == other_game.id
 
     async def test_shuffle_deck_reshuffles(
-        self, client, db_session, game, gm, deck, deck_type
+        self, auth_as, client, db_session, game, gm, deck, deck_type
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         original_shuffled_at = deck.last_shuffled
 
         response = await client.patch(f"/games/{game.id}/decks/{deck.id}/shuffle")
@@ -2945,11 +2889,6 @@ class TestDeleteDeck:
             permissions=[],
         )
 
-    def _auth_as(self, client, user):
-        token = user.generate_jwt()
-        client.headers["Authorization"] = f"Bearer {token}"
-        return client
-
     async def test_delete_deck_requires_auth(self, client, game, deck):
         response = await client.delete(f"/games/{game.id}/decks/{deck.id}")
 
@@ -2969,17 +2908,17 @@ class TestDeleteDeck:
 
         assert response.status_code == 403
 
-    async def test_delete_deck_not_found(self, client, gm, game):
-        client = self._auth_as(client, gm)
+    async def test_delete_deck_not_found(self, auth_as, client, gm, game):
+        client = auth_as(gm)
 
         response = await client.delete(f"/games/{game.id}/decks/999999")
 
         assert response.status_code == 404
 
     async def test_delete_deck_belonging_to_another_game_not_found(
-        self, client, db_session, gm, game, system, deck_type
+        self, auth_as, client, db_session, gm, game, system, deck_type
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         game_repository = GameRepository(db_session, principal=gm)
         other_game = await game_repository.create(
             "Other Campaign",
@@ -3008,8 +2947,10 @@ class TestDeleteDeck:
         assert response.status_code == 404
         assert await db_session.get(Deck, other_deck.id) is not None
 
-    async def test_delete_deck_removes_deck(self, client, db_session, game, gm, deck):
-        client = self._auth_as(client, gm)
+    async def test_delete_deck_removes_deck(
+        self, auth_as, client, db_session, game, gm, deck
+    ):
+        client = auth_as(gm)
 
         response = await client.delete(f"/games/{game.id}/decks/{deck.id}")
 
@@ -3017,9 +2958,9 @@ class TestDeleteDeck:
         assert await db_session.get(Deck, deck.id) is None
 
     async def test_delete_deck_removes_permissions(
-        self, client, db_session, game, gm, deck, deck_type, create
+        self, auth_as, client, db_session, game, gm, deck, deck_type, create
     ):
-        client = self._auth_as(client, gm)
+        client = auth_as(gm)
         player = await create(ActivatedUserFactory)
         deck_repository = DeckRepository(db_session, principal=gm)
         await deck_repository.update(

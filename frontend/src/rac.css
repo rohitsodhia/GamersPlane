@@ -6,7 +6,8 @@
 	--rac-bg: light-dark(#eee, #444);
 	--rac-radius: 0.3em;
 	--rac-field-width: 300px;
-	--rac-item-padding: 0.3em 0.6em;
+	--rac-item-padding-block: 0.3em;
+	--rac-item-padding-inline: 0.6em;
 	--rac-list-max-height: 12em;
 	--rac-checkbox-size: 1.2em;
 }
@@ -36,7 +37,7 @@
    including the focused/hovered highlight. */
 .react-aria-MenuItem,
 .react-aria-ListBoxItem {
-	padding: var(--rac-item-padding);
+	padding: var(--rac-item-padding-block) var(--rac-item-padding-inline);
 	cursor: pointer;
 	outline: none;
 
@@ -44,6 +45,70 @@
 	&[data-hovered] {
 		background-color: var(--gp-red);
 		color: #fff;
+	}
+}
+
+/* A SearchField driving a persistent ListBox beneath it (FilterableListBox):
+   stack label / input / list instead of the inline combobox layout. */
+.filterable-listbox {
+	/* Rendered height of one ListBoxItem: the global --line-height line box plus
+	   the vertical half of --rac-item-padding (0.3em top + 0.3em bottom). Used by
+	   the `maxVisibleItems` prop to size max-height in whole-row units. */
+	--rac-list-item-height: calc(var(--line-height) + 0.6em);
+
+	.react-aria-SearchField {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.react-aria-Label {
+		font-weight: bold;
+		margin-bottom: 0.2em;
+	}
+
+	.react-aria-ListBox {
+		width: min(100%, var(--rac-field-width));
+		margin-top: 0.3em;
+		padding: 0;
+		list-style: none;
+		max-height: var(--rac-list-max-height);
+		overflow-y: auto;
+		border: 1px solid var(--rac-border-color);
+		border-radius: var(--rac-radius);
+		background-color: var(--rac-bg);
+		color: var(--text);
+		outline: none;
+
+		&[data-empty] {
+			padding: var(--rac-item-padding-block) var(--rac-item-padding-inline);
+			color: light-dark(#666, #999);
+		}
+	}
+
+	/* Solid red is reserved for the selected row here so persistent selection
+	   reads at a glance without focus on the list. Focus/hover therefore can't
+	   also be solid red (a focused-but-unselected row would be indistinguishable
+	   from a selected one, and would linger red until blur) — downgrade it to a
+	   neutral highlight, overriding the shared rule above. */
+	.react-aria-ListBoxItem {
+		/* Trim the font's uneven line-box space, then center the trimmed text in a
+		   fixed-height row. */
+		text-box: trim-both cap alphabetic;
+		height: var(--rac-list-item-height);
+		padding-block: 0;
+		align-content: center;
+
+		&[data-focused],
+		&[data-hovered] {
+			background-color: light-dark(#dcdcdc, #555);
+			color: var(--text);
+		}
+
+		&[data-selected] {
+			background-color: var(--gp-red);
+			color: #fff;
+		}
 	}
 }
 
@@ -156,16 +221,37 @@
 	}
 }
 
+/* The trigger sizes to the widest option label (native `<select>` behaviour):
+   the Button and a hidden per-option sizer share one grid cell, so the column
+   grows to whichever is wider — the sizer, since it covers every label. Each
+   sizer row mirrors the Button's box (padding, border, gap, arrow) so the
+   reserved width matches what the trigger actually needs.
+
+   To pin the trigger to a fixed width instead, a consumer sets `--rac-select-width`
+   (any CSS length) on `.react-aria-Select` from its own stylesheet — the sizer is
+   clipped (it's already hidden) and the Button follows the fixed column.
+
+   .autocomplete (Autocomplete.tsx) wants the same native-<select> sizing but
+   can't use this grid trick: an <input>'s own default intrinsic width (the
+   `size` attribute, 20 by default) out-sizes the sizer in the grid's
+   auto-track calculation regardless of CSS width, and `type="search"`
+   reserves extra space for its native clear button on top of that. It
+   measures its sizer directly in JS instead — see .autocomplete-sizer /
+   --autocomplete-measured-width below. */
 .react-aria-Select {
-	display: inline-flex;
+	display: inline-grid;
+	width: var(--rac-select-width, max-content);
+	max-width: 100%;
 
 	.react-aria-Button {
+		grid-area: 1 / 1;
+		width: 100%;
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5em;
-		width: min(100%, var(--rac-field-width));
+		max-width: 100%;
 		justify-content: space-between;
-		padding: var(--rac-item-padding);
+		padding: var(--rac-item-padding-block) var(--rac-item-padding-inline);
 		cursor: pointer;
 
 		&[data-focus-visible] {
@@ -173,6 +259,56 @@
 			outline-offset: 1px;
 		}
 	}
+}
+
+.react-aria-Select-sizer {
+	grid-area: 1 / 1;
+	height: 0;
+	overflow: hidden;
+	visibility: hidden;
+}
+
+.react-aria-Select-sizer-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+	padding: var(--rac-item-padding-block) var(--rac-item-padding-inline);
+	border: 1px solid transparent;
+	white-space: pre;
+}
+
+/* JS (Autocomplete.tsx) measures the sizer and feeds the result back in as
+   --autocomplete-measured-width. A consumer that sets --rac-autocomplete-width
+   on .autocomplete from its own stylesheet opts into a fixed width instead. */
+.autocomplete {
+	display: inline-block;
+	position: relative;
+	max-width: 100%;
+
+	.react-aria-SearchField {
+		width: var(
+			--rac-autocomplete-width,
+			var(--autocomplete-measured-width, min(100%, var(--rac-field-width)))
+		);
+	}
+}
+
+.autocomplete-sizer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	visibility: hidden;
+	pointer-events: none;
+}
+
+.autocomplete-sizer-row {
+	/* Reserves space for whichever is wider: the collapsed Input's own padding
+	   (0.3em 0.5em, global input padding) or the open Menu's MenuItem padding
+	   (--rac-item-padding-inline, 0.6em) — the same measured width has to fit
+	   both, and the MenuItem is the wider of the two. */
+	padding: var(--rac-item-padding-block) var(--rac-item-padding-inline);
+	border: 1px solid transparent;
+	white-space: pre;
 }
 
 /* The Select's Popover is portalled to <body>, so it can't be reached through a

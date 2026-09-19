@@ -86,7 +86,7 @@ class TestGetPosts:
         author = response.json()["posts"][0]["author"]
         assert author["id"] == user.id
         assert author["username"] == "Alice"
-        assert author["avatar"] == f"{configs.AVATARS_ROOT}/avatar.png"
+        assert author["avatar"] == f"{configs.AVATARS_ROOT}/users/avatar.png"
 
 
 class TestGetPost:

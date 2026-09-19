@@ -1,3 +1,5 @@
+from .character_repository import CharacterRepository
+from .character_sheet_repository import CharacterSheetRepository
 from .deck_repository import DeckRepository
 from .favorites_repository import FavoritesRepository
 from .forum_repository import ForumRepository

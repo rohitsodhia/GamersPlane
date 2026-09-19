@@ -157,8 +157,18 @@ def mock_session_manager(mock_session):
 
 
 @pytest.fixture
-async def authed_client(client, create):
+def auth_as(client):
+    """Point the shared test client at a given user's bearer token."""
+
+    def _auth_as(user):
+        client.headers["Authorization"] = f"Bearer {user.generate_jwt()}"
+        return client
+
+    return _auth_as
+
+
+@pytest.fixture
+async def authed_client(client, create, auth_as):
     user = await create(ActivatedUserFactory)
-    token = user.generate_jwt()
-    client.headers["Authorization"] = f"Bearer {token}"
+    auth_as(user)
     return client, user

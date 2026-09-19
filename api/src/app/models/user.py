@@ -154,4 +154,4 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
 
     @property
     def avatar_url(self) -> str:
-        return f"{configs.AVATARS_ROOT}/{self.avatar}"
+        return f"{configs.AVATARS_ROOT}/users/{self.avatar}"

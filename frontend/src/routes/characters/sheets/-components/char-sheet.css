@@ -1,0 +1,350 @@
+/*
+ * Character-sheet element styles.
+ *
+ * Every class here is prefixed `char-sheet-` and is the curated utility/layout
+ * vocabulary that sheet JSON is allowed to reference via `class`. Keep it flat
+ * and additive — sheets in the wild will depend on these names.
+ */
+
+.char-sheet {
+	/* Width of the leading label column, shared by inline `group`s
+	   (`char-sheet-group--inline`) and any `grid` whose `columns` references it,
+	   so a stack of both lines up. Sheets may re-set it on a `char-sheet-section`. */
+	--char-sheet-label-col: 11rem;
+
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	/* Baseline for every element in the sheet. An author-positioned overlay
+	   (`styles: { position: "absolute" }`) gets `z-index: 5` automatically — see
+	   `style-allowlist.ts` — so it reliably stacks above ordinary flow content
+	   without exposing manual stacking-order control. */
+	z-index: 1;
+}
+
+.char-sheet-section {
+	display: flex;
+	/* Stack by default, matching `.char-sheet` and `.char-sheet-group`. Authors
+	   opt into a row with `char-sheet-section--row`. */
+	flex-direction: column;
+	gap: 0.75rem;
+	padding: 0.75rem;
+	border: 1px solid light-dark(oklch(0.85 0 0), oklch(0.4 0 0));
+	border-radius: 4px;
+}
+
+.char-sheet-section--row {
+	flex-direction: row;
+	align-items: flex-start;
+}
+
+/* --- Group (label + control wrapper) ----------------------------------- */
+
+.char-sheet-group {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.35rem;
+}
+
+.char-sheet-group--inline {
+	flex-direction: row;
+	align-items: center;
+}
+
+.char-sheet-label {
+	font-weight: 600;
+	font-size: var(--font-size-sm);
+}
+
+/* Fixed label column so a stack of inline groups aligns its controls (and lines
+   up with a sibling `grid`'s first track). */
+.char-sheet-group--inline > .char-sheet-label {
+	flex: 0 0 var(--char-sheet-label-col);
+}
+
+/* Bare wrapper for the label-less controls that still render one (`checkbox`,
+   `computed`). Labels live in a sibling `label` inside the `group`, never here. */
+.char-sheet-field {
+	display: inline-flex;
+	gap: 0.35rem;
+}
+
+/* --- Select ----------------------------------------------------------------- */
+
+/* The dropdown itself (trigger + popover) is styled globally in rac.css, where
+   the trigger sizes to the widest option by default. This hook is for
+   sheet-context tweaks only; keep it thin. */
+.char-sheet-select {
+	max-width: 100%;
+}
+
+/* --- Textarea ------------------------------------------------------------- */
+
+.char-sheet-textarea {
+	width: 100%;
+	box-sizing: border-box;
+	font: inherit;
+	resize: vertical;
+}
+
+/* Display mode: keep the author's newlines instead of collapsing them. */
+.char-sheet-value--multiline {
+	white-space: pre-wrap;
+}
+
+/* `richtext` textarea: let the shared Editor own its own chrome, just size it. */
+.char-sheet-textarea--richtext,
+.char-sheet-value--richtext {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* --- Collapsible ------------------------------------------------------------ */
+
+.char-sheet-collapsible-toggle {
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: var(--gp-orange);
+	cursor: pointer;
+}
+
+.char-sheet-collapsible-toggle:hover {
+	text-decoration: underline;
+}
+
+/* Body height animates via the grid-rows 0fr/1fr trick — widely supported, no
+   interpolate-size / discrete-transition dependency. The inner wrapper clips the
+   content while the row track collapses. */
+.char-sheet-collapsible-body {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 0.2s ease;
+}
+
+.char-sheet-collapsible[data-open="true"] .char-sheet-collapsible-body {
+	grid-template-rows: 1fr;
+}
+
+.char-sheet-collapsible-body-inner {
+	overflow: hidden;
+	min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.char-sheet-collapsible-body {
+		transition: none;
+	}
+}
+
+/* --- Button (click-to-set) ------------------------------------------------- */
+
+/* Generic hook only. A segmented "clock" / stress-track look is composed
+   per-sheet from `styles` (size, border, radius) + `style_when` (the fill),
+   not baked in here. */
+.char-sheet-button {
+	font: inherit;
+	cursor: pointer;
+}
+
+/* --- Repeater ------------------------------------------------------------- */
+
+.char-sheet-repeater {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.char-sheet-repeater-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+}
+
+.char-sheet-repeater-header-cell {
+	font-weight: 600;
+	font-size: var(--font-size-sm);
+}
+
+.char-sheet-repeater-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.char-sheet-repeater-row {
+	display: flex;
+	gap: 0.75rem;
+}
+
+.char-sheet-repeater-row--stack {
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.char-sheet-repeater-row--row {
+	flex-direction: row;
+	align-items: flex-end;
+	flex-wrap: wrap;
+}
+
+/* Grid mode (schema sets `columns`): header and rows become subgrids of the
+   repeater's own tracks, so header text actually sits over its column's
+   inputs instead of just flexing next to whatever's nearby. Overrides the
+   plain flex layout above — declared after it so these classes win. */
+.char-sheet-repeater--grid {
+	display: grid;
+	gap: 0.4rem 0.75rem;
+}
+
+.char-sheet-repeater-header--grid,
+.char-sheet-repeater-row--grid {
+	display: grid;
+	grid-column: 1 / -1;
+	grid-template-columns: subgrid;
+	align-items: center;
+}
+
+/* Drops out of the box tree so each row is a direct grid item of
+   `.char-sheet-repeater--grid` — a subgrid row needs a real grid ancestor
+   immediately above it, and this flex wrapper isn't one. */
+.char-sheet-repeater-rows--grid {
+	display: contents;
+}
+
+/* A `.char-sheet-group` stretches to fill its grid column (the default grid
+   `justify-items`), but it's a column-flex with `align-items: flex-start`, so
+   its own children stay content-sized unless told otherwise. Fill the column
+   width, mirroring `.char-sheet-grid-row`'s equivalent rules. */
+.char-sheet-repeater-row--grid .char-sheet-group > input[type="text"],
+.char-sheet-repeater-row--grid .char-sheet-group > .char-sheet-select {
+	width: 100%;
+}
+
+/* Keeps an inline add control aligned with the inputs, not their labels. */
+.char-sheet-repeater-add-cell {
+	display: inline-flex;
+	align-items: center;
+	align-self: flex-end;
+}
+
+.char-sheet-repeater-add,
+.char-sheet-repeater-remove {
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: var(--gp-orange);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.char-sheet-repeater-add:hover,
+.char-sheet-repeater-remove:hover {
+	text-decoration: underline;
+}
+
+.char-sheet-repeater-remove {
+	color: var(--gp-red);
+	font-size: var(--font-size-sm);
+}
+
+/* --- Grid (fixed-row table) ------------------------------------------------- */
+
+.char-sheet-grid {
+	display: grid;
+	/* Generic fallback tracks: a label column plus one flexible content column.
+	   A grid normally sets its own layout — a validated `columns` on the element
+	   (inline style, wins), or a `char-sheet-grid--*` helper class if the vocab
+	   grows one from real demand. */
+	grid-template-columns: var(--char-sheet-label-col) 1fr;
+	gap: 0.4rem 0.75rem;
+}
+
+/* Header and each row are subgrids so their cells align to the grid's columns
+   while every row stays its own styleable box. */
+.char-sheet-grid-header,
+.char-sheet-grid-row {
+	display: grid;
+	grid-column: 1 / -1;
+	grid-template-columns: subgrid;
+	align-items: center;
+}
+
+.char-sheet-grid-header {
+	margin-bottom: 0.15rem;
+	font-weight: 600;
+	font-size: var(--font-size-sm);
+}
+
+/* Header cells auto-flow from column 1 unless the schema pins them with `col`. */
+.char-sheet-grid-header-cell {
+	text-align: center;
+}
+
+.char-sheet-grid-row-label {
+	font-weight: 600;
+	font-size: var(--font-size-sm);
+}
+
+/* Row cells are label-less — center the control in its track and let it fill. */
+.char-sheet-grid-row > .char-sheet-field {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.char-sheet-grid-row > input[type="text"] {
+	width: 100%;
+	box-sizing: border-box;
+	text-align: center;
+}
+
+.char-sheet-grid-row > .char-sheet-field > input[type="text"] {
+	width: 100%;
+	box-sizing: border-box;
+	text-align: center;
+}
+
+/* The value display of a computed `text` (formula result). */
+.char-sheet-text-value {
+	color: light-dark(oklch(0.55 0 0), oklch(0.65 0 0));
+	font-variant-numeric: tabular-nums;
+}
+
+/* Checkbox column: a small outlined box rather than the native control. */
+.char-sheet-grid-row input[type="checkbox"] {
+	appearance: none;
+	width: 1rem;
+	height: 1rem;
+	margin: 0;
+	border: 2px solid var(--gp-orange);
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.char-sheet-grid-row input[type="checkbox"]:checked {
+	background: var(--gp-orange);
+}
+
+/* --- List + Loop ---------------------------------------------------------- */
+
+.char-sheet-list {
+	margin: 0.25rem 0;
+	padding-left: 1.5rem;
+}
+
+/* One iteration of a `loop` that is NOT inside a `list` (inside a list each
+   iteration is an <li>). Block so iterations stack. */
+.char-sheet-loop-item {
+	display: block;
+}
+
+/* --- Header ----------------------------------------------------------------- */
+
+.char-sheet h2 {
+	margin-block: 0;
+}

@@ -1,0 +1,33 @@
+{
+    "schema_version": 1,
+    "classes": {},
+    "elements": [
+        {
+            "type": "section",
+            "content": [
+                {
+                    "type": "group",
+                    "content": [
+                        { "type": "label", "text": "Name" },
+                        { "type": "input", "name": "name" }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "section",
+            "content": [
+                {
+                    "type": "header",
+                    "text": "Notes",
+                    "headerbar": true
+                },
+                {
+                    "type": "textarea",
+                    "name": "notes",
+                    "richtext": true
+                }
+            ]
+        }
+    ]
+}

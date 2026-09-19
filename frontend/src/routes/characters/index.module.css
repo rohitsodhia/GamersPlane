@@ -1,0 +1,118 @@
+.my-characters {
+	:global(form.grid-layout) {
+		--label-col-width: 100px;
+
+		.sheet-selector {
+			grid-column: span 2;
+			display: flex;
+			gap: 1em;
+
+			/* The System picker lands as the first child of this wrapper, so the
+			   grid-layout label rule (form.grid-layout > div > *:nth-child(1))
+			   bolds the whole listbox — which hides FilterableListBox's own
+			   [data-selected] bold cue. Reset it; the Label and selected-item
+			   rules set their own weight explicitly. */
+			:global(.filterable-listbox) {
+				font-weight: normal;
+			}
+		}
+	}
+
+	input {
+		width: 200px;
+	}
+
+	.character-filters {
+		display: flex;
+		gap: 1em;
+	}
+
+	.type-filter {
+		--rac-autocomplete-width: 80px;
+	}
+
+	.character-list {
+		margin-bottom: 2em;
+
+		.character-results {
+			margin-top: 1em;
+		}
+
+		ul {
+			list-style: none;
+			margin: 0;
+			padding: 0;
+		}
+
+		.character-row {
+			display: flex;
+			align-items: center;
+			gap: 1em;
+			padding: 0.5em 0;
+
+			.label {
+				flex: 2;
+			}
+
+			.label,
+			.char-type,
+			.system-type {
+				text-box: trim-both cap alphabetic;
+			}
+
+			.char-type,
+			.system-type {
+				flex: none;
+			}
+
+			.char-type {
+				width: 60px;
+				text-align: center;
+			}
+
+			.system-type {
+				width: 250px;
+			}
+
+			.links {
+				display: flex;
+				gap: 0.5em;
+			}
+		}
+
+		.no-results {
+			padding: 1em 0;
+		}
+	}
+}
+
+/* The popover is portalled to <body>, so these can't nest under .my-characters. */
+.confirm-popover {
+	transition: opacity 0.15s ease-out;
+
+	&[data-entering],
+	&[data-exiting] {
+		opacity: 0;
+	}
+}
+
+.confirm-delete {
+	max-width: 22em;
+	padding: 1em;
+	outline: none;
+
+	h2 {
+		margin: 0 0 0.5em;
+		font-size: 1.1em;
+	}
+
+	p {
+		margin: 0 0 1em;
+	}
+
+	.confirm-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5em;
+	}
+}

@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import middleware
 from app.auth.legacy_routes import auth as legacy_auth
 from app.auth.routes import auth
+from app.character_sheets.routes import character_sheets
+from app.characters.routes import characters
 from app.configs import configs
 from app.database import (
     get_db_session,
@@ -175,5 +177,7 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(games)
     app.include_router(deck_types)
     app.include_router(rbac)
+    app.include_router(character_sheets)
+    app.include_router(characters)
 
     return app

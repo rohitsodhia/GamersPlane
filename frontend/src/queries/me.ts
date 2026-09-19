@@ -1,5 +1,6 @@
 import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import { ApiError, apiFetch } from "#/lib/api";
+import { useAuthStore } from "#/stores/auth";
 
 export type PostSide = "r" | "l" | "c";
 
@@ -51,35 +52,58 @@ type MeHeaderResponse = {
 	pmCount: number;
 };
 
+// A 403 from a `/me*` endpoint means the current token isn't accepted as a
+// logged-in user (missing/invalid/expired/rejected) — there's no partial
+// permission model on these routes, so it always means "log out", not "some
+// feature is unavailable." Clear it so the app falls back to the logged-out
+// state instead of getting stuck retrying a token that will never work.
+const handleMeError = async (res: Response): Promise<never> => {
+	if (res.status === 403) {
+		useAuthStore.getState().setToken(null);
+	}
+	const errors = await res
+		.json()
+		.then((body) => body.errors)
+		.catch(() => []);
+	throw new ApiError(res.status, errors);
+};
+
 const fetchMe = async (): Promise<MeResponse> => {
 	const res = await apiFetch("/me");
-	if (!res.ok) throw new Error("Failed to fetch current user");
+	if (!res.ok) return handleMeError(res);
 	return res.json();
 };
 
 const fetchMeHeader = async (): Promise<MeHeaderResponse> => {
 	const res = await apiFetch("/me/header");
-	if (!res.ok) throw new Error("Failed to fetch header data");
+	if (!res.ok) return handleMeError(res);
 	return res.json();
 };
 
 const fetchMeFull = async (): Promise<MeFullResponse> => {
 	const res = await apiFetch("/me?full=true");
-	if (!res.ok) throw new Error("Failed to fetch current user");
+	if (!res.ok) return handleMeError(res);
 	const data: MeFullApiResponse = await res.json();
 	return { ...data, joinDate: new Date(data.joinDate) };
 };
+
+// A 403 means the token is bad and retrying won't change that — let every
+// other status fall back to react-query's default retry behavior.
+const retryUnlessForbidden = (failureCount: number, error: unknown) =>
+	!(error instanceof ApiError && error.status === 403) && failureCount < 3;
 
 export const meQueryOptions = queryOptions({
 	queryKey: ["me"],
 	queryFn: fetchMe,
 	staleTime: 1000 * 60 * 5,
+	retry: retryUnlessForbidden,
 });
 
 export const meHeaderQueryOptions = queryOptions({
 	queryKey: ["me", "header"],
 	queryFn: fetchMeHeader,
 	staleTime: Number.POSITIVE_INFINITY,
+	retry: retryUnlessForbidden,
 });
 
 // Nested under the "me" key so invalidating ["me"] invalidates this too.
@@ -87,6 +111,7 @@ export const meFullQueryOptions = queryOptions({
 	queryKey: ["me", "full"],
 	queryFn: fetchMeFull,
 	staleTime: 1000 * 60 * 5,
+	retry: retryUnlessForbidden,
 });
 
 // Refetches the full profile once and seeds both the "me" and "me full" caches

@@ -21,19 +21,72 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.create_table(
-        "characters",
+        "character_sheets",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("label", sa.String(), nullable=False),
+        sa.Column("creator_id", sa.Integer(), nullable=False),
+        sa.Column("version", sa.Integer(), nullable=False),
+        sa.Column("root_id", sa.Integer(), nullable=True),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("system_id", sa.String(length=20), nullable=False),
-        sa.Column("type", sa.String(length=5), nullable=False),
-        sa.Column("data", sa.JSON(), nullable=True),
+        sa.Column("layout", sa.JSON(), nullable=False),
+        sa.Column("status", sa.String(length=12), nullable=False),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
+            ["creator_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["root_id"],
+            ["character_sheets.id"],
+        ),
+        sa.ForeignKeyConstraint(
             ["system_id"],
             ["systems.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_character_sheets_root_id"),
+        "character_sheets",
+        ["root_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_character_sheets_system_id"),
+        "character_sheets",
+        ["system_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_character_sheets_status"),
+        "character_sheets",
+        ["status"],
+        unique=False,
+    )
+    op.create_table(
+        "characters",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("character_sheet_id", sa.Integer(), nullable=False),
+        sa.Column("label", sa.String(), nullable=False),
+        sa.Column("name", sa.String(), nullable=True),
+        sa.Column("type", sa.String(length=5), nullable=False),
+        sa.Column("values", sa.JSON(), nullable=True),
+        sa.Column(
+            "in_library", sa.Boolean(), server_default=sa.text("false"), nullable=False
+        ),
+        sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["character_sheet_id"],
+            ["character_sheets.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -104,3 +157,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_posts_thread_id"), table_name="posts")
     op.drop_table("posts")
     op.drop_table("characters")
+    op.drop_index(op.f("ix_character_sheets_status"), table_name="character_sheets")
+    op.drop_index(op.f("ix_character_sheets_system_id"), table_name="character_sheets")
+    op.drop_index(op.f("ix_character_sheets_root_id"), table_name="character_sheets")
+    op.drop_table("character_sheets")

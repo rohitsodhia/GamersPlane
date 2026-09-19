@@ -12,8 +12,11 @@
 	}
 }
 
-:global(h2.headerbar) {
-	margin-bottom: 0;
+:global(#games-playing),
+:global(#games-running) {
+	:global(h2.headerbar) {
+		margin-bottom: 0;
+	}
 }
 
 .forum-link {

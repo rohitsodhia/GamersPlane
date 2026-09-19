@@ -1,0 +1,310 @@
+import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import undefer
+
+from app.character_sheets.defaults import default_sheet_layout
+from app.models import CharacterSheet, CharacterSheetFavorite
+from app.repositories import CharacterSheetRepository
+from tests.factories import ActivatedUserFactory, SystemFactory
+
+
+class TestCreateCharSheet:
+    async def test_requires_auth(self, client):
+        response = await client.post(
+            "/character_sheets/", json={"name": "Fighter", "system_id": "dnd5e"}
+        )
+
+        assert response.status_code == 403
+
+    async def test_returns_404_when_system_missing(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post(
+            "/character_sheets/", json={"name": "Fighter", "system_id": "nope"}
+        )
+
+        assert response.status_code == 404
+        assert response.json()["errors"][0]["code"] == "not_found"
+
+    async def test_creates_sheet_for_authed_user(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        system = await create(SystemFactory, id="dnd5e")
+
+        response = await client.post(
+            "/character_sheets/",
+            # Padded name also asserts `name` runs through filtered_str().
+            json={"name": "  Fighter  ", "system_id": system.id},
+        )
+
+        assert response.status_code == 200
+        sheet_id = response.json()["id"]
+
+        sheet = await db_session.scalar(
+            select(CharacterSheet)
+            .where(CharacterSheet.id == sheet_id)
+            .options(undefer(CharacterSheet.layout))
+        )
+        assert sheet is not None
+        assert sheet.creator_id == user.id
+        assert sheet.name == "Fighter"
+        assert sheet.system_id == system.id
+        assert sheet.status == CharacterSheet.Status.PRIVATE
+        assert sheet.layout == default_sheet_layout()
+
+
+class TestGetMyCharSheets:
+    async def test_requires_auth(self, client):
+        response = await client.get("/character_sheets/my")
+
+        assert response.status_code == 403
+
+    async def test_returns_empty_list_when_user_has_none(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.get("/character_sheets/my")
+
+        assert response.status_code == 200
+        assert response.json() == {"char_sheets": []}
+
+    async def test_returns_only_the_callers_own_created_sheets(
+        self, client, create, db_session, auth_as
+    ):
+        system = await create(SystemFactory, id="dnd5e", name="D&D 5e")
+        user = await create(ActivatedUserFactory)
+        other = await create(ActivatedUserFactory)
+        mine = await CharacterSheetRepository(db_session, principal=user).create(
+            name="Mine", system_id=system.id
+        )
+        await CharacterSheetRepository(db_session, principal=other).create(
+            name="Theirs", system_id=system.id
+        )
+        auth_as(user)
+
+        response = await client.get("/character_sheets/my")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "char_sheets": [
+                {
+                    "id": mine.id,
+                    "name": "Mine",
+                    "creator": {
+                        "id": user.id,
+                        "username": user.username,
+                        "avatar": user.avatar,
+                    },
+                    "system": {"id": "dnd5e", "name": "D&D 5e"},
+                    "favorited": False,
+                }
+            ]
+        }
+
+    async def test_includes_sheets_favorited_from_other_creators(
+        self, client, create, db_session, auth_as
+    ):
+        system = await create(SystemFactory, id="dnd5e")
+        user = await create(ActivatedUserFactory)
+        other = await create(ActivatedUserFactory)
+        fav = await CharacterSheetRepository(db_session, principal=other).create(
+            name="Borrowed", system_id=system.id
+        )
+        db_session.add(
+            CharacterSheetFavorite(user_id=user.id, character_sheet_id=fav.id)
+        )
+        await db_session.flush()
+        auth_as(user)
+
+        response = await client.get("/character_sheets/my")
+
+        body = response.json()
+        assert [s["id"] for s in body["char_sheets"]] == [fav.id]
+        assert body["char_sheets"][0]["favorited"] is True
+
+    async def test_orders_favorites_first_then_by_name(
+        self, client, create, db_session, auth_as
+    ):
+        system = await create(SystemFactory, id="dnd5e")
+        user = await create(ActivatedUserFactory)
+        other = await create(ActivatedUserFactory)
+        repo = CharacterSheetRepository(db_session, principal=user)
+        await repo.create(name="Zeta", system_id=system.id)
+        await repo.create(name="Alpha", system_id=system.id)
+        favorited = await CharacterSheetRepository(
+            db_session, principal=other
+        ).create(name="Gamma", system_id=system.id)
+        db_session.add(
+            CharacterSheetFavorite(
+                user_id=user.id, character_sheet_id=favorited.id
+            )
+        )
+        await db_session.flush()
+        auth_as(user)
+
+        response = await client.get("/character_sheets/my")
+
+        names = [s["name"] for s in response.json()["char_sheets"]]
+        assert names == ["Gamma", "Alpha", "Zeta"]
+
+    async def test_a_favorited_own_sheet_appears_once(
+        self, client, create, db_session, auth_as
+    ):
+        system = await create(SystemFactory, id="dnd5e")
+        user = await create(ActivatedUserFactory)
+        sheet = await CharacterSheetRepository(db_session, principal=user).create(
+            name="Solo", system_id=system.id
+        )
+        db_session.add(
+            CharacterSheetFavorite(user_id=user.id, character_sheet_id=sheet.id)
+        )
+        await db_session.flush()
+        auth_as(user)
+
+        response = await client.get("/character_sheets/my")
+
+        body = response.json()
+        assert [s["id"] for s in body["char_sheets"]] == [sheet.id]
+        assert body["char_sheets"][0]["favorited"] is True
+
+
+class TestGetCharSheet:
+    @pytest.fixture
+    async def creator(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def sheet(self, creator, create, db_session, wrap_in_savepoint):
+        system = await create(SystemFactory, id="dnd5e", name="D&D 5e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        return await repository.create(
+            name="Fighter",
+            system_id=system.id,
+            layout={
+                "schema_version": 1,
+                "elements": [{"type": "header", "text": "Combat"}],
+            },
+        )
+
+    async def test_returns_404_when_sheet_missing(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.get("/character_sheets/999999")
+
+        assert response.status_code == 404
+        assert response.json()["errors"][0]["code"] == "not_found"
+
+    async def test_returns_the_serialized_sheet(self, client, sheet, creator, auth_as):
+        auth_as(creator)
+
+        response = await client.get(f"/character_sheets/{sheet.id}")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "id": sheet.id,
+            "creator": {
+                "id": creator.id,
+                "username": creator.username,
+                "avatar": creator.avatar,
+            },
+            "root_id": None,
+            "name": "Fighter",
+            "system": {"id": "dnd5e", "name": "D&D 5e"},
+            "layout": {
+                "schema_version": 1,
+                "elements": [{"type": "header", "text": "Combat"}],
+            },
+            "status": "private",
+        }
+
+    async def test_any_authed_user_can_read_another_users_private_sheet(
+        self, client, sheet, create, auth_as
+    ):
+        # The endpoint has no creator/status gate today; pin that so a future
+        # change to it is a deliberate one.
+        assert sheet.status == CharacterSheet.Status.PRIVATE
+        other = await create(ActivatedUserFactory)
+        auth_as(other)
+
+        response = await client.get(f"/character_sheets/{sheet.id}")
+
+        assert response.status_code == 200
+        assert response.json()["id"] == sheet.id
+
+
+class TestUpdateCharSheet:
+    @pytest.fixture
+    async def creator(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def sheet(self, creator, create, db_session, wrap_in_savepoint):
+        system = await create(SystemFactory, id="dnd5e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        return await repository.create(
+            name="Fighter",
+            system_id=system.id,
+            layout={"schema_version": 1, "elements": []},
+        )
+
+    async def test_requires_auth(self, client, sheet):
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}", json={"layout": {"elements": []}}
+        )
+
+        assert response.status_code == 403
+
+    async def test_returns_404_when_sheet_missing(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.patch(
+            "/character_sheets/999999", json={"layout": {"elements": []}}
+        )
+
+        assert response.status_code == 404
+
+    async def test_forbids_non_creator(self, client, sheet, create, auth_as):
+        other = await create(ActivatedUserFactory)
+        auth_as(other)
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}", json={"layout": {"elements": []}}
+        )
+
+        assert response.status_code == 403
+        assert response.json()["errors"][0]["code"] == "forbidden"
+
+    async def test_creator_saves_the_layout(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        auth_as(creator)
+        new_layout = {
+            "schema_version": 1,
+            "elements": [{"type": "header", "text": "Combat"}],
+        }
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}", json={"layout": new_layout}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["layout"] == new_layout
+
+        await db_session.refresh(sheet, ["layout"])
+        assert sheet.layout == new_layout
+
+    async def test_rejects_a_layout_off_the_sheet_profile(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        auth_as(creator)
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={"layout": {"schema_version": 1, "elements": [{"type": "bogus"}]}},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["errors"][0]["code"] == "validation_error"
+
+        await db_session.refresh(sheet, ["layout"])
+        assert sheet.layout == {"schema_version": 1, "elements": []}

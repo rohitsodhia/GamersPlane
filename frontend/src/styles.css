@@ -19,8 +19,11 @@
 	--gp-orange: oklch(0.62 0.16 53.46);
 	--gp-light-blue: #06f;
 
-	--font-size-sm: 0.8em;
-	--line-height: 1.5em;
+	--gp-success-green: light-dark(#070, #4a4);
+	--gp-error-red: light-dark(#faa, #400);
+
+	--font-size-sm: 0.8rem;
+	--line-height: 1.5rem;
 
 	--skew-angle: 20deg;
 
@@ -48,6 +51,7 @@ body {
 	background: var(--bg);
 	color: var(--text);
 	line-height: var(--line-height);
+	text-box-edge: cap alphabetic;
 
 	& > * {
 		grid-column: full-width;
@@ -87,11 +91,14 @@ main {
 }
 
 .loading-spinner {
-	position: fixed;
-	inset: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.loading-spinner--fullscreen {
+	position: fixed;
+	inset: 0;
 }
 
 .loading-spinner-top-cube {
@@ -150,19 +157,20 @@ p {
 }
 
 .banner {
-	padding: 0.5em 0.8em;
+	padding: 1em 0.8em;
 	margin-bottom: 1em;
 	border: 2px solid transparent;
 	border-radius: 0.2em;
+	text-box-trim: trim-both;
 }
 
 .success-banner {
-	background-color: light-dark(#4a4, #040);
+	background-color: var(--gp-success-green);
 	border-color: light-dark(#070, #090);
 }
 
 .error-banner {
-	background-color: light-dark(#faa, #400);
+	background-color: var(--gp-error-red);
 	border-color: light-dark(#b00, #c00);
 }
 
@@ -306,6 +314,16 @@ h2.headerbar {
 		);
 	}
 
+	&.upside-down::before {
+		inset: -1px 0 0;
+		clip-path: polygon(
+			100% 0%,
+			calc(100% - var(--trap-slant)) 100%,
+			var(--trap-slant) 100%,
+			0% 0%
+		);
+	}
+
 	& > * {
 		display: flex;
 		align-items: center;
@@ -362,7 +380,8 @@ h2.headerbar {
 
 .badge {
 	border-radius: 0.3em;
-	padding: 0.2em 0.6em 0.1em;
+	padding: 0.3em 0.6em;
+	text-box-trim: trim-both;
 	color: #fff;
 	white-space: nowrap;
 }
@@ -482,13 +501,15 @@ form.grid-layout {
 	.trapezoid {
 		--trap-height: 2em;
 
-		& > button {
+		& > button,
+		& > a {
 			padding-inline: 1em;
 			font-size: var(--font-size-sm);
 		}
 
 		.current,
-		& > button:hover {
+		& > button:hover,
+		& > a:hover {
 			background: var(--gp-dark-red);
 			color: #fff;
 		}

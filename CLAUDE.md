@@ -140,3 +140,7 @@ Uses **TanStack Start** (SSR-capable React framework built on Vite + Nitro) with
 - Path aliases: `#/*` maps to `src/*` (configured in `package.json` imports and `tsconfig.json`)
 
 The React Compiler is enabled via Babel plugin (`babel-plugin-react-compiler`) — avoid manual `useMemo`/`useCallback` unless there's a specific reason the compiler can't optimize it.
+
+### Character sheet builder
+
+The JSON-driven character sheet renderer lives in `src/routes/characters/sheets/-components/`. It is documented for sheet authors in two files that must stay in sync with each other: `frontend/SHEET_AUTHORING.md` (repo copy) and `frontend/SHEET_AUTHORING.txt` (plain-text copy for sharing via Google Docs). Whenever you change the sheet builder in a way that affects authoring — a new/removed/renamed element type or key, changed formula operators or coercion, changes to the `styles`/`class`/`columns` allowlists or the `char-sheet-*` CSS vocabulary, or changed value-document/scope behavior — update **both** docs in the same change.

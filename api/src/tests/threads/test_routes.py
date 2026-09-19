@@ -96,6 +96,39 @@ class TestGetThreads:
         assert [t["id"] for t in body["threads"]] == [thread.id]
 
 
+class TestGetThread:
+    async def test_get_thread_is_public(self, client, create, db_session):
+        forum = await create(ForumFactory, heritage=[])
+        thread, _first_post = await create_thread(create, db_session, forum=forum)
+
+        response = await client.get(f"/threads/{thread.id}")
+
+        assert response.status_code == 200
+
+    async def test_get_thread_not_found(self, client):
+        response = await client.get("/threads/999999")
+
+        assert response.status_code == 404
+
+    async def test_get_thread_returns_fields(self, client, create, db_session):
+        forum = await create(ForumFactory, heritage=[])
+        thread, first_post = await create_thread(
+            create,
+            db_session,
+            forum=forum,
+            options=Thread.Options(locked=True),
+        )
+
+        response = await client.get(f"/threads/{thread.id}")
+
+        body = response.json()
+        assert body["id"] == thread.id
+        assert body["forum_id"] == forum.id
+        assert body["title"] == "First Post"
+        assert body["first_post_id"] == first_post.id
+        assert body["options"] == Thread.Options(locked=True).model_dump(mode="json")
+
+
 def new_thread_payload(**overrides):
     payload = {
         "forum_id": None,

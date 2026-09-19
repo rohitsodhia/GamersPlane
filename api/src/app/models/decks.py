@@ -42,5 +42,7 @@ class DeckPermission(Base):
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     user: Mapped[User] = relationship()
-    deck_id: Mapped[int] = mapped_column(ForeignKey("decks.id"), primary_key=True)
+    deck_id: Mapped[int] = mapped_column(
+        ForeignKey("decks.id", ondelete="CASCADE"), primary_key=True
+    )
     deck: Mapped[Deck] = relationship(back_populates="permissions")

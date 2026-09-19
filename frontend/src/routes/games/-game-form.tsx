@@ -202,9 +202,10 @@ export function GameForm({ title, game }: { title: string; game?: GameDetails })
 												items={available}
 												getId={(system: BasicSystem) => system.id}
 												getLabel={(system: BasicSystem) => system.name}
-												onAction={(id) =>
-													field.handleChange([...field.state.value, id])
-												}
+												onAction={(id, { clear }) => {
+													field.handleChange([...field.state.value, id]);
+													clear();
+												}}
 											/>
 											{field.state.meta.errors[0] && (
 												<div className="error">

@@ -17,7 +17,7 @@ export function getRouter() {
 		scrollRestoration: true,
 		defaultPreload: "intent",
 		defaultPreloadStaleTime: 0,
-		defaultPendingComponent: LoadingSpinner,
+		defaultPendingComponent: () => <LoadingSpinner fullScreen />,
 		defaultPendingMs: 0,
 	});
 
