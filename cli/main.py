@@ -10,6 +10,7 @@ from sqlalchemy import text
 from app.configs import configs
 from app.database import session_manager
 from app.models import (
+    Character,
     DeckType,
     Forum,
     Player,
@@ -18,6 +19,7 @@ from app.models import (
     UserMeta,
 )
 from app.repositories import (
+    CharacterRepository,
     CharacterSheetRepository,
     GameRepository,
     GenreRepository,
@@ -163,6 +165,33 @@ async def seed():
             system_id="dnd5",
         )
         typer.echo("Character Sheet added")
+
+        character_repo = CharacterRepository(session, primary_user)
+        character = await character_repo.create(
+            label="Test 1",
+            type=Character.Type.PC,
+            character_sheet_id=1,
+        )
+        character.values = {
+            "notes": {
+                "type": "doc",
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "attrs": {"textAlign": None},
+                        "content": [
+                            {
+                                "type": "text",
+                                "marks": [{"type": "bold"}],
+                                "text": "aweva",
+                            }
+                        ],
+                    }
+                ],
+            },
+            "name": "Test",
+        }
+        typer.echo("Character added")
 
 
 @app.command()
