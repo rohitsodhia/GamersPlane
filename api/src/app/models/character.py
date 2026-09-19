@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, ForeignKey, String
+from sqlalchemy import JSON, ForeignKey, String, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.helpers.enums import LabelEnum, LabelEnumType
@@ -29,3 +29,4 @@ class Character(Base, SoftDeleteMixin, TimestampMixin):
     type: Mapped[Type] = mapped_column(LabelEnumType(Type, String(5)))
     values: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
     avatars: Mapped[list[CharacterAvatar]] = relationship(back_populates="character")
+    in_library: Mapped[bool] = mapped_column(default=False, server_default=false())

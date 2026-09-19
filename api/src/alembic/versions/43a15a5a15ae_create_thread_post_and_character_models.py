@@ -74,6 +74,9 @@ def upgrade() -> None:
         sa.Column("name", sa.String(), nullable=True),
         sa.Column("type", sa.String(length=5), nullable=False),
         sa.Column("values", sa.JSON(), nullable=True),
+        sa.Column(
+            "in_library", sa.Boolean(), server_default=sa.text("false"), nullable=False
+        ),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),

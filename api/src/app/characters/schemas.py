@@ -26,7 +26,9 @@ class CreateCharacterResponse(SchemaBase):
 
 
 class UpdateCharacterInput(SchemaBase):
-    values: dict
+    label: str | None = filtered_str(default=None)
+    type: Character.Type | None = None
+    values: dict | None = None
 
 
 class CharacterSheetData(SchemaBase):
@@ -49,6 +51,7 @@ class GetCharacterResponse(SchemaBase):
     name: str | None = None
     type: Character.Type
     values: dict | None = None
+    in_library: bool
     character_sheet: CharacterSheetData
     avatars: list[CharacterAvatarData]
 

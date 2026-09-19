@@ -1,9 +1,18 @@
-from sqlalchemy import ScalarResult, func, select
+from datetime import UTC, datetime
+
+from sqlalchemy import ScalarResult, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
 from app.configs import configs
-from app.models import Character, CharacterAvatar, CharacterSheet, System, User
+from app.models import (
+    Character,
+    CharacterAvatar,
+    CharacterSheet,
+    FavoriteCharacter,
+    System,
+    User,
+)
 
 
 class CharacterRepository:
@@ -28,11 +37,36 @@ class CharacterRepository:
 
         return character
 
-    async def update(self, character: Character, values: dict) -> Character:
-        character.values = values
+    async def update(
+        self,
+        character: Character,
+        label: str | None = None,
+        type: Character.Type | None = None,
+        values: dict | None = None,
+    ) -> Character:
+        if label is not None:
+            character.label = label
+        if type is not None:
+            character.type = type
+        if values is not None:
+            character.values = values
         await self.db_session.flush()
 
         return character
+
+    async def toggle_library(self, character: Character) -> None:
+        character.in_library = not character.in_library
+        await self.db_session.flush()
+
+    async def delete(self, character: Character) -> None:
+        character.deleted = datetime.now(UTC)
+        character.in_library = False
+        await self.db_session.execute(
+            delete(FavoriteCharacter).where(
+                FavoriteCharacter.character_id == character.id
+            )
+        )
+        await self.db_session.flush()
 
     async def get(self, id: int) -> Character | None:
         query = (
@@ -49,21 +83,35 @@ class CharacterRepository:
         )
         return await self.db_session.scalar(query)
 
-    def _list_query(self, search: str | None = None):
-        query = select(Character).where(Character.user_id == self.principal.id)
+    def _list_query(
+        self,
+        search: str | None = None,
+        type: Character.Type | None = None,
+        system_id: str | None = None,
+    ):
+        query = (
+            select(Character)
+            .where(Character.user_id == self.principal.id)
+            .join(Character.character_sheet)
+        )
         if search:
             query = query.where(Character.label.ilike(f"%{search}%"))
+        if type:
+            query = query.where(Character.type == type)
+        if system_id:
+            query = query.where(CharacterSheet.system_id == system_id)
         return query
 
     async def get_all(
         self,
         search: str | None = None,
+        type: Character.Type | None = None,
+        system_id: str | None = None,
         page: int = 1,
         limit: int = configs.PAGINATE_PER_PAGE,
     ) -> ScalarResult[Character]:
         query = (
-            self._list_query(search)
-            .join(Character.character_sheet)
+            self._list_query(search, type, system_id)
             .join(CharacterSheet.system)
             .order_by(System.sort_name.asc(), Character.label.asc())
             .options(
@@ -79,8 +127,13 @@ class CharacterRepository:
         )
         return await self.db_session.scalars(query)
 
-    async def count_all(self, search: str | None = None) -> int:
-        query = self._list_query(search)
+    async def count_all(
+        self,
+        search: str | None = None,
+        type: Character.Type | None = None,
+        system_id: str | None = None,
+    ) -> int:
+        query = self._list_query(search, type, system_id)
         return (
             await self.db_session.scalar(
                 select(func.count()).select_from(query.subquery())

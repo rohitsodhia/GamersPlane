@@ -8,6 +8,7 @@ from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
 from app.helpers.avatars import process_avatar_upload, save_avatar
 from app.middleware import Principal
+from app.models import Character
 from app.repositories import CharacterRepository, CharacterSheetRepository
 
 characters = APIRouter(prefix="/characters")
@@ -43,14 +44,20 @@ async def get_characters(
     db_session: DBSessionDependency,
     principal: Principal,
     search: str | None = None,
+    type: Character.Type | None = None,
+    system_id: str | None = None,
     page: int = 1,
 ):
     if page < 1:
         page = 1
 
     character_repository = CharacterRepository(db_session, principal)
-    characters = await character_repository.get_all(search=search, page=page)
-    total = await character_repository.count_all(search=search)
+    characters = await character_repository.get_all(
+        search=search, type=type, system_id=system_id, page=page
+    )
+    total = await character_repository.count_all(
+        search=search, type=type, system_id=system_id
+    )
 
     return schemas.GetCharactersResponse(
         characters=[_character_response(character) for character in characters],
@@ -87,9 +94,45 @@ async def update_character(
     if character.user_id != principal.id:
         raise ForbiddenException("Character not available")
 
-    await character_repository.update(character, data.values)
+    await character_repository.update(
+        character, label=data.label, type=data.type, values=data.values
+    )
 
     return _character_response(character)
+
+
+@characters.delete("/{character_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_character(
+    character_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    character_repository = CharacterRepository(db_session, principal)
+    character = await character_repository.get(character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+    if character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
+
+    await character_repository.delete(character)
+
+
+@characters.patch(
+    "/{character_id}/toggle_library", status_code=status.HTTP_204_NO_CONTENT
+)
+async def toggle_character_library(
+    character_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    character_repository = CharacterRepository(db_session, principal)
+    character = await character_repository.get(character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+    if character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
+
+    await character_repository.toggle_library(character)
 
 
 @characters.post(
@@ -193,6 +236,7 @@ def _character_response(character) -> schemas.GetCharacterResponse:
         name=character.name,
         type=character.type,
         values=character.values,
+        in_library=character.in_library,
         character_sheet=schemas.CharacterSheetData(
             id=sheet.id,
             name=sheet.name,
