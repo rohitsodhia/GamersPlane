@@ -145,6 +145,15 @@ function RouteComponent() {
 				My Characters
 			</h1>
 
+			<div className={styles["top-links"]}>
+				<Link to="/characters/library" className="skew-btn">
+					Character Library
+				</Link>
+				<Link to="/characters/sheets" className="skew-btn">
+					Character Sheets
+				</Link>
+			</div>
+
 			<div style={{ marginInline: `${hbMarginedH1.margin}px` }}>
 				<CharacterList systems={systems} />
 			</div>
@@ -272,8 +281,6 @@ function RouteComponent() {
 					</form.Subscribe>
 				</form>
 			</div>
-
-			<Link to="/characters/sheets">Character Sheets</Link>
 		</div>
 	);
 }
