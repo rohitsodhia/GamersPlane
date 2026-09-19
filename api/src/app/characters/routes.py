@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 
 from app.characters import schemas
 from app.configs import configs
@@ -61,6 +61,46 @@ async def get_characters(
 
     return schemas.GetCharactersResponse(
         characters=[_character_response(character) for character in characters],
+        total=total,
+        page=page,
+    )
+
+
+@characters.get("/library", response_model=schemas.GetLibraryResponse)
+async def get_library(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    search: str | None = None,
+    type: Character.Type | None = None,
+    systems: list[str] = Query([]),
+    page: int = 1,
+):
+    if page < 1:
+        page = 1
+
+    character_repository = CharacterRepository(db_session, principal)
+    characters = await character_repository.get_library(
+        search=search, type=type, system_ids=systems, page=page
+    )
+    total = await character_repository.count_library(
+        search=search, type=type, system_ids=systems
+    )
+
+    return schemas.GetLibraryResponse(
+        characters=[
+            schemas.LibraryCharacterData(
+                id=character.id,
+                label=character.label,
+                system=schemas.SystemData(
+                    id=character.character_sheet.system.id,
+                    name=character.character_sheet.system.name,
+                ),
+                user=schemas.LibraryUserData(
+                    id=character.user.id, username=character.user.username
+                ),
+            )
+            for character in characters
+        ],
         total=total,
         page=page,
     )

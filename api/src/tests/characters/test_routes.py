@@ -178,6 +178,7 @@ class TestGetCharacter:
         assert response.status_code == 200
         assert response.json() == {
             "id": character.id,
+            "user_id": owner.id,
             "label": "Aragorn",
             "name": None,
             "type": "pc",
@@ -197,11 +198,22 @@ class TestGetCharacter:
             "avatars": [],
         }
 
-    async def test_any_authed_user_can_read_another_users_character(
+    async def test_forbids_a_non_owner_when_not_in_library(
         self, client, character, create, auth_as
     ):
-        # The endpoint has no owner gate today; pin that so a future change
-        # to it is a deliberate one.
+        stranger = await create(ActivatedUserFactory)
+        auth_as(stranger)
+
+        response = await client.get(f"/characters/{character.id}")
+
+        assert response.status_code == 403
+        assert response.json()["errors"][0]["code"] == "forbidden"
+
+    async def test_non_owner_can_read_a_library_character(
+        self, client, character, create, auth_as, db_session
+    ):
+        character.in_library = True
+        await db_session.flush()
         stranger = await create(ActivatedUserFactory)
         auth_as(stranger)
 
@@ -347,6 +359,179 @@ class TestGetCharacters:
         assert len(first_body["characters"]) == per_page
         assert second_body["page"] == 2
         assert len(second_body["characters"]) == 1
+
+
+class TestGetLibrary:
+    @pytest.fixture
+    async def owner(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def viewer(self, create):
+        return await create(ActivatedUserFactory)
+
+    async def _make_character(
+        self,
+        db_session,
+        owner,
+        sheet,
+        label,
+        type=Character.Type.PC,
+        in_library=True,
+    ):
+        repository = CharacterRepository(db_session, principal=owner)
+        character = await repository.create(
+            character_sheet_id=sheet.id, label=label, type=type
+        )
+        character.in_library = in_library
+        await db_session.flush()
+        return character
+
+    async def test_requires_auth(self, client):
+        response = await client.get("/characters/library")
+
+        assert response.status_code == 403
+
+    async def test_returns_only_id_label_system_and_user(
+        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+    ):
+        character = await self._make_character(
+            db_session, owner, public_sheet, "Aragorn"
+        )
+        auth_as(viewer)
+
+        response = await client.get("/characters/library")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        assert body["page"] == 1
+        assert body["characters"] == [
+            {
+                "id": character.id,
+                "label": "Aragorn",
+                "system": {"id": "dnd5e", "name": "D&D 5e"},
+                "user": {"id": owner.id, "username": owner.username},
+            }
+        ]
+
+    async def test_excludes_own_and_non_library_characters(
+        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+    ):
+        await self._make_character(db_session, owner, public_sheet, "Shared")
+        await self._make_character(
+            db_session, owner, public_sheet, "Hidden", in_library=False
+        )
+        await self._make_character(db_session, viewer, public_sheet, "Mine")
+        auth_as(viewer)
+
+        response = await client.get("/characters/library")
+
+        body = response.json()
+        assert body["total"] == 1
+        assert [c["label"] for c in body["characters"]] == ["Shared"]
+
+    async def test_orders_by_system_then_label(
+        self, client, owner, viewer, sheet_creator, create, auth_as, db_session, wrap_in_savepoint
+    ):
+        # ids are deliberately the reverse of sort_name.
+        system_a = await create(SystemFactory, id="zzz", sort_name="AAA System")
+        system_z = await create(SystemFactory, id="aaa", sort_name="ZZZ System")
+        sheet_a = await _make_sheet(
+            db_session, sheet_creator, system_a, status=CharacterSheet.Status.PUBLIC
+        )
+        sheet_z = await _make_sheet(
+            db_session, sheet_creator, system_z, status=CharacterSheet.Status.PUBLIC
+        )
+        await self._make_character(db_session, owner, sheet_z, "Zed")
+        await self._make_character(db_session, owner, sheet_a, "Beta")
+        await self._make_character(db_session, owner, sheet_a, "Alpha")
+        auth_as(viewer)
+
+        response = await client.get("/characters/library")
+
+        assert [c["label"] for c in response.json()["characters"]] == [
+            "Alpha",
+            "Beta",
+            "Zed",
+        ]
+
+    async def test_filters_by_search(
+        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+    ):
+        await self._make_character(db_session, owner, public_sheet, "Aragorn")
+        await self._make_character(db_session, owner, public_sheet, "Legolas")
+        auth_as(viewer)
+
+        response = await client.get("/characters/library", params={"search": "arag"})
+
+        body = response.json()
+        assert body["total"] == 1
+        assert [c["label"] for c in body["characters"]] == ["Aragorn"]
+
+    async def test_filters_by_type(
+        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+    ):
+        await self._make_character(db_session, owner, public_sheet, "Aragorn")
+        await self._make_character(
+            db_session, owner, public_sheet, "Orc Grunt", type=Character.Type.NPC
+        )
+        auth_as(viewer)
+
+        response = await client.get("/characters/library", params={"type": "npc"})
+
+        body = response.json()
+        assert body["total"] == 1
+        assert [c["label"] for c in body["characters"]] == ["Orc Grunt"]
+
+    async def test_filters_by_multiple_systems(
+        self, client, owner, viewer, sheet_creator, create, auth_as, db_session, wrap_in_savepoint
+    ):
+        for system_id in ("dnd5e", "pf2e", "coc"):
+            system = await create(SystemFactory, id=system_id, sort_name=system_id)
+            sheet = await _make_sheet(
+                db_session, sheet_creator, system, status=CharacterSheet.Status.PUBLIC
+            )
+            await self._make_character(db_session, owner, sheet, system_id)
+        auth_as(viewer)
+
+        response = await client.get(
+            "/characters/library", params={"systems": ["dnd5e", "pf2e"]}
+        )
+
+        body = response.json()
+        assert body["total"] == 2
+        assert [c["label"] for c in body["characters"]] == ["dnd5e", "pf2e"]
+
+    async def test_paginates_results(
+        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+    ):
+        per_page = configs.PAGINATE_PER_PAGE
+        for i in range(per_page + 1):
+            await self._make_character(db_session, owner, public_sheet, f"Char {i:03}")
+        auth_as(viewer)
+
+        first = (await client.get("/characters/library")).json()
+        second = (await client.get("/characters/library", params={"page": 2})).json()
+
+        assert first["total"] == per_page + 1
+        assert first["page"] == 1
+        assert len(first["characters"]) == per_page
+        assert second["page"] == 2
+        assert len(second["characters"]) == 1
+
+    async def test_clamps_page_below_one(
+        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+    ):
+        await self._make_character(db_session, owner, public_sheet, "Aragorn")
+        auth_as(viewer)
+
+        response = await client.get("/characters/library", params={"page": 0})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["page"] == 1
+        assert len(body["characters"]) == 1
 
 
 class TestUpdateCharacter:

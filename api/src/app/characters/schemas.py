@@ -47,6 +47,7 @@ class CharacterAvatarData(SchemaBase):
 
 class GetCharacterResponse(SchemaBase):
     id: int
+    user_id: int
     label: str
     name: str | None = None
     type: Character.Type
@@ -58,6 +59,24 @@ class GetCharacterResponse(SchemaBase):
 
 class GetCharactersResponse(SchemaBase):
     characters: list[GetCharacterResponse]
+    total: int
+    page: int
+
+
+class LibraryUserData(SchemaBase):
+    id: int
+    username: str
+
+
+class LibraryCharacterData(SchemaBase):
+    id: int
+    label: str
+    system: SystemData
+    user: LibraryUserData
+
+
+class GetLibraryResponse(SchemaBase):
+    characters: list[LibraryCharacterData]
     total: int
     page: int
 

@@ -141,6 +141,63 @@ class CharacterRepository:
             or 0
         )
 
+    def _library_query(
+        self,
+        search: str | None = None,
+        type: Character.Type | None = None,
+        system_ids: list[str] | None = None,
+    ):
+        query = (
+            select(Character)
+            .where(Character.in_library.is_(True))
+            .where(Character.user_id != self.principal.id)
+            .join(Character.character_sheet)
+        )
+        if search:
+            query = query.where(Character.label.ilike(f"%{search}%"))
+        if type:
+            query = query.where(Character.type == type)
+        if system_ids:
+            query = query.where(CharacterSheet.system_id.in_(system_ids))
+        return query
+
+    async def get_library(
+        self,
+        search: str | None = None,
+        type: Character.Type | None = None,
+        system_ids: list[str] | None = None,
+        page: int = 1,
+        limit: int = configs.PAGINATE_PER_PAGE,
+    ) -> ScalarResult[Character]:
+        query = (
+            self._library_query(search, type, system_ids)
+            .join(CharacterSheet.system)
+            .order_by(System.sort_name.asc(), Character.label.asc())
+            .options(
+                selectinload(Character.user),
+                selectinload(Character.character_sheet).selectinload(
+                    CharacterSheet.system
+                ),
+            )
+            .limit(limit)
+            .offset((page - 1) * limit)
+        )
+        return await self.db_session.scalars(query)
+
+    async def count_library(
+        self,
+        search: str | None = None,
+        type: Character.Type | None = None,
+        system_ids: list[str] | None = None,
+    ) -> int:
+        query = self._library_query(search, type, system_ids)
+        return (
+            await self.db_session.scalar(
+                select(func.count()).select_from(query.subquery())
+            )
+            or 0
+        )
+
     async def add_avatar(self, character: Character, ext: str) -> CharacterAvatar:
         avatar = CharacterAvatar(
             character_id=character.id,

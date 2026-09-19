@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as R403RouteImport } from './routes/403'
 import { Route as AcpRouteRouteImport } from './routes/acp/route'
 import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as CommunityGuidelinesRouteImport } from './routes/community-guidelines'
@@ -21,6 +22,7 @@ import { Route as AcpIndexRouteImport } from './routes/acp/index'
 import { Route as AcpRbacRouteImport } from './routes/acp/rbac'
 import { Route as AcpUsersRouteImport } from './routes/acp/users'
 import { Route as CharactersIndexRouteImport } from './routes/characters/index'
+import { Route as CharactersLibraryRouteImport } from './routes/characters/library'
 import { Route as CharactersNewRouteImport } from './routes/characters/new'
 import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
 import { Route as GamesIndexRouteImport } from './routes/games/index'
@@ -51,6 +53,11 @@ import { Route as GamesListIndexRouteImport } from './routes/games/list.index'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R403Route = R403RouteImport.update({
+  id: '/403',
+  path: '/403',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AcpRouteRoute = AcpRouteRouteImport.update({
@@ -106,6 +113,11 @@ const AcpUsersRoute = AcpUsersRouteImport.update({
 const CharactersIndexRoute = CharactersIndexRouteImport.update({
   id: '/characters/',
   path: '/characters/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CharactersLibraryRoute = CharactersLibraryRouteImport.update({
+  id: '/characters/library',
+  path: '/characters/library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CharactersNewRoute = CharactersNewRouteImport.update({
@@ -245,6 +257,7 @@ const GamesListIndexRoute = GamesListIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/acp': typeof AcpRouteRouteWithChildren
+  '/403': typeof R403Route
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/login': typeof LoginRoute
@@ -253,6 +266,7 @@ export interface FileRoutesByFullPath {
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
+  '/characters/library': typeof CharactersLibraryRoute
   '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
@@ -284,6 +298,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/403': typeof R403Route
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/login': typeof LoginRoute
@@ -292,6 +307,7 @@ export interface FileRoutesByTo {
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
+  '/characters/library': typeof CharactersLibraryRoute
   '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/new': typeof GamesNewRoute
@@ -324,6 +340,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/acp': typeof AcpRouteRouteWithChildren
+  '/403': typeof R403Route
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/login': typeof LoginRoute
@@ -332,6 +349,7 @@ export interface FileRoutesById {
   '/systems': typeof SystemsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
+  '/characters/library': typeof CharactersLibraryRoute
   '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
@@ -366,6 +384,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/acp'
+    | '/403'
     | '/activate'
     | '/community-guidelines'
     | '/login'
@@ -374,6 +393,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/acp/rbac'
     | '/acp/users'
+    | '/characters/library'
     | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/list'
@@ -405,6 +425,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/403'
     | '/activate'
     | '/community-guidelines'
     | '/login'
@@ -413,6 +434,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/acp/rbac'
     | '/acp/users'
+    | '/characters/library'
     | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/new'
@@ -444,6 +466,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/acp'
+    | '/403'
     | '/activate'
     | '/community-guidelines'
     | '/login'
@@ -452,6 +475,7 @@ export interface FileRouteTypes {
     | '/systems'
     | '/acp/rbac'
     | '/acp/users'
+    | '/characters/library'
     | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/list'
@@ -485,12 +509,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AcpRouteRoute: typeof AcpRouteRouteWithChildren
+  R403Route: typeof R403Route
   ActivateRoute: typeof ActivateRoute
   CommunityGuidelinesRoute: typeof CommunityGuidelinesRoute
   LoginRoute: typeof LoginRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
+  CharactersLibraryRoute: typeof CharactersLibraryRoute
   CharactersNewRoute: typeof CharactersNewRoute
   ForumsChar123ForumIdChar125Route: typeof ForumsChar123ForumIdChar125Route
   GamesListRoute: typeof GamesListRouteWithChildren
@@ -525,6 +551,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/403': {
+      id: '/403'
+      path: '/403'
+      fullPath: '/403'
+      preLoaderRoute: typeof R403RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/acp': {
@@ -602,6 +635,13 @@ declare module '@tanstack/react-router' {
       path: '/characters'
       fullPath: '/characters/'
       preLoaderRoute: typeof CharactersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/characters/library': {
+      id: '/characters/library'
+      path: '/characters/library'
+      fullPath: '/characters/library'
+      preLoaderRoute: typeof CharactersLibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/characters/new': {
@@ -822,12 +862,14 @@ const GamesListRouteWithChildren = GamesListRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcpRouteRoute: AcpRouteRouteWithChildren,
+  R403Route: R403Route,
   ActivateRoute: ActivateRoute,
   CommunityGuidelinesRoute: CommunityGuidelinesRoute,
   LoginRoute: LoginRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,
+  CharactersLibraryRoute: CharactersLibraryRoute,
   CharactersNewRoute: CharactersNewRoute,
   ForumsChar123ForumIdChar125Route: ForumsChar123ForumIdChar125Route,
   GamesListRoute: GamesListRouteWithChildren,

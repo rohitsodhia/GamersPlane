@@ -13,6 +13,7 @@ export type CharacterAvatar = {
 
 export type Character = {
 	id: number;
+	user_id: number;
 	label: string;
 	name: string | null;
 	type: CharacterType;
@@ -60,6 +61,46 @@ export const myCharactersQueryOptions = (
 			if (params.page) search.set("page", String(params.page));
 			const qs = search.toString();
 			const res = await apiFetch(`/characters${qs ? `?${qs}` : ""}`);
+			if (!res.ok) {
+				const { errors } = await res.json();
+				throw new ApiError(res.status, errors);
+			}
+			return res.json();
+		},
+		placeholderData: keepPreviousData,
+	});
+
+export type LibraryCharacter = {
+	id: number;
+	label: string;
+	system: { id: string; name: string };
+	user: { id: number; username: string };
+};
+
+export type GetLibraryResponse = {
+	characters: LibraryCharacter[];
+	total: number;
+	page: number;
+};
+
+export const libraryQueryOptions = (
+	params: {
+		search?: string;
+		type?: CharacterType;
+		systems?: string[];
+		page?: number;
+	} = {},
+) =>
+	queryOptions({
+		queryKey: ["characters", "library", params],
+		queryFn: async (): Promise<GetLibraryResponse> => {
+			const search = new URLSearchParams();
+			if (params.search) search.set("search", params.search);
+			if (params.type) search.set("type", params.type);
+			for (const systemId of params.systems ?? []) search.append("systems", systemId);
+			if (params.page) search.set("page", String(params.page));
+			const qs = search.toString();
+			const res = await apiFetch(`/characters/library${qs ? `?${qs}` : ""}`);
 			if (!res.ok) {
 				const { errors } = await res.json();
 				throw new ApiError(res.status, errors);
