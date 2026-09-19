@@ -1,14 +1,24 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { Select } from "#/components/Select";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
-import { characterQueryOptions, updateCharacter } from "#/queries/character";
+import {
+	type CharacterType,
+	characterQueryOptions,
+	updateCharacter,
+} from "#/queries/character";
 import { SheetRenderer } from "../sheets/-components/SheetRenderer";
 import { SheetValuesProvider, useSheetStore } from "../sheets/-components/sheet-values";
 import type { SheetSchema } from "../sheets/-components/types";
 import AvatarPopover from "./-avatar-popover";
 import styles from "./character.module.css";
+
+const TYPE_OPTIONS: { id: CharacterType; name: string }[] = [
+	{ id: "pc", name: "PC" },
+	{ id: "npc", name: "NPC" },
+];
 
 export const Route = createFileRoute("/characters/$characterId/edit")({
 	params: {
@@ -28,6 +38,9 @@ function RouteComponent() {
 	const { character_sheet: sheet } = character;
 	const primaryAvatar = character.avatars.find((avatar) => avatar.is_primary);
 
+	const [label, setLabel] = useState(character.label);
+	const [type, setType] = useState<CharacterType>(character.type);
+
 	// Remount when switching characters so the value store re-seeds from the
 	// newly loaded `values`.
 	return (
@@ -43,24 +56,50 @@ function RouteComponent() {
 			</div>
 
 			<div className={styles["avatar-wrapper"]}>
-				<button type="button" popoverTarget="character-avatar-popover">
-					Edit Avatar
-				</button>{" "}
-				(Avatar Set:{" "}
-				{primaryAvatar ? (
-					<img
-						src="/images/icons/green_check.png"
-						title="Avatar set"
-						alt="Avatar set"
-					/>
-				) : (
-					<img
-						src="/images/icons/cross.png"
-						title="No avatar set"
-						alt="No avatar set"
-					/>
-				)}
-				)
+				<div className={styles["character-meta"]}>
+					<div>
+						<label htmlFor="character-label">Label</label>
+						<input
+							id="character-label"
+							type="text"
+							value={label}
+							onChange={(e) => setLabel(e.target.value)}
+						/>
+					</div>
+					<div>
+						<span id="character-type-label">Type</span>
+						<Select
+							id="character-type"
+							ariaLabelledBy="character-type-label"
+							items={TYPE_OPTIONS}
+							getId={(option) => option.id}
+							getLabel={(option) => option.name}
+							selectedId={type}
+							onChange={(id) => setType(id as CharacterType)}
+						/>
+					</div>
+				</div>
+
+				<div>
+					<button type="button" popoverTarget="character-avatar-popover">
+						Edit Avatar
+					</button>{" "}
+					(Avatar Set:{" "}
+					{primaryAvatar ? (
+						<img
+							src="/images/icons/green_check.png"
+							title="Avatar set"
+							alt="Avatar set"
+						/>
+					) : (
+						<img
+							src="/images/icons/cross.png"
+							title="No avatar set"
+							alt="No avatar set"
+						/>
+					)}
+					)
+				</div>
 			</div>
 			<AvatarPopover
 				id="character-avatar-popover"
@@ -72,7 +111,12 @@ function RouteComponent() {
 				mode="edit"
 				initialValues={character.values ?? {}}
 			>
-				<CharacterSheetForm characterId={characterId} schema={sheet.layout} />
+				<CharacterSheetForm
+					characterId={characterId}
+					schema={sheet.layout}
+					label={label}
+					type={type}
+				/>
 			</SheetValuesProvider>
 		</div>
 	);
@@ -81,9 +125,13 @@ function RouteComponent() {
 function CharacterSheetForm({
 	characterId,
 	schema,
+	label,
+	type,
 }: {
 	characterId: number;
 	schema: SheetSchema;
+	label: string;
+	type: CharacterType;
 }) {
 	const store = useSheetStore();
 	const queryClient = useQueryClient();
@@ -91,7 +139,7 @@ function CharacterSheetForm({
 
 	const mutation = useMutation({
 		mutationFn: (values: ReturnType<typeof store.snapshot>) =>
-			updateCharacter(characterId, values),
+			updateCharacter(characterId, { label, type, values }),
 		onSuccess: (character) => {
 			queryClient.setQueryData(characterQueryOptions(characterId).queryKey, character);
 		},

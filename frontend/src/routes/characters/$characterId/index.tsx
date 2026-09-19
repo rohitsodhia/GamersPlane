@@ -58,6 +58,17 @@ function RouteComponent() {
 				/>
 			</div>
 
+			<div className={styles["character-meta"]}>
+				<div>
+					<span>Label</span>
+					<span>{character.label}</span>
+				</div>
+				<div>
+					<span>Type</span>
+					<span>{character.type.toLocaleUpperCase()}</span>
+				</div>
+			</div>
+
 			<SheetValuesProvider
 				key={characterId}
 				mode="display"

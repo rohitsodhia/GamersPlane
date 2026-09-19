@@ -12,6 +12,23 @@
 	}
 }
 
+.character-meta {
+	display: flex;
+	gap: 2em;
+	margin-bottom: 1em;
+
+	> div {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+	}
+
+	label,
+	span:first-child {
+		font-weight: bold;
+	}
+}
+
 .btn-wrapper {
 	display: flex;
 	justify-content: center;
@@ -35,8 +52,12 @@ h1:has(+ .top-links) {
 .avatar-wrapper {
 	display: flex;
 	align-items: center;
-	justify-content: flex-end;
+	justify-content: space-between;
 	margin-bottom: 1em;
+
+	.character-meta {
+		margin-bottom: 0;
+	}
 
 	button {
 		margin-right: 0.5ex;

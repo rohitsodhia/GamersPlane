@@ -7,7 +7,9 @@ import {
 } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { Button, Dialog, DialogTrigger, Popover } from "react-aria-components";
 import { z } from "zod";
+import { Autocomplete } from "#/components/Autocomplete";
 import { FilterableListBox } from "#/components/FilterableListBox";
 import LoadingSpinner from "#/components/LoadingSpinner";
 import Paginate from "#/components/Paginate";
@@ -19,7 +21,10 @@ import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	type CharacterType,
 	createCharacter,
+	deleteCharacter,
+	type GetCharactersResponse,
 	myCharactersQueryOptions,
+	toggleCharacterLibrary,
 } from "#/queries/character";
 import { myCharacterSheetsQueryOptions } from "#/queries/characterSheet";
 import styles from "./index.module.css";
@@ -29,6 +34,8 @@ export const Route = createFileRoute("/characters/")({
 	validateSearch: z.object({
 		page: z.number().optional(),
 		search: z.string().optional(),
+		type: z.enum(["pc", "npc"]).optional(),
+		system_id: z.string().optional(),
 	}),
 	// No loaderDeps, and the character list is deliberately not fetched here at
 	// all: with defaultPendingMs: 0, ANY loader invocation for this route (even
@@ -138,7 +145,9 @@ function RouteComponent() {
 				My Characters
 			</h1>
 
-			<CharacterList />
+			<div style={{ marginInline: `${hbMarginedH1.margin}px` }}>
+				<CharacterList systems={systems} />
+			</div>
 
 			<h2 className="headerbar" ref={hbMarginedH2.ref}>
 				New Character
@@ -269,9 +278,14 @@ function RouteComponent() {
 	);
 }
 
-function CharacterList() {
+function CharacterList({ systems }: { systems: { id: string; name: string }[] }) {
 	const navigate = useNavigate({ from: Route.fullPath });
-	const { page: urlPage, search: urlSearch } = Route.useSearch();
+	const {
+		page: urlPage,
+		search: urlSearch,
+		type: urlType,
+		system_id: urlSystemId,
+	} = Route.useSearch();
 	const page = urlPage ?? 1;
 
 	// Plain useQuery (not useSuspenseQuery): with placeholderData: keepPreviousData,
@@ -279,11 +293,61 @@ function CharacterList() {
 	// hand rendering to the router's full-page pendingComponent. useQuery instead
 	// just flips isFetching and keeps rendering the previous data, so the spinner
 	// stays scoped to character-results below.
-	const { data, isFetching } = useQuery(
-		myCharactersQueryOptions({ search: urlSearch, page }),
+	const { data, isFetching, isError } = useQuery(
+		myCharactersQueryOptions({
+			search: urlSearch,
+			type: urlType,
+			system_id: urlSystemId,
+			page,
+		}),
 	);
-	const characters = data?.characters ?? [];
-	const total = data?.total ?? 0;
+	// A failed (re)fetch leaves react-query holding the last successful data;
+	// don't render it as if it were current.
+	const shown = isError ? undefined : data;
+	const characters = shown?.characters ?? [];
+	const total = shown?.total ?? 0;
+
+	// Flip in_library in the cached lists in place rather than invalidating: a
+	// refetch sets isFetching, which would swap the whole list for the spinner.
+	const queryClient = useQueryClient();
+	const toggleLibraryMutation = useMutation({
+		mutationFn: toggleCharacterLibrary,
+		onSuccess: (_data, characterId) => {
+			queryClient.setQueriesData<GetCharactersResponse>(
+				{ queryKey: ["characters", "mine"] },
+				(old) =>
+					old && {
+						...old,
+						characters: old.characters.map((character) =>
+							character.id === characterId
+								? { ...character, in_library: !character.in_library }
+								: character,
+						),
+					},
+			);
+			queryClient.invalidateQueries({ queryKey: ["character", characterId] });
+		},
+	});
+
+	// Drop the row from the cached lists in place (same reasoning as above) and
+	// discard the single-character query so a stale copy isn't served.
+	const deleteMutation = useMutation({
+		mutationFn: deleteCharacter,
+		onSuccess: (_data, characterId) => {
+			queryClient.setQueriesData<GetCharactersResponse>(
+				{ queryKey: ["characters", "mine"] },
+				(old) =>
+					old && {
+						...old,
+						characters: old.characters.filter(
+							(character) => character.id !== characterId,
+						),
+						total: Math.max(0, old.total - 1),
+					},
+			);
+			queryClient.removeQueries({ queryKey: ["character", characterId] });
+		},
+	});
 
 	const [searchInput, setSearchInput] = useState(urlSearch ?? "");
 
@@ -303,12 +367,59 @@ function CharacterList() {
 
 	return (
 		<div className={styles["character-list"]}>
-			<input
-				type="text"
-				placeholder="Search..."
-				value={searchInput}
-				onChange={(e) => setSearchInput(e.target.value)}
-			/>
+			<div className={styles["character-filters"]}>
+				<input
+					type="text"
+					placeholder="Search..."
+					value={searchInput}
+					onChange={(e) => setSearchInput(e.target.value)}
+				/>
+
+				<Autocomplete
+					id="character-type-filter"
+					className={styles["type-filter"]}
+					items={TYPE_OPTIONS}
+					getId={(option) => option.id}
+					getLabel={(option) => option.name}
+					placeholder="Type"
+					onAction={(id) => {
+						navigate({
+							search: (prev) => ({
+								...prev,
+								type: id as CharacterType,
+								page: undefined,
+							}),
+						});
+					}}
+					onClear={() => {
+						navigate({
+							search: (prev) => ({ ...prev, type: undefined, page: undefined }),
+						});
+					}}
+				/>
+
+				<Autocomplete
+					id="character-system-filter"
+					items={systems}
+					getId={(option) => option.id}
+					getLabel={(option) => option.name}
+					placeholder="System"
+					onAction={(id) => {
+						navigate({
+							search: (prev) => ({
+								...prev,
+								system_id: id,
+								page: undefined,
+							}),
+						});
+					}}
+					onClear={() => {
+						navigate({
+							search: (prev) => ({ ...prev, system_id: undefined, page: undefined }),
+						});
+					}}
+				/>
+			</div>
 
 			<div className={styles["character-results"]}>
 				{isFetching && (
@@ -317,7 +428,11 @@ function CharacterList() {
 					</div>
 				)}
 
-				{isFetching ? null : data && characters.length > 0 ? (
+				{isFetching ? null : isError ? (
+					<div className="banner error-banner">
+						Could not load your characters. Please try again.
+					</div>
+				) : shown && characters.length > 0 ? (
 					<ul>
 						{characters.map((character) => (
 							<li key={character.id} className={styles["character-row"]}>
@@ -329,37 +444,75 @@ function CharacterList() {
 										{character.label}
 									</Link>
 								</div>
-								<div className={styles["char-type"]}>{character.type}</div>
+								<div className={styles["char-type"]}>
+									{character.type.toLocaleUpperCase()}
+								</div>
 								<div className={styles["system-type"]}>
 									{character.character_sheet.system.name}
 								</div>
 								<div className={styles.links}>
 									<button
 										type="button"
-										// TODO: inline-edit label/type, mirroring the legacy editBasic flow.
-										onClick={() => {}}
+										disabled={toggleLibraryMutation.isPending}
+										onClick={() => toggleLibraryMutation.mutate(character.id)}
 									>
-										<img src="/images/icons/gear.png" alt="Edit Label/Type" />
+										{character.in_library ? (
+											<img
+												src="/images/icons/library_on.png"
+												alt="Remove from library"
+											/>
+										) : (
+											<img src="/images/icons/library_off.png" alt="Add to Library" />
+										)}
 									</button>
-									<button
-										type="button"
-										// TODO: wire up once a library/favorites concept exists for the new Character model.
-										onClick={() => {}}
-									>
-										<img src="/images/icons/bookmark_off.png" alt="Add to Library" />
-									</button>
-									<button
-										type="button"
-										// TODO: wire up once a delete endpoint exists for characters.
-										onClick={() => {}}
-									>
-										<img src="/images/icons/cross.png" alt="Delete Character" />
-									</button>
+									<DialogTrigger>
+										<Button isDisabled={deleteMutation.isPending}>
+											<img src="/images/icons/cross.png" alt="Delete Character" />
+										</Button>
+										<Popover
+											className={`react-aria-Popover ${styles["confirm-popover"]}`}
+											placement="bottom end"
+										>
+											<Dialog
+												aria-label="Confirm delete"
+												className={styles["confirm-delete"]}
+											>
+												{({ close }) => (
+													<>
+														<p>
+															Deleting this character will remove it from the character
+															library, if added. It will also be removed from any game
+															it's currently in.
+														</p>
+														<div className={styles["confirm-actions"]}>
+															<button
+																type="button"
+																className="skew-btn"
+																onClick={() => {
+																	deleteMutation.mutate(character.id);
+																	close();
+																}}
+															>
+																Confirm
+															</button>
+															<button
+																type="button"
+																className="skew-btn"
+																onClick={close}
+															>
+																Cancel
+															</button>
+														</div>
+													</>
+												)}
+											</Dialog>
+										</Popover>
+									</DialogTrigger>
 								</div>
 							</li>
 						))}
 					</ul>
-				) : !isFetching && data ? (
+				) : !isFetching && shown ? (
 					<div className={styles["no-results"]}>
 						{urlSearch
 							? "No characters match your search."

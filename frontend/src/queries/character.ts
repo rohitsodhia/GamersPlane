@@ -17,6 +17,7 @@ export type Character = {
 	name: string | null;
 	type: CharacterType;
 	values: ScopeValues | null;
+	in_library: boolean;
 	character_sheet: {
 		id: number;
 		name: string;
@@ -31,6 +32,7 @@ export type CharacterListItem = {
 	id: number;
 	label: string;
 	type: CharacterType;
+	in_library: boolean;
 	character_sheet: { id: number; name: string; system: { id: string; name: string } };
 };
 
@@ -41,13 +43,20 @@ export type GetCharactersResponse = {
 };
 
 export const myCharactersQueryOptions = (
-	params: { search?: string; page?: number } = {},
+	params: {
+		search?: string;
+		type?: CharacterType;
+		system_id?: string;
+		page?: number;
+	} = {},
 ) =>
 	queryOptions({
 		queryKey: ["characters", "mine", params],
 		queryFn: async (): Promise<GetCharactersResponse> => {
 			const search = new URLSearchParams();
 			if (params.search) search.set("search", params.search);
+			if (params.type) search.set("type", params.type);
+			if (params.system_id) search.set("system_id", params.system_id);
 			if (params.page) search.set("page", String(params.page));
 			const qs = search.toString();
 			const res = await apiFetch(`/characters${qs ? `?${qs}` : ""}`);
@@ -75,17 +84,35 @@ export const characterQueryOptions = (characterId: number) =>
 
 export const updateCharacter = async (
 	characterId: number,
-	values: ScopeValues,
+	data: { label?: string; type?: CharacterType; values?: ScopeValues },
 ): Promise<Character> => {
 	const res = await apiFetch(`/characters/${characterId}`, {
 		method: "PATCH",
-		body: JSON.stringify({ values }),
+		body: JSON.stringify(data),
 	});
 	if (!res.ok) {
 		const { errors } = await res.json();
 		throw new ApiError(res.status, errors);
 	}
 	return res.json();
+};
+
+export const toggleCharacterLibrary = async (characterId: number): Promise<void> => {
+	const res = await apiFetch(`/characters/${characterId}/toggle_library`, {
+		method: "PATCH",
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
+export const deleteCharacter = async (characterId: number): Promise<void> => {
+	const res = await apiFetch(`/characters/${characterId}`, { method: "DELETE" });
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
 };
 
 export type NewCharacterInput = {
