@@ -76,6 +76,8 @@ async def get_character(
     character = await character_repository.get(character_id)
     if character is None:
         raise NotFoundException("Character not found")
+    if not character.in_library and character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
 
     return _character_response(character)
 
@@ -232,6 +234,7 @@ def _character_response(character) -> schemas.GetCharacterResponse:
 
     return schemas.GetCharacterResponse(
         id=character.id,
+        user_id=character.user_id,
         label=character.label,
         name=character.name,
         type=character.type,

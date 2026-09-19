@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { Select } from "#/components/Select";
 import { ApiError } from "#/lib/api";
@@ -9,6 +9,7 @@ import {
 	characterQueryOptions,
 	updateCharacter,
 } from "#/queries/character";
+import { meQueryOptions } from "#/queries/me";
 import { SheetRenderer } from "../sheets/-components/SheetRenderer";
 import { SheetValuesProvider, useSheetStore } from "../sheets/-components/sheet-values";
 import type { SheetSchema } from "../sheets/-components/types";
@@ -24,11 +25,16 @@ export const Route = createFileRoute("/characters/$characterId/edit")({
 	params: {
 		parse: (params) => ({ characterId: Number(params.characterId) }),
 	},
-	loader: ({ context, params, location }) =>
-		redirectToLoginOnAuthFailure(
+	loader: async ({ context, params, location }) => {
+		const character = await redirectToLoginOnAuthFailure(
 			context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
 			location,
-		),
+		);
+		const me = await context.queryClient.ensureQueryData(meQueryOptions);
+		if (character.user_id !== me.id) {
+			throw redirect({ to: "/403", replace: true });
+		}
+	},
 	component: RouteComponent,
 });
 

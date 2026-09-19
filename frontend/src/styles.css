@@ -225,7 +225,7 @@ p {
 h1.headerbar,
 h2.headerbar {
 	font-family: "AgencyFB", sans-serif;
-	margin-block: 0.7em;
+	margin-block: 0.7rem;
 	padding-inline: calc(
 		var(--hb-height-resolved) *
 		0.5 *
