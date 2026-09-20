@@ -1,0 +1,47 @@
+.library-results {
+	margin-block: 1em;
+}
+
+.library-list {
+	list-style: none;
+	margin: 0 0 1em;
+	padding: 0;
+
+	li {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.5em 1em;
+		padding: 0.6em;
+		border: 1px solid transparent;
+
+		&:hover {
+			background: light-dark(#f5f5f5, #222);
+			border-color: light-dark(#ccc, #444);
+		}
+	}
+
+	.label {
+		flex: 2;
+	}
+
+	.system-name,
+	.owner {
+		flex: 1;
+		font-size: 0.85em;
+	}
+}
+
+.notice {
+	color: light-dark(#666, #999);
+	font-style: italic;
+	text-wrap: pretty;
+	text-align: center;
+	margin-block: 1.5em;
+}
+
+.library-pagination {
+	display: grid;
+	justify-items: center;
+	margin-block: 1em;
+}

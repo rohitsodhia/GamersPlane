@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 
 from app.characters import schemas
 from app.configs import configs
@@ -53,14 +53,67 @@ async def get_characters(
 
     character_repository = CharacterRepository(db_session, principal)
     characters = await character_repository.get_all(
-        search=search, type=type, system_id=system_id, page=page
+        search=search,
+        type=type,
+        system_id=system_id,
+        page=page,
+        include_favorited=True,
     )
     total = await character_repository.count_all(
-        search=search, type=type, system_id=system_id
+        search=search, type=type, system_id=system_id, include_favorited=True
     )
 
     return schemas.GetCharactersResponse(
-        characters=[_character_response(character) for character in characters],
+        characters=[
+            schemas.CharacterListItem(
+                **_character_response(character).model_dump(),
+                user=schemas.LibraryUserData(
+                    id=character.user.id, username=character.user.username
+                ),
+            )
+            for character in characters
+        ],
+        total=total,
+        page=page,
+    )
+
+
+@characters.get("/library", response_model=schemas.GetLibraryResponse)
+async def get_library(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    search: str | None = None,
+    type: Character.Type | None = None,
+    systems: list[str] = Query([]),
+    page: int = 1,
+):
+    if page < 1:
+        page = 1
+
+    character_repository = CharacterRepository(db_session, principal)
+    characters = await character_repository.get_library(
+        search=search, type=type, system_ids=systems, page=page
+    )
+    total = await character_repository.count_library(
+        search=search, type=type, system_ids=systems
+    )
+
+    return schemas.GetLibraryResponse(
+        characters=[
+            schemas.LibraryCharacterData(
+                id=character.id,
+                label=character.label,
+                system=schemas.SystemData(
+                    id=character.character_sheet.system.id,
+                    name=character.character_sheet.system.name,
+                ),
+                user=schemas.LibraryUserData(
+                    id=character.user.id, username=character.user.username
+                ),
+                favorited=favorited,
+            )
+            for character, favorited in characters
+        ],
         total=total,
         page=page,
     )
@@ -76,6 +129,8 @@ async def get_character(
     character = await character_repository.get(character_id)
     if character is None:
         raise NotFoundException("Character not found")
+    if not character.in_library and character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
 
     return _character_response(character)
 
@@ -133,6 +188,27 @@ async def toggle_character_library(
         raise ForbiddenException("Character not available")
 
     await character_repository.toggle_library(character)
+
+
+@characters.patch(
+    "/{character_id}/toggle_favorite",
+    response_model=schemas.ToggleCharacterFavoriteResponse,
+)
+async def toggle_character_favorite(
+    character_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    character_repository = CharacterRepository(db_session, principal)
+    character = await character_repository.get(character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+    if not character.in_library and character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
+
+    favorited = await character_repository.toggle_favorite(character)
+
+    return schemas.ToggleCharacterFavoriteResponse(favorited=favorited)
 
 
 @characters.post(
@@ -232,6 +308,7 @@ def _character_response(character) -> schemas.GetCharacterResponse:
 
     return schemas.GetCharacterResponse(
         id=character.id,
+        user_id=character.user_id,
         label=character.label,
         name=character.name,
         type=character.type,

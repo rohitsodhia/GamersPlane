@@ -1,9 +1,10 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import clsx from "clsx";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { characterQueryOptions } from "#/queries/character";
+import { meQueryOptions } from "#/queries/me";
 import { SheetRenderer } from "../sheets/-components/SheetRenderer";
 import { SheetValuesProvider } from "../sheets/-components/sheet-values";
 import styles from "./character.module.css";
@@ -12,11 +13,17 @@ export const Route = createFileRoute("/characters/$characterId/")({
 	params: {
 		parse: (params) => ({ characterId: Number(params.characterId) }),
 	},
-	loader: ({ context, params, location }) =>
-		redirectToLoginOnAuthFailure(
+	loader: async ({ context, params, location }) => {
+		const character = await redirectToLoginOnAuthFailure(
 			context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
 			location,
-		),
+		);
+		const me = await context.queryClient.ensureQueryData(meQueryOptions);
+		// Non-library characters are visible only to their owner.
+		if (!character.in_library && character.user_id !== me.id) {
+			throw redirect({ to: "/403", replace: true });
+		}
+	},
 	component: RouteComponent,
 });
 

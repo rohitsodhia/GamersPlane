@@ -255,6 +255,33 @@ async def create_game(
         typer.echo(f"Game {game.id} created: {game.title}")
 
 
+@app.command()
+@async_command
+async def create_character(
+    sheet_id: int = typer.Option(default=1, prompt=True),
+    user_id: int = typer.Option(default=1, prompt=True),
+    type: Character.Type = typer.Option(default=Character.Type.PC, prompt=True),
+    in_library: bool = typer.Option(default=True, prompt=True),
+    label: str = typer.Option(..., prompt=True),
+):
+    async with session_manager.session() as session:
+        user_repository = UserRepository(session)
+        user = await user_repository.get_user(user_id)
+        if user is None:
+            typer.echo(f"No user with id {user_id}")
+            raise typer.Exit(code=1)
+
+        character_repository = CharacterRepository(session, principal=user)
+        character = await character_repository.create(
+            label=label,
+            type=type,
+            character_sheet_id=sheet_id,
+        )
+        character.user_id = user_id
+        character.in_library = in_library
+        typer.echo(f"Character {character.id} created: {character.label}")
+
+
 if __name__ == "__main__":
     app()
 

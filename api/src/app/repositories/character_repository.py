@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import ScalarResult, delete, func, select
+from sqlalchemy import ScalarResult, and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
@@ -8,6 +8,7 @@ from app.configs import configs
 from app.models import (
     Character,
     CharacterAvatar,
+    CharacterFavorite,
     CharacterSheet,
     FavoriteCharacter,
     System,
@@ -58,9 +59,29 @@ class CharacterRepository:
         character.in_library = not character.in_library
         await self.db_session.flush()
 
+    async def toggle_favorite(self, character: Character) -> bool:
+        existing = await self.db_session.get(
+            CharacterFavorite, (self.principal.id, character.id)
+        )
+        if existing:
+            await self.db_session.delete(existing)
+            await self.db_session.flush()
+            return False
+
+        self.db_session.add(
+            CharacterFavorite(user_id=self.principal.id, character_id=character.id)
+        )
+        await self.db_session.flush()
+        return True
+
     async def delete(self, character: Character) -> None:
         character.deleted = datetime.now(UTC)
         character.in_library = False
+        await self.db_session.execute(
+            delete(CharacterFavorite).where(
+                CharacterFavorite.character_id == character.id
+            )
+        )
         await self.db_session.execute(
             delete(FavoriteCharacter).where(
                 FavoriteCharacter.character_id == character.id
@@ -88,12 +109,20 @@ class CharacterRepository:
         search: str | None = None,
         type: Character.Type | None = None,
         system_id: str | None = None,
+        include_favorited: bool = False,
     ):
-        query = (
-            select(Character)
-            .where(Character.user_id == self.principal.id)
-            .join(Character.character_sheet)
-        )
+        ownership = Character.user_id == self.principal.id
+        if include_favorited:
+            favorited_in_library = and_(
+                Character.in_library.is_(True),
+                Character.id.in_(
+                    select(CharacterFavorite.character_id).where(
+                        CharacterFavorite.user_id == self.principal.id
+                    )
+                ),
+            )
+            ownership = or_(ownership, favorited_in_library)
+        query = select(Character).where(ownership).join(Character.character_sheet)
         if search:
             query = query.where(Character.label.ilike(f"%{search}%"))
         if type:
@@ -109,9 +138,10 @@ class CharacterRepository:
         system_id: str | None = None,
         page: int = 1,
         limit: int = configs.PAGINATE_PER_PAGE,
+        include_favorited: bool = False,
     ) -> ScalarResult[Character]:
         query = (
-            self._list_query(search, type, system_id)
+            self._list_query(search, type, system_id, include_favorited)
             .join(CharacterSheet.system)
             .order_by(System.sort_name.asc(), Character.label.asc())
             .options(
@@ -121,6 +151,7 @@ class CharacterRepository:
                     undefer(CharacterSheet.layout),
                 ),
                 selectinload(Character.avatars),
+                selectinload(Character.user),
             )
             .limit(limit)
             .offset((page - 1) * limit)
@@ -132,8 +163,75 @@ class CharacterRepository:
         search: str | None = None,
         type: Character.Type | None = None,
         system_id: str | None = None,
+        include_favorited: bool = False,
     ) -> int:
-        query = self._list_query(search, type, system_id)
+        query = self._list_query(search, type, system_id, include_favorited)
+        return (
+            await self.db_session.scalar(
+                select(func.count()).select_from(query.subquery())
+            )
+            or 0
+        )
+
+    def _library_query(
+        self,
+        search: str | None = None,
+        type: Character.Type | None = None,
+        system_ids: list[str] | None = None,
+    ):
+        query = (
+            select(Character)
+            .where(Character.in_library.is_(True))
+            .where(Character.user_id != self.principal.id)
+            .join(Character.character_sheet)
+        )
+        if search:
+            query = query.where(Character.label.ilike(f"%{search}%"))
+        if type:
+            query = query.where(Character.type == type)
+        if system_ids:
+            query = query.where(CharacterSheet.system_id.in_(system_ids))
+        return query
+
+    async def get_library(
+        self,
+        search: str | None = None,
+        type: Character.Type | None = None,
+        system_ids: list[str] | None = None,
+        page: int = 1,
+        limit: int = configs.PAGINATE_PER_PAGE,
+    ) -> list[tuple[Character, bool]]:
+        query = (
+            self._library_query(search, type, system_ids)
+            .add_columns(CharacterFavorite.user_id.is_not(None).label("favorited"))
+            .outerjoin(
+                CharacterFavorite,
+                and_(
+                    CharacterFavorite.character_id == Character.id,
+                    CharacterFavorite.user_id == self.principal.id,
+                ),
+            )
+            .join(CharacterSheet.system)
+            .order_by(System.sort_name.asc(), Character.label.asc())
+            .options(
+                selectinload(Character.user),
+                selectinload(Character.character_sheet).selectinload(
+                    CharacterSheet.system
+                ),
+            )
+            .limit(limit)
+            .offset((page - 1) * limit)
+        )
+        result = await self.db_session.execute(query)
+        return [(character, favorited) for character, favorited in result]
+
+    async def count_library(
+        self,
+        search: str | None = None,
+        type: Character.Type | None = None,
+        system_ids: list[str] | None = None,
+    ) -> int:
+        query = self._library_query(search, type, system_ids)
         return (
             await self.db_session.scalar(
                 select(func.count()).select_from(query.subquery())

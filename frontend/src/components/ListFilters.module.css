@@ -1,0 +1,60 @@
+.list-filters {
+	margin-block: 1em;
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: 1em;
+
+	input {
+		padding: 0.45em 0.6em 0.35em;
+	}
+}
+
+.title-search {
+	width: 300px;
+	max-width: 20em;
+	flex-shrink: 0;
+	padding: 0.4em 0.6em;
+}
+
+.system-filter {
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: 0.5em;
+
+	> :first-child {
+		--rac-autocomplete-width: 200px;
+		flex: 0 0 auto;
+	}
+}
+
+.systems-list {
+	list-style: none;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4em;
+	margin: 0;
+	padding: 0;
+	flex: 1 1 auto;
+	min-width: 0;
+
+	li {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3em;
+		padding: 0.3em 0.5em 0.2em;
+		border: 1px solid light-dark(#666, #888);
+		border-radius: 1em;
+
+		button {
+			padding: 0.3em 0;
+			color: var(--text);
+			text-box-trim: trim-both;
+
+			span {
+				color: var(--gp-light-red);
+			}
+		}
+	}
+}

@@ -47,6 +47,7 @@ class CharacterAvatarData(SchemaBase):
 
 class GetCharacterResponse(SchemaBase):
     id: int
+    user_id: int
     label: str
     name: str | None = None
     type: Character.Type
@@ -56,10 +57,37 @@ class GetCharacterResponse(SchemaBase):
     avatars: list[CharacterAvatarData]
 
 
+class LibraryUserData(SchemaBase):
+    id: int
+    username: str
+
+
+class CharacterListItem(GetCharacterResponse):
+    user: LibraryUserData
+
+
 class GetCharactersResponse(SchemaBase):
-    characters: list[GetCharacterResponse]
+    characters: list[CharacterListItem]
     total: int
     page: int
+
+
+class LibraryCharacterData(SchemaBase):
+    id: int
+    label: str
+    system: SystemData
+    user: LibraryUserData
+    favorited: bool
+
+
+class GetLibraryResponse(SchemaBase):
+    characters: list[LibraryCharacterData]
+    total: int
+    page: int
+
+
+class ToggleCharacterFavoriteResponse(SchemaBase):
+    favorited: bool
 
 
 class UpdateCharacterAvatarResponse(SchemaBase):

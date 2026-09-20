@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 class CharacterSheetFavorite(Base, TimestampMixin):
-    __tablename__ = "favorite_character_sheets"
+    __tablename__ = "character_sheet_favorites"
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     character_sheet_id: Mapped[int] = mapped_column(
