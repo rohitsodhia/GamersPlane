@@ -4,6 +4,10 @@
 	flex-wrap: nowrap;
 	align-items: center;
 	gap: 1em;
+
+	input {
+		padding: 0.45em 0.6em 0.35em;
+	}
 }
 
 .title-search {

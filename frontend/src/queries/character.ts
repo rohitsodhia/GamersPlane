@@ -34,6 +34,7 @@ export type CharacterListItem = {
 	label: string;
 	type: CharacterType;
 	in_library: boolean;
+	user: { id: number; username: string };
 	character_sheet: { id: number; name: string; system: { id: string; name: string } };
 };
 
@@ -75,6 +76,7 @@ export type LibraryCharacter = {
 	label: string;
 	system: { id: string; name: string };
 	user: { id: number; username: string };
+	favorited: boolean;
 };
 
 export type GetLibraryResponse = {
@@ -146,6 +148,19 @@ export const toggleCharacterLibrary = async (characterId: number): Promise<void>
 		const { errors } = await res.json();
 		throw new ApiError(res.status, errors);
 	}
+};
+
+export const toggleCharacterFavorite = async (
+	characterId: number,
+): Promise<{ favorited: boolean }> => {
+	const res = await apiFetch(`/characters/${characterId}/toggle_favorite`, {
+		method: "PATCH",
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
 };
 
 export const deleteCharacter = async (characterId: number): Promise<void> => {

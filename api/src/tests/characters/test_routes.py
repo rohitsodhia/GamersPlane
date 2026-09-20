@@ -5,7 +5,12 @@ from PIL import Image
 from sqlalchemy import select
 
 from app.configs import configs
-from app.models import Character, CharacterSheet, FavoriteCharacter
+from app.models import (
+    Character,
+    CharacterFavorite,
+    CharacterSheet,
+    FavoriteCharacter,
+)
 from app.repositories import CharacterRepository, CharacterSheetRepository
 from tests.factories import ActivatedUserFactory, SystemFactory
 
@@ -360,6 +365,64 @@ class TestGetCharacters:
         assert second_body["page"] == 2
         assert len(second_body["characters"]) == 1
 
+    async def test_includes_favorited_library_characters_with_their_owner(
+        self, client, public_sheet, owner, create, auth_as, db_session, wrap_in_savepoint
+    ):
+        stranger = await create(ActivatedUserFactory)
+        favorited = await self._make_character(
+            db_session, stranger, public_sheet, "Legolas"
+        )
+        favorited.in_library = True
+        await self._make_character(db_session, stranger, public_sheet, "Gimli")
+        await self._make_character(db_session, owner, public_sheet, "Aragorn")
+        db_session.add(CharacterFavorite(user_id=owner.id, character_id=favorited.id))
+        await db_session.flush()
+        auth_as(owner)
+
+        response = await client.get("/characters")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 2
+        users = {c["label"]: c["user"] for c in body["characters"]}
+        assert users == {
+            "Aragorn": {"id": owner.id, "username": owner.username},
+            "Legolas": {"id": stranger.id, "username": stranger.username},
+        }
+
+    async def test_excludes_favorites_no_longer_in_the_library(
+        self, client, public_sheet, owner, create, auth_as, db_session, wrap_in_savepoint
+    ):
+        stranger = await create(ActivatedUserFactory)
+        delisted = await self._make_character(
+            db_session, stranger, public_sheet, "Legolas"
+        )
+        db_session.add(CharacterFavorite(user_id=owner.id, character_id=delisted.id))
+        await db_session.flush()
+        auth_as(owner)
+
+        response = await client.get("/characters")
+
+        assert response.status_code == 200
+        assert response.json()["total"] == 0
+
+    async def test_repository_omits_favorites_unless_asked(
+        self, public_sheet, owner, create, db_session, wrap_in_savepoint
+    ):
+        stranger = await create(ActivatedUserFactory)
+        favorited = await self._make_character(
+            db_session, stranger, public_sheet, "Legolas"
+        )
+        favorited.in_library = True
+        db_session.add(CharacterFavorite(user_id=owner.id, character_id=favorited.id))
+        await db_session.flush()
+        repository = CharacterRepository(db_session, principal=owner)
+
+        assert list(await repository.get_all()) == []
+        assert await repository.count_all() == 0
+        assert len(list(await repository.get_all(include_favorited=True))) == 1
+        assert await repository.count_all(include_favorited=True) == 1
+
 
 class TestGetLibrary:
     @pytest.fixture
@@ -392,7 +455,7 @@ class TestGetLibrary:
 
         assert response.status_code == 403
 
-    async def test_returns_only_id_label_system_and_user(
+    async def test_returns_only_id_label_system_user_and_favorited(
         self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
     ):
         character = await self._make_character(
@@ -412,8 +475,68 @@ class TestGetLibrary:
                 "label": "Aragorn",
                 "system": {"id": "dnd5e", "name": "D&D 5e"},
                 "user": {"id": owner.id, "username": owner.username},
+                "favorited": False,
             }
         ]
+
+    async def test_marks_only_characters_favorited_by_the_viewer(
+        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+    ):
+        liked = await self._make_character(db_session, owner, public_sheet, "Liked")
+        await self._make_character(db_session, owner, public_sheet, "Plain")
+        db_session.add(CharacterFavorite(user_id=viewer.id, character_id=liked.id))
+        await db_session.flush()
+        auth_as(viewer)
+
+        response = await client.get("/characters/library")
+
+        body = response.json()
+        assert body["total"] == 2
+        assert {c["label"]: c["favorited"] for c in body["characters"]} == {
+            "Liked": True,
+            "Plain": False,
+        }
+
+    async def test_ignores_favorites_from_other_users(
+        self, client, public_sheet, owner, viewer, create, auth_as, db_session, wrap_in_savepoint
+    ):
+        others = [await create(ActivatedUserFactory) for _ in range(2)]
+        character = await self._make_character(
+            db_session, owner, public_sheet, "Aragorn"
+        )
+        for other in others:
+            db_session.add(
+                CharacterFavorite(user_id=other.id, character_id=character.id)
+            )
+        await db_session.flush()
+        auth_as(viewer)
+
+        response = await client.get("/characters/library")
+
+        body = response.json()
+        assert body["total"] == 1
+        assert [c["favorited"] for c in body["characters"]] == [False]
+
+    async def test_returns_one_row_when_viewer_and_others_favorited(
+        self, client, public_sheet, owner, viewer, create, auth_as, db_session, wrap_in_savepoint
+    ):
+        other = await create(ActivatedUserFactory)
+        character = await self._make_character(
+            db_session, owner, public_sheet, "Aragorn"
+        )
+        for user in (viewer, other):
+            db_session.add(
+                CharacterFavorite(user_id=user.id, character_id=character.id)
+            )
+        await db_session.flush()
+        auth_as(viewer)
+
+        response = await client.get("/characters/library")
+
+        body = response.json()
+        # A join on character_id alone would return one row per favoriting user.
+        assert body["total"] == 1
+        assert [c["favorited"] for c in body["characters"]] == [True]
 
     async def test_excludes_own_and_non_library_characters(
         self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
@@ -1000,6 +1123,111 @@ class TestToggleCharacterLibrary:
         assert character.in_library is False
 
 
+class TestToggleCharacterFavorite:
+    @pytest.fixture
+    async def owner(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def viewer(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
+        repository = CharacterRepository(db_session, principal=owner)
+        return await repository.create(
+            character_sheet_id=public_sheet.id,
+            label="Aragorn",
+            type=Character.Type.PC,
+        )
+
+    async def _favorite_user_ids(self, db_session, character):
+        rows = await db_session.scalars(
+            select(CharacterFavorite.user_id).where(
+                CharacterFavorite.character_id == character.id
+            )
+        )
+        return set(rows)
+
+    async def test_requires_auth(self, client, character):
+        response = await client.patch(f"/characters/{character.id}/toggle_favorite")
+
+        assert response.status_code == 403
+
+    async def test_returns_404_when_missing(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.patch("/characters/999999/toggle_favorite")
+
+        assert response.status_code == 404
+
+    async def test_forbids_favoriting_a_private_character_of_another_user(
+        self, client, character, viewer, auth_as, db_session
+    ):
+        auth_as(viewer)
+
+        response = await client.patch(f"/characters/{character.id}/toggle_favorite")
+
+        assert response.status_code == 403
+        assert await self._favorite_user_ids(db_session, character) == set()
+
+    async def test_owner_can_favorite_their_own_private_character(
+        self, client, character, owner, auth_as, db_session
+    ):
+        auth_as(owner)
+
+        response = await client.patch(f"/characters/{character.id}/toggle_favorite")
+
+        assert response.status_code == 200
+        assert response.json() == {"favorited": True}
+        assert await self._favorite_user_ids(db_session, character) == {owner.id}
+
+    async def test_toggles_on_and_off_for_a_library_character(
+        self, client, character, viewer, auth_as, db_session
+    ):
+        character.in_library = True
+        await db_session.flush()
+        auth_as(viewer)
+
+        response = await client.patch(f"/characters/{character.id}/toggle_favorite")
+        assert response.status_code == 200
+        assert response.json() == {"favorited": True}
+        assert await self._favorite_user_ids(db_session, character) == {viewer.id}
+
+        response = await client.patch(f"/characters/{character.id}/toggle_favorite")
+        assert response.status_code == 200
+        assert response.json() == {"favorited": False}
+        assert await self._favorite_user_ids(db_session, character) == set()
+
+    async def test_only_toggles_the_current_users_favorite(
+        self, client, character, owner, viewer, auth_as, db_session
+    ):
+        character.in_library = True
+        db_session.add(CharacterFavorite(user_id=owner.id, character_id=character.id))
+        await db_session.flush()
+        auth_as(viewer)
+
+        response = await client.patch(f"/characters/{character.id}/toggle_favorite")
+
+        assert response.json() == {"favorited": True}
+        assert await self._favorite_user_ids(db_session, character) == {
+            owner.id,
+            viewer.id,
+        }
+
+    async def test_favorite_shows_up_in_the_library(
+        self, client, character, viewer, auth_as, db_session
+    ):
+        character.in_library = True
+        await db_session.flush()
+        auth_as(viewer)
+
+        await client.patch(f"/characters/{character.id}/toggle_favorite")
+        response = await client.get("/characters/library")
+
+        assert [c["favorited"] for c in response.json()["characters"]] == [True]
+
+
 class TestDeleteCharacter:
     @pytest.fixture
     async def owner(self, create):
@@ -1049,6 +1277,8 @@ class TestDeleteCharacter:
             [
                 FavoriteCharacter(user_id=owner.id, character_id=character.id),
                 FavoriteCharacter(user_id=other.id, character_id=character.id),
+                CharacterFavorite(user_id=owner.id, character_id=character.id),
+                CharacterFavorite(user_id=other.id, character_id=character.id),
             ]
         )
         await db_session.flush()
@@ -1071,6 +1301,12 @@ class TestDeleteCharacter:
             )
         )
         assert favorites.all() == []
+        character_favorites = await db_session.scalars(
+            select(CharacterFavorite).where(
+                CharacterFavorite.character_id == character.id
+            )
+        )
+        assert character_favorites.all() == []
 
     async def test_deleted_character_is_no_longer_fetchable(
         self, client, character, owner, auth_as

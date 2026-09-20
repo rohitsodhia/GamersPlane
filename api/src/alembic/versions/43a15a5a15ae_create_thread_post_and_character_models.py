@@ -91,6 +91,22 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
+        "character_favorites",
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("character_id", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["character_id"],
+            ["characters.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("user_id", "character_id"),
+    )
+    op.create_table(
         "posts",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("thread_id", sa.Integer(), nullable=False),
@@ -156,6 +172,7 @@ def downgrade() -> None:
     op.drop_table("threads")
     op.drop_index(op.f("ix_posts_thread_id"), table_name="posts")
     op.drop_table("posts")
+    op.drop_table("character_favorites")
     op.drop_table("characters")
     op.drop_index(op.f("ix_character_sheets_status"), table_name="character_sheets")
     op.drop_index(op.f("ix_character_sheets_system_id"), table_name="character_sheets")

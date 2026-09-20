@@ -53,14 +53,26 @@ async def get_characters(
 
     character_repository = CharacterRepository(db_session, principal)
     characters = await character_repository.get_all(
-        search=search, type=type, system_id=system_id, page=page
+        search=search,
+        type=type,
+        system_id=system_id,
+        page=page,
+        include_favorited=True,
     )
     total = await character_repository.count_all(
-        search=search, type=type, system_id=system_id
+        search=search, type=type, system_id=system_id, include_favorited=True
     )
 
     return schemas.GetCharactersResponse(
-        characters=[_character_response(character) for character in characters],
+        characters=[
+            schemas.CharacterListItem(
+                **_character_response(character).model_dump(),
+                user=schemas.LibraryUserData(
+                    id=character.user.id, username=character.user.username
+                ),
+            )
+            for character in characters
+        ],
         total=total,
         page=page,
     )
@@ -98,8 +110,9 @@ async def get_library(
                 user=schemas.LibraryUserData(
                     id=character.user.id, username=character.user.username
                 ),
+                favorited=favorited,
             )
-            for character in characters
+            for character, favorited in characters
         ],
         total=total,
         page=page,
@@ -175,6 +188,27 @@ async def toggle_character_library(
         raise ForbiddenException("Character not available")
 
     await character_repository.toggle_library(character)
+
+
+@characters.patch(
+    "/{character_id}/toggle_favorite",
+    response_model=schemas.ToggleCharacterFavoriteResponse,
+)
+async def toggle_character_favorite(
+    character_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    character_repository = CharacterRepository(db_session, principal)
+    character = await character_repository.get(character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+    if not character.in_library and character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
+
+    favorited = await character_repository.toggle_favorite(character)
+
+    return schemas.ToggleCharacterFavoriteResponse(favorited=favorited)
 
 
 @characters.post(

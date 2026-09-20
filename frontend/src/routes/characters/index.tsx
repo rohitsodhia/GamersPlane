@@ -24,9 +24,11 @@ import {
 	deleteCharacter,
 	type GetCharactersResponse,
 	myCharactersQueryOptions,
+	toggleCharacterFavorite,
 	toggleCharacterLibrary,
 } from "#/queries/character";
 import { myCharacterSheetsQueryOptions } from "#/queries/characterSheet";
+import { meQueryOptions } from "#/queries/me";
 import styles from "./index.module.css";
 
 export const Route = createFileRoute("/characters/")({
@@ -268,15 +270,18 @@ function RouteComponent() {
 						</form.Field>
 					</div>
 
+					<div className="is-container"></div>
 					<form.Subscribe selector={(state) => state.canSubmit}>
 						{(canSubmit) => (
-							<button
-								type="submit"
-								className="skew-btn"
-								disabled={!canSubmit || mutation.isPending}
-							>
-								Save
-							</button>
+							<div className="is-container">
+								<button
+									type="submit"
+									className="skew-btn"
+									disabled={!canSubmit || mutation.isPending}
+								>
+									Create
+								</button>
+							</div>
 						)}
 					</form.Subscribe>
 				</form>
@@ -294,6 +299,7 @@ function CharacterList({ systems }: { systems: { id: string; name: string }[] })
 		system_id: urlSystemId,
 	} = Route.useSearch();
 	const page = urlPage ?? 1;
+	const { data: me } = useQuery(meQueryOptions);
 
 	// Plain useQuery (not useSuspenseQuery): with placeholderData: keepPreviousData,
 	// suspense queries still suspend on every key change (search/page), which would
@@ -333,6 +339,16 @@ function CharacterList({ systems }: { systems: { id: string; name: string }[] })
 					},
 			);
 			queryClient.invalidateQueries({ queryKey: ["character", characterId] });
+		},
+	});
+
+	// Unfavoriting removes the row (and shifts pagination), so refetch the list;
+	// the library's cached favorited flags are stale too.
+	const unfavoriteMutation = useMutation({
+		mutationFn: toggleCharacterFavorite,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["characters", "mine"] });
+			queryClient.invalidateQueries({ queryKey: ["characters", "library"] });
 		},
 	});
 
@@ -441,83 +457,107 @@ function CharacterList({ systems }: { systems: { id: string; name: string }[] })
 					</div>
 				) : shown && characters.length > 0 ? (
 					<ul>
-						{characters.map((character) => (
-							<li key={character.id} className={styles["character-row"]}>
-								<div className={styles.label}>
-									<Link
-										to="/characters/$characterId"
-										params={{ characterId: character.id }}
-									>
-										{character.label}
-									</Link>
-								</div>
-								<div className={styles["char-type"]}>
-									{character.type.toLocaleUpperCase()}
-								</div>
-								<div className={styles["system-type"]}>
-									{character.character_sheet.system.name}
-								</div>
-								<div className={styles.links}>
-									<button
-										type="button"
-										disabled={toggleLibraryMutation.isPending}
-										onClick={() => toggleLibraryMutation.mutate(character.id)}
-									>
-										{character.in_library ? (
-											<img
-												src="/images/icons/library_on.png"
-												alt="Remove from library"
-											/>
-										) : (
-											<img src="/images/icons/library_off.png" alt="Add to Library" />
-										)}
-									</button>
-									<DialogTrigger>
-										<Button isDisabled={deleteMutation.isPending}>
-											<img src="/images/icons/cross.png" alt="Delete Character" />
-										</Button>
-										<Popover
-											className={`react-aria-Popover ${styles["confirm-popover"]}`}
-											placement="bottom end"
+						{characters.map((character) => {
+							const favoritedOnly = me !== undefined && character.user.id !== me.id;
+							return (
+								<li
+									key={character.id}
+									className={`${styles["character-row"]}${favoritedOnly ? ` ${styles.favorited}` : ""}`}
+								>
+									<div className={styles.label}>
+										<Link
+											to="/characters/$characterId"
+											params={{ characterId: character.id }}
 										>
-											<Dialog
-												aria-label="Confirm delete"
-												className={styles["confirm-delete"]}
+											{character.label}
+										</Link>
+									</div>
+									<div className={styles["char-type"]}>
+										{character.type.toLocaleUpperCase()}
+									</div>
+									<div className={styles["system-type"]}>
+										{character.character_sheet.system.name}
+									</div>
+									{favoritedOnly ? (
+										<div className={styles.links}>
+											<button
+												type="button"
+												disabled={
+													unfavoriteMutation.isPending &&
+													unfavoriteMutation.variables === character.id
+												}
+												onClick={() => unfavoriteMutation.mutate(character.id)}
 											>
-												{({ close }) => (
-													<>
-														<p>
-															Deleting this character will remove it from the character
-															library, if added. It will also be removed from any game
-															it's currently in.
-														</p>
-														<div className={styles["confirm-actions"]}>
-															<button
-																type="button"
-																className="skew-btn"
-																onClick={() => {
-																	deleteMutation.mutate(character.id);
-																	close();
-																}}
-															>
-																Confirm
-															</button>
-															<button
-																type="button"
-																className="skew-btn"
-																onClick={close}
-															>
-																Cancel
-															</button>
-														</div>
-													</>
+												<img src="/images/icons/bookmark_on.png" alt="Favorited" />
+											</button>
+										</div>
+									) : (
+										<div className={styles.links}>
+											<button
+												type="button"
+												disabled={toggleLibraryMutation.isPending}
+												onClick={() => toggleLibraryMutation.mutate(character.id)}
+											>
+												{character.in_library ? (
+													<img
+														src="/images/icons/library_on.png"
+														alt="Remove from library"
+													/>
+												) : (
+													<img
+														src="/images/icons/library_off.png"
+														alt="Add to Library"
+													/>
 												)}
-											</Dialog>
-										</Popover>
-									</DialogTrigger>
-								</div>
-							</li>
-						))}
+											</button>
+											<DialogTrigger>
+												<Button isDisabled={deleteMutation.isPending}>
+													<img src="/images/icons/cross.png" alt="Delete Character" />
+												</Button>
+												<Popover
+													className={`react-aria-Popover ${styles["confirm-popover"]}`}
+													placement="bottom end"
+												>
+													<Dialog
+														aria-label="Confirm delete"
+														className={styles["confirm-delete"]}
+													>
+														{({ close }) => (
+															<>
+																<p>
+																	Deleting this character will remove it from the
+																	character library, if added. It will also be removed
+																	from any game it's currently in.
+																</p>
+																<div className={styles["confirm-actions"]}>
+																	<button
+																		type="button"
+																		className="skew-btn"
+																		onClick={() => {
+																			deleteMutation.mutate(character.id);
+																			close();
+																		}}
+																	>
+																		Confirm
+																	</button>
+																	<button
+																		type="button"
+																		className="skew-btn"
+																		onClick={close}
+																	>
+																		Cancel
+																	</button>
+																</div>
+															</>
+														)}
+													</Dialog>
+												</Popover>
+											</DialogTrigger>
+										</div>
+									)}
+								</li>
+							);
+						})}
 					</ul>
 				) : !isFetching && shown ? (
 					<div className={styles["no-results"]}>

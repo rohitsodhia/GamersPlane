@@ -57,15 +57,19 @@ class GetCharacterResponse(SchemaBase):
     avatars: list[CharacterAvatarData]
 
 
-class GetCharactersResponse(SchemaBase):
-    characters: list[GetCharacterResponse]
-    total: int
-    page: int
-
-
 class LibraryUserData(SchemaBase):
     id: int
     username: str
+
+
+class CharacterListItem(GetCharacterResponse):
+    user: LibraryUserData
+
+
+class GetCharactersResponse(SchemaBase):
+    characters: list[CharacterListItem]
+    total: int
+    page: int
 
 
 class LibraryCharacterData(SchemaBase):
@@ -73,12 +77,17 @@ class LibraryCharacterData(SchemaBase):
     label: str
     system: SystemData
     user: LibraryUserData
+    favorited: bool
 
 
 class GetLibraryResponse(SchemaBase):
     characters: list[LibraryCharacterData]
     total: int
     page: int
+
+
+class ToggleCharacterFavoriteResponse(SchemaBase):
+    favorited: bool
 
 
 class UpdateCharacterAvatarResponse(SchemaBase):

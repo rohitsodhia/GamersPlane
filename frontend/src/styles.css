@@ -476,6 +476,10 @@ form.grid-layout {
 		justify-content: center;
 	}
 
+	.full-width {
+		grid-column: -1 / 1;
+	}
+
 	.explanation {
 		font-size: 0.8em;
 		margin-top: 0.5em;

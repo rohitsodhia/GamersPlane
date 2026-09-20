@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { ListFilters, listFiltersSearchSchema } from "#/components/ListFilters";
@@ -6,7 +6,11 @@ import LoadingSpinner from "#/components/LoadingSpinner";
 import Paginate from "#/components/Paginate";
 import { requireAuth } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { libraryQueryOptions } from "#/queries/character";
+import {
+	type GetLibraryResponse,
+	libraryQueryOptions,
+	toggleCharacterFavorite,
+} from "#/queries/character";
 import { systemsQueryOptions } from "#/queries/systems";
 import styles from "./library.module.css";
 
@@ -48,6 +52,26 @@ function LibraryResults() {
 	);
 	const characters = data?.characters ?? [];
 
+	// Write the server's answer into the cached lists in place rather than
+	// invalidating: a refetch sets isFetching, which would swap the list for
+	// the spinner.
+	const queryClient = useQueryClient();
+	const toggleFavoriteMutation = useMutation({
+		mutationFn: toggleCharacterFavorite,
+		onSuccess: ({ favorited }, characterId) => {
+			queryClient.setQueriesData<GetLibraryResponse>(
+				{ queryKey: ["characters", "library"] },
+				(old) =>
+					old && {
+						...old,
+						characters: old.characters.map((character) =>
+							character.id === characterId ? { ...character, favorited } : character,
+						),
+					},
+			);
+		},
+	});
+
 	return (
 		<div className={styles["library-results"]}>
 			{isFetching ? (
@@ -77,6 +101,22 @@ function LibraryResults() {
 								>
 									{character.user.username}
 								</Link>
+							</div>
+							<div className={styles.favorite}>
+								<button
+									type="button"
+									disabled={
+										toggleFavoriteMutation.isPending &&
+										toggleFavoriteMutation.variables === character.id
+									}
+									onClick={() => toggleFavoriteMutation.mutate(character.id)}
+								>
+									{character.favorited ? (
+										<img src="/images/icons/bookmark_on.png" alt="Favorited" />
+									) : (
+										<img src="/images/icons/bookmark_off.png" alt="Favorite" />
+									)}
+								</button>
 							</div>
 						</li>
 					))}

@@ -54,14 +54,27 @@
 			padding: 0;
 		}
 
-		.character-row {
-			display: flex;
-			align-items: center;
-			gap: 1em;
-			padding: 0.5em 0;
+		/* One grid on the list; each row is a subgrid spanning every column so
+		   all rows share the same column widths. */
+		.character-results ul {
+			display: grid;
+			grid-template-columns: 1fr auto auto auto;
+			column-gap: 3rem;
+		}
 
-			.label {
-				flex: 2;
+		.character-row {
+			display: grid;
+			grid-template-columns: subgrid;
+			grid-column: 1 / -1;
+			align-items: center;
+			padding: 0.5em 0.5em;
+
+			&:hover {
+				background: #eee;
+			}
+
+			&.favorited {
+				font-style: italic;
 			}
 
 			.label,
@@ -70,23 +83,14 @@
 				text-box: trim-both cap alphabetic;
 			}
 
-			.char-type,
-			.system-type {
-				flex: none;
-			}
-
 			.char-type {
-				width: 60px;
 				text-align: center;
-			}
-
-			.system-type {
-				width: 250px;
 			}
 
 			.links {
 				display: flex;
 				gap: 0.5em;
+				justify-content: flex-end;
 			}
 		}
 
