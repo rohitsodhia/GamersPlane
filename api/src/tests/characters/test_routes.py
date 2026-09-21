@@ -31,9 +31,23 @@ async def _make_sheet(db_session, creator, system, *, status):
     sheet = await repository.create(
         name="Fighter", system_id=system.id, layout=SHEET_LAYOUT
     )
+    await repository.publish(await repository.get_draft(sheet.id))
     sheet.status = status
     await db_session.flush()
     return sheet
+
+
+async def _create_character(db_session, owner, sheet, label, **kwargs):
+    """Create a character pinned to the sheet's latest published version."""
+    version = await CharacterSheetRepository(
+        db_session, principal=owner
+    ).get_latest_published(sheet.id)
+    return await CharacterRepository(db_session, principal=owner).create(
+        character_sheet_id=sheet.id,
+        character_sheet_version_id=version.id,
+        label=label,
+        **kwargs,
+    )
 
 
 @pytest.fixture
@@ -114,6 +128,38 @@ class TestCreateCharacter:
         assert character.label == "Aragorn"
         assert character.type == Character.Type.PC
 
+    async def test_pins_the_latest_published_version(
+        self, client, public_sheet, sheet_creator, create, auth_as, db_session
+    ):
+        repository = CharacterSheetRepository(db_session, principal=sheet_creator)
+        draft = await repository.get_or_create_draft(public_sheet)
+        newer = await repository.publish(draft)
+        user = await create(ActivatedUserFactory)
+        auth_as(user)
+
+        response = await client.post(
+            "/characters/",
+            json={"label": "Aragorn", "character_sheet_id": public_sheet.id},
+        )
+
+        assert response.status_code == 200
+        character = await db_session.get(Character, response.json()["id"])
+        assert newer.number == 2
+        assert character.character_sheet_version_id == newer.id
+
+    async def test_rejects_a_sheet_with_no_published_version(
+        self, client, sheet_creator, system, auth_as, db_session
+    ):
+        repository = CharacterSheetRepository(db_session, principal=sheet_creator)
+        sheet = await repository.create(name="Wip", system_id=system.id)
+        auth_as(sheet_creator)
+
+        response = await client.post(
+            "/characters/", json={"label": "Aragorn", "character_sheet_id": sheet.id}
+        )
+
+        assert response.status_code == 409
+
     async def test_creator_can_use_their_own_private_sheet(
         self, client, private_sheet, sheet_creator, auth_as
     ):
@@ -153,12 +199,7 @@ class TestGetCharacter:
 
     @pytest.fixture
     async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
-        repository = CharacterRepository(db_session, principal=owner)
-        return await repository.create(
-            character_sheet_id=public_sheet.id,
-            label="Aragorn",
-            type=Character.Type.PC,
-        )
+        return await _create_character(db_session, owner, public_sheet, "Aragorn")
 
     async def test_requires_auth(self, client, character):
         response = await client.get(f"/characters/{character.id}")
@@ -189,6 +230,7 @@ class TestGetCharacter:
             "type": "pc",
             "values": None,
             "in_library": False,
+            "character_sheet_id": public_sheet.id,
             "character_sheet": {
                 "id": public_sheet.id,
                 "name": "Fighter",
@@ -198,10 +240,43 @@ class TestGetCharacter:
                     "avatar": sheet_creator.avatar,
                 },
                 "system": {"id": "dnd5e", "name": "D&D 5e"},
-                "layout": SHEET_LAYOUT,
             },
+            "sheet_deleted": False,
+            "layout": SHEET_LAYOUT,
             "avatars": [],
         }
+
+    async def test_serves_the_pinned_layout_after_the_sheet_changes(
+        self, client, character, owner, sheet_creator, public_sheet, db_session, auth_as
+    ):
+        repository = CharacterSheetRepository(db_session, principal=sheet_creator)
+        draft = await repository.get_or_create_draft(public_sheet)
+        await repository.update_draft(
+            draft, layout={"schema_version": 1, "elements": []}
+        )
+        await repository.publish(draft)
+        auth_as(owner)
+
+        response = await client.get(f"/characters/{character.id}")
+
+        assert response.json()["layout"] == SHEET_LAYOUT
+
+    async def test_a_deleted_sheet_leaves_the_character_readable(
+        self, client, character, owner, sheet_creator, public_sheet, db_session, auth_as
+    ):
+        await CharacterSheetRepository(db_session, principal=sheet_creator).delete(
+            public_sheet
+        )
+        auth_as(owner)
+
+        response = await client.get(f"/characters/{character.id}")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["sheet_deleted"] is True
+        assert body["character_sheet"] is None
+        assert body["character_sheet_id"] == public_sheet.id
+        assert body["layout"] == SHEET_LAYOUT
 
     async def test_forbids_a_non_owner_when_not_in_library(
         self, client, character, create, auth_as
@@ -236,10 +311,7 @@ class TestGetCharacters:
     async def _make_character(
         self, db_session, owner, sheet, label, type=Character.Type.PC
     ):
-        repository = CharacterRepository(db_session, principal=owner)
-        return await repository.create(
-            character_sheet_id=sheet.id, label=label, type=type
-        )
+        return await _create_character(db_session, owner, sheet, label, type=type)
 
     async def test_requires_auth(self, client):
         response = await client.get("/characters")
@@ -247,7 +319,14 @@ class TestGetCharacters:
         assert response.status_code == 403
 
     async def test_only_returns_the_principals_characters(
-        self, client, public_sheet, owner, create, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        create,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         stranger = await create(ActivatedUserFactory)
         await self._make_character(db_session, stranger, public_sheet, "Legolas")
@@ -261,8 +340,49 @@ class TestGetCharacters:
         assert body["total"] == 1
         assert [c["label"] for c in body["characters"]] == ["Aragorn"]
 
+    async def test_keeps_characters_whose_sheet_was_deleted_listed_last(
+        self,
+        client,
+        public_sheet,
+        sheet_creator,
+        owner,
+        system,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
+    ):
+        gone = await _make_sheet(
+            db_session,
+            sheet_creator,
+            system,
+            status=CharacterSheet.Status.PUBLIC,
+        )
+        await self._make_character(db_session, owner, gone, "Aaron")
+        await self._make_character(db_session, owner, public_sheet, "Zed")
+        await CharacterSheetRepository(db_session, principal=sheet_creator).delete(gone)
+        auth_as(owner)
+
+        response = await client.get("/characters")
+
+        body = response.json()
+        assert body["total"] == 2
+        assert [c["label"] for c in body["characters"]] == ["Zed", "Aaron"]
+        assert body["characters"][1]["sheet_deleted"] is True
+        assert body["characters"][1]["character_sheet"] is None
+
+        filtered = await client.get("/characters", params={"system_id": "dnd5e"})
+
+        assert [c["label"] for c in filtered.json()["characters"]] == ["Zed"]
+
     async def test_orders_by_system_then_label(
-        self, client, owner, sheet_creator, create, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        owner,
+        sheet_creator,
+        create,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         # ids are deliberately the reverse of sort_name, so the assertion
         # below only passes if ordering actually uses System.sort_name.
@@ -321,7 +441,14 @@ class TestGetCharacters:
         assert [c["label"] for c in body["characters"]] == ["Orc Grunt"]
 
     async def test_filters_by_system(
-        self, client, owner, sheet_creator, create, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        owner,
+        sheet_creator,
+        create,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         system_a = await create(SystemFactory, id="dnd5e", sort_name="D&D 5e")
         system_b = await create(SystemFactory, id="pf2e", sort_name="Pathfinder 2e")
@@ -347,9 +474,7 @@ class TestGetCharacters:
     ):
         per_page = configs.PAGINATE_PER_PAGE
         for i in range(per_page + 1):
-            await self._make_character(
-                db_session, owner, public_sheet, f"Char {i:03}"
-            )
+            await self._make_character(db_session, owner, public_sheet, f"Char {i:03}")
         auth_as(owner)
 
         first_page = await client.get("/characters")
@@ -366,7 +491,14 @@ class TestGetCharacters:
         assert len(second_body["characters"]) == 1
 
     async def test_includes_favorited_library_characters_with_their_owner(
-        self, client, public_sheet, owner, create, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        create,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         stranger = await create(ActivatedUserFactory)
         favorited = await self._make_character(
@@ -391,7 +523,14 @@ class TestGetCharacters:
         }
 
     async def test_excludes_favorites_no_longer_in_the_library(
-        self, client, public_sheet, owner, create, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        create,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         stranger = await create(ActivatedUserFactory)
         delisted = await self._make_character(
@@ -442,10 +581,7 @@ class TestGetLibrary:
         type=Character.Type.PC,
         in_library=True,
     ):
-        repository = CharacterRepository(db_session, principal=owner)
-        character = await repository.create(
-            character_sheet_id=sheet.id, label=label, type=type
-        )
+        character = await _create_character(db_session, owner, sheet, label, type=type)
         character.in_library = in_library
         await db_session.flush()
         return character
@@ -455,8 +591,38 @@ class TestGetLibrary:
 
         assert response.status_code == 403
 
+    async def test_excludes_characters_whose_sheet_was_deleted(
+        self,
+        client,
+        public_sheet,
+        sheet_creator,
+        owner,
+        viewer,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
+    ):
+        await self._make_character(db_session, owner, public_sheet, "Aragorn")
+        await CharacterSheetRepository(db_session, principal=sheet_creator).delete(
+            public_sheet
+        )
+        auth_as(viewer)
+
+        response = await client.get("/characters/library")
+
+        assert response.status_code == 200
+        assert response.json()["total"] == 0
+        assert response.json()["characters"] == []
+
     async def test_returns_only_id_label_system_user_and_favorited(
-        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        viewer,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         character = await self._make_character(
             db_session, owner, public_sheet, "Aragorn"
@@ -480,7 +646,14 @@ class TestGetLibrary:
         ]
 
     async def test_marks_only_characters_favorited_by_the_viewer(
-        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        viewer,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         liked = await self._make_character(db_session, owner, public_sheet, "Liked")
         await self._make_character(db_session, owner, public_sheet, "Plain")
@@ -498,7 +671,15 @@ class TestGetLibrary:
         }
 
     async def test_ignores_favorites_from_other_users(
-        self, client, public_sheet, owner, viewer, create, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        viewer,
+        create,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         others = [await create(ActivatedUserFactory) for _ in range(2)]
         character = await self._make_character(
@@ -518,7 +699,15 @@ class TestGetLibrary:
         assert [c["favorited"] for c in body["characters"]] == [False]
 
     async def test_returns_one_row_when_viewer_and_others_favorited(
-        self, client, public_sheet, owner, viewer, create, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        viewer,
+        create,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         other = await create(ActivatedUserFactory)
         character = await self._make_character(
@@ -539,7 +728,14 @@ class TestGetLibrary:
         assert [c["favorited"] for c in body["characters"]] == [True]
 
     async def test_excludes_own_and_non_library_characters(
-        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        viewer,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         await self._make_character(db_session, owner, public_sheet, "Shared")
         await self._make_character(
@@ -555,7 +751,15 @@ class TestGetLibrary:
         assert [c["label"] for c in body["characters"]] == ["Shared"]
 
     async def test_orders_by_system_then_label(
-        self, client, owner, viewer, sheet_creator, create, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        owner,
+        viewer,
+        sheet_creator,
+        create,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         # ids are deliberately the reverse of sort_name.
         system_a = await create(SystemFactory, id="zzz", sort_name="AAA System")
@@ -580,7 +784,14 @@ class TestGetLibrary:
         ]
 
     async def test_filters_by_search(
-        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        viewer,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         await self._make_character(db_session, owner, public_sheet, "Aragorn")
         await self._make_character(db_session, owner, public_sheet, "Legolas")
@@ -593,7 +804,14 @@ class TestGetLibrary:
         assert [c["label"] for c in body["characters"]] == ["Aragorn"]
 
     async def test_filters_by_type(
-        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        viewer,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         await self._make_character(db_session, owner, public_sheet, "Aragorn")
         await self._make_character(
@@ -608,7 +826,15 @@ class TestGetLibrary:
         assert [c["label"] for c in body["characters"]] == ["Orc Grunt"]
 
     async def test_filters_by_multiple_systems(
-        self, client, owner, viewer, sheet_creator, create, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        owner,
+        viewer,
+        sheet_creator,
+        create,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         for system_id in ("dnd5e", "pf2e", "coc"):
             system = await create(SystemFactory, id=system_id, sort_name=system_id)
@@ -627,7 +853,14 @@ class TestGetLibrary:
         assert [c["label"] for c in body["characters"]] == ["dnd5e", "pf2e"]
 
     async def test_paginates_results(
-        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        viewer,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         per_page = configs.PAGINATE_PER_PAGE
         for i in range(per_page + 1):
@@ -644,7 +877,14 @@ class TestGetLibrary:
         assert len(second["characters"]) == 1
 
     async def test_clamps_page_below_one(
-        self, client, public_sheet, owner, viewer, auth_as, db_session, wrap_in_savepoint
+        self,
+        client,
+        public_sheet,
+        owner,
+        viewer,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
     ):
         await self._make_character(db_session, owner, public_sheet, "Aragorn")
         auth_as(viewer)
@@ -664,12 +904,7 @@ class TestUpdateCharacter:
 
     @pytest.fixture
     async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
-        repository = CharacterRepository(db_session, principal=owner)
-        return await repository.create(
-            character_sheet_id=public_sheet.id,
-            label="Aragorn",
-            type=Character.Type.PC,
-        )
+        return await _create_character(db_session, owner, public_sheet, "Aragorn")
 
     async def test_requires_auth(self, client, character):
         response = await client.patch(
@@ -769,12 +1004,7 @@ class TestAddCharacterAvatar:
 
     @pytest.fixture
     async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
-        repository = CharacterRepository(db_session, principal=owner)
-        return await repository.create(
-            character_sheet_id=public_sheet.id,
-            label="Aragorn",
-            type=Character.Type.PC,
-        )
+        return await _create_character(db_session, owner, public_sheet, "Aragorn")
 
     @pytest.fixture(autouse=True)
     def _avatars_dir(self, tmp_path, monkeypatch):
@@ -884,12 +1114,7 @@ class TestDeleteCharacterAvatar:
 
     @pytest.fixture
     async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
-        repository = CharacterRepository(db_session, principal=owner)
-        return await repository.create(
-            character_sheet_id=public_sheet.id,
-            label="Aragorn",
-            type=Character.Type.PC,
-        )
+        return await _create_character(db_session, owner, public_sheet, "Aragorn")
 
     @pytest.fixture(autouse=True)
     def _avatars_dir(self, tmp_path, monkeypatch):
@@ -994,12 +1219,7 @@ class TestSetPrimaryCharacterAvatar:
 
     @pytest.fixture
     async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
-        repository = CharacterRepository(db_session, principal=owner)
-        return await repository.create(
-            character_sheet_id=public_sheet.id,
-            label="Aragorn",
-            type=Character.Type.PC,
-        )
+        return await _create_character(db_session, owner, public_sheet, "Aragorn")
 
     @pytest.fixture(autouse=True)
     def _avatars_dir(self, tmp_path, monkeypatch):
@@ -1075,12 +1295,7 @@ class TestToggleCharacterLibrary:
 
     @pytest.fixture
     async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
-        repository = CharacterRepository(db_session, principal=owner)
-        return await repository.create(
-            character_sheet_id=public_sheet.id,
-            label="Aragorn",
-            type=Character.Type.PC,
-        )
+        return await _create_character(db_session, owner, public_sheet, "Aragorn")
 
     async def test_requires_auth(self, client, character):
         response = await client.patch(f"/characters/{character.id}/toggle_library")
@@ -1134,12 +1349,7 @@ class TestToggleCharacterFavorite:
 
     @pytest.fixture
     async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
-        repository = CharacterRepository(db_session, principal=owner)
-        return await repository.create(
-            character_sheet_id=public_sheet.id,
-            label="Aragorn",
-            type=Character.Type.PC,
-        )
+        return await _create_character(db_session, owner, public_sheet, "Aragorn")
 
     async def _favorite_user_ids(self, db_session, character):
         rows = await db_session.scalars(
@@ -1235,12 +1445,7 @@ class TestDeleteCharacter:
 
     @pytest.fixture
     async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
-        repository = CharacterRepository(db_session, principal=owner)
-        character = await repository.create(
-            character_sheet_id=public_sheet.id,
-            label="Aragorn",
-            type=Character.Type.PC,
-        )
+        character = await _create_character(db_session, owner, public_sheet, "Aragorn")
         character.in_library = True
         await db_session.flush()
         return character

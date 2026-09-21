@@ -1,8 +1,81 @@
 import pytest
 
 from app.character_sheets.defaults import default_sheet_layout, empty_sheet_layout
-from app.character_sheets.layout_validation import validate_sheet_layout
+from app.character_sheets.layout_validation import (
+    validate_publishable_layout,
+    validate_sheet_layout,
+)
 from app.exceptions import ValidationError
+
+
+def _layout(*elements):
+    return {"schema_version": 1, "elements": list(elements)}
+
+
+NAME = {"type": "input", "name": "name"}
+NOTES = {"type": "textarea", "name": "notes"}
+
+
+class TestValidatePublishableLayout:
+    def test_accepts_the_default_layout(self):
+        validate_publishable_layout(default_sheet_layout())
+
+    @pytest.mark.parametrize("container", ["section", "group", "list", "collapsible"])
+    def test_accepts_required_fields_inside_value_transparent_containers(
+        self, container
+    ):
+        validate_publishable_layout(
+            _layout(
+                {
+                    "type": container,
+                    "content": [NAME, {"type": "group", "content": [NOTES]}],
+                }
+            )
+        )
+
+    def test_still_runs_the_shape_check(self):
+        with pytest.raises(ValidationError, match="unknown type"):
+            validate_publishable_layout(_layout(NAME, NOTES, {"type": "bogus"}))
+
+    @pytest.mark.parametrize(
+        "elements, missing",
+        [([NOTES], "name"), ([NAME], "notes")],
+        ids=["no-name", "no-notes"],
+    )
+    def test_rejects_a_missing_required_field(self, elements, missing):
+        with pytest.raises(ValidationError, match=f"named '{missing}'"):
+            validate_publishable_layout(_layout(*elements))
+
+    @pytest.mark.parametrize(
+        "elements",
+        [
+            [{"type": "textarea", "name": "name"}, NOTES],
+            [NAME, {"type": "input", "name": "notes"}],
+        ],
+        ids=["name-wrong-type", "notes-wrong-type"],
+    )
+    def test_rejects_a_required_field_of_the_wrong_type(self, elements):
+        with pytest.raises(ValidationError, match="must be a"):
+            validate_publishable_layout(_layout(*elements))
+
+    def test_rejects_a_duplicate_required_field(self):
+        with pytest.raises(ValidationError, match="more than one 'name'"):
+            validate_publishable_layout(_layout(NAME, NAME, NOTES))
+
+    def test_rejects_a_duplicate_split_across_nesting(self):
+        with pytest.raises(ValidationError, match="more than one 'notes'"):
+            validate_publishable_layout(
+                _layout(NAME, NOTES, {"type": "section", "content": [NOTES]})
+            )
+
+    @pytest.mark.parametrize("container", ["repeater", "grid", "loop"])
+    def test_ignores_required_fields_inside_per_row_or_repeating_containers(
+        self, container
+    ):
+        with pytest.raises(ValidationError, match="named 'name'"):
+            validate_publishable_layout(
+                _layout({"type": container, "name": "rows", "content": [NAME]}, NOTES)
+            )
 
 
 class TestValidateSheetLayoutAccepts:

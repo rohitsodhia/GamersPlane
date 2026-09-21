@@ -5,7 +5,7 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from app.characters import schemas
 from app.configs import configs
 from app.database import DBSessionDependency
-from app.exceptions import ForbiddenException, NotFoundException
+from app.exceptions import ConflictException, ForbiddenException, NotFoundException
 from app.helpers.avatars import process_avatar_upload, save_avatar
 from app.middleware import Principal
 from app.models import Character
@@ -29,9 +29,14 @@ async def create_character(
     if not sheet.is_public and sheet.creator_id != principal.id:
         raise ForbiddenException("Character sheet not available")
 
+    version = await sheet_repository.get_latest_published(sheet.id)
+    if version is None:
+        raise ConflictException("Character sheet has not been published")
+
     character_repository = CharacterRepository(db_session, principal)
     character = await character_repository.create(
         character_sheet_id=data.character_sheet_id,
+        character_sheet_version_id=version.id,
         label=data.label,
         type=data.type,
     )
@@ -314,7 +319,11 @@ def _character_response(character) -> schemas.GetCharacterResponse:
         type=character.type,
         values=character.values,
         in_library=character.in_library,
-        character_sheet=schemas.CharacterSheetData(
+        character_sheet_id=character.character_sheet_id,
+        # A soft-deleted sheet is filtered out of the relationship load.
+        character_sheet=None
+        if sheet is None
+        else schemas.CharacterSheetData(
             id=sheet.id,
             name=sheet.name,
             creator=schemas.UserData(
@@ -326,7 +335,8 @@ def _character_response(character) -> schemas.GetCharacterResponse:
                 id=sheet.system.id,
                 name=sheet.system.name,
             ),
-            layout=sheet.layout,
         ),
+        sheet_deleted=sheet is None,
+        layout=character.character_sheet_version.layout,
         avatars=[_avatar_data(avatar) for avatar in character.avatars],
     )

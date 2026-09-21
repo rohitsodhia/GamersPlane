@@ -10,6 +10,7 @@ from app.models import (
     CharacterAvatar,
     CharacterFavorite,
     CharacterSheet,
+    CharacterSheetVersion,
     FavoriteCharacter,
     System,
     User,
@@ -24,12 +25,14 @@ class CharacterRepository:
     async def create(
         self,
         character_sheet_id: int,
+        character_sheet_version_id: int,
         label: str,
         type: Character.Type = Character.Type.PC,
     ) -> Character:
         character = Character(
             user_id=self.principal.id,
             character_sheet_id=character_sheet_id,
+            character_sheet_version_id=character_sheet_version_id,
             label=label,
             type=type,
         )
@@ -97,7 +100,9 @@ class CharacterRepository:
                 selectinload(Character.character_sheet).options(
                     selectinload(CharacterSheet.creator),
                     selectinload(CharacterSheet.system),
-                    undefer(CharacterSheet.layout),
+                ),
+                selectinload(Character.character_sheet_version).options(
+                    undefer(CharacterSheetVersion.layout)
                 ),
                 selectinload(Character.avatars),
             )
@@ -122,7 +127,8 @@ class CharacterRepository:
                 ),
             )
             ownership = or_(ownership, favorited_in_library)
-        query = select(Character).where(ownership).join(Character.character_sheet)
+        # Outer join: a character whose sheet was soft-deleted must stay listed.
+        query = select(Character).where(ownership).outerjoin(Character.character_sheet)
         if search:
             query = query.where(Character.label.ilike(f"%{search}%"))
         if type:
@@ -142,13 +148,15 @@ class CharacterRepository:
     ) -> ScalarResult[Character]:
         query = (
             self._list_query(search, type, system_id, include_favorited)
-            .join(CharacterSheet.system)
-            .order_by(System.sort_name.asc(), Character.label.asc())
+            .outerjoin(CharacterSheet.system)
+            .order_by(System.sort_name.asc().nulls_last(), Character.label.asc())
             .options(
                 selectinload(Character.character_sheet).options(
                     selectinload(CharacterSheet.creator),
                     selectinload(CharacterSheet.system),
-                    undefer(CharacterSheet.layout),
+                ),
+                selectinload(Character.character_sheet_version).options(
+                    undefer(CharacterSheetVersion.layout)
                 ),
                 selectinload(Character.avatars),
                 selectinload(Character.user),

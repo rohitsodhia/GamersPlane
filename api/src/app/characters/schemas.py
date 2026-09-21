@@ -36,7 +36,6 @@ class CharacterSheetData(SchemaBase):
     name: str
     creator: UserData
     system: SystemData
-    layout: dict
 
 
 class CharacterAvatarData(SchemaBase):
@@ -53,7 +52,12 @@ class GetCharacterResponse(SchemaBase):
     type: Character.Type
     values: dict | None = None
     in_library: bool
-    character_sheet: CharacterSheetData
+    character_sheet_id: int
+    # None once the sheet has been deleted; the character keeps working from
+    # its pinned version's layout.
+    character_sheet: CharacterSheetData | None
+    sheet_deleted: bool
+    layout: dict
     avatars: list[CharacterAvatarData]
 
 

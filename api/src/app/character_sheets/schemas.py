@@ -34,17 +34,50 @@ class BasicCharSheetData(SchemaBase):
 
 class GetMyCharSheetsResponse(SchemaBase):
     char_sheets: list[BasicCharSheetData]
+    total: int
+    page: int
+
+
+class LibraryUserData(SchemaBase):
+    id: int
+    username: str
+
+
+class LibraryCharSheetData(SchemaBase):
+    id: int
+    name: str
+    system: SystemData
+    creator: LibraryUserData
+    status: CharacterSheet.Status
+    favorited: bool
+
+
+class GetLibraryResponse(SchemaBase):
+    char_sheets: list[LibraryCharSheetData]
+    total: int
+    page: int
+
+
+class ToggleCharSheetFavoriteResponse(SchemaBase):
+    favorited: bool
 
 
 class UpdateCharSheetInput(SchemaBase):
     layout: dict
 
 
+class PublishCharSheetInput(SchemaBase):
+    changelog: str | None = filtered_str(default=None)
+
+
 class GetCharSheetResponse(SchemaBase):
     id: int
     creator: UserData
-    root_id: int | None = None
+    forked_from_id: int | None = None
     name: str
     system: SystemData
+    version_id: int
+    version_number: int | None
+    is_draft: bool
     layout: dict
     status: CharacterSheet.Status

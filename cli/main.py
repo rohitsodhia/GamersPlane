@@ -2,15 +2,22 @@ import asyncio
 import json
 import random
 from functools import wraps
+from pathlib import Path
 
 import typer
 from mimesis import Text
 from sqlalchemy import text
 
+from app.character_sheets.layout_validation import (
+    validate_publishable_layout,
+    validate_sheet_layout,
+)
 from app.configs import configs
 from app.database import session_manager
+from app.exceptions import ValidationError
 from app.models import (
     Character,
+    CharacterSheet,
     DeckType,
     Forum,
     Player,
@@ -160,9 +167,13 @@ async def seed():
         typer.echo("Deck Types added")
 
         character_sheet_repo = CharacterSheetRepository(session, primary_user)
-        await character_sheet_repo.create(
+        character_sheet = await character_sheet_repo.create(
             name="Test 1",
             system_id="dnd5",
+        )
+        # New sheets start as a draft; characters can only pin published versions.
+        character_sheet_version = await character_sheet_repo.publish(
+            await character_sheet_repo.get_draft(character_sheet.id)
         )
         typer.echo("Character Sheet added")
 
@@ -170,7 +181,8 @@ async def seed():
         character = await character_repo.create(
             label="Test 1",
             type=Character.Type.PC,
-            character_sheet_id=1,
+            character_sheet_id=character_sheet.id,
+            character_sheet_version_id=character_sheet_version.id,
         )
         character.values = {
             "notes": {
@@ -257,6 +269,75 @@ async def create_game(
 
 @app.command()
 @async_command
+async def create_char_sheet(
+    system_id: str = typer.Option("custom", prompt=True),
+    user_id: int = typer.Option(default=1, prompt=True),
+    name: str = typer.Option(..., prompt=True),
+    status: CharacterSheet.Status = typer.Option(
+        default=CharacterSheet.Status.PUBLIC, prompt=True
+    ),
+    layout_file: Path | None = typer.Option(
+        None,
+        help="JSON layout to use instead of the default layout.",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+    ),
+    publish: bool = typer.Option(
+        True, help="Publish the draft so characters can be created from it."
+    ),
+):
+    layout = None
+    if layout_file is not None:
+        try:
+            layout = json.loads(layout_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            typer.echo(f"{layout_file} is not valid JSON: {e}")
+            raise typer.Exit(code=1)
+
+    async with session_manager.session() as session:
+        user = await UserRepository(session).get_user(user_id)
+        if user is None:
+            typer.echo(f"No user with id {user_id}")
+            raise typer.Exit(code=1)
+
+        if await SystemRepository(session).get_by_id(system_id) is None:
+            typer.echo(f"No system with id {system_id}")
+            raise typer.Exit(code=1)
+
+        repository = CharacterSheetRepository(session, principal=user)
+        character_sheet = await repository.create(
+            name=name, system_id=system_id, layout=layout
+        )
+        character_sheet.status = status
+        draft = await repository.get_draft(character_sheet.id)
+
+        # Same gates as the API: drafts only need the shape check, publishing
+        # also needs the required name/notes fields.
+        try:
+            if publish:
+                validate_publishable_layout(draft.layout)
+            else:
+                validate_sheet_layout(draft.layout)
+        except ValidationError as e:
+            typer.echo(f"Invalid layout: {e}")
+            raise typer.Exit(code=1)
+
+        if publish:
+            version = await repository.publish(draft)
+            typer.echo(
+                f"Character sheet {character_sheet.id} created and published "
+                f"(v{version.number}): {character_sheet.name}"
+            )
+        else:
+            typer.echo(
+                f"Character sheet {character_sheet.id} created as a draft: "
+                f"{character_sheet.name}"
+            )
+
+
+@app.command()
+@async_command
 async def create_character(
     sheet_id: int = typer.Option(default=1, prompt=True),
     user_id: int = typer.Option(default=1, prompt=True),
@@ -271,11 +352,21 @@ async def create_character(
             typer.echo(f"No user with id {user_id}")
             raise typer.Exit(code=1)
 
+        character_sheet_repository = CharacterSheetRepository(session, principal=user)
+        if await character_sheet_repository.get(sheet_id) is None:
+            typer.echo(f"No character sheet with id {sheet_id}")
+            raise typer.Exit(code=1)
+        version = await character_sheet_repository.get_latest_published(sheet_id)
+        if version is None:
+            typer.echo(f"Character sheet {sheet_id} has no published version")
+            raise typer.Exit(code=1)
+
         character_repository = CharacterRepository(session, principal=user)
         character = await character_repository.create(
             label=label,
             type=type,
             character_sheet_id=sheet_id,
+            character_sheet_version_id=version.id,
         )
         character.user_id = user_id
         character.in_library = in_library
