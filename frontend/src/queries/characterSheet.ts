@@ -1,4 +1,5 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
+import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { SheetSchema } from "#/routes/characters/sheets/-components/types";
 
@@ -12,7 +13,7 @@ export type BasicCharacterSheet = {
 	name: string;
 	creator: { id: number; username: string };
 	system: { id: string; name: string };
-	description: string | null;
+	description: JSONContent | null;
 	favorited: boolean;
 };
 
@@ -63,7 +64,7 @@ export type CharacterSheet = {
 	forked_from_id: number | null;
 	name: string;
 	system: { id: string; name: string };
-	description: string | null;
+	description: JSONContent | null;
 	layout: SheetSchema;
 	status: CharacterSheetStatus;
 };
@@ -100,7 +101,7 @@ export type LibraryCharacterSheet = {
 	name: string;
 	system: { id: string; name: string };
 	creator: { id: number; username: string };
-	description: string | null;
+	description: JSONContent | null;
 	status: CharacterSheetStatus;
 	favorited: boolean;
 };
@@ -155,7 +156,7 @@ export const deleteCharacterSheet = async (sheetId: number): Promise<void> => {
 
 export const updateCharacterSheet = async (
 	sheetId: number,
-	data: { name: string; description: string | null; layout: SheetSchema },
+	data: { name: string; description: JSONContent | null; layout: SheetSchema },
 ): Promise<CharacterSheet> => {
 	const res = await apiFetch(`/character_sheets/${sheetId}`, {
 		method: "PATCH",

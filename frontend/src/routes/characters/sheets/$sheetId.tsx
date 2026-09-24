@@ -1,7 +1,10 @@
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import type { JSONContent } from "@tiptap/core";
 import { useState } from "react";
+import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
 import { FadeOut } from "#/components/FadeOut";
+import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import { useFlash } from "#/lib/use-flash";
@@ -10,6 +13,7 @@ import {
 	characterSheetQueryOptions,
 	updateCharacterSheet,
 } from "#/queries/characterSheet";
+import { meQueryOptions } from "#/queries/me";
 import { SheetRenderer } from "./-components/SheetRenderer";
 import { SheetValuesProvider, useSheetStore } from "./-components/sheet-values";
 import type { SheetSchema } from "./-components/types";
@@ -30,6 +34,8 @@ export const Route = createFileRoute("/characters/sheets/$sheetId")({
 function RouteComponent() {
 	const { sheetId } = Route.useParams();
 	const { data: sheet } = useSuspenseQuery(characterSheetQueryOptions(sheetId));
+	const { data: me } = useQuery(meQueryOptions);
+	const isOwner = me !== undefined && me.id === sheet.creator.id;
 
 	// Remount the editor when switching sheets so the code draft re-seeds from
 	// the newly loaded layout.
@@ -41,6 +47,7 @@ function RouteComponent() {
 			description={sheet.description}
 			system={sheet.system.id}
 			layout={sheet.layout}
+			isOwner={isOwner}
 		/>
 	);
 }
@@ -53,18 +60,20 @@ function SheetEditor({
 	description,
 	system,
 	layout,
+	isOwner,
 }: {
 	sheetId: number;
 	name: string;
-	description: string | null;
+	description: JSONContent | null;
 	system: string;
 	layout: SheetSchema | null | undefined;
+	isOwner: boolean;
 }) {
 	const queryClient = useQueryClient();
 	const [view, setView] = useState<SheetView>("visual");
 	const [draft, setDraft] = useState(() => JSON.stringify(layout ?? {}, null, 4));
 	const [nameInput, setNameInput] = useState(name);
-	const [descriptionInput, setDescriptionInput] = useState(description ?? "");
+	const [descriptionInput, setDescriptionInput] = useState(description ?? emptyContent);
 	const [saved, flashSaved] = useFlash();
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
@@ -82,13 +91,13 @@ function SheetEditor({
 	const hasLayout = Array.isArray(schema?.elements) && schema.elements.length > 0;
 
 	const handleSave = async () => {
-		if (!schema || !nameInput || saving) return;
+		if (!isOwner || !schema || !nameInput || saving) return;
 		setSaving(true);
 		setSaveError(null);
 		try {
 			const updated = await updateCharacterSheet(sheetId, {
 				name: nameInput,
-				description: descriptionInput ? descriptionInput : null,
+				description: isContentEmpty(descriptionInput) ? null : descriptionInput,
 				layout: schema,
 			});
 			queryClient.setQueryData(characterSheetQueryOptions(sheetId).queryKey, updated);
@@ -122,43 +131,51 @@ function SheetEditor({
 				<img src={`/images/logos/${system}.png`} alt={system} title={system} />
 			</div>
 
-			<div className={`grid-layout ${styles["sheet-details"]}`}>
-				<div>
-					<label htmlFor="sheet-name" className="center-vertically">
-						Name
-					</label>
-					<input
-						id="sheet-name"
-						type="text"
-						value={nameInput}
-						onChange={(e) => setNameInput(e.target.value)}
-					/>
+			{isOwner ? (
+				<div className={`grid-layout ${styles["sheet-details"]}`}>
+					<div>
+						<label htmlFor="sheet-name" className="center-vertically">
+							Name
+						</label>
+						<input
+							id="sheet-name"
+							type="text"
+							value={nameInput}
+							onChange={(e) => setNameInput(e.target.value)}
+						/>
+					</div>
+					<div>
+						<label htmlFor="sheet-description" className="push-down">
+							Description
+						</label>
+						<Editor
+							id="sheet-description"
+							value={descriptionInput}
+							onChange={setDescriptionInput}
+						/>
+					</div>
 				</div>
-				<div>
-					<label htmlFor="sheet-description" className="push-down">
-						Description
-					</label>
-					<textarea
-						id="sheet-description"
-						value={descriptionInput}
-						onChange={(e) => setDescriptionInput(e.target.value)}
-					/>
-				</div>
-			</div>
+			) : description && !isContentEmpty(description) ? (
+				<TiptapContent content={description} className={styles["sheet-description"]} />
+			) : null}
 
 			<div className="controls-container">
-				<button
-					type="button"
-					className="skew-btn"
-					onClick={handleSave}
-					disabled={saving || !schema || !nameInput}
-				>
-					Save
-				</button>
-				<FadeOut active={saved} className={styles["save-indicator"]}>
-					Saved
-				</FadeOut>
-				{saveError ? <span className="error">{saveError}</span> : null}
+				{isOwner && (
+					<>
+						<button
+							type="button"
+							className="skew-btn"
+							onClick={handleSave}
+							disabled={saving || !schema || !nameInput}
+						>
+							Save
+						</button>
+						<FadeOut active={saved} className={styles["save-indicator"]}>
+							Saved
+						</FadeOut>
+						{saveError ? <span className="error">{saveError}</span> : null}
+					</>
+				)}
 				<div className="trapezoid">
 					<button
 						type="button"
@@ -195,6 +212,7 @@ function SheetEditor({
 						value={draft}
 						spellCheck={false}
 						onChange={(e) => setDraft(e.target.value)}
+						readOnly={!isOwner}
 					/>
 				</div>
 			)}
