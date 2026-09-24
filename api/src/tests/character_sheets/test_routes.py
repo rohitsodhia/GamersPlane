@@ -6,7 +6,7 @@ from app.character_sheets.defaults import default_sheet_layout
 from app.configs import configs
 from app.models import CharacterSheet, CharacterSheetFavorite, CharacterSheetVersion
 from app.repositories import CharacterSheetRepository
-from tests.factories import ActivatedUserFactory, SystemFactory
+from tests.factories import ActivatedUserFactory, SystemFactory, prose_doc
 
 
 class TestCreateCharSheet:
@@ -801,23 +801,24 @@ class TestUpdateCharSheet:
         self, client, sheet, creator, db_session, auth_as
     ):
         auth_as(creator)
+        description = prose_doc("A front-line martial build.")
 
         response = await client.patch(
             f"/character_sheets/{sheet.id}",
             json={
                 "name": "Battle-Ready Fighter",
-                "description": "  A front-line martial build.  ",
+                "description": description,
                 "layout": {"schema_version": 1, "elements": []},
             },
         )
 
         assert response.status_code == 200
         assert response.json()["name"] == "Battle-Ready Fighter"
-        assert response.json()["description"] == "A front-line martial build."
+        assert response.json()["description"] == description
 
         await db_session.refresh(sheet)
         assert sheet.name == "Battle-Ready Fighter"
-        assert sheet.description == "A front-line martial build."
+        assert sheet.description == description
 
     async def test_omitting_description_clears_a_previously_set_one(
         self, client, sheet, creator, auth_as
@@ -827,7 +828,7 @@ class TestUpdateCharSheet:
             f"/character_sheets/{sheet.id}",
             json={
                 "name": "Fighter",
-                "description": "A front-line martial build.",
+                "description": prose_doc("A front-line martial build."),
                 "layout": {"schema_version": 1, "elements": []},
             },
         )
@@ -872,7 +873,7 @@ class TestUpdateCharSheet:
             f"/character_sheets/{sheet.id}",
             json={
                 "name": "Renamed",
-                "description": "Should not be saved.",
+                "description": prose_doc("Should not be saved."),
                 "layout": {"schema_version": 1, "elements": [{"type": "bogus"}]},
             },
         )

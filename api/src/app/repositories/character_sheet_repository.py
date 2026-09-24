@@ -111,7 +111,7 @@ class CharacterSheetRepository:
         return version
 
     async def update_details(
-        self, char_sheet: CharacterSheet, *, name: str, description: str | None
+        self, char_sheet: CharacterSheet, *, name: str, description: dict | None
     ) -> CharacterSheet:
         """Update the sheet-level (not versioned) name and description."""
         char_sheet.name = name

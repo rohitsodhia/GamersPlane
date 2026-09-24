@@ -27,7 +27,7 @@ def upgrade() -> None:
         sa.Column("forked_from_id", sa.Integer(), nullable=True),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("system_id", sa.String(length=20), nullable=False),
-        sa.Column("description", sa.String(), nullable=True),
+        sa.Column("description", sa.JSON(), nullable=True),
         sa.Column("status", sa.String(length=12), nullable=False),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),

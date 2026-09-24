@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import JSON, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.helpers.enums import LabelEnum, LabelEnumType
@@ -33,7 +33,8 @@ class CharacterSheet(Base, SoftDeleteMixin, TimestampMixin):
         String(20), ForeignKey("systems.id"), index=True
     )
     system: Mapped[System] = relationship()
-    description: Mapped[str | None] = mapped_column(nullable=True)
+    # ProseMirror/Tiptap document, same shape as `Post.body`.
+    description: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
     versions: Mapped[list[CharacterSheetVersion]] = relationship(
         back_populates="character_sheet", order_by="CharacterSheetVersion.id"
     )
