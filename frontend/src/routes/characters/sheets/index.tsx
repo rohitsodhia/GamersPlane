@@ -21,6 +21,7 @@ import {
 	createCharacterSheet,
 	deleteCharacterSheet,
 	myCharacterSheetsListQueryOptions,
+	toggleCharacterSheetFavorite,
 } from "#/queries/characterSheet";
 import { meQueryOptions } from "#/queries/me";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
@@ -221,6 +222,18 @@ function SheetList() {
 		},
 	});
 
+	// Unfavoriting removes the row (and shifts pagination), so refetch the
+	// list; the unfiltered "my" list and the library's favorited flags are
+	// stale too.
+	const unfavoriteMutation = useMutation({
+		mutationFn: toggleCharacterSheetFavorite,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["characterSheets", "mine"] });
+			queryClient.invalidateQueries({ queryKey: ["characterSheets", "my"] });
+			queryClient.invalidateQueries({ queryKey: ["characterSheets", "library"] });
+		},
+	});
+
 	return (
 		<div className={styles["results"]}>
 			<ListFilters filters={["search", "system"]} idPrefix="sheets" />
@@ -250,7 +263,18 @@ function SheetList() {
 								</div>
 								<div>{sheet.system.name}</div>
 								<div className={rowLinksClassName}>
-									{!favoritedOnly && (
+									{favoritedOnly ? (
+										<button
+											type="button"
+											disabled={
+												unfavoriteMutation.isPending &&
+												unfavoriteMutation.variables === sheet.id
+											}
+											onClick={() => unfavoriteMutation.mutate(sheet.id)}
+										>
+											<img src="/images/icons/bookmark_on.png" alt="Favorited" />
+										</button>
+									) : (
 										<ConfirmDeleteButton
 											label="Delete Sheet"
 											message="Deleting this sheet removes it from the sheet library and from anyone's favorites. Characters already built on it will keep working."
