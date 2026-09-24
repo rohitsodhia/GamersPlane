@@ -135,6 +135,10 @@ input:is([type="radio"], [type="checkbox"]) {
 	margin-right: 0.5em;
 }
 
+input:not([placeholder]) {
+	text-box-trim: trim-both;
+}
+
 a,
 a:visited,
 a:active,
@@ -444,7 +448,7 @@ h2.headerbar {
 	}
 }
 
-form.grid-layout {
+.grid-layout {
 	--label-col-width: 250px;
 
 	display: grid;

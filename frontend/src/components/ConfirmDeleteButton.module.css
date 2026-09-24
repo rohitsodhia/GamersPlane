@@ -1,0 +1,25 @@
+/* The popover is portalled to <body>, so these can't nest under a page wrapper. */
+.confirm-popover {
+	transition: opacity 0.15s ease-out;
+
+	&[data-entering],
+	&[data-exiting] {
+		opacity: 0;
+	}
+}
+
+.confirm-delete {
+	max-width: 22em;
+	padding: 1em;
+	outline: none;
+
+	p {
+		margin: 0 0 1em;
+	}
+
+	.confirm-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5em;
+	}
+}

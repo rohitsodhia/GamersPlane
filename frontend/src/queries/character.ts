@@ -19,13 +19,17 @@ export type Character = {
 	type: CharacterType;
 	values: ScopeValues | null;
 	in_library: boolean;
+	character_sheet_id: number;
+	/** Null once the sheet has been deleted; the character still renders from `layout`. */
 	character_sheet: {
 		id: number;
 		name: string;
 		creator: { id: number; username: string; avatar: string };
 		system: { id: string; name: string };
-		layout: SheetSchema;
-	};
+	} | null;
+	sheet_deleted: boolean;
+	/** Layout of the sheet version this character is pinned to. */
+	layout: SheetSchema;
 	avatars: CharacterAvatar[];
 };
 
@@ -35,7 +39,13 @@ export type CharacterListItem = {
 	type: CharacterType;
 	in_library: boolean;
 	user: { id: number; username: string };
-	character_sheet: { id: number; name: string; system: { id: string; name: string } };
+	character_sheet_id: number;
+	character_sheet: {
+		id: number;
+		name: string;
+		system: { id: string; name: string };
+	} | null;
+	sheet_deleted: boolean;
 };
 
 export type GetCharactersResponse = {

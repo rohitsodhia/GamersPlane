@@ -53,13 +53,15 @@ function RouteComponent() {
 		<div className={styles["character-sheet"]}>
 			<h1 className="headerbar">{character.name ?? character.label}</h1>
 
-			<div className={styles["sheet-logo"]}>
-				<img
-					src={`/images/logos/${sheet.system.id}.png`}
-					alt={sheet.system.name}
-					title={sheet.system.name}
-				/>
-			</div>
+			{sheet && (
+				<div className={styles["sheet-logo"]}>
+					<img
+						src={`/images/logos/${sheet.system.id}.png`}
+						alt={sheet.system.name}
+						title={sheet.system.name}
+					/>
+				</div>
+			)}
 
 			<div className={styles["avatar-wrapper"]}>
 				<div className={styles["character-meta"]}>
@@ -119,7 +121,7 @@ function RouteComponent() {
 			>
 				<CharacterSheetForm
 					characterId={characterId}
-					schema={sheet.layout}
+					schema={character.layout}
 					label={label}
 					type={type}
 				/>

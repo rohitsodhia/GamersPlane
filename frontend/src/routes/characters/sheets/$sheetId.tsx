@@ -1,10 +1,11 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { FadeOut } from "#/components/FadeOut";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import { useFlash } from "#/lib/use-flash";
+import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	characterSheetQueryOptions,
 	updateCharacterSheet,
@@ -37,6 +38,7 @@ function RouteComponent() {
 			key={sheetId}
 			sheetId={sheetId}
 			name={sheet.name}
+			description={sheet.description}
 			system={sheet.system.id}
 			layout={sheet.layout}
 		/>
@@ -48,17 +50,21 @@ type SheetView = "visual" | "code";
 function SheetEditor({
 	sheetId,
 	name,
+	description,
 	system,
 	layout,
 }: {
 	sheetId: number;
 	name: string;
+	description: string | null;
 	system: string;
 	layout: SheetSchema | null | undefined;
 }) {
 	const queryClient = useQueryClient();
 	const [view, setView] = useState<SheetView>("visual");
 	const [draft, setDraft] = useState(() => JSON.stringify(layout ?? {}, null, 4));
+	const [nameInput, setNameInput] = useState(name);
+	const [descriptionInput, setDescriptionInput] = useState(description ?? "");
 	const [saved, flashSaved] = useFlash();
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
@@ -76,11 +82,15 @@ function SheetEditor({
 	const hasLayout = Array.isArray(schema?.elements) && schema.elements.length > 0;
 
 	const handleSave = async () => {
-		if (!schema || saving) return;
+		if (!schema || !nameInput || saving) return;
 		setSaving(true);
 		setSaveError(null);
 		try {
-			const updated = await updateCharacterSheet(sheetId, schema);
+			const updated = await updateCharacterSheet(sheetId, {
+				name: nameInput,
+				description: descriptionInput ? descriptionInput : null,
+				layout: schema,
+			});
 			queryClient.setQueryData(characterSheetQueryOptions(sheetId).queryKey, updated);
 			flashSaved();
 		} catch (err) {
@@ -94,15 +104,46 @@ function SheetEditor({
 		}
 	};
 
+	const hbMargined = useHbMargined<HTMLHeadingElement>();
+
 	// TODO: seed `initialValues` from the character's stored `values` once the
 	// character fill route exists — this route currently just exercises the
 	// renderer + value store against the sheet's own layout.
 	return (
 		<div className={styles["sheet-editor"]}>
-			<h1 className="headerbar">{name}</h1>
+			<div style={{ marginLeft: hbMargined.margin }}>
+				<Link to="/characters/sheets">Back to character sheets</Link>
+			</div>
+			<h1 className="headerbar" ref={hbMargined.ref}>
+				{name}
+			</h1>
 
 			<div className={styles["sheet-logo"]}>
 				<img src={`/images/logos/${system}.png`} alt={system} title={system} />
+			</div>
+
+			<div className={`grid-layout ${styles["sheet-details"]}`}>
+				<div>
+					<label htmlFor="sheet-name" className="center-vertically">
+						Name
+					</label>
+					<input
+						id="sheet-name"
+						type="text"
+						value={nameInput}
+						onChange={(e) => setNameInput(e.target.value)}
+					/>
+				</div>
+				<div>
+					<label htmlFor="sheet-description" className="push-down">
+						Description
+					</label>
+					<textarea
+						id="sheet-description"
+						value={descriptionInput}
+						onChange={(e) => setDescriptionInput(e.target.value)}
+					/>
+				</div>
 			</div>
 
 			<div className="controls-container">
@@ -110,7 +151,7 @@ function SheetEditor({
 					type="button"
 					className="skew-btn"
 					onClick={handleSave}
-					disabled={saving || !schema}
+					disabled={saving || !schema || !nameInput}
 				>
 					Save
 				</button>

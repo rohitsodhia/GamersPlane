@@ -43,6 +43,7 @@ import { Route as CharactersCharacterIdIndexRouteImport } from './routes/charact
 import { Route as CharactersCharacterIdEditRouteImport } from './routes/characters/$characterId/edit'
 import { Route as CharactersSheetsIndexRouteImport } from './routes/characters/sheets/index'
 import { Route as CharactersSheetsSheetIdRouteImport } from './routes/characters/sheets/$sheetId'
+import { Route as CharactersSheetsLibraryRouteImport } from './routes/characters/sheets/library'
 import { Route as ForumsEditPostPostIdRouteImport } from './routes/forums/edit-post.$postId'
 import { Route as ForumsNewThreadForumIdRouteImport } from './routes/forums/new-thread.$forumId'
 import { Route as ForumsThreadThreadIdRouteImport } from './routes/forums/thread.$threadId'
@@ -223,6 +224,11 @@ const CharactersSheetsSheetIdRoute = CharactersSheetsSheetIdRouteImport.update({
   path: '/characters/sheets/$sheetId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CharactersSheetsLibraryRoute = CharactersSheetsLibraryRouteImport.update({
+  id: '/characters/sheets/library',
+  path: '/characters/sheets/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ForumsEditPostPostIdRoute = ForumsEditPostPostIdRouteImport.update({
   id: '/forums/edit-post/$postId',
   path: '/forums/edit-post/$postId',
@@ -287,6 +293,7 @@ export interface FileRoutesByFullPath {
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
   '/characters/$characterId/edit': typeof CharactersCharacterIdEditRoute
   '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdRoute
+  '/characters/sheets/library': typeof CharactersSheetsLibraryRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
@@ -327,6 +334,7 @@ export interface FileRoutesByTo {
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
   '/characters/$characterId/edit': typeof CharactersCharacterIdEditRoute
   '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdRoute
+  '/characters/sheets/library': typeof CharactersSheetsLibraryRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
@@ -370,6 +378,7 @@ export interface FileRoutesById {
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
   '/characters/$characterId/edit': typeof CharactersCharacterIdEditRoute
   '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdRoute
+  '/characters/sheets/library': typeof CharactersSheetsLibraryRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
@@ -414,6 +423,7 @@ export interface FileRouteTypes {
     | '/acp/role/$roleId'
     | '/characters/$characterId/edit'
     | '/characters/sheets/$sheetId'
+    | '/characters/sheets/library'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
@@ -454,6 +464,7 @@ export interface FileRouteTypes {
     | '/acp/role/$roleId'
     | '/characters/$characterId/edit'
     | '/characters/sheets/$sheetId'
+    | '/characters/sheets/library'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
@@ -496,6 +507,7 @@ export interface FileRouteTypes {
     | '/acp/role/$roleId'
     | '/characters/$characterId/edit'
     | '/characters/sheets/$sheetId'
+    | '/characters/sheets/library'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
@@ -535,6 +547,7 @@ export interface RootRouteChildren {
   RegisterIndexRoute: typeof RegisterIndexRoute
   CharactersCharacterIdEditRoute: typeof CharactersCharacterIdEditRoute
   CharactersSheetsSheetIdRoute: typeof CharactersSheetsSheetIdRoute
+  CharactersSheetsLibraryRoute: typeof CharactersSheetsLibraryRoute
   ForumsEditPostPostIdRoute: typeof ForumsEditPostPostIdRoute
   ForumsNewThreadForumIdRoute: typeof ForumsNewThreadForumIdRoute
   ForumsThreadThreadIdRoute: typeof ForumsThreadThreadIdRoute
@@ -784,6 +797,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CharactersSheetsSheetIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/characters/sheets/library': {
+      id: '/characters/sheets/library'
+      path: '/characters/sheets/library'
+      fullPath: '/characters/sheets/library'
+      preLoaderRoute: typeof CharactersSheetsLibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forums/edit-post/$postId': {
       id: '/forums/edit-post/$postId'
       path: '/forums/edit-post/$postId'
@@ -888,6 +908,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterIndexRoute: RegisterIndexRoute,
   CharactersCharacterIdEditRoute: CharactersCharacterIdEditRoute,
   CharactersSheetsSheetIdRoute: CharactersSheetsSheetIdRoute,
+  CharactersSheetsLibraryRoute: CharactersSheetsLibraryRoute,
   ForumsEditPostPostIdRoute: ForumsEditPostPostIdRoute,
   ForumsNewThreadForumIdRoute: ForumsNewThreadForumIdRoute,
   ForumsThreadThreadIdRoute: ForumsThreadThreadIdRoute,

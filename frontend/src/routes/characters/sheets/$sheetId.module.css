@@ -16,6 +16,22 @@
 	}
 }
 
+.sheet-details {
+	--label-col-width: 120px;
+	margin-bottom: 1em;
+
+	input,
+	textarea {
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	textarea {
+		resize: vertical;
+		min-height: 8em;
+	}
+}
+
 :global(.controls-container) {
 	gap: 1em;
 	align-items: center;

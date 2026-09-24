@@ -57,13 +57,17 @@ function RouteComponent() {
 				</div>
 			</div>
 
-			<div className={styles["sheet-logo"]}>
-				<img
-					src={`/images/logos/${sheet.system.id}.png`}
-					alt={sheet.system.name}
-					title={sheet.system.name}
-				/>
-			</div>
+			{sheet ? (
+				<div className={styles["sheet-logo"]}>
+					<img
+						src={`/images/logos/${sheet.system.id}.png`}
+						alt={sheet.system.name}
+						title={sheet.system.name}
+					/>
+				</div>
+			) : (
+				<p>The sheet this character was built on has been deleted.</p>
+			)}
 
 			<div className={styles["character-meta"]}>
 				<div>
@@ -81,7 +85,7 @@ function RouteComponent() {
 				mode="display"
 				initialValues={character.values ?? {}}
 			>
-				<SheetRenderer schema={sheet.layout} />
+				<SheetRenderer schema={character.layout} />
 			</SheetValuesProvider>
 		</div>
 	);
