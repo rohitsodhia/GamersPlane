@@ -26,7 +26,6 @@ def _char_sheet_response(
         creator=schemas.UserData(
             id=char_sheet.creator.id,
             username=char_sheet.creator.username,
-            avatar=char_sheet.creator.avatar,
         ),
         forked_from_id=char_sheet.forked_from_id,
         name=char_sheet.name,
@@ -34,6 +33,7 @@ def _char_sheet_response(
             id=char_sheet.system.id,
             name=char_sheet.system.name,
         ),
+        description=char_sheet.description,
         version_id=version.id,
         version_number=version.number,
         is_draft=version.is_draft,
@@ -88,12 +88,12 @@ async def get_char_sheets(
                 creator=schemas.UserData(
                     id=char_sheet.creator.id,
                     username=char_sheet.creator.username,
-                    avatar=char_sheet.creator.avatar,
                 ),
                 system=schemas.SystemData(
                     id=char_sheet.system.id,
                     name=char_sheet.system.name,
                 ),
+                description=char_sheet.description,
                 favorited=favorited,
             )
             for char_sheet, favorited in char_sheets
@@ -131,6 +131,7 @@ async def get_library(
                 creator=schemas.LibraryUserData(
                     id=char_sheet.creator.id, username=char_sheet.creator.username
                 ),
+                description=char_sheet.description,
                 status=char_sheet.status,
                 favorited=favorited,
             )
@@ -182,6 +183,9 @@ async def update_char_sheet(
 
     validate_sheet_layout(data.layout)
 
+    char_sheet = await char_sheet_repository.update_details(
+        char_sheet, name=data.name, description=data.description
+    )
     draft = await char_sheet_repository.get_or_create_draft(char_sheet)
     draft = await char_sheet_repository.update_draft(draft, layout=data.layout)
 

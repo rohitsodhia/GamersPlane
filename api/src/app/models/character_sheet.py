@@ -33,6 +33,7 @@ class CharacterSheet(Base, SoftDeleteMixin, TimestampMixin):
         String(20), ForeignKey("systems.id"), index=True
     )
     system: Mapped[System] = relationship()
+    description: Mapped[str | None] = mapped_column(nullable=True)
     versions: Mapped[list[CharacterSheetVersion]] = relationship(
         back_populates="character_sheet", order_by="CharacterSheetVersion.id"
     )

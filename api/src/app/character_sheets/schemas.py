@@ -7,7 +7,6 @@ from app.schema_base import SchemaBase, filtered_str
 class UserData(SchemaBase):
     id: int
     username: str
-    avatar: str
 
 
 class SystemData(SchemaBase):
@@ -29,6 +28,7 @@ class BasicCharSheetData(SchemaBase):
     name: str
     creator: UserData
     system: SystemData
+    description: str | None
     favorited: bool
 
 
@@ -48,6 +48,7 @@ class LibraryCharSheetData(SchemaBase):
     name: str
     system: SystemData
     creator: LibraryUserData
+    description: str | None
     status: CharacterSheet.Status
     favorited: bool
 
@@ -63,6 +64,8 @@ class ToggleCharSheetFavoriteResponse(SchemaBase):
 
 
 class UpdateCharSheetInput(SchemaBase):
+    name: str = filtered_str()
+    description: str | None = filtered_str(default=None)
     layout: dict
 
 
@@ -76,6 +79,7 @@ class GetCharSheetResponse(SchemaBase):
     forked_from_id: int | None = None
     name: str
     system: SystemData
+    description: str | None
     version_id: int
     version_number: int | None
     is_draft: bool

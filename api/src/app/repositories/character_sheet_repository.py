@@ -110,6 +110,16 @@ class CharacterSheetRepository:
 
         return version
 
+    async def update_details(
+        self, char_sheet: CharacterSheet, *, name: str, description: str | None
+    ) -> CharacterSheet:
+        """Update the sheet-level (not versioned) name and description."""
+        char_sheet.name = name
+        char_sheet.description = description
+        await self.db_session.flush()
+
+        return char_sheet
+
     async def publish(
         self, version: CharacterSheetVersion, *, changelog: str | None = None
     ) -> CharacterSheetVersion:

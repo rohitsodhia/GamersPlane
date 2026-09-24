@@ -111,12 +111,9 @@ class TestGetMyCharSheets:
                 {
                     "id": mine.id,
                     "name": "Mine",
-                    "creator": {
-                        "id": user.id,
-                        "username": user.username,
-                        "avatar": user.avatar,
-                    },
+                    "creator": {"id": user.id, "username": user.username},
                     "system": {"id": "dnd5e", "name": "D&D 5e"},
+                    "description": None,
                     "favorited": False,
                 }
             ],
@@ -290,6 +287,7 @@ class TestGetCharSheetLibrary:
                     "name": "Fighter",
                     "system": {"id": "dnd5e", "name": "D&D 5e"},
                     "creator": {"id": creator.id, "username": creator.username},
+                    "description": None,
                     "status": "official",
                     "favorited": False,
                 }
@@ -701,14 +699,11 @@ class TestGetCharSheet:
         assert response.status_code == 200
         assert response.json() == {
             "id": sheet.id,
-            "creator": {
-                "id": creator.id,
-                "username": creator.username,
-                "avatar": creator.avatar,
-            },
+            "creator": {"id": creator.id, "username": creator.username},
             "forked_from_id": None,
             "name": "Fighter",
             "system": {"id": "dnd5e", "name": "D&D 5e"},
+            "description": None,
             "version_id": version.id,
             "version_number": 1,
             "is_draft": False,
@@ -751,7 +746,8 @@ class TestUpdateCharSheet:
 
     async def test_requires_auth(self, client, sheet):
         response = await client.patch(
-            f"/character_sheets/{sheet.id}", json={"layout": {"elements": []}}
+            f"/character_sheets/{sheet.id}",
+            json={"name": "Fighter", "layout": {"elements": []}},
         )
 
         assert response.status_code == 403
@@ -760,7 +756,8 @@ class TestUpdateCharSheet:
         client, _user = authed_client
 
         response = await client.patch(
-            "/character_sheets/999999", json={"layout": {"elements": []}}
+            "/character_sheets/999999",
+            json={"name": "Fighter", "layout": {"elements": []}},
         )
 
         assert response.status_code == 404
@@ -770,7 +767,8 @@ class TestUpdateCharSheet:
         auth_as(other)
 
         response = await client.patch(
-            f"/character_sheets/{sheet.id}", json={"layout": {"elements": []}}
+            f"/character_sheets/{sheet.id}",
+            json={"name": "Fighter", "layout": {"elements": []}},
         )
 
         assert response.status_code == 403
@@ -786,7 +784,8 @@ class TestUpdateCharSheet:
         }
 
         response = await client.patch(
-            f"/character_sheets/{sheet.id}", json={"layout": new_layout}
+            f"/character_sheets/{sheet.id}",
+            json={"name": "Fighter", "layout": new_layout},
         )
 
         assert response.status_code == 200
@@ -797,6 +796,49 @@ class TestUpdateCharSheet:
             sheet.id
         )
         assert draft.layout == new_layout
+
+    async def test_creator_saves_the_name_and_description(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        auth_as(creator)
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={
+                "name": "Battle-Ready Fighter",
+                "description": "  A front-line martial build.  ",
+                "layout": {"schema_version": 1, "elements": []},
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "Battle-Ready Fighter"
+        assert response.json()["description"] == "A front-line martial build."
+
+        await db_session.refresh(sheet)
+        assert sheet.name == "Battle-Ready Fighter"
+        assert sheet.description == "A front-line martial build."
+
+    async def test_omitting_description_clears_a_previously_set_one(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+        await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={
+                "name": "Fighter",
+                "description": "A front-line martial build.",
+                "layout": {"schema_version": 1, "elements": []},
+            },
+        )
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={"name": "Fighter", "layout": {"schema_version": 1, "elements": []}},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["description"] is None
 
     async def test_editing_a_published_sheet_leaves_the_published_layout_alone(
         self, client, sheet, creator, db_session, auth_as
@@ -810,7 +852,8 @@ class TestUpdateCharSheet:
         }
 
         response = await client.patch(
-            f"/character_sheets/{sheet.id}", json={"layout": new_layout}
+            f"/character_sheets/{sheet.id}",
+            json={"name": "Fighter", "layout": new_layout},
         )
 
         assert response.status_code == 200
@@ -827,7 +870,11 @@ class TestUpdateCharSheet:
 
         response = await client.patch(
             f"/character_sheets/{sheet.id}",
-            json={"layout": {"schema_version": 1, "elements": [{"type": "bogus"}]}},
+            json={
+                "name": "Renamed",
+                "description": "Should not be saved.",
+                "layout": {"schema_version": 1, "elements": [{"type": "bogus"}]},
+            },
         )
 
         assert response.status_code == 400
@@ -837,6 +884,9 @@ class TestUpdateCharSheet:
             sheet.id
         )
         assert draft.layout == {"schema_version": 1, "elements": []}
+        await db_session.refresh(sheet)
+        assert sheet.name == "Fighter"
+        assert sheet.description is None
 
 
 VALID_LAYOUT = {
@@ -909,7 +959,8 @@ class TestPublishCharSheet:
         auth_as(creator)
         await client.post(f"/character_sheets/{sheet.id}/publish", json={})
         await client.patch(
-            f"/character_sheets/{sheet.id}", json={"layout": VALID_LAYOUT}
+            f"/character_sheets/{sheet.id}",
+            json={"name": "Fighter", "layout": VALID_LAYOUT},
         )
 
         response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
@@ -933,7 +984,7 @@ class TestPublishCharSheet:
         auth_as(creator)
         await client.patch(
             f"/character_sheets/{sheet.id}",
-            json={"layout": {"schema_version": 1, "elements": []}},
+            json={"name": "Fighter", "layout": {"schema_version": 1, "elements": []}},
         )
 
         response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
