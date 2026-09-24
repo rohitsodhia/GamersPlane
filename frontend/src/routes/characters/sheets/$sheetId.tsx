@@ -2,6 +2,7 @@ import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-quer
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { JSONContent } from "@tiptap/core";
 import { useState } from "react";
+import { z } from "zod";
 import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
 import { FadeOut } from "#/components/FadeOut";
 import { TiptapContent } from "#/components/TiptapContent";
@@ -23,6 +24,14 @@ export const Route = createFileRoute("/characters/sheets/$sheetId")({
 	params: {
 		parse: (params) => ({ sheetId: Number(params.sheetId) }),
 	},
+	// `from` records which list this sheet was opened from, so the "Back to
+	// ..." link above the sheet can return there — the router itself has no
+	// reliable notion of "the previous page" (deep links, refreshes, and
+	// browser back/forward all bypass it), so callers thread it through
+	// explicitly on the Link that got us here.
+	validateSearch: z.object({
+		from: z.enum(["library"]).optional(),
+	}),
 	loader: ({ context, params, location }) =>
 		redirectToLoginOnAuthFailure(
 			context.queryClient.ensureQueryData(characterSheetQueryOptions(params.sheetId)),
@@ -33,6 +42,7 @@ export const Route = createFileRoute("/characters/sheets/$sheetId")({
 
 function RouteComponent() {
 	const { sheetId } = Route.useParams();
+	const { from } = Route.useSearch();
 	const { data: sheet } = useSuspenseQuery(characterSheetQueryOptions(sheetId));
 	const { data: me } = useQuery(meQueryOptions);
 	const isOwner = me !== undefined && me.id === sheet.creator.id;
@@ -48,6 +58,7 @@ function RouteComponent() {
 			system={sheet.system.id}
 			layout={sheet.layout}
 			isOwner={isOwner}
+			from={from}
 		/>
 	);
 }
@@ -61,6 +72,7 @@ function SheetEditor({
 	system,
 	layout,
 	isOwner,
+	from,
 }: {
 	sheetId: number;
 	name: string;
@@ -68,6 +80,7 @@ function SheetEditor({
 	system: string;
 	layout: SheetSchema | null | undefined;
 	isOwner: boolean;
+	from: "library" | undefined;
 }) {
 	const queryClient = useQueryClient();
 	const [view, setView] = useState<SheetView>("visual");
@@ -121,7 +134,11 @@ function SheetEditor({
 	return (
 		<div className={styles["sheet-editor"]}>
 			<div style={{ marginLeft: hbMargined.margin }}>
-				<Link to="/characters/sheets">Back to character sheets</Link>
+				{from === "library" ? (
+					<Link to="/characters/sheets/library">Back to character sheet library</Link>
+				) : (
+					<Link to="/characters/sheets">Back to character sheets</Link>
+				)}
 			</div>
 			<h1 className="headerbar" ref={hbMargined.ref}>
 				{name}

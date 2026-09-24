@@ -85,7 +85,11 @@ function LibraryResults() {
 					{charSheets.map((sheet) => (
 						<li key={sheet.id}>
 							<div className={styles.label}>
-								<Link to="/characters/sheets/$sheetId" params={{ sheetId: sheet.id }}>
+								<Link
+									to="/characters/sheets/$sheetId"
+									params={{ sheetId: sheet.id }}
+									search={{ from: "library" }}
+								>
 									{sheet.name}
 								</Link>
 							</div>
