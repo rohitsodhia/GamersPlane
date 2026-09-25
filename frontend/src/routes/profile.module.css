@@ -3,7 +3,8 @@
 		textarea {
 			width: 100%;
 			max-width: 400px;
-			height: calc(var(--line-height) * 3);
+			height: 3lh;
+			box-sizing: content-box;
 		}
 
 		:global(.error) {

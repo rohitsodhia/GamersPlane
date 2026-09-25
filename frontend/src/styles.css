@@ -139,6 +139,10 @@ input:not([placeholder]) {
 	text-box-trim: trim-both;
 }
 
+textarea {
+	field-sizing: content;
+}
+
 a,
 a:visited,
 a:active,
