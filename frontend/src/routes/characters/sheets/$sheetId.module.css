@@ -8,6 +8,13 @@
 	grid-template-rows: minmax(0, 1fr);
 }
 
+.draft-notice {
+	margin-bottom: 1em;
+	padding: 0.5em 1em;
+	border-left: 4px solid var(--gp-orange);
+	font-weight: bold;
+}
+
 .sheet-logo {
 	margin-bottom: 1em;
 

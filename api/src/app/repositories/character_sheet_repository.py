@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
 from app.character_sheets.defaults import default_sheet_layout
+from app.character_sheets.layout_ids import mint_ids
 from app.character_sheets.layout_validation import SCHEMA_VERSION
 from app.configs import configs
 from app.models import (
@@ -38,7 +39,9 @@ class CharacterSheetRepository:
             CharacterSheetVersion(
                 character_sheet_id=char_sheet.id,
                 schema_version=SCHEMA_VERSION,
-                layout=layout if layout is not None else default_sheet_layout(),
+                layout=layout
+                if layout is not None
+                else mint_ids(default_sheet_layout()),
             )
         )
         await self.db_session.flush()
@@ -67,6 +70,18 @@ class CharacterSheetRepository:
         )
         return await self.db_session.scalar(query)
 
+    async def get_published(
+        self, char_sheet_id: int, number: int
+    ) -> CharacterSheetVersion | None:
+        """Fetch a sheet's published version by its per-sheet `number`."""
+        query = (
+            select(CharacterSheetVersion)
+            .where(CharacterSheetVersion.character_sheet_id == char_sheet_id)
+            .where(CharacterSheetVersion.number == number)
+            .options(undefer(CharacterSheetVersion.layout))
+        )
+        return await self.db_session.scalar(query)
+
     async def get_version(self, version_id: int) -> CharacterSheetVersion | None:
         """Fetch a version by id, regardless of whether its sheet was deleted."""
         query = (
@@ -91,7 +106,7 @@ class CharacterSheetRepository:
             schema_version=SCHEMA_VERSION,
             layout=copy.deepcopy(latest.layout)
             if latest is not None
-            else default_sheet_layout(),
+            else mint_ids(default_sheet_layout()),
         )
         self.db_session.add(draft)
         await self.db_session.flush()

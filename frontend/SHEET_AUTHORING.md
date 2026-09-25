@@ -93,7 +93,7 @@ Regardless of `type`, any node may include:
 
 | Key | Type | Purpose |
 |---|---|---|
-| `id` | string | Stable identifier, used as the React key. Optional in hand-written JSON (the renderer falls back to the tree path). Give containers and repeated things an `id` when you can. |
+| `id` | string | Stable identifier, used as the React key. Optional in hand-written JSON (the renderer falls back to the tree path). On a value-bearing node — `input`/`textarea`/`select`/`checkbox`, a computed `text`, a `repeater`/`grid`, or a grid row (an `items[]` entry or a `grid_row`) — leave it blank and the API mints one on save; don't type your own. Publish tracks that field by this id, not by `name`, so renaming `name` later doesn't lose it — but changing what kind of field an id is attached to (e.g. `input` → `select`) is rejected; give it a new (blank) id instead. |
 | `class` | string | Space-separated class tokens. Each token is either a `char-sheet-*` utility class (§8.1) or `headerbar`, or the name of a `classes` bundle (§8.3); any other token is dropped (§8.1). Authored as `class`, not `className`. |
 | `styles` | object | Inline style overrides, restricted to an allowlist of properties and value formats (§8.2). Authored kebab-case like CSS. |
 | `class_when` | object | Conditional classes — `{ "token": <formula> }`. The token is added while its formula is truthy. Re-evaluated reactively. (§7.4) |

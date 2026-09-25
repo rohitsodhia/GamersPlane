@@ -73,9 +73,16 @@ export interface StyleWhen {
 /** Keys every element may carry, regardless of `type`. */
 export interface BaseElement {
 	/**
-	 * Stable, builder-generated id. Used as the React key and (later) as the
-	 * handle for builder operations. Optional here so hand-written mocks work;
-	 * the renderer falls back to the tree path for keys.
+	 * Stable id, used as the React key and (later) as the handle for builder
+	 * operations. Optional here so hand-written mocks work; the renderer falls
+	 * back to the tree path for keys.
+	 *
+	 * On a value-bearing node -- `input`/`textarea`/`select`/`checkbox`, a
+	 * computed `text`, or a `repeater`/`grid` (which each own one array/object
+	 * under their `name`) -- this is also the server-minted field id the API
+	 * fills in on save (see the backend's `layout_ids.py`). Leave it blank on
+	 * new fields; the API mints one, and publish uses it (not `name`) to tell
+	 * that a field survived a rename from one that changed kind entirely.
 	 */
 	id?: string;
 	/**
@@ -487,6 +494,12 @@ export interface CollapsibleToggleElement extends BaseElement {
 
 /** One fixed row of a `grid`'s compact form: a sub-scope key plus its label. */
 export interface GridItem {
+	/**
+	 * Stable, server-minted id (see `BaseElement.id`) identifying this row
+	 * across renames of `key`/`label`. Optional in hand-written JSON; the API
+	 * mints one on save.
+	 */
+	id?: string;
 	/** Sub-scope key this row's values nest under (`stats.str.*`). */
 	key: string;
 	/** Row label, emitted as the row's first cell. */

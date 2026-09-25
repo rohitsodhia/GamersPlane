@@ -8,6 +8,15 @@ from app.repositories import CharacterSheetRepository
 from tests.factories import ActivatedUserFactory, SystemFactory
 
 
+def _strip_ids(node):
+    """Recursively drop minted `id` keys, for comparing layouts by shape."""
+    if isinstance(node, dict):
+        return {k: _strip_ids(v) for k, v in node.items() if k != "id"}
+    if isinstance(node, list):
+        return [_strip_ids(item) for item in node]
+    return node
+
+
 class TestCreate:
     @pytest.fixture
     async def principal(self, create):
@@ -52,7 +61,10 @@ class TestCreate:
     async def test_create_falls_back_to_the_default_layout(self, repository, system):
         sheet = await repository.create(name="Fighter", system_id=system.id)
 
-        assert (await repository.get_draft(sheet.id)).layout == default_sheet_layout()
+        # Field ids are minted on top of the canned default -- same shape once
+        # they're stripped back out.
+        layout = (await repository.get_draft(sheet.id)).layout
+        assert _strip_ids(layout) == default_sheet_layout()
 
 
 class TestVersions:
@@ -89,6 +101,14 @@ class TestVersions:
         await repository.get_or_create_draft(sheet)
 
         assert (await repository.get_latest_published(sheet.id)).id == published.id
+
+    async def test_get_published_is_scoped_to_the_sheet(self, repository, sheet):
+        other = await repository.create(name="Wizard", system_id=sheet.system_id)
+        await repository.publish(await repository.get_draft(other.id))
+        published = await repository.publish(await repository.get_draft(sheet.id))
+
+        assert (await repository.get_published(sheet.id, 1)).id == published.id
+        assert await repository.get_published(sheet.id, 2) is None
 
     async def test_get_or_create_draft_copies_the_latest_published_layout(
         self, repository, sheet

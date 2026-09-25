@@ -85,3 +85,11 @@ class GetCharSheetResponse(SchemaBase):
     is_draft: bool
     layout: dict
     status: CharacterSheet.Status
+
+
+class PublishCharSheetResponse(GetCharSheetResponse):
+    # Field ids (see `layout_ids.py`) new to this version / missing from it,
+    # relative to the previously published version -- lets the publish UI show
+    # the author what changed before they confirm.
+    added_field_ids: list[str]
+    removed_field_ids: list[str]

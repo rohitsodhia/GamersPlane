@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import undefer
@@ -7,6 +9,15 @@ from app.configs import configs
 from app.models import CharacterSheet, CharacterSheetFavorite, CharacterSheetVersion
 from app.repositories import CharacterSheetRepository
 from tests.factories import ActivatedUserFactory, SystemFactory, prose_doc
+
+
+def _strip_ids(node):
+    """Recursively drop minted `id` keys, for comparing layouts by shape."""
+    if isinstance(node, dict):
+        return {k: _strip_ids(v) for k, v in node.items() if k != "id"}
+    if isinstance(node, list):
+        return [_strip_ids(item) for item in node]
+    return node
 
 
 class TestCreateCharSheet:
@@ -60,7 +71,11 @@ class TestCreateCharSheet:
         assert len(versions) == 1
         assert versions[0].is_draft
         assert versions[0].number is None
-        assert versions[0].layout == default_sheet_layout()
+        # Field ids are minted on top of the canned default -- same shape once
+        # they're stripped back out.
+        assert _strip_ids(versions[0].layout) == default_sheet_layout()
+        name_input = versions[0].layout["elements"][0]["content"][0]["content"][1]
+        assert re.fullmatch(r"[0-9a-f]{8}", name_input["id"])
 
 
 async def _make_sheet(db_session, creator, system, name="Sheet", *, status=None):
@@ -621,77 +636,74 @@ class TestGetCharSheet:
         assert response.status_code == 404
         assert response.json()["errors"][0]["code"] == "not_found"
 
-    async def test_returns_404_when_sheet_has_no_published_version(
-        self, client, creator, create, db_session, auth_as
-    ):
+    @pytest.fixture
+    async def unpublished_sheet(self, creator, create, db_session):
         system = await create(SystemFactory, id="pf2e")
-        wip = await CharacterSheetRepository(db_session, principal=creator).create(
+        return await CharacterSheetRepository(db_session, principal=creator).create(
             name="Wip", system_id=system.id
         )
-        auth_as(creator)
 
-        response = await client.get(f"/character_sheets/{wip.id}")
-
-        assert response.status_code == 404
-
-    async def test_returns_the_latest_published_layout_not_the_draft(
-        self, client, sheet, creator, db_session, auth_as
-    ):
+    @pytest.fixture
+    async def sheet_with_draft(self, sheet, creator, db_session):
         repository = CharacterSheetRepository(db_session, principal=creator)
         draft = await repository.get_or_create_draft(sheet)
         await repository.update_draft(
             draft, layout={"schema_version": 1, "elements": []}
         )
+        return sheet
+
+    async def test_returns_the_draft_of_an_unpublished_sheet_to_the_creator(
+        self, client, unpublished_sheet, creator, auth_as
+    ):
         auth_as(creator)
 
-        response = await client.get(f"/character_sheets/{sheet.id}")
+        response = await client.get(f"/character_sheets/{unpublished_sheet.id}")
 
+        assert response.status_code == 200
+        assert response.json()["is_draft"] is True
+        assert response.json()["version_number"] is None
+
+    async def test_returns_404_for_an_unpublished_sheet_to_non_creators(
+        self, client, unpublished_sheet, create, auth_as
+    ):
+        auth_as(await create(ActivatedUserFactory))
+
+        response = await client.get(f"/character_sheets/{unpublished_sheet.id}")
+
+        assert response.status_code == 404
+
+    async def test_returns_the_draft_over_the_published_version_to_the_creator(
+        self, client, sheet_with_draft, creator, auth_as
+    ):
+        auth_as(creator)
+
+        response = await client.get(f"/character_sheets/{sheet_with_draft.id}")
+
+        assert response.status_code == 200
+        assert response.json()["is_draft"] is True
+        assert response.json()["layout"]["elements"] == []
+
+    async def test_returns_the_latest_published_version_to_non_creators(
+        self, client, sheet_with_draft, create, auth_as
+    ):
+        # No status gate yet: any authed user can read a private sheet's
+        # published version. Pin that so a future change to it is deliberate.
+        assert sheet_with_draft.status == CharacterSheet.Status.PRIVATE
+        auth_as(await create(ActivatedUserFactory))
+
+        response = await client.get(f"/character_sheets/{sheet_with_draft.id}")
+
+        assert response.status_code == 200
         assert response.json()["is_draft"] is False
         assert response.json()["layout"]["elements"] == [
             {"type": "header", "text": "Combat"}
         ]
 
-    async def test_draft_returns_the_draft_to_the_creator(
-        self, client, sheet, creator, db_session, auth_as
-    ):
-        repository = CharacterSheetRepository(db_session, principal=creator)
-        draft = await repository.get_or_create_draft(sheet)
-        await repository.update_draft(
-            draft, layout={"schema_version": 1, "elements": []}
-        )
-        auth_as(creator)
-
-        response = await client.get(f"/character_sheets/{sheet.id}?draft=true")
-
-        assert response.status_code == 200
-        assert response.json()["is_draft"] is True
-        assert response.json()["version_number"] is None
-        assert response.json()["layout"]["elements"] == []
-
-    async def test_draft_starts_from_the_published_layout_when_none_exists(
-        self, client, sheet, creator, auth_as
-    ):
-        auth_as(creator)
-
-        response = await client.get(f"/character_sheets/{sheet.id}?draft=true")
-
-        assert response.json()["is_draft"] is True
-        assert response.json()["layout"]["elements"] == [
-            {"type": "header", "text": "Combat"}
-        ]
-
-    async def test_draft_is_forbidden_to_non_creators(
-        self, client, sheet, create, auth_as
-    ):
-        auth_as(await create(ActivatedUserFactory))
-
-        response = await client.get(f"/character_sheets/{sheet.id}?draft=true")
-
-        assert response.status_code == 403
-
     async def test_returns_the_serialized_sheet(
         self, client, sheet, version, creator, auth_as
     ):
+        # `sheet` was published with no draft since, so this also covers the
+        # creator falling back to the latest published version.
         auth_as(creator)
 
         response = await client.get(f"/character_sheets/{sheet.id}")
@@ -714,19 +726,77 @@ class TestGetCharSheet:
             "status": "private",
         }
 
-    async def test_any_authed_user_can_read_another_users_private_sheet(
-        self, client, sheet, create, auth_as
+    async def test_version_returns_that_published_version(
+        self, client, sheet_with_draft, creator, create, db_session, auth_as
     ):
-        # The endpoint has no creator/status gate today; pin that so a future
-        # change to it is a deliberate one.
-        assert sheet.status == CharacterSheet.Status.PRIVATE
-        other = await create(ActivatedUserFactory)
-        auth_as(other)
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        await repository.publish(await repository.get_draft(sheet_with_draft.id))
+        auth_as(await create(ActivatedUserFactory))
 
-        response = await client.get(f"/character_sheets/{sheet.id}")
+        response = await client.get(
+            f"/character_sheets/{sheet_with_draft.id}?version=1"
+        )
 
         assert response.status_code == 200
-        assert response.json()["id"] == sheet.id
+        assert response.json()["version_number"] == 1
+        assert response.json()["layout"]["elements"] == [
+            {"type": "header", "text": "Combat"}
+        ]
+
+    async def test_version_returns_404_when_the_number_does_not_exist(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+
+        response = await client.get(f"/character_sheets/{sheet.id}?version=2")
+
+        assert response.status_code == 404
+        assert response.json()["errors"][0]["detail"] == (
+            "Character sheet version not found"
+        )
+
+    async def test_version_draft_returns_the_draft_to_the_creator(
+        self, client, sheet_with_draft, creator, auth_as
+    ):
+        auth_as(creator)
+
+        response = await client.get(
+            f"/character_sheets/{sheet_with_draft.id}?version=draft"
+        )
+
+        assert response.status_code == 200
+        assert response.json()["is_draft"] is True
+        assert response.json()["layout"]["elements"] == []
+
+    async def test_version_draft_returns_404_when_the_creator_has_no_draft(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+
+        response = await client.get(f"/character_sheets/{sheet.id}?version=draft")
+
+        assert response.status_code == 404
+        assert response.json()["errors"][0]["detail"] == "Character sheet has no draft"
+
+    async def test_version_draft_is_forbidden_to_non_creators(
+        self, client, sheet, create, auth_as
+    ):
+        # `sheet` has no draft: a 403 rather than a 404 shows the permission
+        # check runs first, so non-creators can't probe whether a draft exists.
+        auth_as(await create(ActivatedUserFactory))
+
+        response = await client.get(f"/character_sheets/{sheet.id}?version=draft")
+
+        assert response.status_code == 403
+
+    async def test_version_rejects_values_other_than_a_number_or_draft(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+
+        response = await client.get(f"/character_sheets/{sheet.id}?version=latest")
+
+        assert response.status_code == 422
 
 
 class TestUpdateCharSheet:
@@ -889,6 +959,43 @@ class TestUpdateCharSheet:
         assert sheet.name == "Fighter"
         assert sheet.description is None
 
+    async def test_mints_a_blank_field_id(self, client, sheet, creator, auth_as):
+        auth_as(creator)
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={
+                "name": "Fighter",
+                "layout": {
+                    "schema_version": 1,
+                    "elements": [{"type": "input", "name": "hp"}],
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        field_id = response.json()["layout"]["elements"][0]["id"]
+        assert re.fullmatch(r"[0-9a-f]{8}", field_id)
+
+    async def test_leaves_a_hand_authored_field_id_alone(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={
+                "name": "Fighter",
+                "layout": {
+                    "schema_version": 1,
+                    "elements": [{"type": "input", "name": "hp", "id": "custom-id"}],
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["layout"]["elements"][0]["id"] == "custom-id"
+
 
 VALID_LAYOUT = {
     "schema_version": 1,
@@ -995,3 +1102,161 @@ class TestPublishCharSheet:
         repository = CharacterSheetRepository(db_session, principal=creator)
         assert await repository.get_latest_published(sheet.id) is None
         assert (await repository.get_draft(sheet.id)).is_draft
+
+
+def _layout_with(*elements):
+    return {
+        "schema_version": 1,
+        "elements": [_REQUIRED_NAME, _REQUIRED_NOTES, *elements],
+    }
+
+
+_REQUIRED_NAME = {"type": "input", "name": "name"}
+_REQUIRED_NOTES = {"type": "textarea", "name": "notes"}
+
+
+class TestPublishCharSheetFieldIds:
+    """Field-id minting + publish-time validation (`layout_ids.py`)."""
+
+    @pytest.fixture
+    async def creator(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def sheet(self, creator, create, db_session, wrap_in_savepoint):
+        system = await create(SystemFactory, id="dnd5e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        return await repository.create(name="Fighter", system_id=system.id)
+
+    async def _save_and_publish(self, client, sheet_id, layout, changelog=None):
+        await client.patch(
+            f"/character_sheets/{sheet_id}",
+            json={"name": "Fighter", "layout": layout},
+        )
+        return await client.post(
+            f"/character_sheets/{sheet_id}/publish",
+            json={"changelog": changelog},
+        )
+
+    async def test_first_publish_reports_every_field_as_added(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+
+        response = await self._save_and_publish(
+            client, sheet.id, _layout_with({"type": "input", "name": "hp"})
+        )
+
+        assert response.status_code == 200
+        assert response.json()["removed_field_ids"] == []
+        assert len(response.json()["added_field_ids"]) == 3
+
+    async def test_renaming_a_field_keeps_its_id_out_of_the_diff(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+        first = await self._save_and_publish(
+            client, sheet.id, _layout_with({"type": "input", "name": "hp"})
+        )
+        name_el, notes_el, hp_el = first.json()["layout"]["elements"]
+
+        second = await self._save_and_publish(
+            client,
+            sheet.id,
+            {
+                "schema_version": 1,
+                "elements": [
+                    name_el,
+                    notes_el,
+                    {"type": "input", "name": "hit_points", "id": hp_el["id"]},
+                ],
+            },
+        )
+
+        assert second.status_code == 200
+        assert second.json()["added_field_ids"] == []
+        assert second.json()["removed_field_ids"] == []
+
+    async def test_removing_a_field_reports_its_id_as_removed(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+        first = await self._save_and_publish(
+            client, sheet.id, _layout_with({"type": "input", "name": "hp"})
+        )
+        name_el, notes_el, hp_el = first.json()["layout"]["elements"]
+
+        second = await self._save_and_publish(
+            client,
+            sheet.id,
+            {"schema_version": 1, "elements": [name_el, notes_el]},
+        )
+
+        assert second.status_code == 200
+        assert second.json()["removed_field_ids"] == [hp_el["id"]]
+        assert second.json()["added_field_ids"] == []
+
+    async def test_reusing_an_id_on_a_different_field_type_is_rejected(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+        first = await self._save_and_publish(
+            client, sheet.id, _layout_with({"type": "input", "name": "hp"})
+        )
+        name_el, notes_el, hp_el = first.json()["layout"]["elements"]
+
+        response = await self._save_and_publish(
+            client,
+            sheet.id,
+            {
+                "schema_version": 1,
+                "elements": [
+                    name_el,
+                    notes_el,
+                    {"type": "textarea", "name": "hp", "id": hp_el["id"]},
+                ],
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json()["errors"][0]["code"] == "validation_error"
+        assert (
+            "changed from a 'input' to a 'textarea'"
+            in response.json()["errors"][0]["detail"]
+        )
+
+    async def test_a_hand_authored_id_on_a_new_field_is_rejected(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+
+        response = await self._save_and_publish(
+            client,
+            sheet.id,
+            _layout_with({"type": "input", "name": "hp", "id": "not-server-minted"}),
+        )
+
+        assert response.status_code == 400
+        assert "wasn't assigned by the server" in response.json()["errors"][0]["detail"]
+
+    async def test_a_duplicate_id_is_rejected(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        # Goes through the repository directly, bypassing the PATCH route's own
+        # `mint_ids` call, which would otherwise self-heal the duplicate before
+        # publish ever sees it -- this exercises publish's own defensive check.
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        draft = await repository.get_or_create_draft(sheet)
+        await repository.update_draft(
+            draft,
+            layout=_layout_with(
+                {"type": "input", "name": "hp", "id": "aaaaaaaa"},
+                {"type": "input", "name": "mp", "id": "aaaaaaaa"},
+            ),
+        )
+        auth_as(creator)
+
+        response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
+
+        assert response.status_code == 400
+        assert "used more than once" in response.json()["errors"][0]["detail"]

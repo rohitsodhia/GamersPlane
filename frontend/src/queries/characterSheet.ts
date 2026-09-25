@@ -65,6 +65,9 @@ export type CharacterSheet = {
 	name: string;
 	system: { id: string; name: string };
 	description: JSONContent | null;
+	// Only ever true for the sheet's creator: they're served their unpublished
+	// draft when one exists, while everyone else gets the latest published version.
+	is_draft: boolean;
 	layout: SheetSchema;
 	status: CharacterSheetStatus;
 };

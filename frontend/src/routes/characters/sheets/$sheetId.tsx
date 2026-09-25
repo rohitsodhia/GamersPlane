@@ -57,6 +57,7 @@ function RouteComponent() {
 			description={sheet.description}
 			system={sheet.system.id}
 			layout={sheet.layout}
+			isDraft={sheet.is_draft}
 			isOwner={isOwner}
 			from={from}
 		/>
@@ -71,6 +72,7 @@ function SheetEditor({
 	description,
 	system,
 	layout,
+	isDraft,
 	isOwner,
 	from,
 }: {
@@ -79,6 +81,7 @@ function SheetEditor({
 	description: JSONContent | null;
 	system: string;
 	layout: SheetSchema | null | undefined;
+	isDraft: boolean;
 	isOwner: boolean;
 	from: "library" | undefined;
 }) {
@@ -143,6 +146,13 @@ function SheetEditor({
 			<h1 className="headerbar" ref={hbMargined.ref}>
 				{name}
 			</h1>
+
+			{isDraft ? (
+				<p className={styles["draft-notice"]}>
+					You're viewing an unpublished draft. Other users see the latest published
+					version.
+				</p>
+			) : null}
 
 			<div className={styles["sheet-logo"]}>
 				<img src={`/images/logos/${system}.png`} alt={system} title={system} />

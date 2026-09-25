@@ -1,7 +1,10 @@
+from typing import Literal
+
 from fastapi import APIRouter, Query, status
 
 from app.character_sheets import schemas
 from app.character_sheets.defaults import default_sheet_layout
+from app.character_sheets.layout_ids import mint_ids, validate_publish_ids
 from app.character_sheets.layout_validation import (
     validate_publishable_layout,
     validate_sheet_layout,
@@ -55,7 +58,9 @@ async def create_char_sheet(
 
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
     char_sheet = await char_sheet_repository.create(
-        name=data.name, system_id=data.system_id, layout=default_sheet_layout()
+        name=data.name,
+        system_id=data.system_id,
+        layout=mint_ids(default_sheet_layout()),
     )
 
     return schemas.CreateCharSheetResponse(id=char_sheet.id)
@@ -147,23 +152,46 @@ async def get_char_sheet(
     char_sheet_id: int,
     db_session: DBSessionDependency,
     principal: Principal,
-    draft: bool = False,
+    version: int | Literal["draft"] | None = None,
 ):
+    """`version` pins what's returned: a published version `number`, or
+    `"draft"` (creator only). Left out, the caller gets the latest they can see.
+    """
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
     char_sheet = await char_sheet_repository.get(char_sheet_id)
     if char_sheet is None:
         raise NotFoundException("Character sheet not found")
 
-    if draft:
-        if char_sheet.creator_id != principal.id:
+    is_creator = char_sheet.creator_id == principal.id
+
+    if version == "draft":
+        if not is_creator:
             raise ForbiddenException("Only the creator can view the draft")
-        version = await char_sheet_repository.get_or_create_draft(char_sheet)
+        sheet_version = await char_sheet_repository.get_draft(char_sheet.id)
+        if sheet_version is None:
+            raise NotFoundException("Character sheet has no draft")
+    elif version is not None:
+        sheet_version = await char_sheet_repository.get_published(
+            char_sheet.id, version
+        )
+        if sheet_version is None:
+            raise NotFoundException("Character sheet version not found")
     else:
-        version = await char_sheet_repository.get_latest_published(char_sheet.id)
-        if version is None:
+        # The creator sees their latest work: a draft, when there is one, is
+        # always newer than the latest published version (publishing consumes
+        # the draft, and a new draft starts from the latest published layout).
+        # Everyone else only ever sees published versions.
+        sheet_version = None
+        if is_creator:
+            sheet_version = await char_sheet_repository.get_draft(char_sheet.id)
+        if sheet_version is None:
+            sheet_version = await char_sheet_repository.get_latest_published(
+                char_sheet.id
+            )
+        if sheet_version is None:
             raise NotFoundException("Character sheet has no published version")
 
-    return _char_sheet_response(char_sheet, version)
+    return _char_sheet_response(char_sheet, sheet_version)
 
 
 @character_sheets.patch("/{char_sheet_id}", response_model=schemas.GetCharSheetResponse)
@@ -182,18 +210,19 @@ async def update_char_sheet(
         raise ForbiddenException("Only the creator can edit this character sheet")
 
     validate_sheet_layout(data.layout)
+    layout = mint_ids(data.layout)
 
     char_sheet = await char_sheet_repository.update_details(
         char_sheet, name=data.name, description=data.description
     )
     draft = await char_sheet_repository.get_or_create_draft(char_sheet)
-    draft = await char_sheet_repository.update_draft(draft, layout=data.layout)
+    draft = await char_sheet_repository.update_draft(draft, layout=layout)
 
     return _char_sheet_response(char_sheet, draft)
 
 
 @character_sheets.post(
-    "/{char_sheet_id}/publish", response_model=schemas.GetCharSheetResponse
+    "/{char_sheet_id}/publish", response_model=schemas.PublishCharSheetResponse
 )
 async def publish_char_sheet(
     char_sheet_id: int,
@@ -215,9 +244,18 @@ async def publish_char_sheet(
 
     validate_publishable_layout(draft.layout)
 
+    previous = await char_sheet_repository.get_latest_published(char_sheet.id)
+    id_diff = validate_publish_ids(
+        previous.layout if previous is not None else None, draft.layout
+    )
+
     version = await char_sheet_repository.publish(draft, changelog=data.changelog)
 
-    return _char_sheet_response(char_sheet, version)
+    return schemas.PublishCharSheetResponse(
+        **_char_sheet_response(char_sheet, version).model_dump(),
+        added_field_ids=id_diff.added,
+        removed_field_ids=id_diff.removed,
+    )
 
 
 @character_sheets.delete("/{char_sheet_id}", status_code=status.HTTP_204_NO_CONTENT)
