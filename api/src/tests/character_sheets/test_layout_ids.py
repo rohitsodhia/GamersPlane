@@ -1,3 +1,4 @@
+import copy
 import re
 
 import pytest
@@ -29,9 +30,7 @@ class TestMintIds:
 
     def test_leaves_decorative_nodes_without_an_id(self):
         layout = mint_ids(
-            _layout(
-                {"type": "section", "content": [{"type": "label", "text": "Name"}]}
-            )
+            _layout({"type": "section", "content": [{"type": "label", "text": "Name"}]})
         )
 
         section = layout["elements"][0]
@@ -66,7 +65,7 @@ class TestMintIds:
 
         assert layout["elements"][0]["id"] == "deadbeef"
 
-    def test_regenerates_a_duplicate_id_in_the_same_scope(self):
+    def test_regenerates_a_duplicate_id(self):
         layout = mint_ids(
             _layout(
                 {"type": "input", "name": "a", "id": "deadbeef"},
@@ -96,21 +95,39 @@ class TestMintIds:
         assert _ID_RE.match(repeater["content"][0]["id"])
         assert _ID_RE.match(repeater["header"][0]["id"])
 
-    def test_repeater_row_template_ids_may_reuse_a_root_id(self):
-        # Different scopes, so the 8-char space doesn't need to avoid a root id.
-        layout = mint_ids(
-            _layout(
-                {"type": "input", "name": "a", "id": "deadbeef"},
+    @pytest.mark.parametrize(
+        ("container", "template_key"),
+        [
+            ({"type": "repeater", "name": "rows"}, "content"),
+            (
                 {
-                    "type": "repeater",
-                    "name": "rows",
-                    "content": [{"type": "input", "name": "b", "id": "deadbeef"}],
+                    "type": "grid",
+                    "name": "stats",
+                    "items": [{"key": "str", "id": "bbbbbbbb"}],
                 },
-            )
-        )
+                "row",
+            ),
+        ],
+    )
+    def test_a_copy_pasted_container_gets_fresh_inner_ids(
+        self, container, template_key
+    ):
+        # Pasting a repeater/grid duplicates its row-template ids too. They'd be
+        # unique within each container's own scope, but publish checks the
+        # whole document, so they have to be re-minted here or publish is
+        # blocked.
+        container = {
+            **container,
+            "id": "aaaaaaaa",
+            template_key: [{"type": "input", "name": "b", "id": "deadbeef"}],
+        }
+        layout = mint_ids(_layout(container, copy.deepcopy(container)))
 
-        assert layout["elements"][0]["id"] == "deadbeef"
-        assert layout["elements"][1]["content"][0]["id"] == "deadbeef"
+        validate_publish_ids(None, layout)
+        original, pasted = layout["elements"]
+        assert original[template_key][0]["id"] == "deadbeef"
+        assert _ID_RE.match(pasted[template_key][0]["id"])
+        assert pasted[template_key][0]["id"] != "deadbeef"
 
     def test_mints_ids_for_compact_grid_items_and_row_template(self):
         layout = mint_ids(
@@ -118,7 +135,10 @@ class TestMintIds:
                 {
                     "type": "grid",
                     "name": "stats",
-                    "items": [{"key": "str", "label": "STR"}, {"key": "dex", "label": "DEX"}],
+                    "items": [
+                        {"key": "str", "label": "STR"},
+                        {"key": "dex", "label": "DEX"},
+                    ],
                     "row": [{"type": "input", "name": "score"}],
                 }
             )
@@ -130,7 +150,7 @@ class TestMintIds:
         assert len(set(item_ids)) == 2
         assert _ID_RE.match(grid["row"][0]["id"])
 
-    def test_mints_ids_for_explicit_grid_rows_and_header_in_the_root_scope(self):
+    def test_mints_ids_for_explicit_grid_rows(self):
         layout = mint_ids(
             _layout(
                 {
@@ -213,7 +233,9 @@ class TestValidatePublishIds:
         node_id = previous["elements"][0]["id"]
         new = _layout({"type": "select", "name": "a", "id": node_id, "values": ["x"]})
 
-        with pytest.raises(ValidationError, match="changed from a 'input' to a 'select'"):
+        with pytest.raises(
+            ValidationError, match="changed from a 'input' to a 'select'"
+        ):
             validate_publish_ids(previous, new)
 
     def test_rejects_a_hand_authored_id_on_a_new_field(self):

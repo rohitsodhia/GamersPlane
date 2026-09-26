@@ -5,10 +5,10 @@ in the assistant's memory, not a code doc): every node that owns a slot in the
 value store -- a scalar field (`input`/`textarea`/`select`/`checkbox`/a
 computed `text`) or a whole array/object (`repeater`/`grid`), plus a grid's
 per-row entries (a compact `items[]` item or an explicit `grid_row`) -- gets a
-stable, server-minted `id`. Authors leave `id` blank; :func:`mint_ids` fills it
-in on every draft save. Renaming a field's `name` later doesn't orphan it,
-because publish tracks the field by `id`, not by name (see
-:func:`validate_publish_ids`).
+stable, server-minted `id`, unique across the document. Authors leave `id`
+blank; :func:`mint_ids` fills it in on every draft save. Renaming a field's
+`name` later doesn't orphan it, because publish tracks the field by `id`, not
+by name (see :func:`validate_publish_ids`).
 
 This module does not yet change how *values* are stored or how formula refs
 resolve -- both still key off `name`/path (that's step 2, the id-keyed value
@@ -29,9 +29,9 @@ _SCALAR_FIELD_TYPES = frozenset({"input", "textarea", "select", "checkbox"})
 # Container types that write one array/object under their own `name`.
 _CONTAINER_FIELD_TYPES = frozenset({"repeater", "grid"})
 
-# Non-repeated child-element keys: nodes here stay in the enclosing scope
-# (mirrors `layout_validation._CHILD_ELEMENT_KEYS`, minus `row`, which is a
-# *template* and opens its own scope -- handled separately below).
+# Child-element keys walked on every node (mirrors
+# `layout_validation._CHILD_ELEMENT_KEYS`, minus `row`, which only a grid has --
+# handled alongside its `items` below).
 _CHILD_ELEMENT_KEYS = ("content", "header")
 
 # 8 lowercase hex chars -- short, and shaped distinctly from anything a human
@@ -77,12 +77,12 @@ def _assign_id(node: dict, used: set[str]) -> None:
 def mint_ids(layout: dict) -> dict:
     """Fill in a blank/missing/duplicate `id` on every value-bearing node.
 
-    Mutates and returns `layout`. New ids only need to be unique within their
-    scope -- the document root (which also covers a grid's `header` and
-    explicit `content` rows, since neither is a repeated template), a
-    repeater's row template (`content` + `header` together), or a compact
-    grid's row template (`row`) -- each tracked with its own `used` set so
-    minting one repeater never has to know another repeater's ids.
+    Mutates and returns `layout`. The value store only needs ids unique within
+    a scope (the root, a repeater row template, a grid row template), but ids
+    are kept unique across the whole document: that satisfies every scope at
+    once, and it's what `validate_publish_ids` checks. Per-scope minting would
+    let a copy-pasted repeater keep its inner ids -- fine for its own scope,
+    but a duplicate that then blocks publish.
     """
     _mint_scope(layout.get("elements", []), used=set())
     return layout
@@ -101,26 +101,13 @@ def _mint_node(node: dict, *, used: set[str]) -> None:
     if _field_type(node) is not None:
         _assign_id(node, used)
 
-    if node_type == "repeater":
-        row_used: set[str] = set()
-        _mint_scope(node.get("content"), used=row_used)
-        _mint_scope(node.get("header"), used=row_used)
-        return
-
     if node_type == "grid":
         items = node.get("items")
         if isinstance(items, list):
-            item_used: set[str] = set()
             for item in items:
                 if isinstance(item, dict):
-                    _assign_id(item, item_used)
-        _mint_scope(node.get("row"), used=set())
-        # `header` (compact) and `content` (explicit grid_header/grid_row)
-        # aren't templates -- each node in them is a distinct authored row, so
-        # they share the enclosing scope like any other container.
-        _mint_scope(node.get("header"), used=used)
-        _mint_scope(node.get("content"), used=used)
-        return
+                    _assign_id(item, used)
+        _mint_scope(node.get("row"), used=used)
 
     for key in _CHILD_ELEMENT_KEYS:
         _mint_scope(node.get(key), used=used)
@@ -160,14 +147,6 @@ def _collect_node(
                 if isinstance(item, dict):
                     _record(item.get("id"), "grid_row", found, f"{path}.items[{index}]")
         _collect_scope(node.get("row"), found, path=f"{path}.row")
-        _collect_scope(node.get("header"), found, path=f"{path}.header")
-        _collect_scope(node.get("content"), found, path=f"{path}.content")
-        return
-
-    if node_type == "repeater":
-        _collect_scope(node.get("content"), found, path=f"{path}.content")
-        _collect_scope(node.get("header"), found, path=f"{path}.header")
-        return
 
     for key in _CHILD_ELEMENT_KEYS:
         _collect_scope(node.get(key), found, path=f"{path}.{key}")
@@ -205,11 +184,14 @@ def validate_publish_ids(previous_layout: dict | None, new_layout: dict) -> IdDi
     for node_id, entries in occurrences.items():
         if len(entries) > 1:
             paths = ", ".join(path for path, _ in entries)
-            raise ValidationError(f"Field id '{node_id}' is used more than once ({paths})")
+            raise ValidationError(
+                f"Field id '{node_id}' is used more than once ({paths})"
+            )
 
     new_types = {node_id: entries[0][1] for node_id, entries in occurrences.items()}
     previous_types = {
-        node_id: entries[0][1] for node_id, entries in collect_ids(previous_layout).items()
+        node_id: entries[0][1]
+        for node_id, entries in collect_ids(previous_layout).items()
     }
 
     for node_id, field_type in new_types.items():

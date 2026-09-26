@@ -4,6 +4,7 @@ import pytest
 from PIL import Image
 from sqlalchemy import select
 
+from app.characters.schemas import MAX_VALUES_SIZE
 from app.configs import configs
 from app.models import (
     Character,
@@ -132,7 +133,9 @@ class TestCreateCharacter:
         self, client, public_sheet, sheet_creator, create, auth_as, db_session
     ):
         repository = CharacterSheetRepository(db_session, principal=sheet_creator)
-        draft = await repository.get_or_create_draft(public_sheet)
+        draft = await repository.save_draft(
+            public_sheet, layout={"schema_version": 1, "elements": []}
+        )
         newer = await repository.publish(draft)
         user = await create(ActivatedUserFactory)
         auth_as(user)
@@ -242,6 +245,8 @@ class TestGetCharacter:
                 "system": {"id": "dnd5e", "name": "D&D 5e"},
             },
             "sheet_deleted": False,
+            "version_id": character.character_sheet_version_id,
+            "version_number": 1,
             "layout": SHEET_LAYOUT,
             "avatars": [],
         }
@@ -250,9 +255,8 @@ class TestGetCharacter:
         self, client, character, owner, sheet_creator, public_sheet, db_session, auth_as
     ):
         repository = CharacterSheetRepository(db_session, principal=sheet_creator)
-        draft = await repository.get_or_create_draft(public_sheet)
-        await repository.update_draft(
-            draft, layout={"schema_version": 1, "elements": []}
+        draft = await repository.save_draft(
+            public_sheet, layout={"schema_version": 1, "elements": []}
         )
         await repository.publish(draft)
         auth_as(owner)
@@ -339,6 +343,35 @@ class TestGetCharacters:
         body = response.json()
         assert body["total"] == 1
         assert [c["label"] for c in body["characters"]] == ["Aragorn"]
+
+    async def test_list_items_leave_out_the_layout_and_values(
+        self, client, public_sheet, owner, auth_as, db_session, wrap_in_savepoint
+    ):
+        character = await self._make_character(
+            db_session, owner, public_sheet, "Aragorn"
+        )
+        character.values = {"str": 18}
+        await db_session.flush()
+        auth_as(owner)
+
+        response = await client.get("/characters")
+
+        assert response.json()["characters"] == [
+            {
+                "id": character.id,
+                "label": "Aragorn",
+                "type": "pc",
+                "in_library": False,
+                "user": {"id": owner.id, "username": owner.username},
+                "character_sheet_id": public_sheet.id,
+                "character_sheet": {
+                    "id": public_sheet.id,
+                    "name": "Fighter",
+                    "system": {"id": "dnd5e", "name": "D&D 5e"},
+                },
+                "sheet_deleted": False,
+            }
+        ]
 
     async def test_keeps_characters_whose_sheet_was_deleted_listed_last(
         self,
@@ -995,6 +1028,20 @@ class TestUpdateCharacter:
         assert response.json()["label"] == "Strider"
         assert response.json()["type"] == "pc"
         assert response.json()["values"] == {"str": 18}
+
+    async def test_rejects_values_over_the_size_cap(
+        self, client, character, owner, db_session, auth_as
+    ):
+        auth_as(owner)
+
+        response = await client.patch(
+            f"/characters/{character.id}",
+            json={"values": {"notes": "x" * MAX_VALUES_SIZE}},
+        )
+
+        assert response.status_code == 422
+        await db_session.refresh(character, ["values"])
+        assert character.values is None
 
 
 class TestAddCharacterAvatar:

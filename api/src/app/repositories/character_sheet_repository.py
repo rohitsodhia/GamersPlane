@@ -6,9 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
 from app.character_sheets.defaults import default_sheet_layout
-from app.character_sheets.layout_ids import mint_ids
-from app.character_sheets.layout_validation import SCHEMA_VERSION
+from app.character_sheets.layout_ids import IdDiff, mint_ids, validate_publish_ids
+from app.character_sheets.layout_validation import (
+    SCHEMA_VERSION,
+    validate_publishable_layout,
+)
 from app.configs import configs
+from app.exceptions import ConflictException
 from app.models import (
     CharacterSheet,
     CharacterSheetFavorite,
@@ -16,6 +20,12 @@ from app.models import (
     System,
     User,
 )
+
+
+def _minted(layout: dict) -> dict:
+    """A copy of `layout` with its field ids minted, so the caller's dict is
+    never mutated."""
+    return mint_ids(copy.deepcopy(layout))
 
 
 class CharacterSheetRepository:
@@ -26,7 +36,8 @@ class CharacterSheetRepository:
     async def create(
         self, name: str, system_id: str, layout: dict | None = None
     ) -> CharacterSheet:
-        """Create a sheet with its initial draft version."""
+        """Create a sheet with its initial draft version, minting field ids on
+        `layout` (or the default layout when none is given)."""
         char_sheet = CharacterSheet(
             creator_id=self.principal.id,
             name=name,
@@ -39,9 +50,9 @@ class CharacterSheetRepository:
             CharacterSheetVersion(
                 character_sheet_id=char_sheet.id,
                 schema_version=SCHEMA_VERSION,
-                layout=layout
-                if layout is not None
-                else mint_ids(default_sheet_layout()),
+                layout=_minted(
+                    layout if layout is not None else default_sheet_layout()
+                ),
             )
         )
         await self.db_session.flush()
@@ -91,39 +102,46 @@ class CharacterSheetRepository:
         )
         return await self.db_session.scalar(query)
 
-    async def get_or_create_draft(
-        self, char_sheet: CharacterSheet
-    ) -> CharacterSheetVersion:
-        """Return the sheet's draft, starting one from the latest published
-        layout when there isn't one (publishing consumes the draft)."""
-        draft = await self.get_draft(char_sheet.id)
-        if draft is not None:
-            return draft
-
-        latest = await self.get_latest_published(char_sheet.id)
-        draft = CharacterSheetVersion(
-            character_sheet_id=char_sheet.id,
-            schema_version=SCHEMA_VERSION,
-            layout=copy.deepcopy(latest.layout)
-            if latest is not None
-            else mint_ids(default_sheet_layout()),
-        )
-        self.db_session.add(draft)
-        await self.db_session.flush()
-
-        return draft
-
     async def update_draft(
         self, version: CharacterSheetVersion, *, layout: dict
     ) -> CharacterSheetVersion:
         if not version.is_draft:
             raise ValueError("Published versions are immutable")
 
-        version.layout = layout
+        version.layout = _minted(layout)
         version.schema_version = SCHEMA_VERSION
         await self.db_session.flush()
 
         return version
+
+    async def save_draft(
+        self, char_sheet: CharacterSheet, *, layout: dict
+    ) -> CharacterSheetVersion:
+        """Save `layout` as the sheet's draft and return the version now
+        holding it.
+
+        A save that doesn't change anything is a no-op: with no draft open and
+        `layout` identical to the latest published version, no draft is
+        started and that published version is returned instead.
+        """
+        draft = await self.get_draft(char_sheet.id)
+        if draft is not None:
+            return await self.update_draft(draft, layout=layout)
+
+        layout = _minted(layout)
+        latest = await self.get_latest_published(char_sheet.id)
+        if latest is not None and latest.layout == layout:
+            return latest
+
+        draft = CharacterSheetVersion(
+            character_sheet_id=char_sheet.id,
+            schema_version=SCHEMA_VERSION,
+            layout=layout,
+        )
+        self.db_session.add(draft)
+        await self.db_session.flush()
+
+        return draft
 
     async def update_details(
         self, char_sheet: CharacterSheet, *, name: str, description: dict | None
@@ -153,6 +171,36 @@ class CharacterSheetRepository:
         await self.db_session.flush()
 
         return version
+
+    async def publish_draft(
+        self, char_sheet: CharacterSheet, *, changelog: str | None = None
+    ) -> tuple[CharacterSheetVersion, IdDiff]:
+        """Validate the sheet's draft and publish it as the next version.
+
+        The gated counterpart to :meth:`publish` -- the path the API and CLI
+        use. Returns the new version plus the field ids it added/removed
+        relative to the previously published one.
+
+        A draft identical to the latest published version (e.g. edits that
+        were reverted) publishes nothing: the draft is discarded and the
+        latest published version is returned with an empty diff.
+        """
+        draft = await self.get_draft(char_sheet.id)
+        if draft is None:
+            raise ConflictException("There are no unpublished changes to publish")
+
+        previous = await self.get_latest_published(char_sheet.id)
+        if previous is not None and draft.layout == previous.layout:
+            await self.db_session.delete(draft)
+            await self.db_session.flush()
+            return previous, IdDiff(added=[], removed=[])
+
+        validate_publishable_layout(draft.layout)
+        id_diff = validate_publish_ids(
+            previous.layout if previous is not None else None, draft.layout
+        )
+
+        return await self.publish(draft, changelog=changelog), id_diff
 
     def _list_query(
         self,

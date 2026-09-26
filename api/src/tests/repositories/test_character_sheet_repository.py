@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from sqlalchemy import select
 
@@ -58,6 +60,21 @@ class TestCreate:
         assert draft.number is None
         assert draft.schema_version == SCHEMA_VERSION
 
+    async def test_create_mints_ids_on_a_copy_of_the_given_layout(
+        self, repository, system
+    ):
+        # Every caller (API, CLI) gets ids minted here -- and a caller's dict,
+        # e.g. a module-level constant, isn't mutated along the way.
+        layout = {"schema_version": 1, "elements": [{"type": "input", "name": "hp"}]}
+
+        sheet = await repository.create(
+            name="Fighter", system_id=system.id, layout=layout
+        )
+
+        stored = (await repository.get_draft(sheet.id)).layout
+        assert re.fullmatch(r"[0-9a-f]{8}", stored["elements"][0]["id"])
+        assert "id" not in layout["elements"][0]
+
     async def test_create_falls_back_to_the_default_layout(self, repository, system):
         sheet = await repository.create(name="Fighter", system_id=system.id)
 
@@ -87,7 +104,9 @@ class TestVersions:
         first = await repository.publish(
             await repository.get_draft(sheet.id), changelog="first"
         )
-        second = await repository.publish(await repository.get_or_create_draft(sheet))
+        second = await repository.publish(
+            await repository.save_draft(sheet, layout={"elements": ["v2"]})
+        )
 
         assert (first.number, second.number) == (1, 2)
         assert first.changelog == "first"
@@ -98,7 +117,9 @@ class TestVersions:
         assert await repository.get_latest_published(sheet.id) is None
 
         published = await repository.publish(await repository.get_draft(sheet.id))
-        await repository.get_or_create_draft(sheet)
+        assert (
+            await repository.save_draft(sheet, layout={"elements": ["v2"]})
+        ).is_draft
 
         assert (await repository.get_latest_published(sheet.id)).id == published.id
 
@@ -110,26 +131,15 @@ class TestVersions:
         assert (await repository.get_published(sheet.id, 1)).id == published.id
         assert await repository.get_published(sheet.id, 2) is None
 
-    async def test_get_or_create_draft_copies_the_latest_published_layout(
+    async def test_save_draft_updates_an_existing_draft_in_place(
         self, repository, sheet
     ):
-        published = await repository.publish(await repository.get_draft(sheet.id))
+        initial = await repository.get_draft(sheet.id)
 
-        draft = await repository.get_or_create_draft(sheet)
+        saved = await repository.save_draft(sheet, layout={"elements": ["v2"]})
 
-        assert draft.id != published.id
-        assert draft.layout == {"elements": ["v1"]}
-
-        await repository.update_draft(draft, layout={"elements": ["v2"]})
-
-        assert published.layout == {"elements": ["v1"]}
-
-    async def test_get_or_create_draft_reuses_an_existing_draft(
-        self, repository, sheet
-    ):
-        first = await repository.get_or_create_draft(sheet)
-
-        assert (await repository.get_or_create_draft(sheet)).id == first.id
+        assert saved.id == initial.id
+        assert saved.layout == {"elements": ["v2"]}
 
     async def test_published_versions_are_immutable(self, repository, sheet):
         published = await repository.publish(await repository.get_draft(sheet.id))

@@ -151,14 +151,9 @@ class CharacterRepository:
             .outerjoin(CharacterSheet.system)
             .order_by(System.sort_name.asc().nulls_last(), Character.label.asc())
             .options(
-                selectinload(Character.character_sheet).options(
-                    selectinload(CharacterSheet.creator),
-                    selectinload(CharacterSheet.system),
+                selectinload(Character.character_sheet).selectinload(
+                    CharacterSheet.system
                 ),
-                selectinload(Character.character_sheet_version).options(
-                    undefer(CharacterSheetVersion.layout)
-                ),
-                selectinload(Character.avatars),
                 selectinload(Character.user),
             )
             .limit(limit)

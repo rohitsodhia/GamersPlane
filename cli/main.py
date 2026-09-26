@@ -8,10 +8,7 @@ import typer
 from mimesis import Text
 from sqlalchemy import text
 
-from app.character_sheets.layout_validation import (
-    validate_publishable_layout,
-    validate_sheet_layout,
-)
+from app.character_sheets.layout_validation import validate_sheet_layout
 from app.configs import configs
 from app.database import session_manager
 from app.exceptions import ValidationError
@@ -172,8 +169,8 @@ async def seed():
             system_id="dnd5",
         )
         # New sheets start as a draft; characters can only pin published versions.
-        character_sheet_version = await character_sheet_repo.publish(
-            await character_sheet_repo.get_draft(character_sheet.id)
+        character_sheet_version, _ = await character_sheet_repo.publish_draft(
+            character_sheet
         )
         typer.echo("Character Sheet added")
 
@@ -310,21 +307,21 @@ async def create_char_sheet(
             name=name, system_id=system_id, layout=layout
         )
         character_sheet.status = status
-        draft = await repository.get_draft(character_sheet.id)
 
         # Same gates as the API: drafts only need the shape check, publishing
-        # also needs the required name/notes fields.
+        # runs the full publish validation.
         try:
             if publish:
-                validate_publishable_layout(draft.layout)
+                version, _ = await repository.publish_draft(character_sheet)
             else:
-                validate_sheet_layout(draft.layout)
+                validate_sheet_layout(
+                    (await repository.get_draft(character_sheet.id)).layout
+                )
         except ValidationError as e:
             typer.echo(f"Invalid layout: {e}")
             raise typer.Exit(code=1)
 
         if publish:
-            version = await repository.publish(draft)
             typer.echo(
                 f"Character sheet {character_sheet.id} created and published "
                 f"(v{version.number}): {character_sheet.name}"

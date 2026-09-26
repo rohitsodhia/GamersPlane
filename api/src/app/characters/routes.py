@@ -71,10 +71,26 @@ async def get_characters(
     return schemas.GetCharactersResponse(
         characters=[
             schemas.CharacterListItem(
-                **_character_response(character).model_dump(),
+                id=character.id,
+                label=character.label,
+                type=character.type,
+                in_library=character.in_library,
                 user=schemas.LibraryUserData(
                     id=character.user.id, username=character.user.username
                 ),
+                character_sheet_id=character.character_sheet_id,
+                # A soft-deleted sheet is filtered out of the relationship load.
+                character_sheet=None
+                if character.character_sheet is None
+                else schemas.CharacterListSheetData(
+                    id=character.character_sheet.id,
+                    name=character.character_sheet.name,
+                    system=schemas.SystemData(
+                        id=character.character_sheet.system.id,
+                        name=character.character_sheet.system.name,
+                    ),
+                ),
+                sheet_deleted=character.character_sheet is None,
             )
             for character in characters
         ],
@@ -337,6 +353,8 @@ def _character_response(character) -> schemas.GetCharacterResponse:
             ),
         ),
         sheet_deleted=sheet is None,
+        version_id=character.character_sheet_version.id,
+        version_number=character.character_sheet_version.number,
         layout=character.character_sheet_version.layout,
         avatars=[_avatar_data(avatar) for avatar in character.avatars],
     )

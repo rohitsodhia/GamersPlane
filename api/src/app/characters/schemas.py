@@ -1,7 +1,16 @@
 from __future__ import annotations
 
+import json
+
+from pydantic import field_validator
+
 from app.models import Character
 from app.schema_base import SchemaBase, filtered_str
+
+# Serialized size cap on a character's `values` document, measured as the
+# `json.dumps` length (non-ASCII is escaped, so this over- rather than
+# under-counts the stored bytes).
+MAX_VALUES_SIZE = 512 * 1024
 
 
 class SystemData(SchemaBase):
@@ -30,6 +39,17 @@ class UpdateCharacterInput(SchemaBase):
     type: Character.Type | None = None
     values: dict | None = None
 
+    @field_validator("values")
+    @classmethod
+    def validate_values_size(cls, v: dict | None) -> dict | None:
+        # Values aren't checked against the sheet yet (see step 2 of sheet
+        # versioning), so at least keep a client from storing an unbounded blob.
+        if v is not None and len(json.dumps(v)) > MAX_VALUES_SIZE:
+            raise ValueError(
+                f"Character values can't exceed {MAX_VALUES_SIZE // 1024} KB"
+            )
+        return v
+
 
 class CharacterSheetData(SchemaBase):
     id: int
@@ -57,6 +77,9 @@ class GetCharacterResponse(SchemaBase):
     # its pinned version's layout.
     character_sheet: CharacterSheetData | None
     sheet_deleted: bool
+    # The sheet version this character is pinned to, and its layout.
+    version_id: int
+    version_number: int
     layout: dict
     avatars: list[CharacterAvatarData]
 
@@ -66,8 +89,21 @@ class LibraryUserData(SchemaBase):
     username: str
 
 
-class CharacterListItem(GetCharacterResponse):
+class CharacterListSheetData(SchemaBase):
+    id: int
+    name: str
+    system: SystemData
+
+
+class CharacterListItem(SchemaBase):
+    id: int
+    label: str
+    type: Character.Type
+    in_library: bool
     user: LibraryUserData
+    character_sheet_id: int
+    character_sheet: CharacterListSheetData | None
+    sheet_deleted: bool
 
 
 class GetCharactersResponse(SchemaBase):

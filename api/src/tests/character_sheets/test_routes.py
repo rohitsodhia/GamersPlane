@@ -646,10 +646,7 @@ class TestGetCharSheet:
     @pytest.fixture
     async def sheet_with_draft(self, sheet, creator, db_session):
         repository = CharacterSheetRepository(db_session, principal=creator)
-        draft = await repository.get_or_create_draft(sheet)
-        await repository.update_draft(
-            draft, layout={"schema_version": 1, "elements": []}
-        )
+        await repository.save_draft(sheet, layout={"schema_version": 1, "elements": []})
         return sheet
 
     async def test_returns_the_draft_of_an_unpublished_sheet_to_the_creator(
@@ -664,8 +661,10 @@ class TestGetCharSheet:
         assert response.json()["version_number"] is None
 
     async def test_returns_404_for_an_unpublished_sheet_to_non_creators(
-        self, client, unpublished_sheet, create, auth_as
+        self, client, unpublished_sheet, create, db_session, auth_as
     ):
+        unpublished_sheet.status = CharacterSheet.Status.PUBLIC
+        await db_session.flush()
         auth_as(await create(ActivatedUserFactory))
 
         response = await client.get(f"/character_sheets/{unpublished_sheet.id}")
@@ -683,12 +682,25 @@ class TestGetCharSheet:
         assert response.json()["is_draft"] is True
         assert response.json()["layout"]["elements"] == []
 
-    async def test_returns_the_latest_published_version_to_non_creators(
-        self, client, sheet_with_draft, create, auth_as
+    @pytest.mark.parametrize(
+        "status", [CharacterSheet.Status.PRIVATE, CharacterSheet.Status.RETIRED]
+    )
+    async def test_forbids_non_creators_on_a_sheet_that_is_not_public(
+        self, client, sheet, create, db_session, auth_as, status
     ):
-        # No status gate yet: any authed user can read a private sheet's
-        # published version. Pin that so a future change to it is deliberate.
-        assert sheet_with_draft.status == CharacterSheet.Status.PRIVATE
+        sheet.status = status
+        await db_session.flush()
+        auth_as(await create(ActivatedUserFactory))
+
+        response = await client.get(f"/character_sheets/{sheet.id}")
+
+        assert response.status_code == 403
+
+    async def test_returns_the_latest_published_version_to_non_creators(
+        self, client, sheet_with_draft, create, db_session, auth_as
+    ):
+        sheet_with_draft.status = CharacterSheet.Status.PUBLIC
+        await db_session.flush()
         auth_as(await create(ActivatedUserFactory))
 
         response = await client.get(f"/character_sheets/{sheet_with_draft.id}")
@@ -731,6 +743,8 @@ class TestGetCharSheet:
     ):
         repository = CharacterSheetRepository(db_session, principal=creator)
         await repository.publish(await repository.get_draft(sheet_with_draft.id))
+        sheet_with_draft.status = CharacterSheet.Status.PUBLIC
+        await db_session.flush()
         auth_as(await create(ActivatedUserFactory))
 
         response = await client.get(
@@ -779,10 +793,13 @@ class TestGetCharSheet:
         assert response.json()["errors"][0]["detail"] == "Character sheet has no draft"
 
     async def test_version_draft_is_forbidden_to_non_creators(
-        self, client, sheet, create, auth_as
+        self, client, sheet, create, db_session, auth_as
     ):
         # `sheet` has no draft: a 403 rather than a 404 shows the permission
         # check runs first, so non-creators can't probe whether a draft exists.
+        # Public, so the 403 comes from the draft gate, not the status gate.
+        sheet.status = CharacterSheet.Status.PUBLIC
+        await db_session.flush()
         auth_as(await create(ActivatedUserFactory))
 
         response = await client.get(f"/character_sheets/{sheet.id}?version=draft")
@@ -934,6 +951,25 @@ class TestUpdateCharSheet:
         draft = await repository.get_draft(sheet.id)
         assert draft.layout == new_layout
 
+    async def test_saving_the_published_layout_unchanged_starts_no_draft(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        published = await repository.publish(await repository.get_draft(sheet.id))
+        auth_as(creator)
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={"name": "Renamed", "layout": {"schema_version": 1, "elements": []}},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["version_id"] == published.id
+        assert response.json()["is_draft"] is False
+        # Name/description aren't versioned, so they still save.
+        assert response.json()["name"] == "Renamed"
+        assert await repository.get_draft(sheet.id) is None
+
     async def test_rejects_a_layout_off_the_sheet_profile(
         self, client, sheet, creator, db_session, auth_as
     ):
@@ -1011,6 +1047,15 @@ VALID_LAYOUT = {
 }
 
 
+def _add_input_field(layout):
+    """A copy of `layout` (ids and all) with one new `input` appended -- a
+    genuine change."""
+    return {
+        **layout,
+        "elements": [*layout["elements"], {"type": "input", "name": "hp"}],
+    }
+
+
 class TestPublishCharSheet:
     @pytest.fixture
     async def creator(self, create):
@@ -1065,10 +1110,13 @@ class TestPublishCharSheet:
         self, client, sheet, creator, auth_as
     ):
         auth_as(creator)
-        await client.post(f"/character_sheets/{sheet.id}/publish", json={})
+        first = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
         await client.patch(
             f"/character_sheets/{sheet.id}",
-            json={"name": "Fighter", "layout": VALID_LAYOUT},
+            json={
+                "name": "Fighter",
+                "layout": _add_input_field(first.json()["layout"]),
+            },
         )
 
         response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
@@ -1085,6 +1133,34 @@ class TestPublishCharSheet:
         response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
 
         assert response.status_code == 409
+
+    async def test_a_draft_matching_the_published_version_is_discarded(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        auth_as(creator)
+        first = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
+        published_layout = first.json()["layout"]
+        # Edit, then revert: the draft survives the revert, holding exactly
+        # the published layout.
+        await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={"name": "Fighter", "layout": _add_input_field(published_layout)},
+        )
+        await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={"name": "Fighter", "layout": published_layout},
+        )
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        assert await repository.get_draft(sheet.id) is not None
+
+        response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
+
+        assert response.status_code == 200
+        assert response.json()["version_id"] == first.json()["version_id"]
+        assert response.json()["version_number"] == 1
+        assert response.json()["added_field_ids"] == []
+        assert response.json()["removed_field_ids"] == []
+        assert await repository.get_draft(sheet.id) is None
 
     async def test_rejects_a_draft_missing_the_required_fields(
         self, client, sheet, creator, db_session, auth_as
@@ -1242,18 +1318,17 @@ class TestPublishCharSheetFieldIds:
     async def test_a_duplicate_id_is_rejected(
         self, client, sheet, creator, db_session, auth_as
     ):
-        # Goes through the repository directly, bypassing the PATCH route's own
-        # `mint_ids` call, which would otherwise self-heal the duplicate before
-        # publish ever sees it -- this exercises publish's own defensive check.
+        # Writes the draft row directly, bypassing the repository's `mint_ids`,
+        # which would otherwise self-heal the duplicate before publish ever
+        # sees it -- this exercises publish's own defensive check.
         repository = CharacterSheetRepository(db_session, principal=creator)
-        draft = await repository.get_or_create_draft(sheet)
-        await repository.update_draft(
-            draft,
-            layout=_layout_with(
-                {"type": "input", "name": "hp", "id": "aaaaaaaa"},
-                {"type": "input", "name": "mp", "id": "aaaaaaaa"},
-            ),
+        # A freshly created sheet's initial draft.
+        draft = await repository.get_draft(sheet.id)
+        draft.layout = _layout_with(
+            {"type": "input", "name": "hp", "id": "aaaaaaaa"},
+            {"type": "input", "name": "mp", "id": "aaaaaaaa"},
         )
+        await db_session.flush()
         auth_as(creator)
 
         response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})

@@ -3,14 +3,9 @@ from typing import Literal
 from fastapi import APIRouter, Query, status
 
 from app.character_sheets import schemas
-from app.character_sheets.defaults import default_sheet_layout
-from app.character_sheets.layout_ids import mint_ids, validate_publish_ids
-from app.character_sheets.layout_validation import (
-    validate_publishable_layout,
-    validate_sheet_layout,
-)
+from app.character_sheets.layout_validation import validate_sheet_layout
 from app.database import DBSessionDependency
-from app.exceptions import ConflictException, ForbiddenException, NotFoundException
+from app.exceptions import ForbiddenException, NotFoundException
 from app.middleware import Principal
 from app.models import CharacterSheet, CharacterSheetVersion
 from app.repositories import (
@@ -58,9 +53,7 @@ async def create_char_sheet(
 
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
     char_sheet = await char_sheet_repository.create(
-        name=data.name,
-        system_id=data.system_id,
-        layout=mint_ids(default_sheet_layout()),
+        name=data.name, system_id=data.system_id
     )
 
     return schemas.CreateCharSheetResponse(id=char_sheet.id)
@@ -163,6 +156,8 @@ async def get_char_sheet(
         raise NotFoundException("Character sheet not found")
 
     is_creator = char_sheet.creator_id == principal.id
+    if not char_sheet.is_public and not is_creator:
+        raise ForbiddenException("Character sheet not available")
 
     if version == "draft":
         if not is_creator:
@@ -210,15 +205,13 @@ async def update_char_sheet(
         raise ForbiddenException("Only the creator can edit this character sheet")
 
     validate_sheet_layout(data.layout)
-    layout = mint_ids(data.layout)
 
     char_sheet = await char_sheet_repository.update_details(
         char_sheet, name=data.name, description=data.description
     )
-    draft = await char_sheet_repository.get_or_create_draft(char_sheet)
-    draft = await char_sheet_repository.update_draft(draft, layout=layout)
+    version = await char_sheet_repository.save_draft(char_sheet, layout=data.layout)
 
-    return _char_sheet_response(char_sheet, draft)
+    return _char_sheet_response(char_sheet, version)
 
 
 @character_sheets.post(
@@ -238,18 +231,9 @@ async def publish_char_sheet(
     if char_sheet.creator_id != principal.id:
         raise ForbiddenException("Only the creator can publish this character sheet")
 
-    draft = await char_sheet_repository.get_draft(char_sheet.id)
-    if draft is None:
-        raise ConflictException("There are no unpublished changes to publish")
-
-    validate_publishable_layout(draft.layout)
-
-    previous = await char_sheet_repository.get_latest_published(char_sheet.id)
-    id_diff = validate_publish_ids(
-        previous.layout if previous is not None else None, draft.layout
+    version, id_diff = await char_sheet_repository.publish_draft(
+        char_sheet, changelog=data.changelog
     )
-
-    version = await char_sheet_repository.publish(draft, changelog=data.changelog)
 
     return schemas.PublishCharSheetResponse(
         **_char_sheet_response(char_sheet, version).model_dump(),

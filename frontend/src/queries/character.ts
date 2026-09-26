@@ -28,6 +28,9 @@ export type Character = {
 		system: { id: string; name: string };
 	} | null;
 	sheet_deleted: boolean;
+	/** The sheet version this character is pinned to. */
+	version_id: number;
+	version_number: number;
 	/** Layout of the sheet version this character is pinned to. */
 	layout: SheetSchema;
 	avatars: CharacterAvatar[];
