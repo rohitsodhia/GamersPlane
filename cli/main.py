@@ -281,7 +281,9 @@ async def create_char_sheet(
         readable=True,
     ),
     publish: bool = typer.Option(
-        True, help="Publish the draft so characters can be created from it."
+        True,
+        prompt="Publish? (no leaves it as a draft)",
+        help="Publish the draft so characters can be created from it.",
     ),
 ):
     layout = None
