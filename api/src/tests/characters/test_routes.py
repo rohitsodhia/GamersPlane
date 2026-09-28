@@ -17,7 +17,17 @@ from tests.factories import ActivatedUserFactory, SystemFactory
 
 SHEET_LAYOUT = {
     "schema_version": 1,
-    "elements": [{"type": "header", "text": "Combat"}],
+    "elements": [
+        {"type": "header", "text": "Combat"},
+        {"type": "input", "name": "str", "id": "str1"},
+        {
+            "type": "grid",
+            "name": "skills",
+            "id": "skl1",
+            "items": [{"key": "stealth", "label": "Stealth", "id": "stl1"}],
+            "row": [{"type": "input", "name": "rank", "id": "rnk1"}],
+        },
+    ],
 }
 
 
@@ -94,6 +104,20 @@ class TestCreateCharacter:
 
         assert response.status_code == 404
         assert response.json()["errors"][0]["code"] == "not_found"
+
+    async def test_reports_a_missing_field_in_the_errors_shape(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post("/characters/", json={"label": "Aragorn"})
+
+        assert response.status_code == 422
+        assert response.json()["errors"] == [
+            {
+                "field": "character_sheet_id",
+                "code": "validation_error",
+                "detail": "Field required",
+            }
+        ]
 
     async def test_forbids_a_private_sheet_owned_by_someone_else(
         self, client, private_sheet, create, auth_as
@@ -941,7 +965,7 @@ class TestUpdateCharacter:
 
     async def test_requires_auth(self, client, character):
         response = await client.patch(
-            f"/characters/{character.id}", json={"values": {"str": 18}}
+            f"/characters/{character.id}", json={"values": {"str1": 18}}
         )
 
         assert response.status_code == 403
@@ -950,7 +974,7 @@ class TestUpdateCharacter:
         client, _user = authed_client
 
         response = await client.patch(
-            "/characters/999999", json={"values": {"str": 18}}
+            "/characters/999999", json={"values": {"str1": 18}}
         )
 
         assert response.status_code == 404
@@ -960,7 +984,7 @@ class TestUpdateCharacter:
         auth_as(stranger)
 
         response = await client.patch(
-            f"/characters/{character.id}", json={"values": {"str": 18}}
+            f"/characters/{character.id}", json={"values": {"str1": 18}}
         )
 
         assert response.status_code == 403
@@ -970,7 +994,7 @@ class TestUpdateCharacter:
         self, client, character, owner, public_sheet, db_session, auth_as
     ):
         auth_as(owner)
-        new_values = {"str": 18, "skills": {"stealth": 3}}
+        new_values = {"str1": 18, "skl1": {"stl1": {"rnk1": 3}}}
 
         response = await client.patch(
             f"/characters/{character.id}", json={"values": new_values}
@@ -1018,7 +1042,7 @@ class TestUpdateCharacter:
         self, client, character, owner, db_session, auth_as
     ):
         auth_as(owner)
-        await client.patch(f"/characters/{character.id}", json={"values": {"str": 18}})
+        await client.patch(f"/characters/{character.id}", json={"values": {"str1": 18}})
 
         response = await client.patch(
             f"/characters/{character.id}", json={"label": "Strider"}
@@ -1027,7 +1051,7 @@ class TestUpdateCharacter:
         assert response.status_code == 200
         assert response.json()["label"] == "Strider"
         assert response.json()["type"] == "pc"
-        assert response.json()["values"] == {"str": 18}
+        assert response.json()["values"] == {"str1": 18}
 
     async def test_rejects_values_over_the_size_cap(
         self, client, character, owner, db_session, auth_as
@@ -1040,8 +1064,46 @@ class TestUpdateCharacter:
         )
 
         assert response.status_code == 422
+        assert response.json()["errors"] == [
+            {
+                "field": "values",
+                "code": "validation_error",
+                "detail": "Character values can't exceed 512 KB",
+            }
+        ]
         await db_session.refresh(character, ["values"])
         assert character.values is None
+
+    async def test_rejects_values_the_sheet_doesnt_define(
+        self, client, character, owner, db_session, auth_as
+    ):
+        auth_as(owner)
+
+        response = await client.patch(
+            f"/characters/{character.id}", json={"values": {"nope": 1}}
+        )
+
+        assert response.status_code == 400
+        error = response.json()["errors"][0]
+        assert error["code"] == "validation_error"
+        assert "'nope'" in error["detail"]
+        await db_session.refresh(character, ["values"])
+        assert character.values is None
+
+    async def test_keeps_values_for_fields_the_sheet_no_longer_has(
+        self, client, character, owner, db_session, auth_as
+    ):
+        character.values = {"old1": "from an earlier version"}
+        await db_session.flush()
+        auth_as(owner)
+        new_values = {"old1": "from an earlier version", "str1": 18}
+
+        response = await client.patch(
+            f"/characters/{character.id}", json={"values": new_values}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["values"] == new_values
 
 
 class TestAddCharacterAvatar:

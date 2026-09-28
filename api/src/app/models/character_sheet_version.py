@@ -43,7 +43,9 @@ class CharacterSheetVersion(Base, TimestampMixin):
     number: Mapped[int | None] = mapped_column(nullable=True)
     schema_version: Mapped[int] = mapped_column()
     layout: Mapped[dict] = mapped_column(JSON(), default=dict, deferred=True)
-    changelog: Mapped[str | None] = mapped_column(nullable=True)
+    # Rich-text (Tiptap) JSON, like the sheet's description. Written while the
+    # version is a draft and frozen with it on publish.
+    changelog: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

@@ -3,6 +3,7 @@ from pathlib import Path
 from random import seed
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import middleware
@@ -50,6 +51,20 @@ if configs.ENVIRONMENT == "dev":
     from icecream.builtins import install
 
     install()
+
+
+def _request_validation_error_item(error: dict) -> ErrorItem:
+    """One Pydantic request error in our `{"errors": [...]}` shape, so clients
+    can show 422s the same way as every other error."""
+    # A validator's own `ValueError` message reads better than Pydantic's
+    # "Value error, ..." wrapper around it.
+    if error["type"] == "value_error" and "error" in error.get("ctx", {}):
+        detail = str(error["ctx"]["error"])
+    else:
+        detail = error["msg"]
+    # Drop the leading "body"/"query"/"path" from the location.
+    field = ".".join(str(part) for part in error["loc"][1:]) or None
+    return ErrorItem(field=field, code="validation_error", detail=detail)
 
 
 def create_app(init_db=True) -> FastAPI:
@@ -150,6 +165,15 @@ def create_app(init_db=True) -> FastAPI:
         return error_response(
             status_code=400,
             errors=[ErrorItem(code="validation_error", detail=str(exc))],
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_error_handler(
+        request: Request, exc: RequestValidationError
+    ):
+        return error_response(
+            status_code=422,
+            errors=[_request_validation_error_item(error) for error in exc.errors()],
         )
 
     @app.exception_handler(ConflictException)

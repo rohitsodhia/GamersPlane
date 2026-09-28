@@ -17,7 +17,9 @@ character_sheets = APIRouter(prefix="/character_sheets")
 
 
 def _char_sheet_response(
-    char_sheet: CharacterSheet, version: CharacterSheetVersion
+    char_sheet: CharacterSheet,
+    version: CharacterSheetVersion,
+    latest_version_number: int | None,
 ) -> schemas.GetCharSheetResponse:
     return schemas.GetCharSheetResponse(
         id=char_sheet.id,
@@ -34,7 +36,9 @@ def _char_sheet_response(
         description=char_sheet.description,
         version_id=version.id,
         version_number=version.number,
+        latest_version_number=latest_version_number,
         is_draft=version.is_draft,
+        changelog=version.changelog,
         layout=version.layout,
         status=char_sheet.status,
     )
@@ -186,7 +190,11 @@ async def get_char_sheet(
         if sheet_version is None:
             raise NotFoundException("Character sheet has no published version")
 
-    return _char_sheet_response(char_sheet, sheet_version)
+    return _char_sheet_response(
+        char_sheet,
+        sheet_version,
+        await char_sheet_repository.get_latest_published_number(char_sheet.id),
+    )
 
 
 @character_sheets.patch("/{char_sheet_id}", response_model=schemas.GetCharSheetResponse)
@@ -209,9 +217,15 @@ async def update_char_sheet(
     char_sheet = await char_sheet_repository.update_details(
         char_sheet, name=data.name, description=data.description
     )
-    version = await char_sheet_repository.save_draft(char_sheet, layout=data.layout)
+    version = await char_sheet_repository.save_draft(
+        char_sheet, layout=data.layout, changelog=data.changelog
+    )
 
-    return _char_sheet_response(char_sheet, version)
+    return _char_sheet_response(
+        char_sheet,
+        version,
+        await char_sheet_repository.get_latest_published_number(char_sheet.id),
+    )
 
 
 @character_sheets.post(
@@ -221,7 +235,6 @@ async def publish_char_sheet(
     char_sheet_id: int,
     db_session: DBSessionDependency,
     principal: Principal,
-    data: schemas.PublishCharSheetInput,
 ):
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
     char_sheet = await char_sheet_repository.get(char_sheet_id)
@@ -231,12 +244,12 @@ async def publish_char_sheet(
     if char_sheet.creator_id != principal.id:
         raise ForbiddenException("Only the creator can publish this character sheet")
 
-    version, id_diff = await char_sheet_repository.publish_draft(
-        char_sheet, changelog=data.changelog
-    )
+    version, id_diff = await char_sheet_repository.publish_draft(char_sheet)
 
+    # Publishing always leaves `version` as the newest published one (a no-op
+    # publish returns the latest).
     return schemas.PublishCharSheetResponse(
-        **_char_sheet_response(char_sheet, version).model_dump(),
+        **_char_sheet_response(char_sheet, version, version.number).model_dump(),
         added_field_ids=id_diff.added,
         removed_field_ids=id_diff.removed,
     )

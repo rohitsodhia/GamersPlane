@@ -8,21 +8,22 @@
 //   Expr :=
 //     | number                        literal, e.g. 10
 //     | boolean                       literal
-//     | { ref: string }               read another field's value (the caller
-//                                     resolves the name against the value store)
+//     | { ref: string }               read another field's value by ref path
+//                                     (the caller resolves it; see `refs.ts`)
 //     | { op: OpName, args: Expr[] }   apply a whitelisted operator / function
 //
 // `op` is a FIXED whitelist: no property access, no function lookup by string,
 // no `eval`. Same threat model as the "no author-supplied CSS" decision — the
 // sheet JSON is untrusted.
 //
-// A `ref` whose name starts with `$` is "magic": it is resolved from render
-// context rather than the value store (see `createRefResolver` in
-// `loop-context.tsx`). `$index` is the 0-based iteration index of the nearest
-// enclosing `loop`. The evaluator does not special-case these — resolution is
-// entirely the caller's resolver's job — but `isMagicRef` and the `collectRefs`
-// skip below keep the (future) dependency graph from treating them as store
-// fields.
+// A `ref` starting with `$` is relative to render context (see `refs.ts` and
+// `createRefResolver` in `loop-context.tsx`). `$row.x` still reads the value
+// store (from the current row), but `$index` (the nearest `loop`'s 0-based
+// iteration) and `$item.x` (its current `items` entry) are "magic": they never
+// touch the store. The evaluator does not special-case any of these —
+// resolution is entirely the caller's resolver's job — but `isMagicRef` and
+// the `collectRefs` skip below keep the (future) dependency graph from treating
+// magic refs as store fields.
 //
 // Not here (deferred, by design): the dependency graph / topological recompute
 // order / cycle detection that a full spreadsheet-style engine needs. This
@@ -32,7 +33,7 @@
 export type Expr = number | boolean | RefExpr | OpExpr;
 
 export interface RefExpr {
-	/** A field name, resolved by the caller against the current value scope. */
+	/** A ref path (`stats.str.mod`, `$row.score`, `$index`, …), resolved by the caller. */
 	ref: string;
 }
 
@@ -89,16 +90,17 @@ export function isOpName(op: string): op is OpName {
 
 /**
  * A `$`-prefixed ref resolved from render context (loop position, current item),
- * not the value store. See the header comment and `createRefResolver`.
+ * not the value store — `$index` and `$item.…`, but not the store-backed
+ * `$row.…` or a path starting with a dynamic `$(…)` segment. See the header
+ * comment and `createRefResolver`.
  */
 export function isMagicRef(name: string): boolean {
-	return name.startsWith("$");
+	return name === "$index" || name.startsWith("$item.");
 }
 
 /**
- * Resolves a bare `ref` name to its stored value. Supplied by the caller: the
- * `computed` element wires this to a lexical walk over the sheet value store
- * (row scope, then outward, then sheet). The evaluator never sees the store.
+ * Resolves a `ref` to its value. Supplied by the caller (`createRefResolver`,
+ * which resolves ref paths via `refs.ts`). The evaluator never sees the store.
  */
 export type RefResolver = (name: string) => unknown;
 
@@ -210,7 +212,7 @@ export function collectRefs(expr: Expr): string[] {
 	const walk = (e: Expr) => {
 		if (typeof e === "number" || typeof e === "boolean" || e === null) return;
 		if ("ref" in e) {
-			// Magic refs (`$index`, …) come from render context, not the store, so
+			// Magic refs (`$index`, `$item.…`) come from render context, not the store, so
 			// they are not dependencies the graph layer needs to track.
 			if (isMagicRef(e.ref)) return;
 			if (!seen.has(e.ref)) {

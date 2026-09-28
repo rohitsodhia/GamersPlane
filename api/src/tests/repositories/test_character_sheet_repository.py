@@ -101,15 +101,12 @@ class TestVersions:
         )
 
     async def test_publish_numbers_versions_sequentially(self, repository, sheet):
-        first = await repository.publish(
-            await repository.get_draft(sheet.id), changelog="first"
-        )
+        first = await repository.publish(await repository.get_draft(sheet.id))
         second = await repository.publish(
             await repository.save_draft(sheet, layout={"elements": ["v2"]})
         )
 
         assert (first.number, second.number) == (1, 2)
-        assert first.changelog == "first"
         assert first.published_at is not None
         assert not first.is_draft
 

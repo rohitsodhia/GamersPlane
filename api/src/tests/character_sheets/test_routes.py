@@ -659,6 +659,7 @@ class TestGetCharSheet:
         assert response.status_code == 200
         assert response.json()["is_draft"] is True
         assert response.json()["version_number"] is None
+        assert response.json()["latest_version_number"] is None
 
     async def test_returns_404_for_an_unpublished_sheet_to_non_creators(
         self, client, unpublished_sheet, create, db_session, auth_as
@@ -681,6 +682,8 @@ class TestGetCharSheet:
         assert response.status_code == 200
         assert response.json()["is_draft"] is True
         assert response.json()["layout"]["elements"] == []
+        # So the draft can be shown as the upcoming v2.
+        assert response.json()["latest_version_number"] == 1
 
     @pytest.mark.parametrize(
         "status", [CharacterSheet.Status.PRIVATE, CharacterSheet.Status.RETIRED]
@@ -730,7 +733,9 @@ class TestGetCharSheet:
             "description": None,
             "version_id": version.id,
             "version_number": 1,
+            "latest_version_number": 1,
             "is_draft": False,
+            "changelog": None,
             "layout": {
                 "schema_version": 1,
                 "elements": [{"type": "header", "text": "Combat"}],
@@ -907,6 +912,50 @@ class TestUpdateCharSheet:
         assert sheet.name == "Battle-Ready Fighter"
         assert sheet.description == description
 
+    async def test_creator_saves_the_changelog_on_the_draft(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        auth_as(creator)
+        changelog = prose_doc("Added a combat section.")
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={
+                "name": "Fighter",
+                "layout": {"schema_version": 1, "elements": []},
+                "changelog": changelog,
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["changelog"] == changelog
+        draft = await CharacterSheetRepository(db_session, principal=creator).get_draft(
+            sheet.id
+        )
+        assert draft.changelog == changelog
+
+    async def test_omitting_the_changelog_clears_the_drafts(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+        layout = {"schema_version": 1, "elements": []}
+        await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={
+                "name": "Fighter",
+                "layout": layout,
+                "changelog": prose_doc("Added a combat section."),
+            },
+        )
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={"name": "Fighter", "layout": layout},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["changelog"] is None
+
     async def test_omitting_description_clears_a_previously_set_one(
         self, client, sheet, creator, auth_as
     ):
@@ -938,18 +987,21 @@ class TestUpdateCharSheet:
             "schema_version": 1,
             "elements": [{"type": "header", "text": "Combat"}],
         }
+        changelog = prose_doc("Added a combat header.")
 
         response = await client.patch(
             f"/character_sheets/{sheet.id}",
-            json={"name": "Fighter", "layout": new_layout},
+            json={"name": "Fighter", "layout": new_layout, "changelog": changelog},
         )
 
         assert response.status_code == 200
         assert response.json()["version_id"] != published.id
         await db_session.refresh(published, ["layout"])
         assert published.layout == {"schema_version": 1, "elements": []}
+        assert published.changelog is None
         draft = await repository.get_draft(sheet.id)
         assert draft.layout == new_layout
+        assert draft.changelog == changelog
 
     async def test_saving_the_published_layout_unchanged_starts_no_draft(
         self, client, sheet, creator, db_session, auth_as
@@ -960,7 +1012,11 @@ class TestUpdateCharSheet:
 
         response = await client.patch(
             f"/character_sheets/{sheet.id}",
-            json={"name": "Renamed", "layout": {"schema_version": 1, "elements": []}},
+            json={
+                "name": "Renamed",
+                "layout": {"schema_version": 1, "elements": []},
+                "changelog": prose_doc("Nothing changed."),
+            },
         )
 
         assert response.status_code == 200
@@ -969,6 +1025,9 @@ class TestUpdateCharSheet:
         # Name/description aren't versioned, so they still save.
         assert response.json()["name"] == "Renamed"
         assert await repository.get_draft(sheet.id) is None
+        # The changelog belongs to a draft, and none was started.
+        await db_session.refresh(published)
+        assert published.changelog is None
 
     async def test_rejects_a_layout_off_the_sheet_profile(
         self, client, sheet, creator, db_session, auth_as
@@ -1092,18 +1151,22 @@ class TestPublishCharSheet:
         self, client, sheet, creator, db_session, auth_as
     ):
         auth_as(creator)
-
-        response = await client.post(
-            f"/character_sheets/{sheet.id}/publish",
-            json={"changelog": "  First release  "},
+        changelog = prose_doc("First release")
+        await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={"name": "Fighter", "layout": VALID_LAYOUT, "changelog": changelog},
         )
+
+        response = await client.post(f"/character_sheets/{sheet.id}/publish")
 
         assert response.status_code == 200
         assert response.json()["version_number"] == 1
+        assert response.json()["latest_version_number"] == 1
         assert response.json()["is_draft"] is False
+        assert response.json()["changelog"] == changelog
         repository = CharacterSheetRepository(db_session, principal=creator)
         version = await repository.get_latest_published(sheet.id)
-        assert version.changelog == "First release"
+        assert version.changelog == changelog
         assert await repository.get_draft(sheet.id) is None
 
     async def test_second_publish_increments_the_number(
@@ -1179,6 +1242,27 @@ class TestPublishCharSheet:
         assert await repository.get_latest_published(sheet.id) is None
         assert (await repository.get_draft(sheet.id)).is_draft
 
+    async def test_rejects_a_draft_with_an_unresolved_ref(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        auth_as(creator)
+        await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={
+                "name": "Fighter",
+                "layout": _layout_with(
+                    {"type": "text", "name": "total", "formula": {"ref": "nope"}}
+                ),
+            },
+        )
+
+        response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
+
+        assert response.status_code == 400
+        assert "Ref 'nope'" in response.json()["errors"][0]["detail"]
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        assert await repository.get_latest_published(sheet.id) is None
+
 
 def _layout_with(*elements):
     return {
@@ -1204,15 +1288,12 @@ class TestPublishCharSheetFieldIds:
         repository = CharacterSheetRepository(db_session, principal=creator)
         return await repository.create(name="Fighter", system_id=system.id)
 
-    async def _save_and_publish(self, client, sheet_id, layout, changelog=None):
+    async def _save_and_publish(self, client, sheet_id, layout):
         await client.patch(
             f"/character_sheets/{sheet_id}",
             json={"name": "Fighter", "layout": layout},
         )
-        return await client.post(
-            f"/character_sheets/{sheet_id}/publish",
-            json={"changelog": changelog},
-        )
+        return await client.post(f"/character_sheets/{sheet_id}/publish")
 
     async def test_first_publish_reports_every_field_as_added(
         self, client, sheet, creator, auth_as

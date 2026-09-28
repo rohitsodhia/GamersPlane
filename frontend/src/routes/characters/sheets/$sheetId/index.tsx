@@ -12,15 +12,16 @@ import { useFlash } from "#/lib/use-flash";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	characterSheetQueryOptions,
+	publishCharacterSheet,
 	updateCharacterSheet,
 } from "#/queries/characterSheet";
 import { meQueryOptions } from "#/queries/me";
-import { SheetRenderer } from "./-components/SheetRenderer";
-import { SheetValuesProvider, useSheetStore } from "./-components/sheet-values";
-import type { SheetSchema } from "./-components/types";
-import styles from "./$sheetId.module.css";
+import { SheetRenderer } from "../-components/SheetRenderer";
+import { SheetValuesProvider, useSheetStore } from "../-components/sheet-values";
+import type { SheetSchema } from "../-components/types";
+import styles from "./index.module.css";
 
-export const Route = createFileRoute("/characters/sheets/$sheetId")({
+export const Route = createFileRoute("/characters/sheets/$sheetId/")({
 	params: {
 		parse: (params) => ({ sheetId: Number(params.sheetId) }),
 	},
@@ -57,6 +58,9 @@ function RouteComponent() {
 			description={sheet.description}
 			system={sheet.system.id}
 			layout={sheet.layout}
+			versionNumber={sheet.version_number}
+			latestVersionNumber={sheet.latest_version_number}
+			changelog={sheet.changelog}
 			isDraft={sheet.is_draft}
 			isOwner={isOwner}
 			from={from}
@@ -72,6 +76,9 @@ function SheetEditor({
 	description,
 	system,
 	layout,
+	versionNumber,
+	latestVersionNumber,
+	changelog,
 	isDraft,
 	isOwner,
 	from,
@@ -81,6 +88,9 @@ function SheetEditor({
 	description: JSONContent | null;
 	system: string;
 	layout: SheetSchema | null | undefined;
+	versionNumber: number | null;
+	latestVersionNumber: number | null;
+	changelog: JSONContent | null;
 	isDraft: boolean;
 	isOwner: boolean;
 	from: "library" | undefined;
@@ -90,7 +100,19 @@ function SheetEditor({
 	const [draft, setDraft] = useState(() => JSON.stringify(layout ?? {}, null, 4));
 	const [nameInput, setNameInput] = useState(name);
 	const [descriptionInput, setDescriptionInput] = useState(description ?? emptyContent);
-	const [saved, flashSaved] = useFlash();
+	// A changelog belongs to the draft. Viewing a published version, it's that
+	// version's frozen entry, so start the next draft's changelog empty.
+	const [changelogInput, setChangelogInput] = useState(
+		(isDraft ? changelog : null) ?? emptyContent,
+	);
+	// One indicator for both actions, so an idle one doesn't hold open a gap
+	// beside the other. The text outlives `flashing` so it can fade out.
+	const [flashing, flash] = useFlash();
+	const [flashMessage, setFlashMessage] = useState("");
+	const showFlash = (message: string) => {
+		setFlashMessage(message);
+		flash();
+	};
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -106,18 +128,17 @@ function SheetEditor({
 
 	const hasLayout = Array.isArray(schema?.elements) && schema.elements.length > 0;
 
-	const handleSave = async () => {
+	// Only a draft has a changelog to edit, and v1 has nothing to log changes
+	// against.
+	const showChangelog = isDraft && latestVersionNumber !== null;
+
+	// Runs `action` with the save controls locked, surfacing any API error.
+	const withSaving = async (action: () => Promise<void>) => {
 		if (!isOwner || !schema || !nameInput || saving) return;
 		setSaving(true);
 		setSaveError(null);
 		try {
-			const updated = await updateCharacterSheet(sheetId, {
-				name: nameInput,
-				description: isContentEmpty(descriptionInput) ? null : descriptionInput,
-				layout: schema,
-			});
-			queryClient.setQueryData(characterSheetQueryOptions(sheetId).queryKey, updated);
-			flashSaved();
+			await action();
 		} catch (err) {
 			setSaveError(
 				err instanceof ApiError
@@ -129,7 +150,42 @@ function SheetEditor({
 		}
 	};
 
+	const save = async (layout: SheetSchema) => {
+		const updated = await updateCharacterSheet(sheetId, {
+			name: nameInput,
+			description: isContentEmpty(descriptionInput) ? null : descriptionInput,
+			layout,
+			changelog:
+				!showChangelog || isContentEmpty(changelogInput) ? null : changelogInput,
+		});
+		queryClient.setQueryData(characterSheetQueryOptions(sheetId).queryKey, updated);
+		// Pick up the ids the server minted (new fields, duplicates), so the
+		// next save sends them back instead of minting fresh ones each time.
+		setDraft(JSON.stringify(updated.layout, null, 4));
+	};
+
+	const handleSave = () =>
+		withSaving(async () => {
+			await save(schema as SheetSchema);
+			showFlash("Saved");
+		});
+
+	// Saves first, so what's published is what's on screen, not the last save.
+	const handlePublish = () =>
+		withSaving(async () => {
+			await save(schema as SheetSchema);
+			const published = await publishCharacterSheet(sheetId);
+			queryClient.setQueryData(characterSheetQueryOptions(sheetId).queryKey, published);
+			// The changelog is now frozen on the published version; the next
+			// draft starts its own.
+			setChangelogInput(emptyContent);
+			showFlash("Published");
+		});
+
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
+
+	const draftLabel = `Draft of v${(latestVersionNumber ?? 0) + 1}`;
+	const versionLabel = isDraft ? draftLabel : `v${versionNumber}`;
 
 	// TODO: seed `initialValues` from the character's stored `values` once the
 	// character fill route exists — this route currently just exercises the
@@ -181,10 +237,30 @@ function SheetEditor({
 							onChange={setDescriptionInput}
 						/>
 					</div>
+					{showChangelog ? (
+						<div>
+							<label htmlFor="sheet-changelog" className="push-down">
+								Change Log
+							</label>
+							<Editor
+								id="sheet-changelog"
+								value={changelogInput}
+								onChange={setChangelogInput}
+							/>
+						</div>
+					) : null}
 				</div>
 			) : description && !isContentEmpty(description) ? (
 				<TiptapContent content={description} className={styles["sheet-description"]} />
 			) : null}
+
+			<div className={styles["sheet-version"]}>
+				Current Version: {versionLabel} (
+				<Link to="/characters/sheets/$sheetId/changelog" params={{ sheetId }}>
+					Change log
+				</Link>
+				)
+			</div>
 
 			<div className="controls-container">
 				{isOwner && (
@@ -197,8 +273,24 @@ function SheetEditor({
 						>
 							Save
 						</button>
-						<FadeOut active={saved} className={styles["save-indicator"]}>
-							Saved
+						{isDraft ? (
+							<button
+								type="button"
+								className="skew-btn"
+								onClick={handlePublish}
+								disabled={saving || !schema || !nameInput}
+							>
+								Publish
+							</button>
+						) : (
+							// Saving never edits a published version: layout
+							// changes start a new draft on top of it.
+							<span className={styles["save-hint"]}>
+								Layout changes save as a {draftLabel}.
+							</span>
+						)}
+						<FadeOut active={flashing} className={styles["save-indicator"]}>
+							{flashMessage}
 						</FadeOut>
 						{saveError ? <span className="error">{saveError}</span> : null}
 					</>

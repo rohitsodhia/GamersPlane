@@ -65,6 +65,13 @@ export type CharacterSheet = {
 	name: string;
 	system: { id: string; name: string };
 	description: JSONContent | null;
+	version_id: number;
+	// `null` for a draft: only publishing assigns a version number.
+	version_number: number | null;
+	// The newest published number (`null` before the first publish); a draft
+	// publishes as this + 1.
+	latest_version_number: number | null;
+	changelog: JSONContent | null;
 	// Only ever true for the sheet's creator: they're served their unpublished
 	// draft when one exists, while everyone else gets the latest published version.
 	is_draft: boolean;
@@ -159,11 +166,36 @@ export const deleteCharacterSheet = async (sheetId: number): Promise<void> => {
 
 export const updateCharacterSheet = async (
 	sheetId: number,
-	data: { name: string; description: JSONContent | null; layout: SheetSchema },
+	data: {
+		name: string;
+		description: JSONContent | null;
+		layout: SheetSchema;
+		changelog: JSONContent | null;
+	},
 ): Promise<CharacterSheet> => {
 	const res = await apiFetch(`/character_sheets/${sheetId}`, {
 		method: "PATCH",
 		body: JSON.stringify(data),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+export type PublishCharacterSheetResponse = CharacterSheet & {
+	// Field ids new to / missing from this version, relative to the previously
+	// published one.
+	added_field_ids: string[];
+	removed_field_ids: string[];
+};
+
+export const publishCharacterSheet = async (
+	sheetId: number,
+): Promise<PublishCharacterSheetResponse> => {
+	const res = await apiFetch(`/character_sheets/${sheetId}/publish`, {
+		method: "POST",
 	});
 	if (!res.ok) {
 		const { errors } = await res.json();

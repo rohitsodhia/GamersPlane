@@ -4,6 +4,7 @@ from sqlalchemy import ScalarResult, and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
+from app.character_sheets.character_values import validate_character_values
 from app.configs import configs
 from app.models import (
     Character,
@@ -53,6 +54,9 @@ class CharacterRepository:
         if type is not None:
             character.type = type
         if values is not None:
+            validate_character_values(
+                values, character.character_sheet_version.layout, character.values
+            )
             character.values = values
         await self.db_session.flush()
 

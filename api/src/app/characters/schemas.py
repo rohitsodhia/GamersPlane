@@ -42,8 +42,9 @@ class UpdateCharacterInput(SchemaBase):
     @field_validator("values")
     @classmethod
     def validate_values_size(cls, v: dict | None) -> dict | None:
-        # Values aren't checked against the sheet yet (see step 2 of sheet
-        # versioning), so at least keep a client from storing an unbounded blob.
+        # Keys are checked against the sheet on save (`character_values.py`),
+        # but values themselves aren't, so keep a client from storing an
+        # unbounded blob.
         if v is not None and len(json.dumps(v)) > MAX_VALUES_SIZE:
             raise ValueError(
                 f"Character values can't exceed {MAX_VALUES_SIZE // 1024} KB"

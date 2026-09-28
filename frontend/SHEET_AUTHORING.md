@@ -81,11 +81,18 @@ grid produces:
 }
 ```
 
-**Why scope matters:** formulas and conditional styles (§7) resolve field
-references (`{ "ref": "score" }`) against the *current* scope. Inside a `grid`
-row for `str`, `{ "ref": "score" }` reads `stats.str.score`. There is no
-"reach outward to a parent scope" or "reach the sheet root" syntax today — a
-reference resolves within the row/scope it sits in.
+That example (and every value-document example in this guide) is written with
+`name`s and grid row `key`s for readability. The stored document actually uses
+each field's and grid row's **`id`** (§1.5) in their place — e.g.
+`{ "3f9a0c1e": "Gandalf", … }` — so renaming a field or a grid row's `key` never
+disconnects the values characters have already saved. You never write ids into
+a sheet yourself, and you still refer to fields by `name` everywhere (formulas,
+`on_click.set`); the renderer translates.
+
+**Why scope matters:** formulas and conditional styles (§7) refer to fields by
+a **ref path** that follows this nesting: `stats.str.score` is the `score` field
+in the `str` row of the `stats` grid, starting from the sheet root. Inside a row,
+`$row.score` means "the `score` field of the row I'm in". See §7.2.
 
 ### 1.5 Keys every element can carry
 
@@ -218,17 +225,18 @@ A read-only value derived from other fields. Use `formula` + `name` and **not**
 
 | Key | Type | Notes |
 |---|---|---|
-| `formula` | expression | Required. An expression tree (§7). Evaluated against the current scope; recomputed whenever a referenced field changes. |
+| `formula` | expression | Required. An expression tree (§7) that reads other fields by ref path (§7.2); recomputed whenever a referenced field changes. |
 | `name` | string | Required with `formula`. The result is written back into the store under this key (edit mode) so other formulas and the saved character can read it. |
 | `format` | string | Optional. `"number"` (default) → the number as-is; `"signed"` → non-negatives get a leading `+`; `"text"` → stringified. Booleans render `yes` / `no`. |
 
 ```jsonc
+// In a grid row, next to that row's `score` input:
 {
   "type": "text",
   "name": "mod",
   "format": "signed",
   "formula": { "op": "floor", "args": [
-    { "op": "/", "args": [ { "op": "-", "args": [ { "ref": "score" }, 10 ] }, 2 ] }
+    { "op": "/", "args": [ { "op": "-", "args": [ { "ref": "$row.score" }, 10 ] }, 2 ] }
   ] }
 }
 ```
@@ -432,7 +440,7 @@ There are **two authoring forms**, and setting both is an error:
     { "type": "input", "name": "score", "maxlength": 2, "default": 10 },
     { "type": "text", "name": "mod", "format": "signed", "formula": {
       "op": "floor", "args": [ { "op": "/", "args": [
-        { "op": "-", "args": [ { "ref": "score" }, 10 ] }, 2 ] } ] } },
+        { "op": "-", "args": [ { "ref": "$row.score" }, 10 ] }, 2 ] } ] } },
     { "type": "checkbox", "name": "save_prof" }
   ]
 }
@@ -489,7 +497,7 @@ Two forms, discriminated by `items`:
 
 | Key | Type | Notes |
 |---|---|---|
-| `items` | array | Explicit form: one iteration per entry. Each entry's own keys resolve as refs in the body (e.g. `{ "ref": "label" }`). Excludes `count`. |
+| `items` | array | Explicit form: one iteration per entry. Each entry's own keys resolve as `$item.<key>` refs in the body (e.g. `{ "ref": "$item.label" }`). Excludes `count`. |
 | `count` | number \| expression | Compact form: iteration count — a literal integer, or a formula over the enclosing scope. Floored, clamped to 200. Excludes `items`. |
 | `content` | array | The template, rendered once per iteration. |
 
@@ -537,22 +545,62 @@ string syntax — you write the tree. It appears in: computed `text` (`formula`)
 Expr :=
   | number                          e.g. 10, -2, 1.5
   | boolean                         true / false
-  | { "ref": "<name>" }             read a field's value from the current scope
+  | { "ref": "<path>" }             read a field's value by ref path (§7.2)
   | { "op": "<name>", "args": [ Expr, ... ] }
 ```
 
 ### 7.2 References
 
-- `{ "ref": "score" }` — reads `score` from the **current scope** (the
-  repeater/grid row you're in, or the sheet otherwise). No parent-scope or
-  sheet-root reach today.
-- `{ "ref": "$index" }` — the nearest enclosing `loop`'s 0-based iteration index
-  (`0` when not inside a loop).
-- Inside a `loop`'s `items` form, `{ "ref": "<key>" }` reads that key from the
-  current entry.
+A ref is a dotted **path** of field `name`s and grid row `key`s, following the
+value document's nesting (§1.4):
 
-Resolution order: `$index` → current `loop` `items` entry key → value store at
-`[...scope, name]`.
+- `{ "ref": "harm" }` — the root-level field `harm`. A path always starts at the
+  **sheet root**, even inside a repeater/grid row — a single name is *not* looked
+  up in the row you're in.
+- `{ "ref": "stats.str.mod" }` — the `mod` field of the `str` row of the `stats`
+  grid.
+- `{ "ref": "$row.score" }` — the `score` field of the repeater/grid row the
+  formula sits in. May continue into a grid nested in that row
+  (`$row.skills.stealth.bonus`). Only valid inside a row — a repeater's or
+  grid's `header` is outside its rows.
+- `{ "ref": "$item.label" }` — the `label` key of the nearest `loop`'s current
+  `items` entry (§5.4). Only valid inside an `items` loop, and at least one
+  entry must have that key.
+- `{ "ref": "$index" }` — the nearest enclosing `loop`'s 0-based iteration index.
+  Only valid inside a loop (a loop's own `class_when` / `style_when` count as
+  inside it; its `count` formula does not).
+
+A path must end on a single field. A path to a whole grid or grid row, into a
+repeater's rows (from outside the row — use `$row` inside it), or to a name
+that doesn't exist doesn't resolve. Paths use `name`s, never the ids values are
+stored under; renaming a field means updating the refs to it.
+
+**Dynamic segments.** Any segment of a path can be `$(<ref>)`: the inner ref is
+read first, and its value is used as that segment's name. It's how a row picks
+which field to read:
+
+```json
+{ "type": "select", "name": "stat", "values": ["str", "dex", "con"] },
+{ "type": "text", "name": "bonus", "formula": { "ref": "stats.$($row.stat).mod" } }
+```
+
+When the row's `stat` is `dex`, the ref reads `stats.dex.mod`. The `$(…)` must
+be a whole segment (`stats.$($row.stat).mod`, not `stats.x$($row.stat)`), can't
+be nested, and doesn't work in an `$item.…` ref. The inner ref must point at a
+`select` (its option values should be names), an `input` / `textarea`, or a
+loop's `$item.<key>`; a value that doesn't name anything (including a blank
+select) reads as `0`.
+
+Publishing checks a dynamic ref with **every** value a `select` or a loop's
+`items` can give it (blank options aside), so each option must be a name in the
+spot the `$(…)` sits in. An `input`'s value can be anything, so only the part
+of the path before it is checked.
+
+**Publishing checks every ref.** A draft with a ref that doesn't resolve — in a
+formula, a `class_when` / `style_when`, a loop `count`, or a button's `on_click`
+— can't be published; the error names the ref, where it is, and why. Drafts
+themselves save regardless, and while previewing a draft an unresolved ref just
+reads as `0` (§7.4).
 
 ### 7.3 Operators
 
@@ -733,10 +781,15 @@ display mode.
 | `label` | string | Required. Button text (may be `""` for a bare segment). |
 | `on_click` | object | Required. One of the two shapes below. |
 
-**`{ "set": "<sibling name>", "to": <formula> }`** — write one sibling scalar in
-the current scope. The schema's only "an element changes another element's value"
-interaction, and the basis of clocks / stress tracks. `to` is evaluated at click
-time, so it can read `$index`, the target's current value, and siblings.
+**`{ "set": "<ref path>", "to": <formula> }`** — write one scalar field, named by
+a ref path exactly like a formula ref (§7.2): `"harm"` for a root-level field,
+`"$row.used"` for a field in the button's own repeater/grid row. The schema's
+only "an element changes another element's value" interaction, and the basis of
+clocks / stress tracks. `to` is evaluated at click time, so it can read
+`$index`, the target's current value, and any other field. `set` must name a
+field — `$index` / `$item.<key>` can't be set — and publishing rejects a `set` path
+that doesn't resolve (in an unpublished draft it makes the click a no-op,
+dev-console-warned).
 
 ```jsonc
 { "type": "button", "label": "Reset", "on_click": { "set": "harm", "to": 0 } }
@@ -924,15 +977,15 @@ skills repeater, a harm clock, and notes with a GM-only collapsible.
           "row": [
             { "type": "input", "name": "score", "maxlength": 2, "default": 10,
               "style_when": [
-                { "when": { "op": ">=", "args": [ { "ref": "score" }, 16 ] },
+                { "when": { "op": ">=", "args": [ { "ref": "$row.score" }, 16 ] },
                   "styles": { "background-color": "#e6f5e6" } }
               ] },
             { "type": "text", "name": "mod", "format": "signed",
               "formula": { "op": "floor", "args": [
                 { "op": "/", "args": [
-                  { "op": "-", "args": [ { "ref": "score" }, 10 ] }, 2 ] } ] },
+                  { "op": "-", "args": [ { "ref": "$row.score" }, 10 ] }, 2 ] } ] },
               "style_when": [
-                { "when": { "op": "<", "args": [ { "ref": "mod" }, 0 ] },
+                { "when": { "op": "<", "args": [ { "ref": "$row.mod" }, 0 ] },
                   "styles": { "color": "#b5342a" } }
               ] },
             { "type": "checkbox", "name": "save_prof" }

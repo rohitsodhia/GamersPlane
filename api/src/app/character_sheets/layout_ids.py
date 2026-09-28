@@ -10,9 +10,10 @@ blank; :func:`mint_ids` fills it in on every draft save. Renaming a field's
 `name` later doesn't orphan it, because publish tracks the field by `id`, not
 by name (see :func:`validate_publish_ids`).
 
-This module does not yet change how *values* are stored or how formula refs
-resolve -- both still key off `name`/path (that's step 2, the id-keyed value
-store). It only mints and validates the ids themselves.
+Character values are stored under these ids (the frontend renderer maps each
+field's `name` to its id per scope), so a grid row's id is also its value-store
+key. Refs still address fields by name (checked in `layout_refs.py`); this
+module only mints and validates the ids themselves.
 """
 
 from __future__ import annotations

@@ -61,7 +61,7 @@ export type StyleBundle = Partial<Record<StyleProp, string>>;
 
 /**
  * One conditional-style rule (an entry of `style_when`): while `when` — a
- * formula (see `formula.ts`) evaluated against the current value scope — is
+ * formula (see `formula.ts`) evaluated against the sheet's values — is
  * truthy, `styles` is merged onto the element. Same `StyleProp` allowlist as a
  * static `styles`.
  */
@@ -111,7 +111,7 @@ export interface BaseElement {
 	/**
 	 * Conditional classes: each key is a class token (space-separated tokens
 	 * allowed) added to the element only while its value — a formula (see
-	 * `formula.ts`) evaluated against the current value scope — is truthy.
+	 * `formula.ts`) evaluated against the sheet's values — is truthy.
 	 * Re-evaluated reactively. For value-driven visual state: a checkbox row
 	 * greying out, a "filled" marker, a negative modifier turning red.
 	 */
@@ -273,7 +273,7 @@ export type ComputedFormat = "signed" | "number" | "text";
  *    header, a note between fields, a row label. Carries no value, touches no
  *    store.
  *  - **computed** — `formula` (an AST, see `formula.ts`) is evaluated against
- *    the current value scope, recomputed whenever a referenced field changes,
+ *    the sheet's values, recomputed whenever a referenced field changes,
  *    and the result is written back to the store under `name` so other formulas
  *    (and the saved character) can read it. `format` shapes the rendered result.
  *
@@ -285,7 +285,7 @@ export interface TextElement extends BaseElement {
 	type: "text";
 	/** Literal content. Mutually exclusive with `formula`. */
 	text?: string;
-	/** Expression tree evaluated against the current value scope. Mutually exclusive with `text`. */
+	/** Expression tree evaluated against the sheet's values. Mutually exclusive with `text`. */
 	formula?: Expr;
 	/** Write-back key for a computed result. Required with `formula`, unused with `text`. */
 	name?: string;
@@ -336,7 +336,7 @@ export interface ListElement extends BaseElement {
  *
  * Two forms, discriminated by `items`:
  *  - **items** — one iteration per author-fixed entry; the entry's own keys
- *    resolve as refs in the body (e.g. `{ ref: "label" }`).
+ *    resolve as `$item.<key>` refs in the body (e.g. `{ ref: "$item.label" }`).
  *  - **count** — a literal integer, or a formula over the enclosing scope
  *    (e.g. death-spiral crosses counted up to a stored value). Floored and
  *    clamped to `MAX_LOOP_ITERATIONS`.
@@ -354,14 +354,14 @@ export interface LoopElement extends BaseElement {
 }
 
 /**
- * On click, write the scalar that `to` evaluates to into the field named `set`,
- * in the button's own value scope. `to` is a formula (see `formula.ts`)
- * evaluated at click time — so it can read `$index` (inside a `loop`), the
- * target field's current value, and sibling fields. It is data, not code: no
- * statement list, no second target, no JS.
+ * On click, write the scalar that `to` evaluates to into the field at ref path
+ * `set` (same syntax as a formula ref — see `refs.ts`). `to` is a formula (see
+ * `formula.ts`) evaluated at click time — so it can read `$index` (inside a
+ * `loop`), the target field's current value, and any other field. It is data,
+ * not code: no statement list, no second target, no JS.
  */
 export interface SetValueAction {
-	/** `name` of the sibling scalar field to write. */
+	/** Ref path of the scalar field to write (`harm`, `$row.used`, …). */
 	set: string;
 	/** Formula for the value to write, evaluated when the button is clicked. */
 	to: Expr;
@@ -385,7 +385,7 @@ export type ClickAction = SetValueAction | RepeaterRowAction;
 
 /**
  * A button with one declarative `on_click`:
- *  - `{ set, to }` — write a sibling scalar in the current scope. The schema's
+ *  - `{ set, to }` — write the scalar at ref path `set`. The schema's
  *    only "an element changes another element's value" interaction, and the
  *    basis of clocks / tracks: put a `button` in a `loop` with an `on_click.to`
  *    of `$index + 1`, and clicking segment N sets a shared counter to N while

@@ -17,9 +17,16 @@
 //
 // Nesting only ever happens at a repeater or grid boundary. A field addresses
 // its value by a PATH: the accumulated scope prefix (from context) plus its own
-// `name`, e.g. ["classes", 0, "level"] or ["stats", "str", "mod"]. Repeater rows
-// push `name` + row index via <ScopeProvider>; grid rows push `name` + row key
-// via <KeyedScopeProvider>.
+// key, e.g. ["classes", 0, "level"] or ["stats", "str", "mod"]. Repeater rows
+// push the repeater's key + row index via <ScopeProvider>; grid rows push the
+// grid's key + the row's key via <KeyedScopeProvider>.
+//
+// Keys are field ids, not names (the example above uses names for
+// readability): every value-bearing node, and every grid row, carries a
+// server-minted `id`, and that's what its value is stored under, so renaming a
+// field doesn't orphan saved values. Everything in the renderer still addresses
+// fields by `name`; each scope carries a `name` -> id map (see `scope-keys.ts`)
+// that `useScopedPath` / `useChildScope` / the ref resolver translate through.
 //
 // The store is a thin external store (useSyncExternalStore) so a keystroke
 // re-renders only the field that changed, and so the future reactivity engine
@@ -38,6 +45,8 @@ import {
 	useRef,
 	useSyncExternalStore,
 } from "react";
+import { type ScopeKeys, scopeKeysFor, storeKey } from "./scope-keys";
+import type { SheetElement } from "./types";
 
 export type Scalar = string | number | boolean | null;
 /** A single scope object. Array values belong to repeater keys only. */
@@ -133,8 +142,21 @@ interface SheetValuesContext {
 }
 
 const ValuesContext = createContext<SheetValuesContext | null>(null);
-const EMPTY_PATH: Path = [];
-const ScopeContext = createContext<Path>(EMPTY_PATH);
+
+/**
+ * One value scope: where its values live in the store (`path`), how its field
+ * names map to their store keys (`keys`), and the sheet's root scope map
+ * (`root`) that absolute ref paths resolve from.
+ */
+export interface Scope {
+	path: Path;
+	keys: ScopeKeys;
+	root: ScopeKeys;
+}
+
+const NO_KEYS: ScopeKeys = new Map();
+const EMPTY_SCOPE: Scope = { path: [], keys: NO_KEYS, root: NO_KEYS };
+const ScopeContext = createContext<Scope>(EMPTY_SCOPE);
 
 /**
  * Creates the value store (once) and makes it available to every field rendered
@@ -161,9 +183,26 @@ export function SheetValuesProvider({
 	);
 	return (
 		<ValuesContext.Provider value={value}>
-			<ScopeContext.Provider value={EMPTY_PATH}>{children}</ScopeContext.Provider>
+			<ScopeContext.Provider value={EMPTY_SCOPE}>{children}</ScopeContext.Provider>
 		</ValuesContext.Provider>
 	);
+}
+
+/**
+ * The sheet's root value scope: `nodes` is the schema's top-level `elements`,
+ * whose fields' `name`s it maps to their store keys. `SheetRenderer` wraps the
+ * whole tree in this.
+ */
+export function RootScopeProvider({
+	nodes,
+	children,
+}: {
+	nodes: readonly SheetElement[];
+	children: ReactNode;
+}) {
+	const keys = scopeKeysFor(nodes);
+	const scope = useMemo<Scope>(() => ({ path: [], keys, root: keys }), [keys]);
+	return <ScopeContext.Provider value={scope}>{children}</ScopeContext.Provider>;
 }
 
 function useValuesContext(): SheetValuesContext {
@@ -183,49 +222,69 @@ export function useSheetMode(): SheetMode {
 }
 
 /**
- * Pushes `name` + one coordinate segment onto the scope path for a subtree.
- * Explicitly memoised: this becomes a context value for a whole subtree, so a
- * fresh array each render would re-render and re-subscribe every field beneath.
+ * Pushes the store key for `name` (looked up in the current scope) + one
+ * coordinate segment onto the scope path for a subtree, whose own field names
+ * are those of `nodes` (the row template). Explicitly memoised: this becomes a
+ * context value for a whole subtree, so a fresh object each render would
+ * re-render and re-subscribe every field beneath.
  */
-function useChildScope(name: string, segment: string | number): Path {
-	const prefix = useContext(ScopeContext);
-	return useMemo<Path>(() => [...prefix, name, segment], [prefix, name, segment]);
+function useChildScope(
+	name: string,
+	segment: string | number,
+	nodes: readonly SheetElement[],
+): Scope {
+	const parent = useContext(ScopeContext);
+	const keys = scopeKeysFor(nodes);
+	return useMemo<Scope>(
+		() => ({
+			path: [...parent.path, storeKey(parent.keys, name), segment],
+			keys,
+			root: parent.root,
+		}),
+		[parent, name, segment, keys],
+	);
 }
 
 /**
  * Extends the current value scope with `name` + `index` for one repeater row, so
- * the fields inside it read/write ["...prefix", name, index, <field name>]. The
- * numeric segment makes the store create an array container.
+ * the fields inside it read/write ["...prefix", <repeater key>, index, <field
+ * key>]. The numeric segment makes the store create an array container.
+ * `template` is the repeater's row template, whose fields make up the row scope.
  */
 export function ScopeProvider({
 	name,
 	index,
+	template,
 	children,
 }: {
 	name: string;
 	index: number;
+	template: readonly SheetElement[];
 	children: ReactNode;
 }) {
-	const next = useChildScope(name, index);
+	const next = useChildScope(name, index, template);
 	return <ScopeContext.Provider value={next}>{children}</ScopeContext.Provider>;
 }
 
 /**
  * The `grid` counterpart of `ScopeProvider`: extends the scope with `name` +
- * `itemKey` (a string) for one fixed row, so its fields read/write
- * ["...prefix", name, itemKey, <field name>]. The string segment makes the store
- * create a plain object container (keyed by row, not positional).
+ * `itemKey` (a string — the row's id) for one fixed row, so its fields
+ * read/write ["...prefix", <grid key>, itemKey, <field key>]. The string segment
+ * makes the store create a plain object container (keyed by row, not
+ * positional). `template` is the row's cells, whose fields make up the row scope.
  */
 export function KeyedScopeProvider({
 	name,
 	itemKey,
+	template,
 	children,
 }: {
 	name: string;
 	itemKey: string;
+	template: readonly SheetElement[];
 	children: ReactNode;
 }) {
-	const next = useChildScope(name, itemKey);
+	const next = useChildScope(name, itemKey, template);
 	return <ScopeContext.Provider value={next}>{children}</ScopeContext.Provider>;
 }
 
@@ -319,21 +378,42 @@ export function useHeaderCellIds(header: { type: string }[] | undefined): {
 	return { headerIds, isHeaderable: (type) => HEADERABLE_TYPES.has(type) };
 }
 
+/** The absolute store path for the field `name` in `scope`. */
+export function scopedPath(scope: Scope, name: string): Path {
+	return [...scope.path, storeKey(scope.keys, name)];
+}
+
 /** The absolute value path for `name` in the current scope. */
 export function useScopedPath(name: string): Path {
-	const prefix = useContext(ScopeContext);
-	return useMemo<Path>(() => [...prefix, name], [prefix, name]);
+	const scope = useContext(ScopeContext);
+	return useMemo<Path>(() => scopedPath(scope, name), [scope, name]);
 }
 
 /**
- * The accumulated scope prefix (no field name). Stable across renders until a
- * `ScopeProvider` / `KeyedScopeProvider` boundary changes it — used to resolve
- * scope-local refs (e.g. a `class_when` / `style_when` formula) and to subscribe
- * to the whole scope so any sibling change re-evaluates.
+ * The current value scope (path + name-to-key map). Stable across renders
+ * until a `ScopeProvider` / `KeyedScopeProvider` boundary changes it — used to
+ * resolve scope-local refs (e.g. a `class_when` / `style_when` formula).
  */
-export function useScopePrefix(): Path {
+export function useScope(): Scope {
 	return useContext(ScopeContext);
 }
+
+/**
+ * A `useSyncExternalStore` subscribe function that fires on ANY write to the
+ * sheet. What formula-driven elements (computed `text`, `class_when` /
+ * `style_when`, a formula `loop` count) subscribe with: a ref can point
+ * anywhere in the sheet (`stats.str.mod` from the root, `$row.x` in a row),
+ * and a computed result feeding another formula is itself a write, so
+ * watching the whole sheet keeps every chain current. Each subscriber
+ * re-evaluates per write, but its snapshot is a primitive / cached object, so
+ * only an actual change re-renders.
+ */
+export function useSheetSubscribe(): (cb: () => void) => () => void {
+	const store = useSheetStore();
+	return useCallback((cb: () => void) => store.subscribe(EMPTY_PATH, cb), [store]);
+}
+
+const EMPTY_PATH: Path = [];
 
 /**
  * Two-way binding for a scalar field. `value` is whatever is stored, falling back

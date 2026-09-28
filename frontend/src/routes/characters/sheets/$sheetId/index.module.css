@@ -37,9 +37,17 @@
 	}
 }
 
+.sheet-version {
+	margin-bottom: 1em;
+}
+
 :global(.controls-container) {
 	gap: 1em;
 	align-items: center;
+}
+
+.save-hint {
+	font-style: italic;
 }
 
 .save-indicator {

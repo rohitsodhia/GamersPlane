@@ -67,10 +67,8 @@ class UpdateCharSheetInput(SchemaBase):
     name: str = filtered_str()
     description: dict | None = None
     layout: dict
-
-
-class PublishCharSheetInput(SchemaBase):
-    changelog: str | None = filtered_str(default=None)
+    # Saved on the draft; ignored when the save doesn't start or update one.
+    changelog: dict | None = None
 
 
 class GetCharSheetResponse(SchemaBase):
@@ -82,7 +80,11 @@ class GetCharSheetResponse(SchemaBase):
     description: dict | None
     version_id: int
     version_number: int | None
+    # The sheet's newest published number, whichever version is returned;
+    # `None` until the first publish. A draft will publish as this + 1.
+    latest_version_number: int | None
     is_draft: bool
+    changelog: dict | None
     layout: dict
     status: CharacterSheet.Status
 

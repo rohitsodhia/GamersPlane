@@ -71,7 +71,7 @@ def upgrade() -> None:
         sa.Column("number", sa.Integer(), nullable=True),
         sa.Column("schema_version", sa.Integer(), nullable=False),
         sa.Column("layout", sa.JSON(), nullable=False),
-        sa.Column("changelog", sa.String(), nullable=True),
+        sa.Column("changelog", sa.JSON(), nullable=True),
         sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),

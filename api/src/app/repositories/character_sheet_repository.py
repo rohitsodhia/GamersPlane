@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload, undefer
 
 from app.character_sheets.defaults import default_sheet_layout
 from app.character_sheets.layout_ids import IdDiff, mint_ids, validate_publish_ids
+from app.character_sheets.layout_refs import validate_layout_refs
 from app.character_sheets.layout_validation import (
     SCHEMA_VERSION,
     validate_publishable_layout,
@@ -93,6 +94,13 @@ class CharacterSheetRepository:
         )
         return await self.db_session.scalar(query)
 
+    async def get_latest_published_number(self, char_sheet_id: int) -> int | None:
+        return await self.db_session.scalar(
+            select(func.max(CharacterSheetVersion.number)).where(
+                CharacterSheetVersion.character_sheet_id == char_sheet_id
+            )
+        )
+
     async def get_version(self, version_id: int) -> CharacterSheetVersion | None:
         """Fetch a version by id, regardless of whether its sheet was deleted."""
         query = (
@@ -103,30 +111,40 @@ class CharacterSheetRepository:
         return await self.db_session.scalar(query)
 
     async def update_draft(
-        self, version: CharacterSheetVersion, *, layout: dict
+        self,
+        version: CharacterSheetVersion,
+        *,
+        layout: dict,
+        changelog: dict | None = None,
     ) -> CharacterSheetVersion:
         if not version.is_draft:
             raise ValueError("Published versions are immutable")
 
         version.layout = _minted(layout)
         version.schema_version = SCHEMA_VERSION
+        version.changelog = changelog
         await self.db_session.flush()
 
         return version
 
     async def save_draft(
-        self, char_sheet: CharacterSheet, *, layout: dict
+        self,
+        char_sheet: CharacterSheet,
+        *,
+        layout: dict,
+        changelog: dict | None = None,
     ) -> CharacterSheetVersion:
-        """Save `layout` as the sheet's draft and return the version now
-        holding it.
+        """Save `layout` and `changelog` as the sheet's draft and return the
+        version now holding it.
 
-        A save that doesn't change anything is a no-op: with no draft open and
-        `layout` identical to the latest published version, no draft is
-        started and that published version is returned instead.
+        A save that doesn't change the layout is a no-op: with no draft open
+        and `layout` identical to the latest published version, no draft is
+        started (so `changelog` is dropped) and that published version is
+        returned instead.
         """
         draft = await self.get_draft(char_sheet.id)
         if draft is not None:
-            return await self.update_draft(draft, layout=layout)
+            return await self.update_draft(draft, layout=layout, changelog=changelog)
 
         layout = _minted(layout)
         latest = await self.get_latest_published(char_sheet.id)
@@ -137,6 +155,7 @@ class CharacterSheetRepository:
             character_sheet_id=char_sheet.id,
             schema_version=SCHEMA_VERSION,
             layout=layout,
+            changelog=changelog,
         )
         self.db_session.add(draft)
         await self.db_session.flush()
@@ -153,27 +172,23 @@ class CharacterSheetRepository:
 
         return char_sheet
 
-    async def publish(
-        self, version: CharacterSheetVersion, *, changelog: str | None = None
-    ) -> CharacterSheetVersion:
-        """Freeze a draft as the sheet's next numbered version."""
+    async def publish(self, version: CharacterSheetVersion) -> CharacterSheetVersion:
+        """Freeze a draft, with its changelog, as the sheet's next numbered
+        version."""
         if not version.is_draft:
             raise ValueError("Version is already published")
 
-        latest_number = await self.db_session.scalar(
-            select(func.max(CharacterSheetVersion.number)).where(
-                CharacterSheetVersion.character_sheet_id == version.character_sheet_id
-            )
+        latest_number = await self.get_latest_published_number(
+            version.character_sheet_id
         )
         version.number = (latest_number or 0) + 1
-        version.changelog = changelog
         version.published_at = datetime.now(UTC)
         await self.db_session.flush()
 
         return version
 
     async def publish_draft(
-        self, char_sheet: CharacterSheet, *, changelog: str | None = None
+        self, char_sheet: CharacterSheet
     ) -> tuple[CharacterSheetVersion, IdDiff]:
         """Validate the sheet's draft and publish it as the next version.
 
@@ -196,11 +211,12 @@ class CharacterSheetRepository:
             return previous, IdDiff(added=[], removed=[])
 
         validate_publishable_layout(draft.layout)
+        validate_layout_refs(draft.layout)
         id_diff = validate_publish_ids(
             previous.layout if previous is not None else None, draft.layout
         )
 
-        return await self.publish(draft, changelog=changelog), id_diff
+        return await self.publish(draft), id_diff
 
     def _list_query(
         self,
