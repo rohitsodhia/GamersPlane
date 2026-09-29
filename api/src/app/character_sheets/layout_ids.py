@@ -163,6 +163,55 @@ def _record(
         found.setdefault(node_id, []).append((path, field_type))
 
 
+def field_labels(layout: object) -> dict[str, str]:
+    """Every id in `layout` mapped to a readable label: its value path, the
+    `name`s (and grid row `key`s) from the root down, dot-joined (e.g.
+    `abilities.str.mod`). For showing authors which fields an id refers to."""
+    labels: dict[str, str] = {}
+    if isinstance(layout, dict):
+        _label_scope(layout.get("elements"), labels, prefix="")
+    return labels
+
+
+def _join_label(prefix: str, part: object) -> str:
+    part = part if isinstance(part, str) and part else "?"
+    return f"{prefix}.{part}" if prefix else part
+
+
+def _label_scope(nodes: object, labels: dict[str, str], *, prefix: str) -> None:
+    if not isinstance(nodes, list):
+        return
+    for node in nodes:
+        if isinstance(node, dict):
+            _label_node(node, labels, prefix=prefix)
+
+
+def _label_node(node: dict, labels: dict[str, str], *, prefix: str) -> None:
+    node_type = node.get("type")
+    field_type = _field_type(node)
+    scope_prefix = prefix
+    if field_type is not None:
+        if field_type == "grid_row":
+            label = _join_label(prefix, node.get("key"))
+        else:
+            label = _join_label(prefix, node.get("name"))
+        if isinstance(node.get("id"), str) and node["id"]:
+            labels[node["id"]] = label
+        # Named fields and grid rows open a value scope for their children.
+        scope_prefix = label
+
+    if node_type == "grid":
+        items = node.get("items")
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, dict) and isinstance(item.get("id"), str):
+                    labels[item["id"]] = _join_label(scope_prefix, item.get("key"))
+        _label_scope(node.get("row"), labels, prefix=scope_prefix)
+
+    for key in _CHILD_ELEMENT_KEYS:
+        _label_scope(node.get(key), labels, prefix=scope_prefix)
+
+
 @dataclass
 class IdDiff:
     added: list[str]

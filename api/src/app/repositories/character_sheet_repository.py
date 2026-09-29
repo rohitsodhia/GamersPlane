@@ -13,7 +13,7 @@ from app.character_sheets.layout_validation import (
     validate_publishable_layout,
 )
 from app.configs import configs
-from app.exceptions import ConflictException
+from app.exceptions import ConflictException, NotFoundException
 from app.models import (
     CharacterSheet,
     CharacterSheetFavorite,
@@ -217,6 +217,28 @@ class CharacterSheetRepository:
         )
 
         return await self.publish(draft), id_diff
+
+    async def discard_draft(self, char_sheet: CharacterSheet) -> CharacterSheetVersion:
+        """Delete the sheet's draft and return the latest published version,
+        which is what the sheet falls back to.
+
+        A sheet that was never published has only its draft, so it can't be
+        discarded: that would leave the sheet with no version at all.
+        """
+        draft = await self.get_draft(char_sheet.id)
+        if draft is None:
+            raise NotFoundException("Character sheet has no draft")
+
+        latest = await self.get_latest_published(char_sheet.id)
+        if latest is None:
+            raise ConflictException(
+                "A sheet that has never been published can't discard its draft"
+            )
+
+        await self.db_session.delete(draft)
+        await self.db_session.flush()
+
+        return latest
 
     def _list_query(
         self,

@@ -77,6 +77,9 @@ export type CharacterSheet = {
 	is_draft: boolean;
 	layout: SheetSchema;
 	status: CharacterSheetStatus;
+	// Only filled on a draft: fields in the latest published version the draft
+	// no longer has. `label` is the field's value path, e.g. `abilities.str`.
+	removed_fields: { id: string; label: string }[];
 };
 
 export const characterSheetQueryOptions = (sheetId: number) =>
@@ -176,6 +179,20 @@ export const updateCharacterSheet = async (
 	const res = await apiFetch(`/character_sheets/${sheetId}`, {
 		method: "PATCH",
 		body: JSON.stringify(data),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+// Returns the latest published version, which the sheet falls back to.
+export const discardCharacterSheetDraft = async (
+	sheetId: number,
+): Promise<CharacterSheet> => {
+	const res = await apiFetch(`/character_sheets/${sheetId}/draft`, {
+		method: "DELETE",
 	});
 	if (!res.ok) {
 		const { errors } = await res.json();

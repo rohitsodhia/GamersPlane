@@ -3,6 +3,7 @@ from typing import Literal
 from fastapi import APIRouter, Query, status
 
 from app.character_sheets import schemas
+from app.character_sheets.layout_ids import collect_ids, field_labels
 from app.character_sheets.layout_validation import validate_sheet_layout
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
@@ -20,7 +21,20 @@ def _char_sheet_response(
     char_sheet: CharacterSheet,
     version: CharacterSheetVersion,
     latest_version_number: int | None,
+    latest_published: CharacterSheetVersion | None = None,
 ) -> schemas.GetCharSheetResponse:
+    """`latest_published` is only needed when `version` is a draft: the fields
+    the draft drops are worked out against it."""
+    removed_fields = []
+    if version.is_draft and latest_published is not None:
+        published_labels = field_labels(latest_published.layout)
+        draft_ids = collect_ids(version.layout)
+        removed_fields = [
+            schemas.RemovedFieldData(id=field_id, label=label)
+            for field_id, label in sorted(published_labels.items(), key=lambda f: f[1])
+            if field_id not in draft_ids
+        ]
+
     return schemas.GetCharSheetResponse(
         id=char_sheet.id,
         creator=schemas.UserData(
@@ -41,6 +55,7 @@ def _char_sheet_response(
         changelog=version.changelog,
         layout=version.layout,
         status=char_sheet.status,
+        removed_fields=removed_fields,
     )
 
 
@@ -190,10 +205,12 @@ async def get_char_sheet(
         if sheet_version is None:
             raise NotFoundException("Character sheet has no published version")
 
+    latest = await char_sheet_repository.get_latest_published(char_sheet.id)
     return _char_sheet_response(
         char_sheet,
         sheet_version,
-        await char_sheet_repository.get_latest_published_number(char_sheet.id),
+        latest.number if latest is not None else None,
+        latest,
     )
 
 
@@ -221,10 +238,12 @@ async def update_char_sheet(
         char_sheet, layout=data.layout, changelog=data.changelog
     )
 
+    latest = await char_sheet_repository.get_latest_published(char_sheet.id)
     return _char_sheet_response(
         char_sheet,
         version,
-        await char_sheet_repository.get_latest_published_number(char_sheet.id),
+        latest.number if latest is not None else None,
+        latest,
     )
 
 
@@ -253,6 +272,29 @@ async def publish_char_sheet(
         added_field_ids=id_diff.added,
         removed_field_ids=id_diff.removed,
     )
+
+
+@character_sheets.delete(
+    "/{char_sheet_id}/draft", response_model=schemas.GetCharSheetResponse
+)
+async def discard_char_sheet_draft(
+    char_sheet_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    """Throw away the unpublished changes. Returns the latest published
+    version, which the sheet now shows again."""
+    char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
+    char_sheet = await char_sheet_repository.get(char_sheet_id)
+    if char_sheet is None:
+        raise NotFoundException("Character sheet not found")
+
+    if char_sheet.creator_id != principal.id:
+        raise ForbiddenException("Only the creator can discard this sheet's draft")
+
+    version = await char_sheet_repository.discard_draft(char_sheet)
+
+    return _char_sheet_response(char_sheet, version, version.number)
 
 
 @character_sheets.delete("/{char_sheet_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -71,6 +71,12 @@ class UpdateCharSheetInput(SchemaBase):
     changelog: dict | None = None
 
 
+class RemovedFieldData(SchemaBase):
+    id: str
+    # The field's value path in the published layout, e.g. `abilities.str`.
+    label: str
+
+
 class GetCharSheetResponse(SchemaBase):
     id: int
     creator: UserData
@@ -87,6 +93,9 @@ class GetCharSheetResponse(SchemaBase):
     changelog: dict | None
     layout: dict
     status: CharacterSheet.Status
+    # Only set on a draft: fields in the latest published version that the
+    # draft no longer has, so the author can be warned before publishing.
+    removed_fields: list[RemovedFieldData] = []
 
 
 class PublishCharSheetResponse(GetCharSheetResponse):

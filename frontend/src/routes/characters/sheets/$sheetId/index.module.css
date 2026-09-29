@@ -9,9 +9,21 @@
 }
 
 .draft-notice {
+	text-box-trim: trim-both;
 	margin-bottom: 1em;
-	padding: 0.5em 1em;
+	padding: 1em;
 	border-left: 4px solid var(--gp-orange);
+	background-color: oklch(from var(--gp-orange) l c h / 0.3);
+	font-weight: bold;
+}
+
+.removed-fields-notice {
+	--notice-color: oklch(0.8 0.16 90);
+	text-box-trim: trim-both;
+	margin-bottom: 1em;
+	padding: 1em;
+	border-left: 4px solid var(--notice-color);
+	background-color: oklch(from var(--notice-color) l c h / 0.3);
 	font-weight: bold;
 }
 
@@ -41,6 +53,66 @@
 	margin-bottom: 1em;
 }
 
+.link-button {
+	padding: 0;
+	border: none;
+	background: none;
+	font: inherit;
+	cursor: pointer;
+
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+/* Slides open via the grid-rows 0fr/1fr trick (as the sheet's collapsible
+   does); the inner wrapper clips the content while the row collapses. */
+.confirm {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 0.2s ease;
+
+	&[data-open="true"] {
+		grid-template-rows: 1fr;
+	}
+}
+
+/* Kept bare: padding and border can't collapse with the 0fr row, so they go
+   on the box inside, which this clips away whole. */
+.confirm-inner {
+	overflow: hidden;
+	min-height: 0;
+}
+
+.confirm-box {
+	padding: 1em;
+	border: 1px solid #000;
+	border-radius: 4px;
+
+	p {
+		margin-block: 0 0.5em;
+		text-box-trim: trim-start;
+	}
+}
+
+.confirm-actions {
+	display: flex;
+	gap: 1em;
+	align-items: center;
+}
+
+/* Sits between the controls and the editor; the margin is inside the clipped
+   wrapper, so it collapses away with the box. */
+.publish-confirm .confirm-box {
+	margin-bottom: 1em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.confirm {
+		transition: none;
+	}
+}
+
 :global(.controls-container) {
 	gap: 1em;
 	align-items: center;
@@ -67,11 +139,19 @@
 	min-height: 0;
 }
 
-.sheet-editor > .code-display > textarea {
+.error-link {
+	padding: 0;
+	border: none;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.json-editor {
 	flex: 1;
-	width: 100%;
+	min-width: 0;
 	min-height: 0;
-	box-sizing: border-box;
-	resize: none;
-	font-family: var(--font-mono, ui-monospace, monospace);
+	border: 1px solid light-dark(#ccc, #555);
 }

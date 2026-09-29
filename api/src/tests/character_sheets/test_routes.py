@@ -741,6 +741,7 @@ class TestGetCharSheet:
                 "elements": [{"type": "header", "text": "Combat"}],
             },
             "status": "private",
+            "removed_fields": [],
         }
 
     async def test_version_returns_that_published_version(
@@ -1264,6 +1265,92 @@ class TestPublishCharSheet:
         assert await repository.get_latest_published(sheet.id) is None
 
 
+class TestDiscardCharSheetDraft:
+    @pytest.fixture
+    async def creator(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def sheet(self, creator, create, db_session, wrap_in_savepoint):
+        """A sheet published as v1, with a draft of further edits open."""
+        system = await create(SystemFactory, id="dnd5e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        sheet = await repository.create(
+            name="Fighter", system_id=system.id, layout=VALID_LAYOUT
+        )
+        published = await repository.publish(await repository.get_draft(sheet.id))
+        await repository.save_draft(
+            sheet,
+            layout=_add_input_field(published.layout),
+            changelog=prose_doc("Added a field"),
+        )
+        return sheet
+
+    async def test_requires_auth(self, client, sheet):
+        response = await client.delete(f"/character_sheets/{sheet.id}/draft")
+
+        assert response.status_code == 403
+
+    async def test_returns_404_when_sheet_missing(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.delete("/character_sheets/999999/draft")
+
+        assert response.status_code == 404
+
+    async def test_forbids_non_creator(
+        self, client, sheet, creator, create, db_session, auth_as
+    ):
+        auth_as(await create(ActivatedUserFactory))
+
+        response = await client.delete(f"/character_sheets/{sheet.id}/draft")
+
+        assert response.status_code == 403
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        assert await repository.get_draft(sheet.id) is not None
+
+    async def test_deletes_the_draft_and_returns_the_published_version(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        auth_as(creator)
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        published = await repository.get_latest_published(sheet.id)
+
+        response = await client.delete(f"/character_sheets/{sheet.id}/draft")
+
+        assert response.status_code == 200
+        assert response.json()["version_id"] == published.id
+        assert response.json()["version_number"] == 1
+        assert response.json()["latest_version_number"] == 1
+        assert response.json()["is_draft"] is False
+        assert response.json()["layout"] == published.layout
+        assert await repository.get_draft(sheet.id) is None
+
+    async def test_returns_404_when_there_is_no_draft(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+        await client.delete(f"/character_sheets/{sheet.id}/draft")
+
+        response = await client.delete(f"/character_sheets/{sheet.id}/draft")
+
+        assert response.status_code == 404
+        assert response.json()["errors"][0]["detail"] == "Character sheet has no draft"
+
+    async def test_conflicts_when_the_sheet_was_never_published(
+        self, client, creator, create, db_session, auth_as
+    ):
+        system = await create(SystemFactory, id="pf2e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        unpublished = await repository.create(name="Wizard", system_id=system.id)
+        auth_as(creator)
+
+        response = await client.delete(f"/character_sheets/{unpublished.id}/draft")
+
+        assert response.status_code == 409
+        assert await repository.get_draft(unpublished.id) is not None
+
+
 def _layout_with(*elements):
     return {
         "schema_version": 1,
@@ -1416,3 +1503,98 @@ class TestPublishCharSheetFieldIds:
 
         assert response.status_code == 400
         assert "used more than once" in response.json()["errors"][0]["detail"]
+
+
+class TestDraftRemovedFields:
+    """`removed_fields` on a draft: what publishing it would drop."""
+
+    @pytest.fixture
+    async def creator(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def sheet(self, creator, create, db_session, wrap_in_savepoint):
+        """A sheet published as v1 with an `hp` field."""
+        system = await create(SystemFactory, id="dnd5e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        sheet = await repository.create(
+            name="Fighter",
+            system_id=system.id,
+            layout=_layout_with({"type": "input", "name": "hp"}),
+        )
+        await repository.publish(await repository.get_draft(sheet.id))
+        return sheet
+
+    async def _published_elements(self, db_session, creator, sheet):
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        return (await repository.get_latest_published(sheet.id)).layout["elements"]
+
+    async def test_saving_a_draft_reports_the_dropped_fields(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        name_el, notes_el, hp_el = await self._published_elements(
+            db_session, creator, sheet
+        )
+        auth_as(creator)
+
+        response = await client.patch(
+            f"/character_sheets/{sheet.id}",
+            json={
+                "name": "Fighter",
+                "layout": {"schema_version": 1, "elements": [name_el, notes_el]},
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["removed_fields"] == [{"id": hp_el["id"], "label": "hp"}]
+
+    async def test_fetching_the_draft_reports_the_dropped_fields(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        name_el, notes_el, hp_el = await self._published_elements(
+            db_session, creator, sheet
+        )
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        await repository.save_draft(
+            sheet,
+            layout={"schema_version": 1, "elements": [name_el, notes_el]},
+            changelog=None,
+        )
+        auth_as(creator)
+
+        response = await client.get(f"/character_sheets/{sheet.id}")
+
+        assert response.json()["is_draft"] is True
+        assert response.json()["removed_fields"] == [{"id": hp_el["id"], "label": "hp"}]
+
+    async def test_a_published_version_reports_nothing(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        name_el, notes_el, _hp_el = await self._published_elements(
+            db_session, creator, sheet
+        )
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        await repository.save_draft(
+            sheet,
+            layout={"schema_version": 1, "elements": [name_el, notes_el]},
+            changelog=None,
+        )
+        auth_as(creator)
+
+        response = await client.get(f"/character_sheets/{sheet.id}?version=1")
+
+        assert response.json()["is_draft"] is False
+        assert response.json()["removed_fields"] == []
+
+    async def test_a_never_published_draft_reports_nothing(
+        self, client, creator, create, db_session, auth_as
+    ):
+        system = await create(SystemFactory, id="pf2e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        unpublished = await repository.create(name="Wizard", system_id=system.id)
+        auth_as(creator)
+
+        response = await client.get(f"/character_sheets/{unpublished.id}")
+
+        assert response.json()["is_draft"] is True
+        assert response.json()["removed_fields"] == []

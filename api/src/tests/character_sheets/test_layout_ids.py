@@ -6,6 +6,7 @@ import pytest
 from app.character_sheets.defaults import default_sheet_layout
 from app.character_sheets.layout_ids import (
     collect_ids,
+    field_labels,
     mint_ids,
     validate_publish_ids,
 )
@@ -207,6 +208,75 @@ class TestCollectIds:
 
     def test_none_layout_collects_nothing(self):
         assert collect_ids(None) == {}
+
+
+class TestFieldLabels:
+    def test_labels_a_field_by_name_through_unnamed_wrappers(self):
+        layout = _layout(
+            {
+                "type": "section",
+                "content": [{"type": "input", "name": "hp", "id": "aaaaaaaa"}],
+            }
+        )
+
+        assert field_labels(layout) == {"aaaaaaaa": "hp"}
+
+    def test_labels_fields_inside_a_repeater_under_its_name(self):
+        layout = _layout(
+            {
+                "type": "repeater",
+                "name": "skills",
+                "id": "aaaaaaaa",
+                "content": [{"type": "input", "name": "bonus", "id": "bbbbbbbb"}],
+            }
+        )
+
+        assert field_labels(layout) == {
+            "aaaaaaaa": "skills",
+            "bbbbbbbb": "skills.bonus",
+        }
+
+    def test_labels_compact_grid_items_by_key_and_the_row_template_by_name(self):
+        layout = _layout(
+            {
+                "type": "grid",
+                "name": "stats",
+                "id": "aaaaaaaa",
+                "items": [{"id": "bbbbbbbb", "key": "str", "label": "STR"}],
+                "row": [{"type": "input", "name": "score", "id": "cccccccc"}],
+            }
+        )
+
+        assert field_labels(layout) == {
+            "aaaaaaaa": "stats",
+            "bbbbbbbb": "stats.str",
+            "cccccccc": "stats.score",
+        }
+
+    def test_labels_cells_of_an_explicit_grid_row_under_its_key(self):
+        layout = _layout(
+            {
+                "type": "grid",
+                "name": "saves",
+                "id": "aaaaaaaa",
+                "content": [
+                    {
+                        "type": "grid_row",
+                        "key": "fort",
+                        "id": "bbbbbbbb",
+                        "content": [
+                            {"type": "input", "name": "base", "id": "cccccccc"}
+                        ],
+                    }
+                ],
+            }
+        )
+
+        assert field_labels(layout) == {
+            "aaaaaaaa": "saves",
+            "bbbbbbbb": "saves.fort",
+            "cccccccc": "saves.fort.base",
+        }
 
 
 class TestValidatePublishIds:
