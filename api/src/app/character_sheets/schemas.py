@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.models import CharacterSheet
 from app.schema_base import SchemaBase, filtered_str
 
@@ -96,6 +98,17 @@ class GetCharSheetResponse(SchemaBase):
     # Only set on a draft: fields in the latest published version that the
     # draft no longer has, so the author can be warned before publishing.
     removed_fields: list[RemovedFieldData] = []
+
+
+class PublishedVersionData(SchemaBase):
+    number: int
+    published_at: datetime
+    changelog: dict | None
+
+
+class GetCharSheetVersionsResponse(SchemaBase):
+    # Published versions only, newest first; drafts have no history yet.
+    versions: list[PublishedVersionData]
 
 
 class PublishCharSheetResponse(GetCharSheetResponse):

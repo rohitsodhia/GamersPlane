@@ -214,6 +214,36 @@ async def get_char_sheet(
     )
 
 
+@character_sheets.get(
+    "/{char_sheet_id}/versions", response_model=schemas.GetCharSheetVersionsResponse
+)
+async def get_char_sheet_versions(
+    char_sheet_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
+    char_sheet = await char_sheet_repository.get(char_sheet_id)
+    if char_sheet is None:
+        raise NotFoundException("Character sheet not found")
+
+    if not char_sheet.is_public and char_sheet.creator_id != principal.id:
+        raise ForbiddenException("Character sheet not available")
+
+    versions = await char_sheet_repository.get_published_versions(char_sheet.id)
+
+    return schemas.GetCharSheetVersionsResponse(
+        versions=[
+            schemas.PublishedVersionData(
+                number=version.number,
+                published_at=version.published_at,
+                changelog=version.changelog,
+            )
+            for version in versions
+        ]
+    )
+
+
 @character_sheets.patch("/{char_sheet_id}", response_model=schemas.GetCharSheetResponse)
 async def update_char_sheet(
     char_sheet_id: int,

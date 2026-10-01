@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 
 import pytest
 from sqlalchemy import select
@@ -1349,6 +1350,87 @@ class TestDiscardCharSheetDraft:
 
         assert response.status_code == 409
         assert await repository.get_draft(unpublished.id) is not None
+
+
+class TestGetCharSheetVersions:
+    @pytest.fixture
+    async def creator(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def sheet(self, creator, create, db_session, wrap_in_savepoint):
+        """A sheet published as v1 and v2, with a draft of further edits open."""
+        system = await create(SystemFactory, id="dnd5e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        sheet = await repository.create(
+            name="Fighter", system_id=system.id, layout=VALID_LAYOUT
+        )
+        v1 = await repository.publish(await repository.get_draft(sheet.id))
+        v2_draft = await repository.save_draft(
+            sheet,
+            layout=_add_input_field(v1.layout),
+            changelog=prose_doc("Added a field"),
+        )
+        v2 = await repository.publish(v2_draft)
+        await repository.save_draft(
+            sheet,
+            layout=_add_input_field(v2.layout),
+            changelog=prose_doc("Unreleased"),
+        )
+        return sheet
+
+    async def test_returns_404_when_sheet_missing(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.get("/character_sheets/999999/versions")
+
+        assert response.status_code == 404
+
+    async def test_forbids_non_creators_on_a_sheet_that_is_not_public(
+        self, client, sheet, create, db_session, auth_as
+    ):
+        sheet.status = CharacterSheet.Status.PRIVATE
+        await db_session.flush()
+        auth_as(await create(ActivatedUserFactory))
+
+        response = await client.get(f"/character_sheets/{sheet.id}/versions")
+
+        assert response.status_code == 403
+
+    async def test_lists_published_versions_newest_first_without_the_draft(
+        self, client, sheet, creator, create, db_session, auth_as
+    ):
+        sheet.status = CharacterSheet.Status.PUBLIC
+        await db_session.flush()
+        auth_as(await create(ActivatedUserFactory))
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        v1 = await repository.get_published(sheet.id, 1)
+        v2 = await repository.get_published(sheet.id, 2)
+
+        response = await client.get(f"/character_sheets/{sheet.id}/versions")
+
+        assert response.status_code == 200
+        versions = response.json()["versions"]
+        assert [v["number"] for v in versions] == [2, 1]
+        assert versions[0]["changelog"] == prose_doc("Added a field")
+        assert versions[1]["changelog"] is None
+        assert [datetime.fromisoformat(v["published_at"]) for v in versions] == [
+            v2.published_at,
+            v1.published_at,
+        ]
+
+    async def test_returns_no_versions_for_a_never_published_sheet(
+        self, client, creator, create, db_session, auth_as
+    ):
+        system = await create(SystemFactory, id="pf2e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        unpublished = await repository.create(name="Wizard", system_id=system.id)
+        auth_as(creator)
+
+        response = await client.get(f"/character_sheets/{unpublished.id}/versions")
+
+        assert response.status_code == 200
+        assert response.json() == {"versions": []}
 
 
 def _layout_with(*elements):

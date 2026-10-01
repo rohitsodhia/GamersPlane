@@ -14,6 +14,7 @@ import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	type CharacterSheet,
 	characterSheetQueryOptions,
+	characterSheetVersionsQueryOptions,
 	discardCharacterSheetDraft,
 	publishCharacterSheet,
 	updateCharacterSheet,
@@ -233,6 +234,9 @@ function SheetEditor({
 			setConfirmingPublish(false);
 			const published = await publishCharacterSheet(sheetId);
 			queryClient.setQueryData(characterSheetQueryOptions(sheetId).queryKey, published);
+			queryClient.invalidateQueries({
+				queryKey: characterSheetVersionsQueryOptions(sheetId).queryKey,
+			});
 			// The changelog is now frozen on the published version; the next
 			// draft starts its own.
 			setChangelogInput(emptyContent);

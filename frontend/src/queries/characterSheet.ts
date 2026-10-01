@@ -95,6 +95,26 @@ export const characterSheetQueryOptions = (sheetId: number) =>
 		},
 	});
 
+export type PublishedCharacterSheetVersion = {
+	number: number;
+	published_at: string;
+	changelog: JSONContent | null;
+};
+
+// Published versions only, newest first.
+export const characterSheetVersionsQueryOptions = (sheetId: number) =>
+	queryOptions({
+		queryKey: ["characterSheet", sheetId, "versions"],
+		queryFn: async (): Promise<PublishedCharacterSheetVersion[]> => {
+			const res = await apiFetch(`/character_sheets/${sheetId}/versions`);
+			if (!res.ok) {
+				const { errors } = await res.json();
+				throw new ApiError(res.status, errors);
+			}
+			return (await res.json()).versions;
+		},
+	});
+
 export const createCharacterSheet = async (
 	data: NewCharacterSheetInput,
 ): Promise<{ id: number }> => {

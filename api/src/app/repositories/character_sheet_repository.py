@@ -94,6 +94,18 @@ class CharacterSheetRepository:
         )
         return await self.db_session.scalar(query)
 
+    async def get_published_versions(
+        self, char_sheet_id: int
+    ) -> list[CharacterSheetVersion]:
+        """A sheet's published versions, newest first. Layouts stay deferred."""
+        query = (
+            select(CharacterSheetVersion)
+            .where(CharacterSheetVersion.character_sheet_id == char_sheet_id)
+            .where(CharacterSheetVersion.published_at.is_not(None))
+            .order_by(CharacterSheetVersion.number.desc())
+        )
+        return list(await self.db_session.scalars(query))
+
     async def get_latest_published_number(self, char_sheet_id: int) -> int | None:
         return await self.db_session.scalar(
             select(func.max(CharacterSheetVersion.number)).where(
