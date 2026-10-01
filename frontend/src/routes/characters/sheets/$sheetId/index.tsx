@@ -290,14 +290,14 @@ function SheetEditor({
 			</h1>
 
 			{isDraft ? (
-				<p className={styles["draft-notice"]}>
+				<p className="banner">
 					You're viewing an unpublished draft. Other users see the latest published
 					version.
 				</p>
 			) : null}
 
 			{isDraft && removedFields.length > 0 ? (
-				<p className={styles["removed-fields-notice"]}>
+				<p className="banner warning-banner">
 					This draft removes {removedFields.length === 1 ? "a field" : "fields"} from
 					the published version: {removedFields.map((field) => field.label).join(", ")}
 				</p>

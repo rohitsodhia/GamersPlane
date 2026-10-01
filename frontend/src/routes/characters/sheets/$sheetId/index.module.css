@@ -8,25 +8,6 @@
 	grid-template-rows: minmax(0, 1fr);
 }
 
-.draft-notice {
-	text-box-trim: trim-both;
-	margin-bottom: 1em;
-	padding: 1em;
-	border-left: 4px solid var(--gp-orange);
-	background-color: oklch(from var(--gp-orange) l c h / 0.3);
-	font-weight: bold;
-}
-
-.removed-fields-notice {
-	--notice-color: oklch(0.8 0.16 90);
-	text-box-trim: trim-both;
-	margin-bottom: 1em;
-	padding: 1em;
-	border-left: 4px solid var(--notice-color);
-	background-color: oklch(from var(--notice-color) l c h / 0.3);
-	font-weight: bold;
-}
-
 .sheet-logo {
 	margin-bottom: 1em;
 
