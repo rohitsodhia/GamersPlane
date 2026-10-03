@@ -129,6 +129,23 @@ export const createCharacterSheet = async (
 	return res.json();
 };
 
+// Copies a published version (the latest unless `version` is given) into a new
+// draft sheet owned by the caller.
+export const copyCharacterSheet = async (
+	sheetId: number,
+	version?: number,
+): Promise<{ id: number }> => {
+	const qs = version === undefined ? "" : `?version=${version}`;
+	const res = await apiFetch(`/character_sheets/${sheetId}/copy${qs}`, {
+		method: "POST",
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
 export type LibraryCharacterSheet = {
 	id: number;
 	name: string;

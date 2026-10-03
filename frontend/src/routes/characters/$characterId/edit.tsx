@@ -1,14 +1,18 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import clsx from "clsx";
 import { useState } from "react";
+import { DismissibleBanner } from "#/components/DismissibleBanner";
 import { Select } from "#/components/Select";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
+import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	type CharacterType,
 	characterQueryOptions,
 	updateCharacter,
 } from "#/queries/character";
+import { copyCharacterSheet } from "#/queries/characterSheet";
 import { meQueryOptions } from "#/queries/me";
 import { SheetRenderer } from "../sheets/-components/SheetRenderer";
 import { SheetValuesProvider, useSheetStore } from "../sheets/-components/sheet-values";
@@ -44,16 +48,70 @@ function RouteComponent() {
 	const { character_sheet: sheet } = character;
 	const primaryAvatar = character.avatars.find((avatar) => avatar.is_primary);
 
+	const { data: me } = useSuspenseQuery(meQueryOptions);
+	const queryClient = useQueryClient();
+
 	const [label, setLabel] = useState(character.label);
 	const [type, setType] = useState<CharacterType>(character.type);
+
+	// Copying is for a sheet you can't maintain yourself: someone else's, or one
+	// that's been deleted (the API lets you copy it since you have a character on it).
+	const canCopySheet = sheet === null || sheet.creator.id !== me.id;
+	const copyMutation = useMutation({
+		// The version this character is pinned to, so the copy matches it.
+		mutationFn: () =>
+			copyCharacterSheet(character.character_sheet_id, character.version_number),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["characterSheets"] });
+		},
+	});
+
+	const hbMargined = useHbMargined<HTMLHeadingElement>();
 
 	// Remount when switching characters so the value store re-seeds from the
 	// newly loaded `values`.
 	return (
 		<div className={styles["character-sheet"]}>
-			<h1 className="headerbar">{character.name ?? character.label}</h1>
+			<h1 className="headerbar" ref={hbMargined.ref}>
+				{character.name ?? character.label}
+			</h1>
+			{canCopySheet ? (
+				<div className={clsx("controls-container", styles["top-links"])}>
+					<div
+						className="trapezoid red-trapezoid upside-down"
+						style={{ marginRight: hbMargined.margin }}
+					>
+						<button
+							type="button"
+							onClick={() => copyMutation.mutate()}
+							disabled={copyMutation.isPending}
+						>
+							Copy Sheet
+						</button>
+					</div>
+				</div>
+			) : null}
 
-			{sheet && (
+			{copyMutation.isSuccess ? (
+				<p className="banner success-banner">
+					Sheet copied as a draft.{" "}
+					<Link
+						to="/characters/sheets/$sheetId"
+						params={{ sheetId: copyMutation.data.id }}
+					>
+						Open the copy
+					</Link>
+				</p>
+			) : null}
+			{copyMutation.error ? (
+				<p className="banner error-banner">
+					{copyMutation.error instanceof ApiError
+						? copyMutation.error.errors.map((err) => err.detail).join(" ")
+						: "The sheet couldn't be copied."}
+				</p>
+			) : null}
+
+			{sheet ? (
 				<div className={styles["sheet-logo"]}>
 					<img
 						src={`/images/logos/${sheet.system.id}.png`}
@@ -61,6 +119,14 @@ function RouteComponent() {
 						title={sheet.system.name}
 					/>
 				</div>
+			) : (
+				<DismissibleBanner
+					storageKey={`deleted-sheet:${characterId}`}
+					className="warning-banner"
+				>
+					The sheet this character was built on has been deleted. You can copy it if you
+					would like to make updates.
+				</DismissibleBanner>
 			)}
 
 			<div className={styles["avatar-wrapper"]}>

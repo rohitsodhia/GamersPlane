@@ -113,6 +113,17 @@ class CharacterRepository:
         )
         return await self.db_session.scalar(query)
 
+    async def has_character_on_sheet(self, char_sheet_id: int) -> bool:
+        """Whether the principal has a character using the sheet, whichever
+        version it's pinned to."""
+        query = (
+            select(Character.id)
+            .where(Character.user_id == self.principal.id)
+            .where(Character.character_sheet_id == char_sheet_id)
+            .limit(1)
+        )
+        return await self.db_session.scalar(query) is not None
+
     def _list_query(
         self,
         search: str | None = None,

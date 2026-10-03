@@ -8,7 +8,7 @@ from sqlalchemy.orm import undefer
 from app.character_sheets.defaults import default_sheet_layout
 from app.configs import configs
 from app.models import CharacterSheet, CharacterSheetFavorite, CharacterSheetVersion
-from app.repositories import CharacterSheetRepository
+from app.repositories import CharacterRepository, CharacterSheetRepository
 from tests.factories import ActivatedUserFactory, SystemFactory, prose_doc
 
 
@@ -1431,6 +1431,172 @@ class TestGetCharSheetVersions:
 
         assert response.status_code == 200
         assert response.json() == {"versions": []}
+
+
+class TestCopyCharSheet:
+    @pytest.fixture
+    async def creator(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def copier(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def sheet(self, creator, create, db_session, wrap_in_savepoint):
+        """A private sheet published as v1 and v2, with a draft of further
+        edits open."""
+        system = await create(SystemFactory, id="dnd5e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        sheet = await repository.create(
+            name="Fighter", system_id=system.id, layout=VALID_LAYOUT
+        )
+        sheet.description = prose_doc("A sturdy fighter")
+        v1 = await repository.publish(await repository.get_draft(sheet.id))
+        v2 = await repository.publish(
+            await repository.save_draft(
+                sheet,
+                layout=_add_input_field(v1.layout),
+                changelog=prose_doc("Added a field"),
+            )
+        )
+        await repository.save_draft(
+            sheet,
+            layout=_add_input_field(v2.layout),
+            changelog=prose_doc("Unreleased"),
+        )
+        return sheet
+
+    async def _give_character(self, db_session, user, sheet):
+        version = await CharacterSheetRepository(
+            db_session, principal=user
+        ).get_published(sheet.id, 1)
+        await CharacterRepository(db_session, principal=user).create(
+            character_sheet_id=sheet.id,
+            character_sheet_version_id=version.id,
+            label="Brienne",
+        )
+
+    async def test_returns_404_when_sheet_missing(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post("/character_sheets/999999/copy")
+
+        assert response.status_code == 404
+
+    async def test_forbids_copying_a_private_sheet_without_a_character_on_it(
+        self, client, sheet, copier, auth_as
+    ):
+        auth_as(copier)
+
+        response = await client.post(f"/character_sheets/{sheet.id}/copy")
+
+        assert response.status_code == 403
+
+    async def test_copies_the_latest_published_version_into_a_new_draft(
+        self, client, sheet, creator, copier, db_session, auth_as
+    ):
+        sheet.status = CharacterSheet.Status.PUBLIC
+        await db_session.flush()
+        v2 = await CharacterSheetRepository(
+            db_session, principal=creator
+        ).get_published(sheet.id, 2)
+        auth_as(copier)
+
+        response = await client.post(f"/character_sheets/{sheet.id}/copy")
+
+        assert response.status_code == 200
+        repository = CharacterSheetRepository(db_session, principal=copier)
+        copied = await repository.get(response.json()["id"])
+        assert copied.creator_id == copier.id
+        assert copied.name == "Fighter (Copy)"
+        assert copied.system_id == sheet.system_id
+        assert copied.description == prose_doc("A sturdy fighter")
+        assert copied.forked_from_id == sheet.id
+        assert copied.status == CharacterSheet.Status.PRIVATE
+        draft = await repository.get_draft(copied.id)
+        # Ids included: they're kept so characters can move to the copy.
+        assert draft.layout == v2.layout
+        assert draft.changelog is None
+        assert await repository.get_latest_published(copied.id) is None
+
+    async def test_copies_the_requested_version(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        v1 = await CharacterSheetRepository(
+            db_session, principal=creator
+        ).get_published(sheet.id, 1)
+        auth_as(creator)
+
+        response = await client.post(
+            f"/character_sheets/{sheet.id}/copy", params={"version": 1}
+        )
+
+        assert response.status_code == 200
+        draft = await CharacterSheetRepository(db_session, principal=creator).get_draft(
+            response.json()["id"]
+        )
+        assert draft.layout == v1.layout
+
+    async def test_returns_404_for_an_unknown_version(
+        self, client, sheet, creator, auth_as
+    ):
+        auth_as(creator)
+
+        response = await client.post(
+            f"/character_sheets/{sheet.id}/copy", params={"version": 3}
+        )
+
+        assert response.status_code == 404
+
+    async def test_returns_404_for_a_never_published_sheet(
+        self, client, creator, create, db_session, auth_as
+    ):
+        system = await create(SystemFactory, id="pf2e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        unpublished = await repository.create(name="Wizard", system_id=system.id)
+        auth_as(creator)
+
+        response = await client.post(f"/character_sheets/{unpublished.id}/copy")
+
+        assert response.status_code == 404
+
+    async def test_a_character_on_a_private_sheet_allows_copying_it(
+        self, client, sheet, copier, db_session, auth_as
+    ):
+        await self._give_character(db_session, copier, sheet)
+        auth_as(copier)
+
+        response = await client.post(f"/character_sheets/{sheet.id}/copy")
+
+        assert response.status_code == 200
+
+    async def test_a_character_on_a_deleted_sheet_allows_copying_it(
+        self, client, sheet, creator, copier, db_session, auth_as
+    ):
+        await self._give_character(db_session, copier, sheet)
+        await CharacterSheetRepository(db_session, principal=creator).delete(sheet)
+        auth_as(copier)
+
+        response = await client.post(
+            f"/character_sheets/{sheet.id}/copy", params={"version": 1}
+        )
+
+        assert response.status_code == 200
+        copied = await CharacterSheetRepository(db_session, principal=copier).get(
+            response.json()["id"]
+        )
+        assert copied.forked_from_id == sheet.id
+
+    async def test_returns_404_for_a_deleted_sheet_without_a_character_on_it(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        await CharacterSheetRepository(db_session, principal=creator).delete(sheet)
+        auth_as(creator)
+
+        response = await client.post(f"/character_sheets/{sheet.id}/copy")
+
+        assert response.status_code == 404
 
 
 def _layout_with(*elements):

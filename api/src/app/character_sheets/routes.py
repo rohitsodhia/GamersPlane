@@ -10,6 +10,7 @@ from app.exceptions import ForbiddenException, NotFoundException
 from app.middleware import Principal
 from app.models import CharacterSheet, CharacterSheetVersion
 from app.repositories import (
+    CharacterRepository,
     CharacterSheetRepository,
     SystemRepository,
 )
@@ -242,6 +243,53 @@ async def get_char_sheet_versions(
             for version in versions
         ]
     )
+
+
+@character_sheets.post(
+    "/{char_sheet_id}/copy", response_model=schemas.CreateCharSheetResponse
+)
+async def copy_char_sheet(
+    char_sheet_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    version: int | None = None,
+):
+    """Copy a published version (the latest unless `version` is given) into a
+    new draft sheet owned by the caller.
+
+    Anyone who can view the sheet can copy it. So can anyone with a character on
+    it, even once it's private or deleted, so they're never stuck on a sheet
+    they can't maintain.
+    """
+    char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
+    char_sheet = await char_sheet_repository.get(char_sheet_id, include_deleted=True)
+    if char_sheet is None:
+        raise NotFoundException("Character sheet not found")
+
+    can_view = char_sheet.deleted is None and (
+        char_sheet.is_public or char_sheet.creator_id == principal.id
+    )
+    if not can_view:
+        character_repository = CharacterRepository(db_session, principal=principal)
+        if not await character_repository.has_character_on_sheet(char_sheet.id):
+            if char_sheet.deleted is not None:
+                raise NotFoundException("Character sheet not found")
+            raise ForbiddenException("Character sheet not available")
+
+    if version is None:
+        sheet_version = await char_sheet_repository.get_latest_published(char_sheet.id)
+        if sheet_version is None:
+            raise NotFoundException("Character sheet has no published version")
+    else:
+        sheet_version = await char_sheet_repository.get_published(
+            char_sheet.id, version
+        )
+        if sheet_version is None:
+            raise NotFoundException("Character sheet version not found")
+
+    copied = await char_sheet_repository.create_copy(char_sheet, sheet_version)
+
+    return schemas.CreateCharSheetResponse(id=copied.id)
 
 
 @character_sheets.patch("/{char_sheet_id}", response_model=schemas.GetCharSheetResponse)

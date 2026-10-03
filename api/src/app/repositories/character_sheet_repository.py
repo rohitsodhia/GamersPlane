@@ -60,6 +60,24 @@ class CharacterSheetRepository:
 
         return char_sheet
 
+    async def create_copy(
+        self, char_sheet: CharacterSheet, version: CharacterSheetVersion
+    ) -> CharacterSheet:
+        """Copy `version` of `char_sheet` into a new private sheet owned by the
+        principal. The copy starts as a draft, since copying is usually done to
+        edit. Field ids are kept, so a character can move to the copy without
+        losing its values."""
+        copied = await self.create(
+            name=f"{char_sheet.name} (Copy)",
+            system_id=char_sheet.system_id,
+            layout=version.layout,
+        )
+        copied.forked_from_id = char_sheet.id
+        copied.description = copy.deepcopy(char_sheet.description)
+        await self.db_session.flush()
+
+        return copied
+
     async def get_draft(self, char_sheet_id: int) -> CharacterSheetVersion | None:
         query = (
             select(CharacterSheetVersion)
@@ -436,7 +454,9 @@ class CharacterSheetRepository:
         )
         return list(await self.db_session.scalars(query))
 
-    async def get(self, id: int) -> CharacterSheet | None:
+    async def get(
+        self, id: int, include_deleted: bool = False
+    ) -> CharacterSheet | None:
         query = (
             select(CharacterSheet)
             .where(CharacterSheet.id == id)
@@ -445,4 +465,6 @@ class CharacterSheetRepository:
                 selectinload(CharacterSheet.system),
             )
         )
+        if include_deleted:
+            query = query.execution_options(skip_filter=True)
         return await self.db_session.scalar(query)

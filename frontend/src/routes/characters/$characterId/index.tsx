@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import clsx from "clsx";
+import { DismissibleBanner } from "#/components/DismissibleBanner";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { characterQueryOptions } from "#/queries/character";
@@ -66,7 +67,12 @@ function RouteComponent() {
 					/>
 				</div>
 			) : (
-				<p>The sheet this character was built on has been deleted.</p>
+				<DismissibleBanner
+					storageKey={`deleted-sheet:${characterId}`}
+					className="warning-banner"
+				>
+					The sheet this character was built on has been deleted.
+				</DismissibleBanner>
 			)}
 
 			<div className={styles["character-meta"]}>
