@@ -1,6 +1,12 @@
-import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+	useMutation,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { JSONContent } from "@tiptap/core";
+import clsx from "clsx";
 import { lazy, type ReactNode, Suspense, useState } from "react";
 import { z } from "zod";
 import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
@@ -11,12 +17,14 @@ import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import { useFlash } from "#/lib/use-flash";
 import { useHbMargined } from "#/lib/use-hb-margined";
+import { createCharacter } from "#/queries/character";
 import {
 	type CharacterSheet,
 	characterSheetQueryOptions,
 	characterSheetVersionsQueryOptions,
 	discardCharacterSheetDraft,
 	publishCharacterSheet,
+	toggleCharacterSheetFavorite,
 	updateCharacterSheet,
 } from "#/queries/characterSheet";
 import { meQueryOptions } from "#/queries/me";
@@ -54,6 +62,8 @@ function RouteComponent() {
 	const { data: sheet } = useSuspenseQuery(characterSheetQueryOptions(sheetId));
 	const { data: me } = useQuery(meQueryOptions);
 	const isOwner = me !== undefined && me.id === sheet.creator.id;
+	// Held back until `me` loads, so the owner doesn't see them flash.
+	const isViewer = me !== undefined && !isOwner;
 
 	// Remount the editor when switching sheets so the code draft re-seeds from
 	// the newly loaded layout.
@@ -62,6 +72,8 @@ function RouteComponent() {
 			key={sheetId}
 			sheetId={sheetId}
 			name={sheet.name}
+			favorited={sheet.favorited ?? false}
+			isViewer={isViewer}
 			description={sheet.description}
 			system={sheet.system.id}
 			layout={sheet.layout}
@@ -108,6 +120,8 @@ function jsonErrorLocation(message: string, text: string) {
 function SheetEditor({
 	sheetId,
 	name,
+	favorited,
+	isViewer,
 	description,
 	system,
 	layout,
@@ -121,6 +135,8 @@ function SheetEditor({
 }: {
 	sheetId: number;
 	name: string;
+	favorited: boolean;
+	isViewer: boolean;
 	description: JSONContent | null;
 	system: string;
 	layout: SheetSchema | null | undefined;
@@ -288,6 +304,14 @@ function SheetEditor({
 			<h1 className="headerbar" ref={hbMargined.ref}>
 				{name}
 			</h1>
+			{isViewer ? (
+				<ViewerControls
+					sheetId={sheetId}
+					name={name}
+					favorited={favorited}
+					margin={hbMargined.margin}
+				/>
+			) : null}
 
 			{isDraft ? (
 				<p className="banner">
@@ -506,6 +530,85 @@ function SheetEditor({
 				</div>
 			)}
 		</div>
+	);
+}
+
+// For someone else's sheet: start a character on it, or bookmark it.
+function ViewerControls({
+	sheetId,
+	name,
+	favorited,
+	margin,
+}: {
+	sheetId: number;
+	name: string;
+	favorited: boolean;
+	margin: number | undefined;
+}) {
+	const queryClient = useQueryClient();
+	const navigate = useNavigate();
+
+	const createMutation = useMutation({
+		mutationFn: () =>
+			createCharacter({
+				label: `${name} Character`,
+				character_sheet_id: sheetId,
+				type: "pc",
+			}),
+		onSuccess: ({ id }) => {
+			queryClient.invalidateQueries({ queryKey: ["characters"] });
+			navigate({ to: "/characters/$characterId/edit", params: { characterId: id } });
+		},
+	});
+	const favoriteMutation = useMutation({
+		mutationFn: () => toggleCharacterSheetFavorite(sheetId),
+		onSuccess: ({ favorited }) => {
+			queryClient.setQueryData(
+				characterSheetQueryOptions(sheetId).queryKey,
+				(old) => old && { ...old, favorited },
+			);
+			// "My sheets" lists favorited sheets alongside your own.
+			queryClient.invalidateQueries({ queryKey: ["characterSheets"] });
+		},
+	});
+	const error = createMutation.error ?? favoriteMutation.error;
+
+	return (
+		<>
+			<div className={clsx("controls-container", styles["top-links"])}>
+				<div
+					className="trapezoid red-trapezoid upside-down"
+					style={{ marginRight: margin }}
+				>
+					<button
+						type="button"
+						onClick={() => createMutation.mutate()}
+						disabled={createMutation.isPending}
+					>
+						Create Character
+					</button>
+					<button
+						type="button"
+						onClick={() => favoriteMutation.mutate()}
+						disabled={favoriteMutation.isPending}
+						aria-pressed={favorited}
+					>
+						<img
+							src={`/images/icons/bookmark_${favorited ? "on" : "off"}.png`}
+							title={favorited ? "Unfavorite Sheet" : "Favorite Sheet"}
+							alt={favorited ? "Unfavorite Sheet" : "Favorite Sheet"}
+						/>
+					</button>
+				</div>
+			</div>
+			{error ? (
+				<p className="banner error-banner">
+					{error instanceof ApiError
+						? error.errors.map((err) => err.detail).join(" ")
+						: "Something went wrong. Please try again."}
+				</p>
+			) : null}
+		</>
 	);
 }
 

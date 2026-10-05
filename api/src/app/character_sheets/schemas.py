@@ -98,6 +98,8 @@ class GetCharSheetResponse(SchemaBase):
     # Only set on a draft: fields in the latest published version that the
     # draft no longer has, so the author can be warned before publishing.
     removed_fields: list[RemovedFieldData] = []
+    # Only filled by the GET; the creator-only write routes leave it out.
+    favorited: bool | None = None
 
 
 class PublishedVersionData(SchemaBase):

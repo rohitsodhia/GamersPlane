@@ -21,7 +21,9 @@ async def get_deck_types(
     return schemas.GetDeckTypesResponse(
         types=[
             schemas.DeckTypeData(
-                short=deck_type.short, name=deck_type.name, deck_size=deck_type.deck_size
+                short=deck_type.short,
+                name=deck_type.name,
+                deck_size=deck_type.deck_size,
             )
             for deck_type in deck_types
         ]

@@ -69,7 +69,9 @@ class TestCreate:
                 permissions=[],
             )
 
-    async def test_create_sets_deck_fields(self, repository, db_session, game, deck_type):
+    async def test_create_sets_deck_fields(
+        self, repository, db_session, game, deck_type
+    ):
         deck = await repository.create(
             game_id=game.id, label="Fate Deck", type=deck_type.short, permissions=[]
         )
@@ -381,7 +383,9 @@ class TestUpdate:
 
         assert updated.label == "Renamed Deck"
 
-    async def test_update_same_type_does_not_reshuffle(self, repository, deck, deck_type):
+    async def test_update_same_type_does_not_reshuffle(
+        self, repository, deck, deck_type
+    ):
         original_order = list(deck.order)
         original_shuffled_at = deck.last_shuffled
         original_position = deck.position

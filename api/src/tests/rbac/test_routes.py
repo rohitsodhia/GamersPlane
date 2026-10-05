@@ -214,9 +214,7 @@ class TestGetRoles:
 
         assert {r["id"] for r in response.json()["roles"]} == {alpha.id}
 
-    async def test_defaults_to_non_game_roles(
-        self, authed_client, db_session, create
-    ):
+    async def test_defaults_to_non_game_roles(self, authed_client, db_session, create):
         client, user = authed_client
         await make_admin(db_session, user)
         plain = await make_role(db_session)
@@ -684,7 +682,9 @@ class TestCreateGrant:
 
         assert response.status_code == 400
 
-    async def test_admin_verb_cannot_be_granted_via_api(self, authed_client, db_session):
+    async def test_admin_verb_cannot_be_granted_via_api(
+        self, authed_client, db_session
+    ):
         client, user = authed_client
         await make_admin(db_session, user)
         role = await make_role(db_session)

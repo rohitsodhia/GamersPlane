@@ -38,9 +38,7 @@ class TestForumRepository:
 
         assert forum.description == "A description"
 
-    async def test_add_computes_order_from_existing_children(
-        self, repository, create
-    ):
+    async def test_add_computes_order_from_existing_children(self, repository, create):
         parent = await create(ForumFactory, heritage=[])
         await create(ForumFactory, parent_id=parent.id, order=1)
         await create(ForumFactory, parent_id=parent.id, order=2)

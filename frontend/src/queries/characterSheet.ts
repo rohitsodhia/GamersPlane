@@ -80,6 +80,8 @@ export type CharacterSheet = {
 	// Only filled on a draft: fields in the latest published version the draft
 	// no longer has. `label` is the field's value path, e.g. `abilities.str`.
 	removed_fields: { id: string; label: string }[];
+	// Only filled by the GET; the save/publish/discard responses leave it out.
+	favorited?: boolean | null;
 };
 
 export const characterSheetQueryOptions = (sheetId: number) =>

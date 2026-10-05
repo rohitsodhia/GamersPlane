@@ -8,6 +8,22 @@
 	grid-template-rows: minmax(0, 1fr);
 }
 
+/* Matches the character page's controls hanging off the header bar. */
+.top-links {
+	position: sticky;
+	top: 70px;
+	z-index: 100;
+	margin-bottom: 1em;
+
+	button {
+		height: stretch;
+	}
+}
+
+h1:has(+ .top-links) {
+	margin-bottom: 0;
+}
+
 .sheet-logo {
 	margin-bottom: 1em;
 

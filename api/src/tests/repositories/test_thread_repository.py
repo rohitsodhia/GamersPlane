@@ -173,9 +173,7 @@ class TestThreadRepository:
 
         assert thread.deleted is not None
 
-    async def test_delete_excludes_thread_from_get_all(
-        self, repository, create, forum
-    ):
+    async def test_delete_excludes_thread_from_get_all(self, repository, create, forum):
         thread = await create(ThreadFactory, forum=forum)
 
         await repository.delete(thread)
@@ -183,9 +181,7 @@ class TestThreadRepository:
 
         assert threads == []
 
-    async def test_detach_post_decrements_post_count(
-        self, repository, create, forum
-    ):
+    async def test_detach_post_decrements_post_count(self, repository, create, forum):
         thread = await repository.create(forum.id, Thread.Options())
         first_post = await create(PostFactory, thread=thread)
         await repository.attach_new_post(thread, first_post)

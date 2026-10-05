@@ -813,7 +813,30 @@ class TestGetCharSheet:
             },
             "status": "private",
             "removed_fields": [],
+            "favorited": False,
         }
+
+    async def test_marks_whether_the_viewer_favorited_it(
+        self, client, sheet, create, db_session, auth_as
+    ):
+        sheet.status = CharacterSheet.Status.PUBLIC
+        await db_session.flush()
+        viewer = await create(ActivatedUserFactory)
+        other = await create(ActivatedUserFactory)
+        await CharacterSheetRepository(db_session, principal=other).toggle_favorite(
+            sheet
+        )
+        auth_as(viewer)
+
+        before = await client.get(f"/character_sheets/{sheet.id}")
+        await CharacterSheetRepository(db_session, principal=viewer).toggle_favorite(
+            sheet
+        )
+        after = await client.get(f"/character_sheets/{sheet.id}")
+
+        # Another user's favorite doesn't count for the viewer.
+        assert before.json()["favorited"] is False
+        assert after.json()["favorited"] is True
 
     async def test_version_returns_that_published_version(
         self, client, sheet_with_draft, creator, create, db_session, auth_as

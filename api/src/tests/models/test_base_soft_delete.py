@@ -6,9 +6,7 @@ from app.models.genre import Genre
 
 
 class TestSoftDeleteFiltering:
-    async def test_deleted_row_excluded_by_default(
-        self, db_session, wrap_in_savepoint
-    ):
+    async def test_deleted_row_excluded_by_default(self, db_session, wrap_in_savepoint):
         alive = Genre(genre="Alive")
         dead = Genre(genre="Dead", deleted=datetime.now(UTC))
         db_session.add_all([alive, dead])

@@ -207,12 +207,14 @@ async def get_char_sheet(
             raise NotFoundException("Character sheet has no published version")
 
     latest = await char_sheet_repository.get_latest_published(char_sheet.id)
-    return _char_sheet_response(
+    response = _char_sheet_response(
         char_sheet,
         sheet_version,
         latest.number if latest is not None else None,
         latest,
     )
+    response.favorited = await char_sheet_repository.is_favorited(char_sheet)
+    return response
 
 
 @character_sheets.get(

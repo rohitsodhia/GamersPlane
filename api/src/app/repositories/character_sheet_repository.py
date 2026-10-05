@@ -402,6 +402,12 @@ class CharacterSheetRepository:
             or 0
         )
 
+    async def is_favorited(self, char_sheet: CharacterSheet) -> bool:
+        favorite = await self.db_session.get(
+            CharacterSheetFavorite, (self.principal.id, char_sheet.id)
+        )
+        return favorite is not None
+
     async def toggle_favorite(self, char_sheet: CharacterSheet) -> bool:
         existing = await self.db_session.get(
             CharacterSheetFavorite, (self.principal.id, char_sheet.id)

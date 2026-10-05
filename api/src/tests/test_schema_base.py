@@ -1,4 +1,10 @@
-from app.schema_base import SchemaBase, escape_html, filtered_str, nl2br, strip_whitespace
+from app.schema_base import (
+    SchemaBase,
+    escape_html,
+    filtered_str,
+    nl2br,
+    strip_whitespace,
+)
 
 
 class TestPipelineFunctions:

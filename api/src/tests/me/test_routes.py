@@ -175,7 +175,9 @@ class TestDeleteCurrentUserAvatar:
 
         assert response.status_code == 403
 
-    async def test_delete_avatar_removes_existing_file(self, authed_client, _avatars_dir):
+    async def test_delete_avatar_removes_existing_file(
+        self, authed_client, _avatars_dir
+    ):
         client, user = authed_client
         await client.post(
             "/me/avatar",
