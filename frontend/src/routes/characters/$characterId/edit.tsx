@@ -256,9 +256,23 @@ function CharacterSheetForm({
 				try {
 					await mutation.mutateAsync(store.snapshot());
 				} catch (exception) {
-					if (exception instanceof ApiError) {
-						setApiErrors(exception.errors.map((err) => err.detail));
+					if (!(exception instanceof ApiError)) {
+						setApiErrors(["Something went wrong. Please try again."]);
+						return;
 					}
+					setApiErrors(
+						exception.errors.map((err) => {
+							if (err.code !== "validation_error") {
+								return err.detail;
+							}
+							// The values check names server-minted ids, which mean
+							// nothing to a player. It only fails when this form is
+							// out of step with the character's sheet version, so the
+							// raw detail goes to the console for bug reports.
+							console.error(err.detail);
+							return "This sheet couldn't be saved because it doesn't match the character's sheet version. Reload the page and try again; if it keeps happening, please report it.";
+						}),
+					);
 				}
 			}}
 		>
