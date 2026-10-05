@@ -11,6 +11,7 @@ from app.models import (
     CharacterFavorite,
     CharacterSheet,
     FavoriteCharacter,
+    UserMeta,
 )
 from app.repositories import CharacterRepository, CharacterSheetRepository
 from tests.factories import ActivatedUserFactory, SystemFactory
@@ -274,6 +275,31 @@ class TestGetCharacter:
             "layout": SHEET_LAYOUT,
             "avatars": [],
         }
+
+    async def test_loads_the_sheet_creators_avatar_when_they_arent_the_viewer(
+        self, client, character, owner, sheet_creator, db_session, auth_as
+    ):
+        # A real request starts with only the viewer loaded; here the creator
+        # would otherwise sit in the session with `meta` already filled.
+        # A set avatar, so the response can't match by falling back to the default.
+        sheet_creator.meta.append(
+            UserMeta(key=UserMeta.MetaKeys.AVATAR_EXT.value, value="jpg")
+        )
+        await db_session.flush()
+        # Read everything needed before expiring: an expired attribute can't
+        # lazy-load outside the async session.
+        character_id = character.id
+        sheet_creator_id = sheet_creator.id
+        auth_as(owner)
+        db_session.expire_all()
+
+        response = await client.get(f"/characters/{character_id}")
+
+        assert response.status_code == 200
+        assert (
+            response.json()["character_sheet"]["creator"]["avatar"]
+            == f"{sheet_creator_id}.jpg"
+        )
 
     async def test_serves_the_pinned_layout_after_the_sheet_changes(
         self, client, character, owner, sheet_creator, public_sheet, db_session, auth_as
