@@ -20,6 +20,11 @@
 			:global(.filterable-listbox) {
 				font-weight: normal;
 			}
+
+			/* Another creator's sheet (a favorite), set apart from your own. */
+			.others-sheet {
+				font-style: italic;
+			}
 		}
 	}
 

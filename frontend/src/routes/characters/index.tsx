@@ -71,6 +71,7 @@ function RouteComponent() {
 	const hbMarginedH1 = useHbMargined<HTMLHeadingElement>();
 	const hbMarginedH2 = useHbMargined<HTMLHeadingElement>();
 	const { data: sheets } = useSuspenseQuery(myCharacterSheetsQueryOptions);
+	const { data: me } = useQuery(meQueryOptions);
 
 	const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
 	const [apiErrors, setApiErrors] = useState<string[]>([]);
@@ -261,6 +262,12 @@ function RouteComponent() {
 										items={visibleSheets}
 										getId={(sheet) => String(sheet.id)}
 										getLabel={(sheet) => sheet.name}
+										// Favorited sheets from other creators sit among your own.
+										getClassName={(sheet) =>
+											me !== undefined && sheet.creator.id !== me.id
+												? styles["others-sheet"]
+												: undefined
+										}
 										selectedId={field.state.value || null}
 										onChange={(id) => field.handleChange(id ?? "")}
 										emptyState="No sheets"

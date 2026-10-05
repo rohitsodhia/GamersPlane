@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import type { CSSProperties } from "react";
 import { useFilter } from "react-aria";
 import {
@@ -20,6 +21,7 @@ export function FilterableListBox<T>({
 	items,
 	getId,
 	getLabel,
+	getClassName,
 	selectedId,
 	onChange,
 	disallowEmptySelection,
@@ -32,6 +34,8 @@ export function FilterableListBox<T>({
 	items: T[];
 	getId: (item: T) => string;
 	getLabel: (item: T) => string;
+	// Extra classes for an item's row, to mark some items apart from the rest.
+	getClassName?: (item: T) => string | undefined;
 	selectedId: string | null;
 	onChange: (id: string | null) => void;
 	disallowEmptySelection?: boolean;
@@ -72,7 +76,12 @@ export function FilterableListBox<T>({
 					}}
 				>
 					{(item) => (
-						<ListBoxItem id={getId(item)} textValue={getLabel(item)}>
+						<ListBoxItem
+							id={getId(item)}
+							textValue={getLabel(item)}
+							// A className replaces RAC's default class, which rac.css styles.
+							className={clsx("react-aria-ListBoxItem", getClassName?.(item))}
+						>
 							{getLabel(item)}
 						</ListBoxItem>
 					)}
