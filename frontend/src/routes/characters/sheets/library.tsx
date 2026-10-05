@@ -32,6 +32,9 @@ function RouteComponent() {
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
 	return (
 		<div>
+			<div style={{ marginLeft: hbMargined.margin }}>
+				<Link to="/characters/sheets">Back to character sheets</Link>
+			</div>
 			<h1 className="headerbar" ref={hbMargined.ref}>
 				Character Sheet Library
 			</h1>
