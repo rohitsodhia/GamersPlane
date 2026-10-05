@@ -1125,6 +1125,20 @@ class TestUpdateCharacter:
         await db_session.refresh(character, ["values"])
         assert character.values is None
 
+    async def test_a_body_level_422_has_no_field(
+        self, client, character, owner, auth_as
+    ):
+        auth_as(owner)
+
+        # Not an object, so the error is about the body itself: its location
+        # is just "body", which leaves nothing to name as the field.
+        response = await client.patch(f"/characters/{character.id}", json=["label"])
+
+        assert response.status_code == 422
+        [error] = response.json()["errors"]
+        assert "field" not in error
+        assert error["code"] == "validation_error"
+
     async def test_rejects_values_the_sheet_doesnt_define(
         self, client, character, owner, db_session, auth_as
     ):

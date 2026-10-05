@@ -17,17 +17,37 @@ export type BasicCharacterSheet = {
 	favorited: boolean;
 };
 
-export const myCharacterSheetsQueryOptions = queryOptions({
-	queryKey: ["characterSheets", "my"],
-	queryFn: async (): Promise<BasicCharacterSheet[]> => {
-		const res = await apiFetch("/character_sheets/my");
+// A character can only be built on a sheet with a published version. The
+// picker lists the systems those sheets are in, then one system's sheets.
+export const myCharacterSheetSystemsQueryOptions = queryOptions({
+	queryKey: ["characterSheets", "my", "published", "systems"],
+	queryFn: async (): Promise<{ id: string; name: string }[]> => {
+		const res = await apiFetch("/character_sheets/my/systems?published_only=true");
 		if (!res.ok) {
 			const { errors } = await res.json();
 			throw new ApiError(res.status, errors);
 		}
-		return (await res.json()).char_sheets;
+		return (await res.json()).systems;
 	},
 });
+
+export const myCharacterSheetsQueryOptions = (systemId: string) =>
+	queryOptions({
+		queryKey: ["characterSheets", "my", "published", "sheets", systemId],
+		queryFn: async (): Promise<BasicCharacterSheet[]> => {
+			const search = new URLSearchParams({
+				system_id: systemId,
+				published_only: "true",
+				paginate: "false",
+			});
+			const res = await apiFetch(`/character_sheets/my?${search}`);
+			if (!res.ok) {
+				const { errors } = await res.json();
+				throw new ApiError(res.status, errors);
+			}
+			return (await res.json()).char_sheets;
+		},
+	});
 
 export type GetMyCharacterSheetsResponse = {
 	char_sheets: BasicCharacterSheet[];

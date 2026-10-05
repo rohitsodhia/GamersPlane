@@ -28,7 +28,10 @@ import {
 	toggleCharacterFavorite,
 	toggleCharacterLibrary,
 } from "#/queries/character";
-import { myCharacterSheetsQueryOptions } from "#/queries/characterSheet";
+import {
+	myCharacterSheetSystemsQueryOptions,
+	myCharacterSheetsQueryOptions,
+} from "#/queries/characterSheet";
 import { meQueryOptions } from "#/queries/me";
 import { systemsQueryOptions } from "#/queries/systems";
 import styles from "./list-page.module.css";
@@ -53,7 +56,7 @@ export const Route = createFileRoute("/characters/")({
 		// The systems list feeds ListFilters' system filter.
 		return redirectToLoginOnAuthFailure(
 			Promise.all([
-				context.queryClient.ensureQueryData(myCharacterSheetsQueryOptions),
+				context.queryClient.ensureQueryData(myCharacterSheetSystemsQueryOptions),
 				context.queryClient.ensureQueryData(systemsQueryOptions({ basic: true })),
 			]),
 			location,
@@ -70,10 +73,23 @@ const TYPE_OPTIONS: { id: CharacterType; name: string }[] = [
 function RouteComponent() {
 	const hbMarginedH1 = useHbMargined<HTMLHeadingElement>();
 	const hbMarginedH2 = useHbMargined<HTMLHeadingElement>();
-	const { data: sheets } = useSuspenseQuery(myCharacterSheetsQueryOptions);
+	const { data: systems } = useSuspenseQuery(myCharacterSheetSystemsQueryOptions);
 	const { data: me } = useQuery(meQueryOptions);
 
 	const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
+	const sheetsQuery = useQuery({
+		...myCharacterSheetsQueryOptions(selectedSystem ?? ""),
+		enabled: selectedSystem !== null,
+	});
+	const sheets = selectedSystem === null ? [] : (sheetsQuery.data ?? []);
+	const sheetsEmptyState =
+		selectedSystem === null
+			? "Pick a system first"
+			: sheetsQuery.isError
+				? "Couldn't load sheets"
+				: sheetsQuery.isPending
+					? "Loading…"
+					: "No sheets";
 	const [apiErrors, setApiErrors] = useState<string[]>([]);
 	const [createdId, setCreatedId] = useState<number | null>(null);
 
@@ -114,36 +130,17 @@ function RouteComponent() {
 		},
 	});
 
-	// Deduped systems drawn from the user's sheets, sorted by name.
-	const systems = [
-		...new Map(sheets.map((sheet) => [sheet.system.id, sheet.system])).values(),
-	].sort((a, b) => a.name.localeCompare(b.name));
-
-	// Second listbox: every sheet when no system is picked, otherwise just the
-	// chosen system's.
-	const visibleSheets = sheets.filter(
-		(sheet) => selectedSystem === null || sheet.system.id === selectedSystem,
-	);
-
 	const handleSystemChange = (systemId: string | null) => {
 		setSelectedSystem(systemId);
-		// Drop the sheet selection if it no longer belongs to the chosen system.
-		const currentSheetId = form.getFieldValue("characterSheetId");
-		const stillVisible = sheets.some(
-			(sheet) =>
-				String(sheet.id) === currentSheetId &&
-				(systemId === null || sheet.system.id === systemId),
-		);
-		if (!stillVisible) {
-			// Clearing the sheet here is our doing, not the user's — skip the
-			// touched/validate side effects so the "pick a sheet" error doesn't
-			// fire just because they chose a system. It still surfaces on submit,
-			// or if the user clears a sheet themselves in the sheet list.
-			form.setFieldValue("characterSheetId", "", {
-				dontUpdateMeta: true,
-				dontValidate: true,
-			});
-		}
+		// A sheet is in exactly one system, so any change leaves the picked sheet
+		// behind. Clearing it is our doing, not the user's — skip the
+		// touched/validate side effects so the "pick a sheet" error doesn't fire
+		// just because they chose a system. It still surfaces on submit, or if the
+		// user clears a sheet themselves in the sheet list.
+		form.setFieldValue("characterSheetId", "", {
+			dontUpdateMeta: true,
+			dontValidate: true,
+		});
 	};
 
 	return (
@@ -259,7 +256,7 @@ function RouteComponent() {
 										id="sheet-filter"
 										label="Sheets"
 										placeholder="Filter sheets"
-										items={visibleSheets}
+										items={sheets}
 										getId={(sheet) => String(sheet.id)}
 										getLabel={(sheet) => sheet.name}
 										// Favorited sheets from other creators sit among your own.
@@ -270,7 +267,7 @@ function RouteComponent() {
 										}
 										selectedId={field.state.value || null}
 										onChange={(id) => field.handleChange(id ?? "")}
-										emptyState="No sheets"
+										emptyState={sheetsEmptyState}
 										maxVisibleItems={5}
 									/>
 									{field.state.meta.errors[0] && (

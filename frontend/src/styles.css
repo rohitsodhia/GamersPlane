@@ -485,6 +485,10 @@ h2.headerbar {
 		margin-top: 0.4em;
 	}
 
+	label {
+		text-box-trim: trim-both;
+	}
+
 	div label {
 		margin-right: 1em;
 	}

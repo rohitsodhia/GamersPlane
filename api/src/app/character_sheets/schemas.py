@@ -40,6 +40,10 @@ class GetMyCharSheetsResponse(SchemaBase):
     page: int
 
 
+class GetMyCharSheetSystemsResponse(SchemaBase):
+    systems: list[SystemData]
+
+
 class LibraryUserData(SchemaBase):
     id: int
     username: str

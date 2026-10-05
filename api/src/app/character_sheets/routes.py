@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query, status
 from app.character_sheets import schemas
 from app.character_sheets.layout_ids import collect_ids, field_labels
 from app.character_sheets.layout_validation import validate_sheet_layout
+from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import ConflictException, ForbiddenException, NotFoundException
 from app.middleware import Principal
@@ -86,16 +87,29 @@ async def get_char_sheets(
     search: str | None = None,
     system_id: str | None = None,
     page: int = 1,
+    # For picking a sheet to build a character on, which needs a published
+    # version.
+    published_only: bool = False,
+    # The character picker lists one system's sheets at a time, all at once.
+    paginate: bool = True,
 ):
     if page < 1:
         page = 1
 
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
     char_sheets = await char_sheet_repository.get_all(
-        search=search, system_id=system_id, page=page, include_favorited=True
+        search=search,
+        system_id=system_id,
+        page=page,
+        limit=configs.PAGINATE_PER_PAGE if paginate else None,
+        include_favorited=True,
+        published_only=published_only,
     )
     total = await char_sheet_repository.count_all(
-        search=search, system_id=system_id, include_favorited=True
+        search=search,
+        system_id=system_id,
+        include_favorited=True,
+        published_only=published_only,
     )
 
     return schemas.GetMyCharSheetsResponse(
@@ -118,6 +132,27 @@ async def get_char_sheets(
         ],
         total=total,
         page=page,
+    )
+
+
+@character_sheets.get(
+    "/my/systems", response_model=schemas.GetMyCharSheetSystemsResponse
+)
+async def get_char_sheet_systems(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    published_only: bool = False,
+):
+    """The systems the sheets listed by `/my` belong to."""
+    char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
+    systems = await char_sheet_repository.get_systems(
+        include_favorited=True, published_only=published_only
+    )
+
+    return schemas.GetMyCharSheetSystemsResponse(
+        systems=[
+            schemas.SystemData(id=system.id, name=system.name) for system in systems
+        ]
     )
 
 

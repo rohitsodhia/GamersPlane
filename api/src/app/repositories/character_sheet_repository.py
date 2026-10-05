@@ -275,6 +275,7 @@ class CharacterSheetRepository:
         search: str | None = None,
         system_id: str | None = None,
         include_favorited: bool = False,
+        published_only: bool = False,
     ):
         ownership = CharacterSheet.creator_id == self.principal.id
         if include_favorited:
@@ -294,6 +295,13 @@ class CharacterSheetRepository:
             query = query.where(CharacterSheet.name.ilike(f"%{search}%"))
         if system_id:
             query = query.where(CharacterSheet.system_id == system_id)
+        if published_only:
+            query = query.where(
+                select(CharacterSheetVersion.id)
+                .where(CharacterSheetVersion.character_sheet_id == CharacterSheet.id)
+                .where(CharacterSheetVersion.published_at.is_not(None))
+                .exists()
+            )
         return query
 
     async def get_all(
@@ -301,11 +309,13 @@ class CharacterSheetRepository:
         search: str | None = None,
         system_id: str | None = None,
         page: int = 1,
-        limit: int = configs.PAGINATE_PER_PAGE,
+        # `None` returns every match, ignoring `page`.
+        limit: int | None = configs.PAGINATE_PER_PAGE,
         include_favorited: bool = False,
+        published_only: bool = False,
     ) -> list[tuple[CharacterSheet, bool]]:
         query = (
-            self._list_query(search, system_id, include_favorited)
+            self._list_query(search, system_id, include_favorited, published_only)
             .add_columns(CharacterSheetFavorite.user_id.is_not(None).label("favorited"))
             .outerjoin(
                 CharacterSheetFavorite,
@@ -320,19 +330,35 @@ class CharacterSheetRepository:
                 selectinload(CharacterSheet.creator),
                 selectinload(CharacterSheet.system),
             )
-            .limit(limit)
-            .offset((page - 1) * limit)
         )
+        if limit is not None:
+            query = query.limit(limit).offset((page - 1) * limit)
         result = await self.db_session.execute(query)
         return [(char_sheet, favorited) for char_sheet, favorited in result]
+
+    async def get_systems(
+        self, include_favorited: bool = False, published_only: bool = False
+    ) -> list[System]:
+        """The distinct systems of the sheets :meth:`get_all` would list, by
+        sort name."""
+        sheet_systems = self._list_query(
+            include_favorited=include_favorited, published_only=published_only
+        ).with_only_columns(CharacterSheet.system_id)
+        query = (
+            select(System)
+            .where(System.id.in_(sheet_systems))
+            .order_by(System.sort_name.asc())
+        )
+        return list(await self.db_session.scalars(query))
 
     async def count_all(
         self,
         search: str | None = None,
         system_id: str | None = None,
         include_favorited: bool = False,
+        published_only: bool = False,
     ) -> int:
-        query = self._list_query(search, system_id, include_favorited)
+        query = self._list_query(search, system_id, include_favorited, published_only)
         return (
             await self.db_session.scalar(
                 select(func.count()).select_from(query.subquery())

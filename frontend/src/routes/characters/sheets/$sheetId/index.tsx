@@ -315,8 +315,9 @@ function SheetEditor({
 
 			{isDraft ? (
 				<p className="banner">
-					You're viewing an unpublished draft. Other users see the latest published
-					version.
+					{latestVersionNumber === null
+						? "You're viewing an unpublished draft. No one else can see this sheet until you publish it."
+						: "You're viewing an unpublished draft. Other users see the latest published version."}
 				</p>
 			) : null}
 
@@ -372,11 +373,18 @@ function SheetEditor({
 			) : null}
 
 			<div className={styles["sheet-version"]}>
-				Current Version: {versionLabel} (
-				<Link to="/characters/sheets/$sheetId/changelog" params={{ sheetId }}>
-					Change log
-				</Link>
-				)
+				Current Version: {versionLabel}
+				{/* Nothing is logged until the first publish. */}
+				{latestVersionNumber !== null ? (
+					<>
+						{" "}
+						(
+						<Link to="/characters/sheets/$sheetId/changelog" params={{ sheetId }}>
+							Change log
+						</Link>
+						)
+					</>
+				) : null}
 				{canDiscard ? (
 					<>
 						<div>

@@ -59,6 +59,9 @@ class TestValidateCharacterValues:
             stored=None,
         )
 
+    def test_accepts_a_null_repeater_or_grid(self):
+        validate_character_values({"cls1": None, "sts1": None}, LAYOUT, stored=None)
+
     def test_falls_back_to_the_name_for_a_field_without_an_id(self):
         layout = {"elements": [{"type": "input", "name": "hp"}]}
 

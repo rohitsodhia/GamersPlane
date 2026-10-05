@@ -250,6 +250,39 @@ class TestGetMyCharSheets:
         assert second["page"] == 2
         assert len(second["char_sheets"]) == 1
 
+    async def test_paginate_false_returns_every_match(
+        self, client, system, user, db_session, auth_as
+    ):
+        per_page = configs.PAGINATE_PER_PAGE
+        for i in range(per_page + 1):
+            await _make_sheet(db_session, user, system, f"Sheet {i:03}")
+        auth_as(user)
+
+        response = await client.get("/character_sheets/my", params={"paginate": False})
+
+        assert len(response.json()["char_sheets"]) == per_page + 1
+
+    async def test_published_only_leaves_out_never_published_sheets(
+        self, client, system, user, db_session, auth_as
+    ):
+        repository = CharacterSheetRepository(db_session, principal=user)
+        published = await repository.create(
+            name="Published", system_id=system.id, layout=VALID_LAYOUT
+        )
+        await repository.publish(await repository.get_draft(published.id))
+        # A draft open on top of a published version doesn't hide it.
+        await repository.save_draft(published, layout=_add_input_field(VALID_LAYOUT))
+        await _make_sheet(db_session, user, system, "Never published")
+        auth_as(user)
+
+        response = await client.get(
+            "/character_sheets/my", params={"published_only": True}
+        )
+
+        body = response.json()
+        assert [s["name"] for s in body["char_sheets"]] == ["Published"]
+        assert body["total"] == 1
+
     async def test_page_below_one_is_clamped(
         self, client, system, user, db_session, auth_as
     ):
@@ -261,6 +294,82 @@ class TestGetMyCharSheets:
         body = response.json()
         assert body["page"] == 1
         assert len(body["char_sheets"]) == 1
+
+
+class TestGetMyCharSheetSystems:
+    @pytest.fixture
+    async def user(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def other(self, create):
+        return await create(ActivatedUserFactory)
+
+    async def test_requires_auth(self, client):
+        response = await client.get("/character_sheets/my/systems")
+
+        assert response.status_code == 403
+
+    async def test_lists_each_system_of_owned_and_favorited_sheets_once(
+        self, client, create, user, other, db_session, auth_as
+    ):
+        dnd = await create(SystemFactory, id="dnd5e", name="D&D 5e", sort_name="DnD")
+        pf2e = await create(
+            SystemFactory, id="pf2e", name="Pathfinder 2e", sort_name="Pathfinder"
+        )
+        fate = await create(SystemFactory, id="fate", name="Fate", sort_name="Fate")
+        await _make_sheet(db_session, user, pf2e, "Champion")
+        await _make_sheet(db_session, user, pf2e, "Fighter")
+        borrowed = await _make_sheet(
+            db_session, other, dnd, "Borrowed", status=CharacterSheet.Status.PUBLIC
+        )
+        await _favorite(db_session, user, borrowed)
+        # Someone else's sheet the user hasn't favorited isn't theirs to pick.
+        await _make_sheet(
+            db_session, other, fate, "Unrelated", status=CharacterSheet.Status.PUBLIC
+        )
+        auth_as(user)
+
+        response = await client.get("/character_sheets/my/systems")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "systems": [
+                {"id": "dnd5e", "name": "D&D 5e"},
+                {"id": "pf2e", "name": "Pathfinder 2e"},
+            ]
+        }
+
+    async def test_published_only_leaves_out_systems_with_only_unpublished_sheets(
+        self, client, create, user, db_session, auth_as
+    ):
+        dnd = await create(SystemFactory, id="dnd5e")
+        pf2e = await create(SystemFactory, id="pf2e")
+        repository = CharacterSheetRepository(db_session, principal=user)
+        published = await repository.create(
+            name="Published", system_id=dnd.id, layout=VALID_LAYOUT
+        )
+        await repository.publish(await repository.get_draft(published.id))
+        await _make_sheet(db_session, user, pf2e, "Never published")
+        auth_as(user)
+
+        response = await client.get(
+            "/character_sheets/my/systems", params={"published_only": True}
+        )
+
+        assert [s["id"] for s in response.json()["systems"]] == ["dnd5e"]
+
+    async def test_leaves_out_systems_whose_only_sheet_was_deleted(
+        self, client, create, user, db_session, auth_as
+    ):
+        dnd = await create(SystemFactory, id="dnd5e")
+        repository = CharacterSheetRepository(db_session, principal=user)
+        await repository.delete(await _make_sheet(db_session, user, dnd))
+        auth_as(user)
+
+        response = await client.get("/character_sheets/my/systems")
+
+        assert response.json()["systems"] == []
 
 
 class TestGetCharSheetLibrary:
@@ -1686,6 +1795,17 @@ class TestCopyCharSheet:
     ):
         await CharacterSheetRepository(db_session, principal=creator).delete(sheet)
         auth_as(creator)
+
+        response = await client.post(f"/character_sheets/{sheet.id}/copy")
+
+        assert response.status_code == 404
+
+    async def test_a_deleted_public_sheet_is_no_longer_open_to_copy(
+        self, client, sheet, creator, copier, db_session, auth_as
+    ):
+        sheet.status = CharacterSheet.Status.PUBLIC
+        await CharacterSheetRepository(db_session, principal=creator).delete(sheet)
+        auth_as(copier)
 
         response = await client.post(f"/character_sheets/{sheet.id}/copy")
 
