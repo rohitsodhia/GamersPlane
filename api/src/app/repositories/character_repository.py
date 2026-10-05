@@ -105,7 +105,8 @@ class CharacterRepository:
             .execution_options(skip_filter=True)
             .options(
                 selectinload(Character.character_sheet).options(
-                    selectinload(CharacterSheet.creator),
+                    # `meta` backs the creator's avatar.
+                    selectinload(CharacterSheet.creator).selectinload(User.meta),
                     selectinload(CharacterSheet.system),
                 ),
                 selectinload(Character.character_sheet_version).options(
