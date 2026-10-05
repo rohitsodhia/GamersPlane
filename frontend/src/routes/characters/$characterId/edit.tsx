@@ -12,7 +12,7 @@ import {
 	characterQueryOptions,
 	updateCharacter,
 } from "#/queries/character";
-import { copyCharacterSheet } from "#/queries/characterSheet";
+import { copyCharacterSheet, restoreCharacterSheet } from "#/queries/characterSheet";
 import { meQueryOptions } from "#/queries/me";
 import { SheetRenderer } from "../sheets/-components/SheetRenderer";
 import { SheetValuesProvider, useSheetStore } from "../sheets/-components/sheet-values";
@@ -54,9 +54,12 @@ function RouteComponent() {
 	const [label, setLabel] = useState(character.label);
 	const [type, setType] = useState<CharacterType>(character.type);
 
-	// Copying is for a sheet you can't maintain yourself: someone else's, or one
-	// that's been deleted (the API lets you copy it since you have a character on it).
-	const canCopySheet = sheet === null || sheet.creator.id !== me.id;
+	// Your own deleted sheet is restored rather than copied. Copying is for a
+	// sheet you can't maintain yourself: someone else's, even once they've
+	// deleted it (the API lets you copy it since you have a character on it).
+	const ownsSheet = sheet.creator.id === me.id;
+	const canRestoreSheet = character.sheet_deleted && ownsSheet;
+	const canCopySheet = !ownsSheet;
 	const copyMutation = useMutation({
 		// The version this character is pinned to, so the copy matches it.
 		mutationFn: () =>
@@ -65,6 +68,18 @@ function RouteComponent() {
 			queryClient.invalidateQueries({ queryKey: ["characterSheets"] });
 		},
 	});
+	const restoreMutation = useMutation({
+		mutationFn: () => restoreCharacterSheet(character.character_sheet_id),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["characterSheets"] });
+			queryClient.invalidateQueries({ queryKey: ["characterSheet"] });
+			// Clears `sheet_deleted`, which hides the notice and the button.
+			queryClient.invalidateQueries({
+				queryKey: characterQueryOptions(characterId).queryKey,
+			});
+		},
+	});
+	const sheetActionError = copyMutation.error ?? restoreMutation.error;
 
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
 
@@ -75,19 +90,29 @@ function RouteComponent() {
 			<h1 className="headerbar" ref={hbMargined.ref}>
 				{character.name ?? character.label}
 			</h1>
-			{canCopySheet ? (
+			{canCopySheet || canRestoreSheet ? (
 				<div className={clsx("controls-container", styles["top-links"])}>
 					<div
 						className="trapezoid red-trapezoid upside-down"
 						style={{ marginRight: hbMargined.margin }}
 					>
-						<button
-							type="button"
-							onClick={() => copyMutation.mutate()}
-							disabled={copyMutation.isPending}
-						>
-							Copy Sheet
-						</button>
+						{canRestoreSheet ? (
+							<button
+								type="button"
+								onClick={() => restoreMutation.mutate()}
+								disabled={restoreMutation.isPending}
+							>
+								Restore Sheet
+							</button>
+						) : (
+							<button
+								type="button"
+								onClick={() => copyMutation.mutate()}
+								disabled={copyMutation.isPending}
+							>
+								Copy Sheet
+							</button>
+						)}
 					</div>
 				</div>
 			) : null}
@@ -103,31 +128,35 @@ function RouteComponent() {
 					</Link>
 				</p>
 			) : null}
-			{copyMutation.error ? (
+			{restoreMutation.isSuccess ? (
+				<p className="banner success-banner">Sheet restored.</p>
+			) : null}
+			{sheetActionError ? (
 				<p className="banner error-banner">
-					{copyMutation.error instanceof ApiError
-						? copyMutation.error.errors.map((err) => err.detail).join(" ")
-						: "The sheet couldn't be copied."}
+					{sheetActionError instanceof ApiError
+						? sheetActionError.errors.map((err) => err.detail).join(" ")
+						: "Something went wrong. Please try again."}
 				</p>
 			) : null}
 
-			{sheet ? (
-				<div className={styles["sheet-logo"]}>
-					<img
-						src={`/images/logos/${sheet.system.id}.png`}
-						alt={sheet.system.name}
-						title={sheet.system.name}
-					/>
-				</div>
-			) : (
+			{character.sheet_deleted ? (
 				<DismissibleBanner
 					storageKey={`deleted-sheet:${characterId}`}
 					className="warning-banner"
 				>
-					The sheet this character was built on has been deleted. You can copy it if you
-					would like to make updates.
+					{canRestoreSheet
+						? "You deleted the sheet this character was built on. You can restore it if you would like to use it again."
+						: "The sheet this character was built on has been deleted. You can copy it if you would like to make updates."}
 				</DismissibleBanner>
-			)}
+			) : null}
+
+			<div className={styles["sheet-logo"]}>
+				<img
+					src={`/images/logos/${sheet.system.id}.png`}
+					alt={sheet.system.name}
+					title={sheet.system.name}
+				/>
+			</div>
 
 			<div className={styles["avatar-wrapper"]}>
 				<div className={styles["character-meta"]}>

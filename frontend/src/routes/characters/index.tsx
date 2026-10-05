@@ -425,7 +425,7 @@ function CharacterList() {
 								<div className={styles["char-type"]}>
 									{character.type.toLocaleUpperCase()}
 								</div>
-								<div>{character.character_sheet?.system.name ?? "Sheet deleted"}</div>
+								<div>{character.character_sheet.system.name}</div>
 								{favoritedOnly ? (
 									<div className={rowLinksClassName}>
 										<button

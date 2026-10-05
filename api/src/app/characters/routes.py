@@ -79,10 +79,7 @@ async def get_characters(
                     id=character.user.id, username=character.user.username
                 ),
                 character_sheet_id=character.character_sheet_id,
-                # A soft-deleted sheet is filtered out of the relationship load.
-                character_sheet=None
-                if character.character_sheet is None
-                else schemas.CharacterListSheetData(
+                character_sheet=schemas.CharacterListSheetData(
                     id=character.character_sheet.id,
                     name=character.character_sheet.name,
                     system=schemas.SystemData(
@@ -90,7 +87,7 @@ async def get_characters(
                         name=character.character_sheet.system.name,
                     ),
                 ),
-                sheet_deleted=character.character_sheet is None,
+                sheet_deleted=character.character_sheet.deleted is not None,
             )
             for character in characters
         ],
@@ -336,10 +333,7 @@ def _character_response(character) -> schemas.GetCharacterResponse:
         values=character.values,
         in_library=character.in_library,
         character_sheet_id=character.character_sheet_id,
-        # A soft-deleted sheet is filtered out of the relationship load.
-        character_sheet=None
-        if sheet is None
-        else schemas.CharacterSheetData(
+        character_sheet=schemas.CharacterSheetData(
             id=sheet.id,
             name=sheet.name,
             creator=schemas.UserData(
@@ -352,7 +346,7 @@ def _character_response(character) -> schemas.GetCharacterResponse:
                 name=sheet.system.name,
             ),
         ),
-        sheet_deleted=sheet is None,
+        sheet_deleted=sheet.deleted is not None,
         version_id=character.character_sheet_version.id,
         version_number=character.character_sheet_version.number,
         layout=character.character_sheet_version.layout,

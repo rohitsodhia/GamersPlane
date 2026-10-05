@@ -146,6 +146,17 @@ export const copyCharacterSheet = async (
 	return res.json();
 };
 
+// Undoes the creator's delete; the sheet comes back with its versions.
+export const restoreCharacterSheet = async (sheetId: number): Promise<void> => {
+	const res = await apiFetch(`/character_sheets/${sheetId}/restore`, {
+		method: "POST",
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
 export type LibraryCharacterSheet = {
 	id: number;
 	name: string;

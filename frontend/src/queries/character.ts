@@ -20,13 +20,13 @@ export type Character = {
 	values: ScopeValues | null;
 	in_library: boolean;
 	character_sheet_id: number;
-	/** Null once the sheet has been deleted; the character still renders from `layout`. */
+	/** Still filled once the sheet is deleted; the character renders from `layout`. */
 	character_sheet: {
 		id: number;
 		name: string;
 		creator: { id: number; username: string; avatar: string };
 		system: { id: string; name: string };
-	} | null;
+	};
 	sheet_deleted: boolean;
 	/** The sheet version this character is pinned to. */
 	version_id: number;
@@ -47,7 +47,7 @@ export type CharacterListItem = {
 		id: number;
 		name: string;
 		system: { id: string; name: string };
-	} | null;
+	};
 	sheet_deleted: boolean;
 };
 

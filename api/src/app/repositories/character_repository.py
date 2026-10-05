@@ -100,6 +100,9 @@ class CharacterRepository:
         query = (
             select(Character)
             .where(Character.id == id)
+            # The sheet loads even once it's deleted (see `_list_query`).
+            .where(Character.deleted.is_(None))
+            .execution_options(skip_filter=True)
             .options(
                 selectinload(Character.character_sheet).options(
                     selectinload(CharacterSheet.creator),
@@ -142,8 +145,15 @@ class CharacterRepository:
                 ),
             )
             ownership = or_(ownership, favorited_in_library)
-        # Outer join: a character whose sheet was soft-deleted must stay listed.
-        query = select(Character).where(ownership).outerjoin(Character.character_sheet)
+        # A deleted sheet still describes its characters (they keep its system),
+        # so the soft-delete filter is skipped (`skip_filter` at execution) and
+        # deleted characters are filtered here instead.
+        query = (
+            select(Character)
+            .where(ownership)
+            .where(Character.deleted.is_(None))
+            .join(Character.character_sheet)
+        )
         if search:
             query = query.where(Character.label.ilike(f"%{search}%"))
         if type:
@@ -163,8 +173,8 @@ class CharacterRepository:
     ) -> ScalarResult[Character]:
         query = (
             self._list_query(search, type, system_id, include_favorited)
-            .outerjoin(CharacterSheet.system)
-            .order_by(System.sort_name.asc().nulls_last(), Character.label.asc())
+            .join(CharacterSheet.system)
+            .order_by(System.sort_name.asc(), Character.label.asc())
             .options(
                 selectinload(Character.character_sheet).selectinload(
                     CharacterSheet.system
@@ -173,6 +183,7 @@ class CharacterRepository:
             )
             .limit(limit)
             .offset((page - 1) * limit)
+            .execution_options(skip_filter=True)
         )
         return await self.db_session.scalars(query)
 
@@ -186,7 +197,9 @@ class CharacterRepository:
         query = self._list_query(search, type, system_id, include_favorited)
         return (
             await self.db_session.scalar(
-                select(func.count()).select_from(query.subquery())
+                select(func.count())
+                .select_from(query.subquery())
+                .execution_options(skip_filter=True)
             )
             or 0
         )

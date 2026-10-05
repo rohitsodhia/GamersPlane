@@ -6,7 +6,7 @@ from app.character_sheets import schemas
 from app.character_sheets.layout_ids import collect_ids, field_labels
 from app.character_sheets.layout_validation import validate_sheet_layout
 from app.database import DBSessionDependency
-from app.exceptions import ForbiddenException, NotFoundException
+from app.exceptions import ConflictException, ForbiddenException, NotFoundException
 from app.middleware import Principal
 from app.models import CharacterSheet, CharacterSheetVersion
 from app.repositories import (
@@ -387,6 +387,27 @@ async def delete_char_sheet(
         raise ForbiddenException("Only the creator can delete this character sheet")
 
     await char_sheet_repository.delete(char_sheet)
+
+
+@character_sheets.post(
+    "/{char_sheet_id}/restore", status_code=status.HTTP_204_NO_CONTENT
+)
+async def restore_char_sheet(
+    char_sheet_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
+    char_sheet = await char_sheet_repository.get(char_sheet_id, include_deleted=True)
+    if char_sheet is None:
+        raise NotFoundException("Character sheet not found")
+    if char_sheet.creator_id != principal.id:
+        # A deleted sheet is hidden from everyone but its creator.
+        if char_sheet.deleted is not None:
+            raise NotFoundException("Character sheet not found")
+        raise ForbiddenException("Only the creator can restore this character sheet")
+    if char_sheet.deleted is None:
+        raise ConflictException("Character sheet isn't deleted")
+
+    await char_sheet_repository.restore(char_sheet)
 
 
 @character_sheets.patch(

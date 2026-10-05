@@ -428,6 +428,12 @@ class CharacterSheetRepository:
         )
         await self.db_session.flush()
 
+    async def restore(self, char_sheet: CharacterSheet) -> None:
+        """Undo a soft delete. Versions were never touched, so the sheet comes
+        back as it was; favorites, cleared on delete, don't."""
+        char_sheet.deleted = None
+        await self.db_session.flush()
+
     async def get_by_creator_id(self, creator_id: int) -> list[CharacterSheet]:
         query = (
             select(CharacterSheet)

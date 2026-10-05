@@ -506,6 +506,76 @@ class TestDeleteCharSheet:
         assert favorites.all() == []
 
 
+class TestRestoreCharSheet:
+    @pytest.fixture
+    async def creator(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def sheet(self, creator, create, db_session, wrap_in_savepoint):
+        """A deleted sheet published as v1."""
+        system = await create(SystemFactory, id="dnd5e")
+        repository = CharacterSheetRepository(db_session, principal=creator)
+        sheet = await repository.create(
+            name="Fighter", system_id=system.id, layout=VALID_LAYOUT
+        )
+        await repository.publish(await repository.get_draft(sheet.id))
+        await repository.delete(sheet)
+        return sheet
+
+    async def test_returns_404_when_missing(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post("/character_sheets/999999/restore")
+
+        assert response.status_code == 404
+
+    async def test_hides_a_deleted_sheet_from_non_creators(
+        self, client, sheet, create, db_session, auth_as
+    ):
+        auth_as(await create(ActivatedUserFactory))
+
+        response = await client.post(f"/character_sheets/{sheet.id}/restore")
+
+        assert response.status_code == 404
+        await db_session.refresh(sheet, ["deleted"])
+        assert sheet.deleted is not None
+
+    async def test_forbids_non_creators_on_a_sheet_that_isnt_deleted(
+        self, client, sheet, creator, create, db_session, auth_as
+    ):
+        await CharacterSheetRepository(db_session, principal=creator).restore(sheet)
+        auth_as(await create(ActivatedUserFactory))
+
+        response = await client.post(f"/character_sheets/{sheet.id}/restore")
+
+        assert response.status_code == 403
+
+    async def test_conflicts_when_the_sheet_isnt_deleted(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        await CharacterSheetRepository(db_session, principal=creator).restore(sheet)
+        auth_as(creator)
+
+        response = await client.post(f"/character_sheets/{sheet.id}/restore")
+
+        assert response.status_code == 409
+
+    async def test_restores_the_sheet_with_its_versions(
+        self, client, sheet, creator, db_session, auth_as
+    ):
+        auth_as(creator)
+
+        response = await client.post(f"/character_sheets/{sheet.id}/restore")
+
+        assert response.status_code == 204
+        await db_session.refresh(sheet, ["deleted"])
+        assert sheet.deleted is None
+        restored = await client.get(f"/character_sheets/{sheet.id}")
+        assert restored.status_code == 200
+        assert restored.json()["version_number"] == 1
+
+
 class TestToggleCharSheetFavorite:
     @pytest.fixture
     async def creator(self, create):

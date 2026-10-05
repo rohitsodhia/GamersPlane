@@ -302,8 +302,9 @@ class TestGetCharacter:
         assert response.status_code == 200
         body = response.json()
         assert body["sheet_deleted"] is True
-        assert body["character_sheet"] is None
-        assert body["character_sheet_id"] == public_sheet.id
+        # The sheet's details stay, so the character keeps its system.
+        assert body["character_sheet"]["id"] == public_sheet.id
+        assert body["character_sheet"]["system"] == {"id": "dnd5e", "name": "D&D 5e"}
         assert body["layout"] == SHEET_LAYOUT
 
     async def test_forbids_a_non_owner_when_not_in_library(
@@ -397,39 +398,63 @@ class TestGetCharacters:
             }
         ]
 
-    async def test_keeps_characters_whose_sheet_was_deleted_listed_last(
+    async def test_a_deleted_sheet_keeps_its_characters_system(
         self,
         client,
         public_sheet,
         sheet_creator,
         owner,
         system,
+        create,
         auth_as,
         db_session,
         wrap_in_savepoint,
     ):
+        other_system = await create(SystemFactory, id="pf2e", sort_name="ZZZ System")
         gone = await _make_sheet(
             db_session,
             sheet_creator,
             system,
             status=CharacterSheet.Status.PUBLIC,
         )
-        await self._make_character(db_session, owner, gone, "Aaron")
-        await self._make_character(db_session, owner, public_sheet, "Zed")
+        other_sheet = await _make_sheet(
+            db_session,
+            sheet_creator,
+            other_system,
+            status=CharacterSheet.Status.PUBLIC,
+        )
+        await self._make_character(db_session, owner, gone, "Zed")
+        await self._make_character(db_session, owner, public_sheet, "Aaron")
+        await self._make_character(db_session, owner, other_sheet, "Bob")
         await CharacterSheetRepository(db_session, principal=sheet_creator).delete(gone)
         auth_as(owner)
 
         response = await client.get("/characters")
 
         body = response.json()
-        assert body["total"] == 2
-        assert [c["label"] for c in body["characters"]] == ["Zed", "Aaron"]
+        # Sorted by its system like any other character, not pushed to the end.
+        assert [c["label"] for c in body["characters"]] == ["Aaron", "Zed", "Bob"]
         assert body["characters"][1]["sheet_deleted"] is True
-        assert body["characters"][1]["character_sheet"] is None
+        assert body["characters"][1]["character_sheet"]["system"]["id"] == "dnd5e"
 
         filtered = await client.get("/characters", params={"system_id": "dnd5e"})
 
-        assert [c["label"] for c in filtered.json()["characters"]] == ["Zed"]
+        assert filtered.json()["total"] == 2
+        assert [c["label"] for c in filtered.json()["characters"]] == ["Aaron", "Zed"]
+
+    async def test_leaves_out_deleted_characters(
+        self, client, public_sheet, owner, auth_as, db_session, wrap_in_savepoint
+    ):
+        gone = await self._make_character(db_session, owner, public_sheet, "Boromir")
+        await self._make_character(db_session, owner, public_sheet, "Aragorn")
+        await CharacterRepository(db_session, principal=owner).delete(gone)
+        auth_as(owner)
+
+        response = await client.get("/characters")
+
+        body = response.json()
+        assert body["total"] == 1
+        assert [c["label"] for c in body["characters"]] == ["Aragorn"]
 
     async def test_orders_by_system_then_label(
         self,

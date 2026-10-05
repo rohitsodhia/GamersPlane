@@ -74,9 +74,9 @@ class GetCharacterResponse(SchemaBase):
     values: dict | None = None
     in_library: bool
     character_sheet_id: int
-    # None once the sheet has been deleted; the character keeps working from
+    # Still filled once the sheet is deleted; the character keeps working from
     # its pinned version's layout.
-    character_sheet: CharacterSheetData | None
+    character_sheet: CharacterSheetData
     sheet_deleted: bool
     # The sheet version this character is pinned to, and its layout.
     version_id: int
@@ -103,7 +103,7 @@ class CharacterListItem(SchemaBase):
     in_library: bool
     user: LibraryUserData
     character_sheet_id: int
-    character_sheet: CharacterListSheetData | None
+    character_sheet: CharacterListSheetData
     sheet_deleted: bool
 
 

@@ -58,22 +58,22 @@ function RouteComponent() {
 				</div>
 			</div>
 
-			{sheet ? (
-				<div className={styles["sheet-logo"]}>
-					<img
-						src={`/images/logos/${sheet.system.id}.png`}
-						alt={sheet.system.name}
-						title={sheet.system.name}
-					/>
-				</div>
-			) : (
+			{character.sheet_deleted ? (
 				<DismissibleBanner
 					storageKey={`deleted-sheet:${characterId}`}
 					className="warning-banner"
 				>
 					The sheet this character was built on has been deleted.
 				</DismissibleBanner>
-			)}
+			) : null}
+
+			<div className={styles["sheet-logo"]}>
+				<img
+					src={`/images/logos/${sheet.system.id}.png`}
+					alt={sheet.system.name}
+					title={sheet.system.name}
+				/>
+			</div>
 
 			<div className={styles["character-meta"]}>
 				<div>
