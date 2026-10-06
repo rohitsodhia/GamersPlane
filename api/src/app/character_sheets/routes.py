@@ -283,7 +283,7 @@ async def get_char_sheet_versions(
 
 
 @character_sheets.post(
-    "/{char_sheet_id}/copy", response_model=schemas.CreateCharSheetResponse
+    "/{char_sheet_id}/copy", response_model=schemas.CopyCharSheetResponse
 )
 async def copy_char_sheet(
     char_sheet_id: int,
@@ -297,6 +297,10 @@ async def copy_char_sheet(
     Anyone who can view the sheet can copy it. So can anyone with a character on
     it, even once it's private or deleted, so they're never stuck on a sheet
     they can't maintain.
+
+    A deleted sheet's copy is published as v1 right away, and the caller's
+    characters on the copied version are returned, so they can be offered the
+    move to it.
     """
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
     char_sheet = await char_sheet_repository.get(char_sheet_id, include_deleted=True)
@@ -324,9 +328,23 @@ async def copy_char_sheet(
         if sheet_version is None:
             raise NotFoundException("Character sheet version not found")
 
-    copied = await char_sheet_repository.create_copy(char_sheet, sheet_version)
+    is_deleted = char_sheet.deleted is not None
+    copied = await char_sheet_repository.create_copy(
+        char_sheet, sheet_version, publish=is_deleted
+    )
 
-    return schemas.CreateCharSheetResponse(id=copied.id)
+    characters = []
+    if is_deleted:
+        character_repository = CharacterRepository(db_session, principal=principal)
+        characters = await character_repository.get_on_version(sheet_version.id)
+
+    return schemas.CopyCharSheetResponse(
+        id=copied.id,
+        characters=[
+            schemas.CopiedSheetCharacterData(id=character.id, label=character.label)
+            for character in characters
+        ],
+    )
 
 
 @character_sheets.patch("/{char_sheet_id}", response_model=schemas.GetCharSheetResponse)

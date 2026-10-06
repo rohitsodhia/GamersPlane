@@ -1696,3 +1696,335 @@ class TestDeleteCharacter:
         response = await client.get(f"/characters/{character.id}")
 
         assert response.status_code == 404
+
+
+# `SHEET_LAYOUT` without the skills grid, then with a field added back.
+SHEET_LAYOUT_V2 = {**SHEET_LAYOUT, "elements": SHEET_LAYOUT["elements"][:2]}
+SHEET_LAYOUT_V3 = {
+    **SHEET_LAYOUT,
+    "elements": [*SHEET_LAYOUT_V2["elements"], {"type": "input", "name": "dex"}],
+}
+
+
+class TestCharacterSheetMoves:
+    """Upgrading (a newer version of the character's sheet) and changing (a
+    version of a copy of it)."""
+
+    @pytest.fixture
+    async def owner(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def copier(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def character(self, db_session, owner, sheet_creator, public_sheet):
+        """On v1 of `public_sheet`, which has since published v2 and v3."""
+        character = await _create_character(db_session, owner, public_sheet, "Arya")
+        await self._publish(db_session, sheet_creator, public_sheet, SHEET_LAYOUT_V2)
+        await self._publish(db_session, sheet_creator, public_sheet, SHEET_LAYOUT_V3)
+        return character
+
+    async def _publish(self, db_session, user, sheet, layout):
+        repository = CharacterSheetRepository(db_session, principal=user)
+        return await repository.publish(
+            await repository.save_draft(sheet, layout=layout)
+        )
+
+    async def _copy(
+        self,
+        db_session,
+        user,
+        sheet,
+        *,
+        status=CharacterSheet.Status.PUBLIC,
+        publish=True,
+    ):
+        repository = CharacterSheetRepository(db_session, principal=user)
+        version = await repository.get_latest_published(sheet.id)
+        copied = await repository.create_copy(sheet, version, publish=publish)
+        copied.status = status
+        await db_session.flush()
+        return copied
+
+    async def _pinned(self, db_session, character):
+        return await db_session.scalar(
+            select(Character)
+            .where(Character.id == character.id)
+            .execution_options(populate_existing=True)
+        )
+
+    async def test_options_are_owner_only(self, client, character, copier, auth_as):
+        auth_as(copier)
+
+        response = await client.get(f"/characters/{character.id}/sheet_moves")
+
+        assert response.status_code == 403
+
+    async def test_options_list_newer_versions_newest_first(
+        self, client, character, owner, auth_as
+    ):
+        auth_as(owner)
+
+        response = await client.get(f"/characters/{character.id}/sheet_moves")
+
+        assert response.status_code == 200
+        assert [v["number"] for v in response.json()["versions"]] == [3, 2]
+        assert response.json()["copies"] == []
+
+    async def test_options_list_visible_published_copies_at_any_depth(
+        self, client, character, owner, copier, public_sheet, db_session, auth_as
+    ):
+        public_copy = await self._copy(db_session, copier, public_sheet)
+        deleted_copy = await self._copy(db_session, copier, public_sheet)
+        copy_of_deleted = await self._copy(db_session, copier, deleted_copy)
+        await CharacterSheetRepository(db_session, principal=copier).delete(
+            deleted_copy
+        )
+        own_private_copy = await self._copy(
+            db_session, owner, public_sheet, status=CharacterSheet.Status.PRIVATE
+        )
+        await self._copy(
+            db_session, copier, public_sheet, status=CharacterSheet.Status.PRIVATE
+        )
+        await self._copy(db_session, copier, public_sheet, publish=False)
+        auth_as(owner)
+
+        response = await client.get(f"/characters/{character.id}/sheet_moves")
+
+        assert response.status_code == 200
+        # By name: the copy of a copy is "Fighter (Copy) (Copy)".
+        assert [c["id"] for c in response.json()["copies"]] == [
+            public_copy.id,
+            own_private_copy.id,
+            copy_of_deleted.id,
+        ]
+
+    async def test_a_deleted_sheet_offers_only_its_copies(
+        self,
+        client,
+        character,
+        owner,
+        copier,
+        sheet_creator,
+        public_sheet,
+        db_session,
+        auth_as,
+    ):
+        public_copy = await self._copy(db_session, copier, public_sheet)
+        await CharacterSheetRepository(db_session, principal=sheet_creator).delete(
+            public_sheet
+        )
+        auth_as(owner)
+
+        response = await client.get(f"/characters/{character.id}/sheet_moves")
+
+        assert response.status_code == 200
+        assert response.json()["versions"] == []
+        assert [c["id"] for c in response.json()["copies"]] == [public_copy.id]
+
+    async def test_preview_shows_the_target_layout_and_hidden_values(
+        self, client, character, owner, public_sheet, db_session, auth_as
+    ):
+        character.values = {"str1": "16", "skl1": {"stl1": {"rnk1": "2"}}}
+        await db_session.flush()
+        v2 = await CharacterSheetRepository(db_session, principal=owner).get_published(
+            public_sheet.id, 2
+        )
+        auth_as(owner)
+
+        response = await client.get(
+            f"/characters/{character.id}/sheet_moves/preview",
+            params={"character_sheet_id": public_sheet.id, "version": 2},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "name": "Fighter",
+            "layout": v2.layout,
+            "hidden_values": [{"id": "skl1", "label": "skills"}],
+        }
+
+    async def test_upgrades_keeping_values(
+        self, client, character, owner, public_sheet, db_session, auth_as
+    ):
+        character.values = {"str1": "16", "skl1": {"stl1": {"rnk1": "2"}}}
+        await db_session.flush()
+        auth_as(owner)
+
+        response = await client.post(
+            "/characters/sheet_moves",
+            json={
+                "character_ids": [character.id],
+                "character_sheet_id": public_sheet.id,
+                "version": 2,
+            },
+        )
+
+        assert response.status_code == 204
+        moved = await self._pinned(db_session, character)
+        version = await CharacterSheetRepository(
+            db_session, principal=owner
+        ).get_version(moved.character_sheet_version_id)
+        assert version.number == 2
+        # The grid's values stay, though v2 dropped the grid.
+        assert moved.values == {"str1": "16", "skl1": {"stl1": {"rnk1": "2"}}}
+
+    async def test_changes_to_a_copy(
+        self, client, character, owner, copier, public_sheet, db_session, auth_as
+    ):
+        public_copy = await self._copy(db_session, copier, public_sheet)
+        auth_as(owner)
+
+        response = await client.post(
+            "/characters/sheet_moves",
+            json={
+                "character_ids": [character.id],
+                "character_sheet_id": public_copy.id,
+                "version": 1,
+            },
+        )
+
+        assert response.status_code == 204
+        moved = await self._pinned(db_session, character)
+        assert moved.character_sheet_id == public_copy.id
+
+    async def test_rejects_a_version_that_isnt_newer(
+        self, client, character, owner, public_sheet, auth_as
+    ):
+        auth_as(owner)
+
+        response = await client.post(
+            "/characters/sheet_moves",
+            json={
+                "character_ids": [character.id],
+                "character_sheet_id": public_sheet.id,
+                "version": 1,
+            },
+        )
+
+        assert response.status_code == 400
+
+    async def test_rejects_moving_back_to_the_sheet_a_copy_came_from(
+        self, client, owner, copier, public_sheet, db_session, auth_as
+    ):
+        public_copy = await self._copy(db_session, copier, public_sheet)
+        on_copy = await _create_character(db_session, owner, public_copy, "Sansa")
+        auth_as(owner)
+
+        response = await client.post(
+            "/characters/sheet_moves",
+            json={
+                "character_ids": [on_copy.id],
+                "character_sheet_id": public_sheet.id,
+                "version": 1,
+            },
+        )
+
+        assert response.status_code == 400
+
+    async def test_returns_404_for_a_deleted_target(
+        self, client, character, owner, copier, public_sheet, db_session, auth_as
+    ):
+        public_copy = await self._copy(db_session, copier, public_sheet)
+        await CharacterSheetRepository(db_session, principal=copier).delete(public_copy)
+        auth_as(owner)
+
+        response = await client.post(
+            "/characters/sheet_moves",
+            json={
+                "character_ids": [character.id],
+                "character_sheet_id": public_copy.id,
+                "version": 1,
+            },
+        )
+
+        assert response.status_code == 404
+
+    async def test_returns_404_for_an_unpublished_version(
+        self, client, character, owner, public_sheet, auth_as
+    ):
+        auth_as(owner)
+
+        response = await client.post(
+            "/characters/sheet_moves",
+            json={
+                "character_ids": [character.id],
+                "character_sheet_id": public_sheet.id,
+                "version": 4,
+            },
+        )
+
+        assert response.status_code == 404
+
+    async def test_returns_404_for_an_unknown_character(
+        self, client, character, owner, public_sheet, auth_as
+    ):
+        auth_as(owner)
+
+        response = await client.post(
+            "/characters/sheet_moves",
+            json={
+                "character_ids": [character.id, 999999],
+                "character_sheet_id": public_sheet.id,
+                "version": 2,
+            },
+        )
+
+        assert response.status_code == 404
+
+    async def test_forbids_another_users_private_copy(
+        self, client, character, owner, copier, public_sheet, db_session, auth_as
+    ):
+        private_copy = await self._copy(
+            db_session, copier, public_sheet, status=CharacterSheet.Status.PRIVATE
+        )
+        auth_as(owner)
+
+        response = await client.post(
+            "/characters/sheet_moves",
+            json={
+                "character_ids": [character.id],
+                "character_sheet_id": private_copy.id,
+                "version": 1,
+            },
+        )
+
+        assert response.status_code == 403
+
+    async def test_forbids_moving_another_users_character(
+        self, client, character, copier, public_sheet, auth_as
+    ):
+        auth_as(copier)
+
+        response = await client.post(
+            "/characters/sheet_moves",
+            json={
+                "character_ids": [character.id],
+                "character_sheet_id": public_sheet.id,
+                "version": 2,
+            },
+        )
+
+        assert response.status_code == 403
+
+    async def test_moves_every_character_or_none(
+        self, client, character, owner, public_sheet, db_session, auth_as
+    ):
+        on_v3 = await _create_character(db_session, owner, public_sheet, "Bran")
+        v1_id = character.character_sheet_version_id
+        auth_as(owner)
+
+        response = await client.post(
+            "/characters/sheet_moves",
+            json={
+                "character_ids": [character.id, on_v3.id],
+                "character_sheet_id": public_sheet.id,
+                "version": 2,
+            },
+        )
+
+        assert response.status_code == 400
+        unmoved = await self._pinned(db_session, character)
+        assert unmoved.character_sheet_version_id == v1_id

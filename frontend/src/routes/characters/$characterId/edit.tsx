@@ -1,5 +1,10 @@
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import {
+	useMutation,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useState } from "react";
 import { DismissibleBanner } from "#/components/DismissibleBanner";
@@ -10,6 +15,8 @@ import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	type CharacterType,
 	characterQueryOptions,
+	characterSheetMovesQueryOptions,
+	moveCharacterSheet,
 	updateCharacter,
 } from "#/queries/character";
 import { copyCharacterSheet, restoreCharacterSheet } from "#/queries/characterSheet";
@@ -38,6 +45,9 @@ export const Route = createFileRoute("/characters/$characterId/edit")({
 		if (character.user_id !== me.id) {
 			throw redirect({ to: "/403", replace: true });
 		}
+		context.queryClient.prefetchQuery(
+			characterSheetMovesQueryOptions(params.characterId),
+		);
 	},
 	component: RouteComponent,
 });
@@ -79,7 +89,40 @@ function RouteComponent() {
 			});
 		},
 	});
-	const sheetActionError = copyMutation.error ?? restoreMutation.error;
+	// Copying a deleted sheet publishes the copy, so the characters on the
+	// copied version can be offered the move to it.
+	const [declinedMoveToCopy, setDeclinedMoveToCopy] = useState(false);
+	const moveToCopyMutation = useMutation({
+		mutationFn: (copy: { id: number; characters: { id: number }[] }) =>
+			moveCharacterSheet({
+				character_ids: copy.characters.map((movable) => movable.id),
+				character_sheet_id: copy.id,
+				version: 1,
+			}),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["character"] });
+			queryClient.invalidateQueries({ queryKey: ["characters"] });
+		},
+	});
+	const sheetActionError =
+		copyMutation.error ?? restoreMutation.error ?? moveToCopyMutation.error;
+
+	// Upgrades: the current version, then every newer one, oldest first.
+	const { data: sheetMoves } = useQuery(characterSheetMovesQueryOptions(characterId));
+	const upgrades = sheetMoves?.versions ?? [];
+	const versionOptions = [
+		{
+			id: String(character.version_number),
+			name: `v${character.version_number} (current)`,
+		},
+		...[...upgrades]
+			.reverse()
+			.map((version) => ({ id: String(version.number), name: `v${version.number}` })),
+	];
+	const [selectedVersion, setSelectedVersion] = useState(
+		String(character.version_number),
+	);
+	const navigate = useNavigate();
 
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
 
@@ -118,15 +161,49 @@ function RouteComponent() {
 			) : null}
 
 			{copyMutation.isSuccess ? (
-				<p className="banner success-banner">
-					Sheet copied as a draft.{" "}
-					<Link
-						to="/characters/sheets/$sheetId"
-						params={{ sheetId: copyMutation.data.id }}
-					>
-						Open the copy
-					</Link>
-				</p>
+				copyMutation.data.characters.length > 0 &&
+				!declinedMoveToCopy &&
+				!moveToCopyMutation.isSuccess ? (
+					<div className={clsx("banner success-banner", styles["move-prompt"])}>
+						<p>
+							Sheet copied. Move{" "}
+							{new Intl.ListFormat("en").format(
+								copyMutation.data.characters.map((movable) => movable.label),
+							)}{" "}
+							to the copy?
+						</p>
+						<button
+							type="button"
+							className="skew-btn"
+							onClick={() => moveToCopyMutation.mutate(copyMutation.data)}
+							disabled={moveToCopyMutation.isPending}
+						>
+							Move
+						</button>
+						<button
+							type="button"
+							className="skew-btn"
+							onClick={() => setDeclinedMoveToCopy(true)}
+							disabled={moveToCopyMutation.isPending}
+						>
+							Not Now
+						</button>
+					</div>
+				) : (
+					<p className="banner success-banner">
+						{moveToCopyMutation.isSuccess
+							? "Moved to the copy."
+							: copyMutation.data.characters.length > 0
+								? "Sheet copied."
+								: "Sheet copied as a draft."}{" "}
+						<Link
+							to="/characters/sheets/$sheetId"
+							params={{ sheetId: copyMutation.data.id }}
+						>
+							Open the copy
+						</Link>
+					</p>
+				)
 			) : null}
 			{restoreMutation.isSuccess ? (
 				<p className="banner success-banner">Sheet restored.</p>
@@ -158,7 +235,65 @@ function RouteComponent() {
 				/>
 			</div>
 
-			<div className={styles["avatar-wrapper"]}>
+			<div className={styles["sheet-details"]}>
+				<div>
+					<span className={styles["detail-label"]}>Sheet</span>
+					<span>
+						{character.sheet_deleted ? (
+							sheet.name
+						) : (
+							<Link to="/characters/sheets/$sheetId" params={{ sheetId: sheet.id }}>
+								{sheet.name}
+							</Link>
+						)}
+						{ownsSheet ? null : (
+							<>
+								{" "}
+								by{" "}
+								<Link to="/user/$userId" params={{ userId: sheet.creator.id }}>
+									{sheet.creator.username}
+								</Link>
+							</>
+						)}
+					</span>
+				</div>
+				<div>
+					<span id="sheet-version-label" className={styles["detail-label"]}>
+						Version
+					</span>
+					{upgrades.length > 0 ? (
+						<>
+							<Select
+								id="sheet-version"
+								ariaLabelledBy="sheet-version-label"
+								items={versionOptions}
+								getId={(option) => option.id}
+								getLabel={(option) => option.name}
+								selectedId={selectedVersion}
+								onChange={setSelectedVersion}
+							/>
+							<button
+								type="button"
+								className="skew-btn"
+								disabled={selectedVersion === String(character.version_number)}
+								onClick={() =>
+									navigate({
+										to: "/characters/$characterId/sheet-preview",
+										params: { characterId },
+										search: { sheet: sheet.id, version: Number(selectedVersion) },
+									})
+								}
+							>
+								Upgrade
+							</button>
+						</>
+					) : (
+						<span>v{character.version_number}</span>
+					)}
+				</div>
+			</div>
+
+			<div className={styles["character-details"]}>
 				<div className={styles["character-meta"]}>
 					<div>
 						<label htmlFor="character-label">Label</label>

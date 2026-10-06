@@ -20,6 +20,7 @@ Only keys and the containers' shapes are checked, not the values themselves.
 
 from __future__ import annotations
 
+from app.character_sheets.layout_ids import collect_ids, field_labels
 from app.character_sheets.layout_scopes import Field, Scope, scope_for
 from app.exceptions import ValidationError
 
@@ -38,6 +39,38 @@ def validate_character_values(values: dict, layout: dict, stored: dict | None) -
         _stored_keys(stored),
         path="values",
     )
+
+
+def hidden_values(
+    values: dict | None, current_layout: dict, target_layout: dict
+) -> list[tuple[str, str]]:
+    """The `(id, label)` of each field the character has a value for in
+    `current_layout` that `target_layout` doesn't have, by label: what a move
+    to `target_layout` would stop showing. The values themselves stay stored.
+
+    Ids are unique across a whole layout, so they're matched wherever they
+    sit. A missing repeater or grid is reported on its own, not field by field.
+    Values stored for neither layout were already hidden, so they're left out.
+    """
+    labels = field_labels(current_layout)
+    target_ids = collect_ids(target_layout)
+    hidden: dict[str, str] = {}
+
+    def walk(value: object) -> None:
+        if isinstance(value, list):
+            for row in value:
+                walk(row)
+        if not isinstance(value, dict):
+            return
+        for key, child in value.items():
+            if key in labels and key not in target_ids:
+                if child not in (None, "", [], {}):
+                    hidden[key] = labels[key]
+                continue
+            walk(child)
+
+    walk(values)
+    return sorted(hidden.items(), key=lambda field: field[1])
 
 
 def _stored_keys(value: object) -> _Stored:

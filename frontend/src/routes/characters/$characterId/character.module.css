@@ -50,7 +50,42 @@ h1:has(+ .top-links) {
 	margin-bottom: 0;
 }
 
-.avatar-wrapper {
+.sheet-details {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em 2em;
+	margin-bottom: 1em;
+
+	> div {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+	}
+
+	/* Upgrade stays disabled until a newer version is picked. */
+	button:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+}
+
+.detail-label {
+	font-weight: bold;
+}
+
+/* "Move them to the copy?" with its buttons on one line. */
+.move-prompt {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5em 1em;
+
+	p {
+		margin: 0;
+	}
+}
+
+.character-details {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;

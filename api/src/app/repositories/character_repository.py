@@ -62,6 +62,21 @@ class CharacterRepository:
 
         return character
 
+    async def move_sheet(
+        self,
+        character: Character,
+        char_sheet: CharacterSheet,
+        version: CharacterSheetVersion,
+    ) -> Character:
+        """Pin the character to `version` of `char_sheet`. Values are kept as
+        they are: ones for fields the new version doesn't have stay stored as
+        orphans."""
+        character.character_sheet = char_sheet
+        character.character_sheet_version = version
+        await self.db_session.flush()
+
+        return character
+
     async def toggle_library(self, character: Character) -> None:
         character.in_library = not character.in_library
         await self.db_session.flush()
@@ -127,6 +142,31 @@ class CharacterRepository:
             .limit(1)
         )
         return await self.db_session.scalar(query) is not None
+
+    async def get_on_version(self, version_id: int) -> list[Character]:
+        """The principal's characters pinned to a sheet version, by label."""
+        query = (
+            select(Character)
+            .where(Character.user_id == self.principal.id)
+            .where(Character.character_sheet_version_id == version_id)
+            .order_by(Character.label.asc())
+        )
+        return list(await self.db_session.scalars(query))
+
+    async def get_many(self, ids: list[int]) -> list[Character]:
+        """Like :meth:`get` for several characters at once; missing or deleted
+        ones are left out."""
+        query = (
+            select(Character)
+            .where(Character.id.in_(ids))
+            .where(Character.deleted.is_(None))
+            .execution_options(skip_filter=True)
+            .options(
+                selectinload(Character.character_sheet),
+                selectinload(Character.character_sheet_version),
+            )
+        )
+        return list(await self.db_session.scalars(query))
 
     def _list_query(
         self,

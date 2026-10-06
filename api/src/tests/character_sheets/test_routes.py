@@ -1721,6 +1721,7 @@ class TestCopyCharSheet:
         assert draft.layout == v2.layout
         assert draft.changelog is None
         assert await repository.get_latest_published(copied.id) is None
+        assert response.json()["characters"] == []
 
     async def test_copies_the_requested_version(
         self, client, sheet, creator, db_session, auth_as
@@ -1773,7 +1774,7 @@ class TestCopyCharSheet:
 
         assert response.status_code == 200
 
-    async def test_a_character_on_a_deleted_sheet_allows_copying_it(
+    async def test_a_deleted_sheets_copy_is_published_and_lists_movable_characters(
         self, client, sheet, creator, copier, db_session, auth_as
     ):
         await self._give_character(db_session, copier, sheet)
@@ -1785,10 +1786,13 @@ class TestCopyCharSheet:
         )
 
         assert response.status_code == 200
-        copied = await CharacterSheetRepository(db_session, principal=copier).get(
-            response.json()["id"]
-        )
+        repository = CharacterSheetRepository(db_session, principal=copier)
+        copied = await repository.get(response.json()["id"])
         assert copied.forked_from_id == sheet.id
+        published = await repository.get_latest_published(copied.id)
+        assert published.number == 1
+        assert await repository.get_draft(copied.id) is None
+        assert [c["label"] for c in response.json()["characters"]] == ["Brienne"]
 
     async def test_returns_404_for_a_deleted_sheet_without_a_character_on_it(
         self, client, sheet, creator, db_session, auth_as

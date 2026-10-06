@@ -152,11 +152,13 @@ export const createCharacterSheet = async (
 };
 
 // Copies a published version (the latest unless `version` is given) into a new
-// draft sheet owned by the caller.
+// draft sheet owned by the caller. A deleted sheet's copy is published as v1
+// instead, and `characters` lists the caller's characters on the copied
+// version, which can move to it.
 export const copyCharacterSheet = async (
 	sheetId: number,
 	version?: number,
-): Promise<{ id: number }> => {
+): Promise<{ id: number; characters: { id: number; label: string }[] }> => {
 	const qs = version === undefined ? "" : `?version=${version}`;
 	const res = await apiFetch(`/character_sheets/${sheetId}/copy${qs}`, {
 		method: "POST",

@@ -25,6 +25,18 @@ class CreateCharSheetResponse(SchemaBase):
     id: int
 
 
+class CopiedSheetCharacterData(SchemaBase):
+    id: int
+    label: str
+
+
+class CopyCharSheetResponse(SchemaBase):
+    id: int
+    # Only filled when copying a deleted sheet: the caller's characters on the
+    # copied version, which can move to the copy (it's published right away).
+    characters: list[CopiedSheetCharacterData]
+
+
 class BasicCharSheetData(SchemaBase):
     id: int
     name: str

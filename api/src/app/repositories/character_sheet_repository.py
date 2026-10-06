@@ -61,12 +61,19 @@ class CharacterSheetRepository:
         return char_sheet
 
     async def create_copy(
-        self, char_sheet: CharacterSheet, version: CharacterSheetVersion
+        self,
+        char_sheet: CharacterSheet,
+        version: CharacterSheetVersion,
+        publish: bool = False,
     ) -> CharacterSheet:
         """Copy `version` of `char_sheet` into a new private sheet owned by the
-        principal. The copy starts as a draft, since copying is usually done to
-        edit. Field ids are kept, so a character can move to the copy without
-        losing its values."""
+        principal. Field ids are kept, so a character can move to the copy
+        without losing its values.
+
+        The copy starts as a draft, since copying is usually done to edit.
+        `publish` publishes it as v1 straight away instead, so characters can
+        move to it; its layout was already published once, so it isn't
+        re-validated."""
         copied = await self.create(
             name=f"{char_sheet.name} (Copy)",
             system_id=char_sheet.system_id,
@@ -76,7 +83,69 @@ class CharacterSheetRepository:
         copied.description = copy.deepcopy(char_sheet.description)
         await self.db_session.flush()
 
+        if publish:
+            draft = await self.get_draft(copied.id)
+            await self.publish(draft)
+
         return copied
+
+    def _copy_ids(self, char_sheet_id: int):
+        """A recursive CTE of every sheet copied from `char_sheet_id`, at any
+        depth. Deleted copies are walked through, so a live copy of a deleted
+        copy still counts; the statement using it needs `skip_filter`."""
+        copies = (
+            select(CharacterSheet.id)
+            .where(CharacterSheet.forked_from_id == char_sheet_id)
+            .cte("copies", recursive=True)
+        )
+        return copies.union_all(
+            select(CharacterSheet.id).where(
+                CharacterSheet.forked_from_id == copies.c.id
+            )
+        )
+
+    async def get_copies(self, char_sheet_id: int) -> list[tuple[CharacterSheet, int]]:
+        """The copies of `char_sheet_id`, at any depth, that a character could
+        move to: not deleted, visible to the principal, and published. Each
+        comes with its latest version number; ordered by name."""
+        copies = self._copy_ids(char_sheet_id)
+        latest_number = (
+            select(func.max(CharacterSheetVersion.number))
+            .where(CharacterSheetVersion.character_sheet_id == CharacterSheet.id)
+            .scalar_subquery()
+        )
+        query = (
+            select(CharacterSheet, latest_number)
+            .where(CharacterSheet.id.in_(select(copies.c.id)))
+            .where(CharacterSheet.deleted.is_(None))
+            .where(
+                or_(
+                    CharacterSheet.status.in_(
+                        (CharacterSheet.Status.PUBLIC, CharacterSheet.Status.OFFICIAL)
+                    ),
+                    CharacterSheet.creator_id == self.principal.id,
+                )
+            )
+            .where(latest_number.is_not(None))
+            .order_by(CharacterSheet.name.asc(), CharacterSheet.id.asc())
+            .options(
+                selectinload(CharacterSheet.creator),
+                selectinload(CharacterSheet.system),
+            )
+            .execution_options(skip_filter=True)
+        )
+        result = await self.db_session.execute(query)
+        return [(char_sheet, number) for char_sheet, number in result]
+
+    async def is_copy_of(self, char_sheet_id: int, original_id: int) -> bool:
+        """Whether `char_sheet_id` was copied from `original_id`, at any depth."""
+        copies = self._copy_ids(original_id)
+        query = (
+            select(copies.c.id)
+            .where(copies.c.id == char_sheet_id)
+            .execution_options(skip_filter=True)
+        )
+        return await self.db_session.scalar(query) is not None
 
     async def get_draft(self, char_sheet_id: int) -> CharacterSheetVersion | None:
         query = (
@@ -113,15 +182,18 @@ class CharacterSheetRepository:
         return await self.db_session.scalar(query)
 
     async def get_published_versions(
-        self, char_sheet_id: int
+        self, char_sheet_id: int, newer_than: int | None = None
     ) -> list[CharacterSheetVersion]:
-        """A sheet's published versions, newest first. Layouts stay deferred."""
+        """A sheet's published versions, newest first, optionally only those
+        numbered above `newer_than`. Layouts stay deferred."""
         query = (
             select(CharacterSheetVersion)
             .where(CharacterSheetVersion.character_sheet_id == char_sheet_id)
             .where(CharacterSheetVersion.published_at.is_not(None))
             .order_by(CharacterSheetVersion.number.desc())
         )
+        if newer_than is not None:
+            query = query.where(CharacterSheetVersion.number > newer_than)
         return list(await self.db_session.scalars(query))
 
     async def get_latest_published_number(self, char_sheet_id: int) -> int | None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 from pydantic import field_validator
 
@@ -125,6 +126,47 @@ class GetLibraryResponse(SchemaBase):
     characters: list[LibraryCharacterData]
     total: int
     page: int
+
+
+class SheetMoveVersionData(SchemaBase):
+    number: int
+    published_at: datetime
+    changelog: dict | None
+
+
+class SheetMoveCopyData(SchemaBase):
+    id: int
+    name: str
+    creator: LibraryUserData
+    latest_version_number: int
+
+
+class GetSheetMovesResponse(SchemaBase):
+    # Upgrades: newer published versions of the character's own sheet, newest
+    # first. Empty once the sheet is deleted or no longer visible.
+    versions: list[SheetMoveVersionData]
+    # Changes: published copies of the character's sheet, at any depth.
+    copies: list[SheetMoveCopyData]
+
+
+class HiddenValueData(SchemaBase):
+    id: str
+    # The field's value path in the character's current layout.
+    label: str
+
+
+class GetSheetMovePreviewResponse(SchemaBase):
+    name: str
+    layout: dict
+    # Values the character has that the target layout won't show. They stay
+    # stored on the character.
+    hidden_values: list[HiddenValueData]
+
+
+class MoveSheetInput(SchemaBase):
+    character_ids: list[int]
+    character_sheet_id: int
+    version: int
 
 
 class ToggleCharacterFavoriteResponse(SchemaBase):

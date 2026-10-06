@@ -2,7 +2,10 @@ import re
 
 import pytest
 
-from app.character_sheets.character_values import validate_character_values
+from app.character_sheets.character_values import (
+    hidden_values,
+    validate_character_values,
+)
 from app.exceptions import ValidationError
 
 LAYOUT = {
@@ -122,3 +125,39 @@ class TestValidateCharacterValues:
             validate_character_values(
                 {"cls1": [{"old1": 1}]}, LAYOUT, stored={"old1": 1}
             )
+
+
+class TestHiddenValues:
+    def test_lists_filled_fields_the_target_drops(self):
+        # Drops `hp`, the `classes` repeater, the `stats.dex` row and the
+        # `saves.fort.bonus` field.
+        target = {
+            "schema_version": 1,
+            "elements": [
+                LAYOUT["elements"][1],
+                {
+                    **LAYOUT["elements"][3],
+                    "items": [{"key": "str", "label": "STR", "id": "str1"}],
+                },
+                {
+                    **LAYOUT["elements"][4],
+                    "content": [{"type": "grid_row", "key": "fort", "id": "frt1"}],
+                },
+            ],
+        }
+        values = {
+            "hp1": 10,
+            # Reported as the repeater, not field by field.
+            "cls1": [{"lvl1": 3}],
+            "sts1": {"str1": {"scr1": 15}, "dex1": {"scr1": 12}},
+            # Empty, so nothing is lost.
+            "svs1": {"frt1": {"bns1": ""}},
+            # Already hidden: the current layout doesn't have it either.
+            "old1": 5,
+        }
+
+        assert hidden_values(values, LAYOUT, target) == [
+            ("cls1", "classes"),
+            ("hp1", "hp"),
+            ("dex1", "stats.dex"),
+        ]
