@@ -3,12 +3,13 @@
 //
 // A `loop` adds no *value* scope (see `LoopElement` in `types.ts`) — it only
 // publishes an iteration index (and, for the `items` form, the current entry) so
-// the body's formulas can read `$index` and the entry's fields. `list` publishes
+// the body's formulas can read `$index` and the entry's fields (`$item.<key>`). `list` publishes
 // a flag so a `loop` nested inside it knows to emit `<li>` elements.
 
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 import type { RefResolver } from "./formula";
-import { type Path, useScopePrefix, useSheetStore } from "./sheet-values";
+import { resolveRefPath } from "./refs";
+import { type Path, type Scope, useScope, useSheetStore } from "./sheet-values";
 
 interface LoopCtx {
 	/** 0-based iteration index of the nearest enclosing `loop`. */
@@ -60,36 +61,43 @@ export function useListMode(): boolean {
 
 // --- ref resolver ---------------------------------------------------------------
 
+const ITEM_PREFIX = "$item.";
+
 /**
  * The resolver every formula-evaluation site shares (`computed` text,
- * `class_when` / `style_when`, a `loop`'s `count`). Resolution order:
- *   1. `$index` — the nearest `loop`'s 0-based iteration index (0 outside a loop)
- *   2. a key of the current `loop` `items` entry
- *   3. the value store, at `[...scopePrefix, ref]`
+ * `class_when` / `style_when`, a `loop`'s `count`, a `button`'s `on_click.to`):
+ *   - `$index` — the nearest `loop`'s 0-based iteration index (0 outside a loop)
+ *   - `$item.<key>` — that key of the nearest `loop`'s current `items` entry
+ *   - anything else — the value store, at the path `resolveRefPath` gives
+ *     (`stats.str.mod` from the root, `$row.x` from the current row), with
+ *     any `$(inner)` segment read through this same resolver
  *
- * A `$`-prefixed name never falls through to the store: an unknown `$foo`
- * resolves to `undefined` (which `evaluate` then coerces to 0).
+ * Anything unresolvable is `undefined` (which `evaluate` coerces to 0).
  */
 export function createRefResolver(
 	get: (path: Path) => unknown,
-	prefix: Path,
+	scope: Scope,
 	loop: LoopCtx | null,
 ): RefResolver {
-	return (ref: string) => {
+	const resolve = (ref: string): unknown => {
 		if (ref === "$index") return loop?.index ?? 0;
-		if (ref.startsWith("$")) return undefined;
-		if (loop?.item && Object.hasOwn(loop.item, ref)) return loop.item[ref];
-		return get([...prefix, ref]);
+		if (ref.startsWith(ITEM_PREFIX)) {
+			const key = ref.slice(ITEM_PREFIX.length);
+			return loop?.item && Object.hasOwn(loop.item, key) ? loop.item[key] : undefined;
+		}
+		const path = resolveRefPath(ref, scope, resolve);
+		return path ? get(path) : undefined;
 	};
+	return resolve;
 }
 
-/** `createRefResolver` bound to the current store, scope prefix, and loop. */
+/** `createRefResolver` bound to the current store, scope, and loop. */
 export function useRefResolver(): RefResolver {
 	const store = useSheetStore();
-	const prefix = useScopePrefix();
+	const scope = useScope();
 	const loop = useLoopContext();
 	return useMemo(
-		() => createRefResolver((path) => store.get(path), prefix, loop),
-		[store, prefix, loop],
+		() => createRefResolver((path) => store.get(path), scope, loop),
+		[store, scope, loop],
 	);
 }

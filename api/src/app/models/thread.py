@@ -29,9 +29,7 @@ class Thread(Base, SoftDeleteMixin, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     forum_id: Mapped[int] = mapped_column(ForeignKey("forums.id"), index=True)
     forum: Mapped[Forum] = relationship(lazy="joined")
-    options: Mapped[Options] = mapped_column(
-        ClassWrappedJSON(Options), default=Options
-    )
+    options: Mapped[Options] = mapped_column(ClassWrappedJSON(Options), default=Options)
     first_post_id: Mapped[int | None] = mapped_column(
         ForeignKey("posts.id"), nullable=True
     )

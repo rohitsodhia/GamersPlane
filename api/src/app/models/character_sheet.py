@@ -9,7 +9,7 @@ from app.helpers.enums import LabelEnum, LabelEnumType
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
-    from app.models import System, User
+    from app.models import CharacterSheetVersion, System, User
 
 
 class CharacterSheet(Base, SoftDeleteMixin, TimestampMixin):
@@ -24,8 +24,8 @@ class CharacterSheet(Base, SoftDeleteMixin, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     creator_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     creator: Mapped[User] = relationship()
-    version: Mapped[int] = mapped_column(default=1)
-    root_id: Mapped[int | None] = mapped_column(
+    # The sheet this one was forked from (immediate parent); None for originals.
+    forked_from_id: Mapped[int | None] = mapped_column(
         ForeignKey("character_sheets.id"), index=True
     )
     name: Mapped[str] = mapped_column()
@@ -33,7 +33,11 @@ class CharacterSheet(Base, SoftDeleteMixin, TimestampMixin):
         String(20), ForeignKey("systems.id"), index=True
     )
     system: Mapped[System] = relationship()
-    layout: Mapped[dict] = mapped_column(JSON(), default=dict, deferred=True)
+    # ProseMirror/Tiptap document, same shape as `Post.body`.
+    description: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
+    versions: Mapped[list[CharacterSheetVersion]] = relationship(
+        back_populates="character_sheet", order_by="CharacterSheetVersion.id"
+    )
     status: Mapped[Status] = mapped_column(
         LabelEnumType(Status, String(12)), default=Status.PRIVATE, index=True
     )

@@ -40,15 +40,19 @@ import { Route as ToolsDiceRouteImport } from './routes/tools/dice'
 import { Route as UserUserIdRouteImport } from './routes/user.$userId'
 import { Route as AcpRoleRoleIdRouteImport } from './routes/acp/role.$roleId'
 import { Route as CharactersCharacterIdIndexRouteImport } from './routes/characters/$characterId/index'
+import { Route as CharactersCharacterIdChangeSheetRouteImport } from './routes/characters/$characterId/change-sheet'
 import { Route as CharactersCharacterIdEditRouteImport } from './routes/characters/$characterId/edit'
+import { Route as CharactersCharacterIdSheetPreviewRouteImport } from './routes/characters/$characterId/sheet-preview'
 import { Route as CharactersSheetsIndexRouteImport } from './routes/characters/sheets/index'
-import { Route as CharactersSheetsSheetIdRouteImport } from './routes/characters/sheets/$sheetId'
+import { Route as CharactersSheetsLibraryRouteImport } from './routes/characters/sheets/library'
 import { Route as ForumsEditPostPostIdRouteImport } from './routes/forums/edit-post.$postId'
 import { Route as ForumsNewThreadForumIdRouteImport } from './routes/forums/new-thread.$forumId'
 import { Route as ForumsThreadThreadIdRouteImport } from './routes/forums/thread.$threadId'
 import { Route as GamesGameIdIndexRouteImport } from './routes/games/$gameId/index'
 import { Route as GamesGameIdEditRouteImport } from './routes/games/$gameId/edit'
 import { Route as GamesListIndexRouteImport } from './routes/games/list.index'
+import { Route as CharactersSheetsSheetIdIndexRouteImport } from './routes/characters/sheets/$sheetId/index'
+import { Route as CharactersSheetsSheetIdChangelogRouteImport } from './routes/characters/sheets/$sheetId/changelog'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -207,10 +211,22 @@ const CharactersCharacterIdIndexRoute =
     path: '/characters/$characterId/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const CharactersCharacterIdChangeSheetRoute =
+  CharactersCharacterIdChangeSheetRouteImport.update({
+    id: '/characters/$characterId/change-sheet',
+    path: '/characters/$characterId/change-sheet',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const CharactersCharacterIdEditRoute =
   CharactersCharacterIdEditRouteImport.update({
     id: '/characters/$characterId/edit',
     path: '/characters/$characterId/edit',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const CharactersCharacterIdSheetPreviewRoute =
+  CharactersCharacterIdSheetPreviewRouteImport.update({
+    id: '/characters/$characterId/sheet-preview',
+    path: '/characters/$characterId/sheet-preview',
     getParentRoute: () => rootRouteImport,
   } as any)
 const CharactersSheetsIndexRoute = CharactersSheetsIndexRouteImport.update({
@@ -218,9 +234,9 @@ const CharactersSheetsIndexRoute = CharactersSheetsIndexRouteImport.update({
   path: '/characters/sheets/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CharactersSheetsSheetIdRoute = CharactersSheetsSheetIdRouteImport.update({
-  id: '/characters/sheets/$sheetId',
-  path: '/characters/sheets/$sheetId',
+const CharactersSheetsLibraryRoute = CharactersSheetsLibraryRouteImport.update({
+  id: '/characters/sheets/library',
+  path: '/characters/sheets/library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForumsEditPostPostIdRoute = ForumsEditPostPostIdRouteImport.update({
@@ -253,6 +269,18 @@ const GamesListIndexRoute = GamesListIndexRouteImport.update({
   path: '/',
   getParentRoute: () => GamesListRoute,
 } as any)
+const CharactersSheetsSheetIdIndexRoute =
+  CharactersSheetsSheetIdIndexRouteImport.update({
+    id: '/characters/sheets/$sheetId/',
+    path: '/characters/sheets/$sheetId/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const CharactersSheetsSheetIdChangelogRoute =
+  CharactersSheetsSheetIdChangelogRouteImport.update({
+    id: '/characters/sheets/$sheetId/changelog',
+    path: '/characters/sheets/$sheetId/changelog',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -285,8 +313,10 @@ export interface FileRoutesByFullPath {
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
+  '/characters/$characterId/change-sheet': typeof CharactersCharacterIdChangeSheetRoute
   '/characters/$characterId/edit': typeof CharactersCharacterIdEditRoute
-  '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdRoute
+  '/characters/$characterId/sheet-preview': typeof CharactersCharacterIdSheetPreviewRoute
+  '/characters/sheets/library': typeof CharactersSheetsLibraryRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
@@ -295,6 +325,8 @@ export interface FileRoutesByFullPath {
   '/characters/sheets/': typeof CharactersSheetsIndexRoute
   '/games/$gameId/': typeof GamesGameIdIndexRoute
   '/games/list/': typeof GamesListIndexRoute
+  '/characters/sheets/$sheetId/changelog': typeof CharactersSheetsSheetIdChangelogRoute
+  '/characters/sheets/$sheetId/': typeof CharactersSheetsSheetIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -325,8 +357,10 @@ export interface FileRoutesByTo {
   '/pms': typeof PmsIndexRoute
   '/register': typeof RegisterIndexRoute
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
+  '/characters/$characterId/change-sheet': typeof CharactersCharacterIdChangeSheetRoute
   '/characters/$characterId/edit': typeof CharactersCharacterIdEditRoute
-  '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdRoute
+  '/characters/$characterId/sheet-preview': typeof CharactersCharacterIdSheetPreviewRoute
+  '/characters/sheets/library': typeof CharactersSheetsLibraryRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
@@ -335,6 +369,8 @@ export interface FileRoutesByTo {
   '/characters/sheets': typeof CharactersSheetsIndexRoute
   '/games/$gameId': typeof GamesGameIdIndexRoute
   '/games/list': typeof GamesListIndexRoute
+  '/characters/sheets/$sheetId/changelog': typeof CharactersSheetsSheetIdChangelogRoute
+  '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -368,8 +404,10 @@ export interface FileRoutesById {
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
+  '/characters/$characterId/change-sheet': typeof CharactersCharacterIdChangeSheetRoute
   '/characters/$characterId/edit': typeof CharactersCharacterIdEditRoute
-  '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdRoute
+  '/characters/$characterId/sheet-preview': typeof CharactersCharacterIdSheetPreviewRoute
+  '/characters/sheets/library': typeof CharactersSheetsLibraryRoute
   '/forums/edit-post/$postId': typeof ForumsEditPostPostIdRoute
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
@@ -378,6 +416,8 @@ export interface FileRoutesById {
   '/characters/sheets/': typeof CharactersSheetsIndexRoute
   '/games/$gameId/': typeof GamesGameIdIndexRoute
   '/games/list/': typeof GamesListIndexRoute
+  '/characters/sheets/$sheetId/changelog': typeof CharactersSheetsSheetIdChangelogRoute
+  '/characters/sheets/$sheetId/': typeof CharactersSheetsSheetIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -412,8 +452,10 @@ export interface FileRouteTypes {
     | '/pms/'
     | '/register/'
     | '/acp/role/$roleId'
+    | '/characters/$characterId/change-sheet'
     | '/characters/$characterId/edit'
-    | '/characters/sheets/$sheetId'
+    | '/characters/$characterId/sheet-preview'
+    | '/characters/sheets/library'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
@@ -422,6 +464,8 @@ export interface FileRouteTypes {
     | '/characters/sheets/'
     | '/games/$gameId/'
     | '/games/list/'
+    | '/characters/sheets/$sheetId/changelog'
+    | '/characters/sheets/$sheetId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -452,8 +496,10 @@ export interface FileRouteTypes {
     | '/pms'
     | '/register'
     | '/acp/role/$roleId'
+    | '/characters/$characterId/change-sheet'
     | '/characters/$characterId/edit'
-    | '/characters/sheets/$sheetId'
+    | '/characters/$characterId/sheet-preview'
+    | '/characters/sheets/library'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
@@ -462,6 +508,8 @@ export interface FileRouteTypes {
     | '/characters/sheets'
     | '/games/$gameId'
     | '/games/list'
+    | '/characters/sheets/$sheetId/changelog'
+    | '/characters/sheets/$sheetId'
   id:
     | '__root__'
     | '/'
@@ -494,8 +542,10 @@ export interface FileRouteTypes {
     | '/pms/'
     | '/register/'
     | '/acp/role/$roleId'
+    | '/characters/$characterId/change-sheet'
     | '/characters/$characterId/edit'
-    | '/characters/sheets/$sheetId'
+    | '/characters/$characterId/sheet-preview'
+    | '/characters/sheets/library'
     | '/forums/edit-post/$postId'
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
@@ -504,6 +554,8 @@ export interface FileRouteTypes {
     | '/characters/sheets/'
     | '/games/$gameId/'
     | '/games/list/'
+    | '/characters/sheets/$sheetId/changelog'
+    | '/characters/sheets/$sheetId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -533,8 +585,10 @@ export interface RootRouteChildren {
   GamesIndexRoute: typeof GamesIndexRoute
   PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
+  CharactersCharacterIdChangeSheetRoute: typeof CharactersCharacterIdChangeSheetRoute
   CharactersCharacterIdEditRoute: typeof CharactersCharacterIdEditRoute
-  CharactersSheetsSheetIdRoute: typeof CharactersSheetsSheetIdRoute
+  CharactersCharacterIdSheetPreviewRoute: typeof CharactersCharacterIdSheetPreviewRoute
+  CharactersSheetsLibraryRoute: typeof CharactersSheetsLibraryRoute
   ForumsEditPostPostIdRoute: typeof ForumsEditPostPostIdRoute
   ForumsNewThreadForumIdRoute: typeof ForumsNewThreadForumIdRoute
   ForumsThreadThreadIdRoute: typeof ForumsThreadThreadIdRoute
@@ -542,6 +596,8 @@ export interface RootRouteChildren {
   CharactersCharacterIdIndexRoute: typeof CharactersCharacterIdIndexRoute
   CharactersSheetsIndexRoute: typeof CharactersSheetsIndexRoute
   GamesGameIdIndexRoute: typeof GamesGameIdIndexRoute
+  CharactersSheetsSheetIdChangelogRoute: typeof CharactersSheetsSheetIdChangelogRoute
+  CharactersSheetsSheetIdIndexRoute: typeof CharactersSheetsSheetIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -763,11 +819,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CharactersCharacterIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/characters/$characterId/change-sheet': {
+      id: '/characters/$characterId/change-sheet'
+      path: '/characters/$characterId/change-sheet'
+      fullPath: '/characters/$characterId/change-sheet'
+      preLoaderRoute: typeof CharactersCharacterIdChangeSheetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/characters/$characterId/edit': {
       id: '/characters/$characterId/edit'
       path: '/characters/$characterId/edit'
       fullPath: '/characters/$characterId/edit'
       preLoaderRoute: typeof CharactersCharacterIdEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/characters/$characterId/sheet-preview': {
+      id: '/characters/$characterId/sheet-preview'
+      path: '/characters/$characterId/sheet-preview'
+      fullPath: '/characters/$characterId/sheet-preview'
+      preLoaderRoute: typeof CharactersCharacterIdSheetPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/characters/sheets/': {
@@ -777,11 +847,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CharactersSheetsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/characters/sheets/$sheetId': {
-      id: '/characters/sheets/$sheetId'
-      path: '/characters/sheets/$sheetId'
-      fullPath: '/characters/sheets/$sheetId'
-      preLoaderRoute: typeof CharactersSheetsSheetIdRouteImport
+    '/characters/sheets/library': {
+      id: '/characters/sheets/library'
+      path: '/characters/sheets/library'
+      fullPath: '/characters/sheets/library'
+      preLoaderRoute: typeof CharactersSheetsLibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forums/edit-post/$postId': {
@@ -825,6 +895,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/games/list/'
       preLoaderRoute: typeof GamesListIndexRouteImport
       parentRoute: typeof GamesListRoute
+    }
+    '/characters/sheets/$sheetId/': {
+      id: '/characters/sheets/$sheetId/'
+      path: '/characters/sheets/$sheetId'
+      fullPath: '/characters/sheets/$sheetId/'
+      preLoaderRoute: typeof CharactersSheetsSheetIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/characters/sheets/$sheetId/changelog': {
+      id: '/characters/sheets/$sheetId/changelog'
+      path: '/characters/sheets/$sheetId/changelog'
+      fullPath: '/characters/sheets/$sheetId/changelog'
+      preLoaderRoute: typeof CharactersSheetsSheetIdChangelogRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -886,8 +970,11 @@ const rootRouteChildren: RootRouteChildren = {
   GamesIndexRoute: GamesIndexRoute,
   PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
+  CharactersCharacterIdChangeSheetRoute: CharactersCharacterIdChangeSheetRoute,
   CharactersCharacterIdEditRoute: CharactersCharacterIdEditRoute,
-  CharactersSheetsSheetIdRoute: CharactersSheetsSheetIdRoute,
+  CharactersCharacterIdSheetPreviewRoute:
+    CharactersCharacterIdSheetPreviewRoute,
+  CharactersSheetsLibraryRoute: CharactersSheetsLibraryRoute,
   ForumsEditPostPostIdRoute: ForumsEditPostPostIdRoute,
   ForumsNewThreadForumIdRoute: ForumsNewThreadForumIdRoute,
   ForumsThreadThreadIdRoute: ForumsThreadThreadIdRoute,
@@ -895,6 +982,8 @@ const rootRouteChildren: RootRouteChildren = {
   CharactersCharacterIdIndexRoute: CharactersCharacterIdIndexRoute,
   CharactersSheetsIndexRoute: CharactersSheetsIndexRoute,
   GamesGameIdIndexRoute: GamesGameIdIndexRoute,
+  CharactersSheetsSheetIdChangelogRoute: CharactersSheetsSheetIdChangelogRoute,
+  CharactersSheetsSheetIdIndexRoute: CharactersSheetsSheetIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

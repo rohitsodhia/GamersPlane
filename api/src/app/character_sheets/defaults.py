@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from app.character_sheets.layout_validation import SCHEMA_VERSION
+
 _DEFAULT_LAYOUT_TEXT = (Path(__file__).parent / "default_layout.json").read_text(
     encoding="utf-8"
 )
@@ -8,7 +10,7 @@ _DEFAULT_LAYOUT_TEXT = (Path(__file__).parent / "default_layout.json").read_text
 
 def empty_sheet_layout() -> dict:
     """The minimal valid layout: the keys the renderer expects, no elements."""
-    return {"schema_version": 1, "classes": {}, "elements": []}
+    return {"schema_version": SCHEMA_VERSION, "classes": {}, "elements": []}
 
 
 def default_sheet_layout() -> dict:

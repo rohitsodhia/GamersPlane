@@ -44,9 +44,7 @@ async def get_roles(
             schemas.RoleData(
                 id=role.id,
                 name=role.name,
-                owner=schemas.UserData(
-                    id=role.owner.id, username=role.owner.username
-                ),
+                owner=schemas.UserData(id=role.owner.id, username=role.owner.username),
                 user_count=len(role.users),
                 grant_count=len(role.grants),
             )
@@ -90,8 +88,7 @@ async def get_role(
         name=role.name,
         owner=schemas.UserData(id=role.owner.id, username=role.owner.username),
         users=[
-            schemas.UserData(id=user.id, username=user.username)
-            for user in role.users
+            schemas.UserData(id=user.id, username=user.username) for user in role.users
         ],
         grants=[
             schemas.GrantData(
@@ -240,9 +237,7 @@ async def add_user_to_role(
     await rbac_repository.add_user_to_role(role, user)
 
 
-@rbac.delete(
-    "/roles/{role_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT
-)
+@rbac.delete("/roles/{role_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 @requires("admin")
 async def remove_user_from_role(
     role_id: int,

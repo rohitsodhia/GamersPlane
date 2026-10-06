@@ -274,6 +274,7 @@ class TestSendPM:
         assert body["reply_to_id"] == original.id
         assert [h["title"] for h in body["history"]] == ["Original"]
 
+
 class TestDeletePM:
     async def test_delete_pm_requires_auth(self, client, create):
         alice = await create(UserFactory, username="alice")

@@ -214,6 +214,19 @@ describe("collectRefs", () => {
 	it("returns an empty array for a literal-only formula", () => {
 		expect(collectRefs({ op: "+", args: [1, 2] })).toEqual([]);
 	});
+
+	it("keeps store refs, dynamic ones included, and drops loop refs", () => {
+		const expr: Expr = {
+			op: "+",
+			args: [
+				{ ref: "$(pick).score" },
+				{ ref: "$row.x" },
+				{ ref: "$index" },
+				{ ref: "$item.label" },
+			],
+		};
+		expect(collectRefs(expr)).toEqual(["$(pick).score", "$row.x"]);
+	});
 });
 
 describe("isOpName", () => {

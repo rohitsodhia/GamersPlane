@@ -28,6 +28,9 @@
 			"style": {
 				"useConst": "error"
 			},
+			"complexity": {
+				"useLiteralKeys": "off"
+			},
 			"correctness": {
 				"noUnusedVariables": "warn",
 				"noUnusedImports": "warn"

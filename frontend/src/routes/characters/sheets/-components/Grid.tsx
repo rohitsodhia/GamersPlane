@@ -6,10 +6,21 @@ import type { SheetElement } from "./types";
 
 /** One data row, already normalised from either authoring form by the renderer. */
 export interface GridRow {
-	/** Sub-scope key this row's fields nest under (`stats.str.*`). */
+	/** The row's author-facing key (`str` in `stats.str.*`). */
 	key: string;
+	/**
+	 * Store key this row's fields nest under: the row's server-minted id (see
+	 * `GridItem.id`), falling back to `key` for a row that has none.
+	 */
+	storeKey: string;
 	/** Cells in column order; cell 0 is normally the row label. */
 	cells: SheetElement[];
+	/**
+	 * The author-written cells whose fields make up the row's value scope (the
+	 * compact form's shared `row` template, or the explicit row's `content`) —
+	 * unlike `cells`, stable across renders.
+	 */
+	template: SheetElement[];
 	/** Extra allowlisted class for this one row (explicit form's `grid_row` class). */
 	rowClass?: string;
 }
@@ -46,7 +57,7 @@ interface GridProps {
 /**
  * A fixed-layout table. Each row renders into its own string-keyed sub-scope
  * (via <KeyedScopeProvider>), so the value doc nests as
- * `name: { <key>: { <field>: value, … } }`.
+ * `<grid id>: { <row id>: { <field id>: value, … } }`.
  *
  * Laid out as a CSS grid: `gridTemplateColumns` (or a helper class / the
  * stylesheet fallback) sets the tracks on the container, and the header plus
@@ -96,7 +107,12 @@ export function Grid({
 				</div>
 			)}
 			{rows.map((row) => (
-				<KeyedScopeProvider key={row.key} name={name} itemKey={row.key}>
+				<KeyedScopeProvider
+					key={row.key}
+					name={name}
+					itemKey={row.storeKey}
+					template={row.template}
+				>
 					<CollapsibleScopeProvider>
 						<div className={clsx("char-sheet-grid-row", rowClass, row.rowClass)}>
 							{row.cells.map((cell, ci) => renderCell(cell, row.key, ci))}

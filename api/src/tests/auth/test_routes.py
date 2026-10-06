@@ -233,9 +233,7 @@ class TestRegister:
         assert response.status_code == 200
         assert response.json() == {"registered": True}
 
-        user = await db_session.scalar(
-            select(User).where(User.username == "newuser")
-        )
+        user = await db_session.scalar(select(User).where(User.username == "newuser"))
         assert user is not None
         assert user.activated_on is None
 
@@ -287,7 +285,9 @@ class TestRegister:
 
 
 class TestResendActivation:
-    async def test_resend_activation_for_existing_user(self, client, create, db_session):
+    async def test_resend_activation_for_existing_user(
+        self, client, create, db_session
+    ):
         user = await create(UserFactory)
 
         response = await client.post(

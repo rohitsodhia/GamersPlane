@@ -1,0 +1,154 @@
+/*
+ * Full-height sheet editor: body already stretches `main` via its `auto 1fr auto`
+ * rows, but `.page-wrap` is itself a grid with content-sized (auto) implicit rows.
+ * `minmax(0, 1fr)` hands that height down to the editor and lets it shrink instead
+ * of overflowing. Scoped with `:has()` so other routes keep their natural height.
+ */
+:global(.page-wrap):has(> .sheet-editor) {
+	grid-template-rows: minmax(0, 1fr);
+}
+
+/* Matches the character page's controls hanging off the header bar. */
+.top-links {
+	position: sticky;
+	top: 70px;
+	z-index: 100;
+	margin-bottom: 1em;
+
+	button {
+		height: stretch;
+	}
+}
+
+h1:has(+ .top-links) {
+	margin-bottom: 0;
+}
+
+.sheet-logo {
+	margin-bottom: 1em;
+
+	img {
+		margin-inline: auto;
+	}
+}
+
+.sheet-description {
+	margin-bottom: 1em;
+}
+
+.sheet-details {
+	--label-col-width: 120px;
+	margin-bottom: 1em;
+
+	input {
+		width: 100%;
+		box-sizing: border-box;
+	}
+}
+
+.sheet-version {
+	margin-bottom: 1em;
+}
+
+.link-button {
+	padding: 0;
+	border: none;
+	background: none;
+	font: inherit;
+	cursor: pointer;
+
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+/* Slides open via the grid-rows 0fr/1fr trick (as the sheet's collapsible
+   does); the inner wrapper clips the content while the row collapses. */
+.confirm {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 0.2s ease;
+
+	&[data-open="true"] {
+		grid-template-rows: 1fr;
+	}
+}
+
+/* Kept bare: padding and border can't collapse with the 0fr row, so they go
+   on the box inside, which this clips away whole. */
+.confirm-inner {
+	overflow: hidden;
+	min-height: 0;
+}
+
+.confirm-box {
+	padding: 1em;
+	border: 1px solid #000;
+	border-radius: 4px;
+
+	p {
+		margin-block: 0 0.5em;
+		text-box-trim: trim-start;
+	}
+}
+
+.confirm-actions {
+	display: flex;
+	gap: 1em;
+	align-items: center;
+}
+
+/* Sits between the controls and the editor; the margin is inside the clipped
+   wrapper, so it collapses away with the box. */
+.publish-confirm .confirm-box {
+	margin-bottom: 1em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.confirm {
+		transition: none;
+	}
+}
+
+:global(.controls-container) {
+	gap: 1em;
+	align-items: center;
+}
+
+.save-hint {
+	font-style: italic;
+}
+
+.save-indicator {
+	color: var(--gp-success-green);
+	font-weight: bold;
+}
+
+.sheet-editor {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.sheet-editor > .code-display {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+}
+
+.error-link {
+	padding: 0;
+	border: none;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.json-editor {
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	border: 1px solid light-dark(#ccc, #555);
+}

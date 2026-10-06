@@ -201,9 +201,7 @@ class TestCreateThread:
         thread = next(
             t for t in list_response.json()["threads"] if t["id"] == thread_id
         )
-        assert thread["options"] == Thread.Options(sticky=True).model_dump(
-            mode="json"
-        )
+        assert thread["options"] == Thread.Options(sticky=True).model_dump(mode="json")
 
     async def test_create_thread_rejects_unknown_option(self, authed_client, create):
         client, _user = authed_client

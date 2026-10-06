@@ -1,0 +1,59 @@
+.versions {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* Version and date on the left, notes on the right. */
+.version {
+	display: grid;
+	grid-template-columns: 10em minmax(0, 1fr);
+	gap: 2em;
+	padding-block: 1.5em;
+
+	& + & {
+		border-top: 1px solid light-dark(#ccc, #444);
+	}
+}
+
+.version-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25em;
+	align-items: flex-start;
+}
+
+.version-number {
+	margin: 0;
+	text-box-trim: trim-start;
+}
+
+.current {
+	padding: 0.1em 0.5em;
+	border: 1px solid var(--gp-success-green);
+	border-radius: 1em;
+	color: var(--gp-success-green);
+	font-size: 0.85em;
+	font-weight: bold;
+}
+
+.no-notes {
+	margin: 0;
+	color: light-dark(#666, #999);
+	font-style: italic;
+}
+
+/* Stacked on narrow screens: version, date and tag on one line above the notes. */
+@media (max-width: 600px) {
+	.version {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 0.75em;
+	}
+
+	.version-meta {
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: 0.75em;
+		align-items: baseline;
+	}
+}

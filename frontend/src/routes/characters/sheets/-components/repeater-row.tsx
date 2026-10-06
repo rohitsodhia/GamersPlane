@@ -84,7 +84,7 @@ export function buildRepeaterRow({
 	}
 
 	return (
-		<ScopeProvider key={rowKey} name={name} index={rowIndex}>
+		<ScopeProvider key={rowKey} name={name} index={rowIndex} template={template}>
 			<CollapsibleScopeProvider>
 				<RepeaterRowActionsProvider
 					value={{

@@ -8,7 +8,7 @@ import {
 } from "react";
 import { type Expr, evaluate, FormulaError, type RefResolver } from "./formula";
 import { LoopIterationProvider, useListMode, useRefResolver } from "./loop-context";
-import { useScopePrefix, useSheetStore } from "./sheet-values";
+import { useSheetSubscribe } from "./sheet-values";
 import type { SheetElement, StyleWhen } from "./types";
 import { WhenStyled } from "./when-styling";
 
@@ -123,19 +123,14 @@ export function Loop({
 	context,
 	renderBody,
 }: LoopProps) {
-	const store = useSheetStore();
-	const prefix = useScopePrefix();
 	const resolve = useRefResolver();
 	const inList = useListMode();
 
 	// Only a formula `count` is dynamic; `items` and a literal `count` are fixed
-	// by the schema. Subscribe to the whole scope so a formula recomputes when a
+	// by the schema. Subscribe to the whole sheet so a formula recomputes when a
 	// referenced field changes; the snapshot is a number, so it stays stable.
 	const isDynamicCount = items == null && count != null && typeof count !== "number";
-	const subscribe = useCallback(
-		(cb: () => void) => store.subscribe(prefix, cb),
-		[store, prefix],
-	);
+	const subscribe = useSheetSubscribe();
 	const readDynamicCount = useCallback(
 		() => (isDynamicCount ? resolveLoopCount(count as Expr, resolve, context) : 0),
 		[isDynamicCount, count, resolve, context],

@@ -1,14 +1,25 @@
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import {
+	useMutation,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import clsx from "clsx";
 import { useState } from "react";
+import { DismissibleBanner } from "#/components/DismissibleBanner";
 import { Select } from "#/components/Select";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
+import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	type CharacterType,
 	characterQueryOptions,
+	characterSheetMovesQueryOptions,
+	moveCharacterSheet,
 	updateCharacter,
 } from "#/queries/character";
+import { copyCharacterSheet, restoreCharacterSheet } from "#/queries/characterSheet";
 import { meQueryOptions } from "#/queries/me";
 import { SheetRenderer } from "../sheets/-components/SheetRenderer";
 import { SheetValuesProvider, useSheetStore } from "../sheets/-components/sheet-values";
@@ -34,6 +45,9 @@ export const Route = createFileRoute("/characters/$characterId/edit")({
 		if (character.user_id !== me.id) {
 			throw redirect({ to: "/403", replace: true });
 		}
+		context.queryClient.prefetchQuery(
+			characterSheetMovesQueryOptions(params.characterId),
+		);
 	},
 	component: RouteComponent,
 });
@@ -44,14 +58,174 @@ function RouteComponent() {
 	const { character_sheet: sheet } = character;
 	const primaryAvatar = character.avatars.find((avatar) => avatar.is_primary);
 
+	const { data: me } = useSuspenseQuery(meQueryOptions);
+	const queryClient = useQueryClient();
+
 	const [label, setLabel] = useState(character.label);
 	const [type, setType] = useState<CharacterType>(character.type);
+
+	// Your own deleted sheet is restored rather than copied. Copying is for a
+	// sheet you can't maintain yourself: someone else's, even once they've
+	// deleted it (the API lets you copy it since you have a character on it).
+	const ownsSheet = sheet.creator.id === me.id;
+	const canRestoreSheet = character.sheet_deleted && ownsSheet;
+	const canCopySheet = !ownsSheet;
+	const copyMutation = useMutation({
+		// The version this character is pinned to, so the copy matches it.
+		mutationFn: () =>
+			copyCharacterSheet(character.character_sheet_id, character.version_number),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["characterSheets"] });
+		},
+	});
+	const restoreMutation = useMutation({
+		mutationFn: () => restoreCharacterSheet(character.character_sheet_id),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["characterSheets"] });
+			queryClient.invalidateQueries({ queryKey: ["characterSheet"] });
+			// Clears `sheet_deleted`, which hides the notice and the button.
+			queryClient.invalidateQueries({
+				queryKey: characterQueryOptions(characterId).queryKey,
+			});
+		},
+	});
+	// Copying a deleted sheet publishes the copy, so the characters on the
+	// copied version can be offered the move to it.
+	const [declinedMoveToCopy, setDeclinedMoveToCopy] = useState(false);
+	const moveToCopyMutation = useMutation({
+		mutationFn: (copy: { id: number; characters: { id: number }[] }) =>
+			moveCharacterSheet({
+				character_ids: copy.characters.map((movable) => movable.id),
+				character_sheet_id: copy.id,
+				version: 1,
+			}),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["character"] });
+			queryClient.invalidateQueries({ queryKey: ["characters"] });
+		},
+	});
+	const sheetActionError =
+		copyMutation.error ?? restoreMutation.error ?? moveToCopyMutation.error;
+
+	// Upgrades: the current version, then every newer one, oldest first.
+	const { data: sheetMoves } = useQuery(characterSheetMovesQueryOptions(characterId));
+	const upgrades = sheetMoves?.versions ?? [];
+	const versionOptions = [
+		{
+			id: String(character.version_number),
+			name: `v${character.version_number} (current)`,
+		},
+		...[...upgrades]
+			.reverse()
+			.map((version) => ({ id: String(version.number), name: `v${version.number}` })),
+	];
+	const [selectedVersion, setSelectedVersion] = useState(
+		String(character.version_number),
+	);
+	const navigate = useNavigate();
+
+	const hbMargined = useHbMargined<HTMLHeadingElement>();
 
 	// Remount when switching characters so the value store re-seeds from the
 	// newly loaded `values`.
 	return (
 		<div className={styles["character-sheet"]}>
-			<h1 className="headerbar">{character.name ?? character.label}</h1>
+			<h1 className="headerbar" ref={hbMargined.ref}>
+				{character.name ?? character.label}
+			</h1>
+			{canCopySheet || canRestoreSheet ? (
+				<div className={clsx("controls-container", styles["top-links"])}>
+					<div
+						className="trapezoid red-trapezoid upside-down"
+						style={{ marginRight: hbMargined.margin }}
+					>
+						{canRestoreSheet ? (
+							<button
+								type="button"
+								onClick={() => restoreMutation.mutate()}
+								disabled={restoreMutation.isPending}
+							>
+								Restore Sheet
+							</button>
+						) : (
+							<button
+								type="button"
+								onClick={() => copyMutation.mutate()}
+								disabled={copyMutation.isPending}
+							>
+								Copy Sheet
+							</button>
+						)}
+					</div>
+				</div>
+			) : null}
+
+			{copyMutation.isSuccess ? (
+				copyMutation.data.characters.length > 0 &&
+				!declinedMoveToCopy &&
+				!moveToCopyMutation.isSuccess ? (
+					<div className={clsx("banner success-banner", styles["move-prompt"])}>
+						<p>
+							Sheet copied. Move{" "}
+							{new Intl.ListFormat("en").format(
+								copyMutation.data.characters.map((movable) => movable.label),
+							)}{" "}
+							to the copy?
+						</p>
+						<button
+							type="button"
+							className="skew-btn"
+							onClick={() => moveToCopyMutation.mutate(copyMutation.data)}
+							disabled={moveToCopyMutation.isPending}
+						>
+							Move
+						</button>
+						<button
+							type="button"
+							className="skew-btn"
+							onClick={() => setDeclinedMoveToCopy(true)}
+							disabled={moveToCopyMutation.isPending}
+						>
+							Not Now
+						</button>
+					</div>
+				) : (
+					<p className="banner success-banner">
+						{moveToCopyMutation.isSuccess
+							? "Moved to the copy."
+							: copyMutation.data.characters.length > 0
+								? "Sheet copied."
+								: "Sheet copied as a draft."}{" "}
+						<Link
+							to="/characters/sheets/$sheetId"
+							params={{ sheetId: copyMutation.data.id }}
+						>
+							Open the copy
+						</Link>
+					</p>
+				)
+			) : null}
+			{restoreMutation.isSuccess ? (
+				<p className="banner success-banner">Sheet restored.</p>
+			) : null}
+			{sheetActionError ? (
+				<p className="banner error-banner">
+					{sheetActionError instanceof ApiError
+						? sheetActionError.errors.map((err) => err.detail).join(" ")
+						: "Something went wrong. Please try again."}
+				</p>
+			) : null}
+
+			{character.sheet_deleted ? (
+				<DismissibleBanner
+					storageKey={`deleted-sheet:${characterId}`}
+					className="warning-banner"
+				>
+					{canRestoreSheet
+						? "You deleted the sheet this character was built on. You can restore it if you would like to use it again."
+						: "The sheet this character was built on has been deleted. You can copy it if you would like to make updates."}
+				</DismissibleBanner>
+			) : null}
 
 			<div className={styles["sheet-logo"]}>
 				<img
@@ -61,7 +235,78 @@ function RouteComponent() {
 				/>
 			</div>
 
-			<div className={styles["avatar-wrapper"]}>
+			<div className={styles["sheet-details"]}>
+				<div>
+					<span className={styles["detail-label"]}>Sheet</span>
+					<span>
+						{character.sheet_deleted ? (
+							sheet.name
+						) : (
+							<Link to="/characters/sheets/$sheetId" params={{ sheetId: sheet.id }}>
+								{sheet.name}
+							</Link>
+						)}
+						{ownsSheet ? null : (
+							<>
+								{" "}
+								by{" "}
+								<Link to="/user/$userId" params={{ userId: sheet.creator.id }}>
+									{sheet.creator.username}
+								</Link>
+							</>
+						)}
+						{sheetMoves && sheetMoves.copies.length > 0 ? (
+							<>
+								{" "}
+								(
+								<Link
+									to="/characters/$characterId/change-sheet"
+									params={{ characterId }}
+								>
+									Change Sheet
+								</Link>
+								)
+							</>
+						) : null}
+					</span>
+				</div>
+				<div>
+					<span id="sheet-version-label" className={styles["detail-label"]}>
+						Version
+					</span>
+					{upgrades.length > 0 ? (
+						<>
+							<Select
+								id="sheet-version"
+								ariaLabelledBy="sheet-version-label"
+								items={versionOptions}
+								getId={(option) => option.id}
+								getLabel={(option) => option.name}
+								selectedId={selectedVersion}
+								onChange={setSelectedVersion}
+							/>
+							<button
+								type="button"
+								className="skew-btn"
+								disabled={selectedVersion === String(character.version_number)}
+								onClick={() =>
+									navigate({
+										to: "/characters/$characterId/sheet-preview",
+										params: { characterId },
+										search: { sheet: sheet.id, version: Number(selectedVersion) },
+									})
+								}
+							>
+								Upgrade
+							</button>
+						</>
+					) : (
+						<span>v{character.version_number}</span>
+					)}
+				</div>
+			</div>
+
+			<div className={styles["character-details"]}>
 				<div className={styles["character-meta"]}>
 					<div>
 						<label htmlFor="character-label">Label</label>
@@ -119,7 +364,7 @@ function RouteComponent() {
 			>
 				<CharacterSheetForm
 					characterId={characterId}
-					schema={sheet.layout}
+					schema={character.layout}
 					label={label}
 					type={type}
 				/>
@@ -159,9 +404,23 @@ function CharacterSheetForm({
 				try {
 					await mutation.mutateAsync(store.snapshot());
 				} catch (exception) {
-					if (exception instanceof ApiError) {
-						setApiErrors(exception.errors.map((err) => err.detail));
+					if (!(exception instanceof ApiError)) {
+						setApiErrors(["Something went wrong. Please try again."]);
+						return;
 					}
+					setApiErrors(
+						exception.errors.map((err) => {
+							if (err.code !== "validation_error") {
+								return err.detail;
+							}
+							// The values check names server-minted ids, which mean
+							// nothing to a player. It only fails when this form is
+							// out of step with the character's sheet version, so the
+							// raw detail goes to the console for bug reports.
+							console.error(err.detail);
+							return "This sheet couldn't be saved because it doesn't match the character's sheet version. Reload the page and try again; if it keeps happening, please report it.";
+						}),
+					);
 				}
 			}}
 		>

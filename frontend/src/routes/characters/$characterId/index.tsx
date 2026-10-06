@@ -1,9 +1,13 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import clsx from "clsx";
+import { DismissibleBanner } from "#/components/DismissibleBanner";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { characterQueryOptions } from "#/queries/character";
+import {
+	characterQueryOptions,
+	characterSheetMovesQueryOptions,
+} from "#/queries/character";
 import { meQueryOptions } from "#/queries/me";
 import { SheetRenderer } from "../sheets/-components/SheetRenderer";
 import { SheetValuesProvider } from "../sheets/-components/sheet-values";
@@ -32,6 +36,14 @@ function RouteComponent() {
 	const { data: character } = useSuspenseQuery(characterQueryOptions(characterId));
 	const { character_sheet: sheet } = character;
 
+	const { data: me } = useSuspenseQuery(meQueryOptions);
+	const isOwner = character.user_id === me.id;
+	const { data: sheetMoves } = useQuery({
+		...characterSheetMovesQueryOptions(characterId),
+		enabled: isOwner,
+	});
+	const latestUpgrade = sheetMoves?.versions[0]?.number;
+
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
 
 	return (
@@ -57,6 +69,26 @@ function RouteComponent() {
 				</div>
 			</div>
 
+			{character.sheet_deleted ? (
+				<DismissibleBanner
+					storageKey={`deleted-sheet:${characterId}`}
+					className="warning-banner"
+				>
+					The sheet this character was built on has been deleted.
+				</DismissibleBanner>
+			) : null}
+			{latestUpgrade !== undefined ? (
+				// Keyed by the newest version, so publishing another brings it back.
+				<DismissibleBanner storageKey={`sheet-upgrade:${characterId}:${latestUpgrade}`}>
+					A newer version of this character's sheet is available (v{latestUpgrade}). You
+					can upgrade from the{" "}
+					<Link to="/characters/$characterId/edit" params={{ characterId }}>
+						edit page
+					</Link>
+					.
+				</DismissibleBanner>
+			) : null}
+
 			<div className={styles["sheet-logo"]}>
 				<img
 					src={`/images/logos/${sheet.system.id}.png`}
@@ -81,7 +113,7 @@ function RouteComponent() {
 				mode="display"
 				initialValues={character.values ?? {}}
 			>
-				<SheetRenderer schema={sheet.layout} />
+				<SheetRenderer schema={character.layout} />
 			</SheetValuesProvider>
 		</div>
 	);

@@ -21,8 +21,7 @@ class SuspendedException(Exception):
     def __init__(self, suspended_until=None) -> None:
         if suspended_until is not None:
             message = (
-                f"This account is suspended until "
-                f"{suspended_until:%Y-%m-%d %H:%M UTC}"
+                f"This account is suspended until {suspended_until:%Y-%m-%d %H:%M UTC}"
             )
         else:
             message = "This account is suspended"

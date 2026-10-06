@@ -153,7 +153,9 @@ class TestCheckAuthorization:
             await check_authorization(request)
 
     async def test_private_route_with_user_is_allowed(self):
-        request = make_request(scope=self.route_scope(is_public=False, user=fake_user()))
+        request = make_request(
+            scope=self.route_scope(is_public=False, user=fake_user())
+        )
 
         await check_authorization(request)
 
@@ -212,15 +214,15 @@ class TestCheckAuthorization:
         await check_authorization(request)
 
     async def test_banned_user_on_private_route_raises_banned(self):
-        request = make_request(
-            scope=self.route_scope(user=fake_user(block="banned"))
-        )
+        request = make_request(scope=self.route_scope(user=fake_user(block="banned")))
 
         with pytest.raises(BannedException):
             await check_authorization(request)
 
     async def test_suspended_user_on_private_route_raises_suspended(self):
-        until = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
+        until = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+            days=1
+        )
         request = make_request(
             scope=self.route_scope(
                 user=fake_user(block="suspended", suspended_until=until)

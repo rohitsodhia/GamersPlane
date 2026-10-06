@@ -24,11 +24,10 @@ def upgrade() -> None:
         "character_sheets",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("creator_id", sa.Integer(), nullable=False),
-        sa.Column("version", sa.Integer(), nullable=False),
-        sa.Column("root_id", sa.Integer(), nullable=True),
+        sa.Column("forked_from_id", sa.Integer(), nullable=True),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("system_id", sa.String(length=20), nullable=False),
-        sa.Column("layout", sa.JSON(), nullable=False),
+        sa.Column("description", sa.JSON(), nullable=True),
         sa.Column("status", sa.String(length=12), nullable=False),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -38,7 +37,7 @@ def upgrade() -> None:
             ["users.id"],
         ),
         sa.ForeignKeyConstraint(
-            ["root_id"],
+            ["forked_from_id"],
             ["character_sheets.id"],
         ),
         sa.ForeignKeyConstraint(
@@ -48,9 +47,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
-        op.f("ix_character_sheets_root_id"),
+        op.f("ix_character_sheets_forked_from_id"),
         "character_sheets",
-        ["root_id"],
+        ["forked_from_id"],
         unique=False,
     )
     op.create_index(
@@ -66,10 +65,42 @@ def upgrade() -> None:
         unique=False,
     )
     op.create_table(
+        "character_sheet_versions",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("character_sheet_id", sa.Integer(), nullable=False),
+        sa.Column("number", sa.Integer(), nullable=True),
+        sa.Column("schema_version", sa.Integer(), nullable=False),
+        sa.Column("layout", sa.JSON(), nullable=False),
+        sa.Column("changelog", sa.JSON(), nullable=True),
+        sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["character_sheet_id"],
+            ["character_sheets.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("character_sheet_id", "number"),
+    )
+    op.create_index(
+        op.f("ix_character_sheet_versions_character_sheet_id"),
+        "character_sheet_versions",
+        ["character_sheet_id"],
+        unique=False,
+    )
+    op.create_index(
+        "uq_character_sheet_versions_draft",
+        "character_sheet_versions",
+        ["character_sheet_id"],
+        unique=True,
+        postgresql_where=sa.text("published_at IS NULL"),
+    )
+    op.create_table(
         "characters",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("character_sheet_id", sa.Integer(), nullable=False),
+        sa.Column("character_sheet_version_id", sa.Integer(), nullable=False),
         sa.Column("label", sa.String(), nullable=False),
         sa.Column("name", sa.String(), nullable=True),
         sa.Column("type", sa.String(length=5), nullable=False),
@@ -83,6 +114,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["character_sheet_id"],
             ["character_sheets.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["character_sheet_version_id"],
+            ["character_sheet_versions.id"],
         ),
         sa.ForeignKeyConstraint(
             ["user_id"],
@@ -174,7 +209,19 @@ def downgrade() -> None:
     op.drop_table("posts")
     op.drop_table("character_favorites")
     op.drop_table("characters")
+    op.drop_index(
+        "uq_character_sheet_versions_draft",
+        table_name="character_sheet_versions",
+        postgresql_where=sa.text("published_at IS NULL"),
+    )
+    op.drop_index(
+        op.f("ix_character_sheet_versions_character_sheet_id"),
+        table_name="character_sheet_versions",
+    )
+    op.drop_table("character_sheet_versions")
     op.drop_index(op.f("ix_character_sheets_status"), table_name="character_sheets")
     op.drop_index(op.f("ix_character_sheets_system_id"), table_name="character_sheets")
-    op.drop_index(op.f("ix_character_sheets_root_id"), table_name="character_sheets")
+    op.drop_index(
+        op.f("ix_character_sheets_forked_from_id"), table_name="character_sheets"
+    )
     op.drop_table("character_sheets")

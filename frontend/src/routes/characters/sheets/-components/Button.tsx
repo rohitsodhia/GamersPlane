@@ -2,12 +2,13 @@ import clsx from "clsx";
 import type { CSSProperties } from "react";
 import { type Expr, evaluate, FormulaError, type RefResolver } from "./formula";
 import { useRefResolver } from "./loop-context";
+import { resolveRefPath } from "./refs";
 import {
 	isRepeaterRowAction,
 	shouldRenderRowAction,
 	useRepeaterRowActions,
 } from "./repeater-context";
-import { useScopePrefix, useSheetMode, useSheetStore } from "./sheet-values";
+import { useScope, useSheetMode, useSheetStore } from "./sheet-values";
 import type { ClickAction, RepeaterRowAction, SetValueAction } from "./types";
 
 /**
@@ -41,8 +42,8 @@ interface ButtonProps {
 
 /**
  * A declarative button. Its `on_click` is one of two shapes:
- *  - `{ set, to }` — write a sibling scalar in the current value scope, computed
- *    from `to` at click time (reads `$index`, the target's own value, siblings).
+ *  - `{ set, to }` — write the scalar at ref path `set` (see `refs.ts`), computed
+ *    from `to` at click time (reads `$index`, the target's own value, others).
  *    The basis of clocks / tracks.
  *  - `{ row: "add" | "remove" }` — add / remove a row of the enclosing
  *    `repeater`; resolved by position, gated by the repeater's `min` / `max`.
@@ -85,15 +86,24 @@ function SetValueButton({
 	style,
 }: VariantProps<SetValueAction>) {
 	const store = useSheetStore();
-	const prefix = useScopePrefix();
+	const scope = useScope();
 	const mode = useSheetMode();
 	const resolve = useRefResolver();
 
 	const handleClick = () => {
 		if (mode !== "edit") return;
+		const target = resolveRefPath(action.set, scope, resolve);
+		if (target === undefined) {
+			if (import.meta.env.DEV) {
+				console.warn(
+					`[sheet] button "${label}": on_click.set "${action.set}" names no field`,
+				);
+			}
+			return;
+		}
 		const next = resolveClickValue(action.to, resolve, `button "${label}"`);
 		if (next === undefined) return;
-		store.set([...prefix, action.set], next);
+		store.set(target, next);
 	};
 
 	return (

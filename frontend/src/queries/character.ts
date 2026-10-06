@@ -1,4 +1,5 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
+import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { ScopeValues } from "#/routes/characters/sheets/-components/sheet-values";
 import type { SheetSchema } from "#/routes/characters/sheets/-components/types";
@@ -19,13 +20,20 @@ export type Character = {
 	type: CharacterType;
 	values: ScopeValues | null;
 	in_library: boolean;
+	character_sheet_id: number;
+	/** Still filled once the sheet is deleted; the character renders from `layout`. */
 	character_sheet: {
 		id: number;
 		name: string;
 		creator: { id: number; username: string; avatar: string };
 		system: { id: string; name: string };
-		layout: SheetSchema;
 	};
+	sheet_deleted: boolean;
+	/** The sheet version this character is pinned to. */
+	version_id: number;
+	version_number: number;
+	/** Layout of the sheet version this character is pinned to. */
+	layout: SheetSchema;
 	avatars: CharacterAvatar[];
 };
 
@@ -35,7 +43,13 @@ export type CharacterListItem = {
 	type: CharacterType;
 	in_library: boolean;
 	user: { id: number; username: string };
-	character_sheet: { id: number; name: string; system: { id: string; name: string } };
+	character_sheet_id: number;
+	character_sheet: {
+		id: number;
+		name: string;
+		system: { id: string; name: string };
+	};
+	sheet_deleted: boolean;
 };
 
 export type GetCharactersResponse = {
@@ -138,6 +152,78 @@ export const updateCharacter = async (
 		throw new ApiError(res.status, errors);
 	}
 	return res.json();
+};
+
+export type CharacterSheetMoves = {
+	/** Upgrades: newer published versions of the character's sheet, newest first. */
+	versions: { number: number; published_at: string; changelog: JSONContent | null }[];
+	/** Changes: published copies of the character's sheet, at any depth. */
+	copies: {
+		id: number;
+		name: string;
+		creator: { id: number; username: string };
+		latest_version_number: number;
+	}[];
+};
+
+export const characterSheetMovesQueryOptions = (characterId: number) =>
+	queryOptions({
+		queryKey: ["character", characterId, "sheetMoves"],
+		queryFn: async (): Promise<CharacterSheetMoves> => {
+			const res = await apiFetch(`/characters/${characterId}/sheet_moves`);
+			if (!res.ok) {
+				const { errors } = await res.json();
+				throw new ApiError(res.status, errors);
+			}
+			return res.json();
+		},
+	});
+
+export type CharacterSheetMovePreview = {
+	name: string;
+	layout: SheetSchema;
+	/** Values the character has that `layout` won't show; they stay saved. */
+	hidden_values: { id: string; label: string }[];
+};
+
+export const characterSheetMovePreviewQueryOptions = (
+	characterId: number,
+	sheetId: number,
+	version: number,
+) =>
+	queryOptions({
+		queryKey: ["character", characterId, "sheetMoves", "preview", sheetId, version],
+		queryFn: async (): Promise<CharacterSheetMovePreview> => {
+			const search = new URLSearchParams({
+				character_sheet_id: String(sheetId),
+				version: String(version),
+			});
+			const res = await apiFetch(
+				`/characters/${characterId}/sheet_moves/preview?${search}`,
+			);
+			if (!res.ok) {
+				const { errors } = await res.json();
+				throw new ApiError(res.status, errors);
+			}
+			return res.json();
+		},
+	});
+
+// Upgrades (a newer version of the same sheet) or changes (a version of a copy
+// of it). Every character moves, or none do.
+export const moveCharacterSheet = async (data: {
+	character_ids: number[];
+	character_sheet_id: number;
+	version: number;
+}): Promise<void> => {
+	const res = await apiFetch("/characters/sheet_moves", {
+		method: "POST",
+		body: JSON.stringify(data),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
 };
 
 export const toggleCharacterLibrary = async (characterId: number): Promise<void> => {

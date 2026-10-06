@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { z } from "zod";
 import { Autocomplete } from "#/components/Autocomplete";
 import { DEBOUNCE_MS } from "#/lib/constants";
@@ -13,34 +13,50 @@ export const listFiltersSearchSchema = z.object({
 	systems: z.array(z.string()).optional(),
 });
 
-export type ListFilter = "search" | "systems";
+/**
+ * Search params for routes using the single-select "system" filter (one
+ * `system_id`, as the API's `/my` lists take) instead of the multi-select
+ * "systems" one. Routes `.extend()` this with their own.
+ */
+export const singleSystemFilterSearchSchema = z.object({
+	search: z.string().optional(),
+	system_id: z.string().optional(),
+});
+
+type FilterSearch = z.infer<typeof listFiltersSearchSchema> &
+	z.infer<typeof singleSystemFilterSearchSchema>;
+
+export type ListFilter = "search" | "systems" | "system";
 
 type Props = {
 	filters: ListFilter[];
 	idPrefix?: string;
+	/** Route-specific filters (e.g. a type picker), rendered after the built-in ones. */
+	children?: ReactNode;
 };
 
 /**
  * Filter bar backed by URL search params. Must be rendered inside a route whose
- * `validateSearch` includes `listFiltersSearchSchema`; routes using the
- * "systems" filter should also `ensureQueryData(systemsQueryOptions({ basic: true }))`
- * in their loader.
+ * `validateSearch` includes `listFiltersSearchSchema` (or
+ * `singleSystemFilterSearchSchema` for the "system" filter); routes using
+ * "systems" or "system" should also
+ * `ensureQueryData(systemsQueryOptions({ basic: true }))` in their loader.
  */
-export function ListFilters({ filters, idPrefix = "list" }: Props) {
+export function ListFilters({ filters, idPrefix = "list", children }: Props) {
 	return (
 		<div className={styles["list-filters"]}>
 			{filters.includes("search") && <SearchFilter />}
 			{filters.includes("systems") && <SystemsFilter idPrefix={idPrefix} />}
+			{filters.includes("system") && <SystemFilter idPrefix={idPrefix} />}
+			{children}
 		</div>
 	);
 }
 
 function useFilterSearch() {
 	const navigate = useNavigate();
-	const urlSearch = useSearch({ strict: false }) as z.infer<
-		typeof listFiltersSearchSchema
-	>;
-	const setFilters = (patch: Partial<z.infer<typeof listFiltersSearchSchema>>) =>
+	const urlSearch = useSearch({ strict: false }) as FilterSearch;
+	const setFilters = (patch: Partial<FilterSearch>) =>
 		navigate({
 			to: ".",
 			search: (prev) => ({ ...prev, ...patch, page: undefined }),
@@ -67,6 +83,23 @@ function SearchFilter() {
 			placeholder="Search..."
 			value={searchInput}
 			onChange={(e) => setSearchInput(e.target.value)}
+		/>
+	);
+}
+
+function SystemFilter({ idPrefix }: { idPrefix: string }) {
+	const { setFilters } = useFilterSearch();
+	const { data: systems } = useSuspenseQuery(systemsQueryOptions({ basic: true }));
+
+	return (
+		<Autocomplete
+			id={`${idPrefix}-system-filter`}
+			items={systems}
+			getId={(system: BasicSystem) => system.id}
+			getLabel={(system: BasicSystem) => system.name}
+			placeholder="System"
+			onAction={(id) => setFilters({ system_id: id })}
+			onClear={() => setFilters({ system_id: undefined })}
 		/>
 	);
 }

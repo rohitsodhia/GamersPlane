@@ -4,12 +4,14 @@ from sqlalchemy import ScalarResult, and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
+from app.character_sheets.character_values import validate_character_values
 from app.configs import configs
 from app.models import (
     Character,
     CharacterAvatar,
     CharacterFavorite,
     CharacterSheet,
+    CharacterSheetVersion,
     FavoriteCharacter,
     System,
     User,
@@ -24,12 +26,14 @@ class CharacterRepository:
     async def create(
         self,
         character_sheet_id: int,
+        character_sheet_version_id: int,
         label: str,
         type: Character.Type = Character.Type.PC,
     ) -> Character:
         character = Character(
             user_id=self.principal.id,
             character_sheet_id=character_sheet_id,
+            character_sheet_version_id=character_sheet_version_id,
             label=label,
             type=type,
         )
@@ -50,7 +54,25 @@ class CharacterRepository:
         if type is not None:
             character.type = type
         if values is not None:
+            validate_character_values(
+                values, character.character_sheet_version.layout, character.values
+            )
             character.values = values
+        await self.db_session.flush()
+
+        return character
+
+    async def move_sheet(
+        self,
+        character: Character,
+        char_sheet: CharacterSheet,
+        version: CharacterSheetVersion,
+    ) -> Character:
+        """Pin the character to `version` of `char_sheet`. Values are kept as
+        they are: ones for fields the new version doesn't have stay stored as
+        orphans."""
+        character.character_sheet = char_sheet
+        character.character_sheet_version = version
         await self.db_session.flush()
 
         return character
@@ -93,16 +115,58 @@ class CharacterRepository:
         query = (
             select(Character)
             .where(Character.id == id)
+            # The sheet loads even once it's deleted (see `_list_query`).
+            .where(Character.deleted.is_(None))
+            .execution_options(skip_filter=True)
             .options(
                 selectinload(Character.character_sheet).options(
-                    selectinload(CharacterSheet.creator),
+                    # `meta` backs the creator's avatar.
+                    selectinload(CharacterSheet.creator).selectinload(User.meta),
                     selectinload(CharacterSheet.system),
-                    undefer(CharacterSheet.layout),
+                ),
+                selectinload(Character.character_sheet_version).options(
+                    undefer(CharacterSheetVersion.layout)
                 ),
                 selectinload(Character.avatars),
             )
         )
         return await self.db_session.scalar(query)
+
+    async def has_character_on_sheet(self, char_sheet_id: int) -> bool:
+        """Whether the principal has a character using the sheet, whichever
+        version it's pinned to."""
+        query = (
+            select(Character.id)
+            .where(Character.user_id == self.principal.id)
+            .where(Character.character_sheet_id == char_sheet_id)
+            .limit(1)
+        )
+        return await self.db_session.scalar(query) is not None
+
+    async def get_on_version(self, version_id: int) -> list[Character]:
+        """The principal's characters pinned to a sheet version, by label."""
+        query = (
+            select(Character)
+            .where(Character.user_id == self.principal.id)
+            .where(Character.character_sheet_version_id == version_id)
+            .order_by(Character.label.asc())
+        )
+        return list(await self.db_session.scalars(query))
+
+    async def get_many(self, ids: list[int]) -> list[Character]:
+        """Like :meth:`get` for several characters at once; missing or deleted
+        ones are left out."""
+        query = (
+            select(Character)
+            .where(Character.id.in_(ids))
+            .where(Character.deleted.is_(None))
+            .execution_options(skip_filter=True)
+            .options(
+                selectinload(Character.character_sheet),
+                selectinload(Character.character_sheet_version),
+            )
+        )
+        return list(await self.db_session.scalars(query))
 
     def _list_query(
         self,
@@ -122,7 +186,15 @@ class CharacterRepository:
                 ),
             )
             ownership = or_(ownership, favorited_in_library)
-        query = select(Character).where(ownership).join(Character.character_sheet)
+        # A deleted sheet still describes its characters (they keep its system),
+        # so the soft-delete filter is skipped (`skip_filter` at execution) and
+        # deleted characters are filtered here instead.
+        query = (
+            select(Character)
+            .where(ownership)
+            .where(Character.deleted.is_(None))
+            .join(Character.character_sheet)
+        )
         if search:
             query = query.where(Character.label.ilike(f"%{search}%"))
         if type:
@@ -145,16 +217,14 @@ class CharacterRepository:
             .join(CharacterSheet.system)
             .order_by(System.sort_name.asc(), Character.label.asc())
             .options(
-                selectinload(Character.character_sheet).options(
-                    selectinload(CharacterSheet.creator),
-                    selectinload(CharacterSheet.system),
-                    undefer(CharacterSheet.layout),
+                selectinload(Character.character_sheet).selectinload(
+                    CharacterSheet.system
                 ),
-                selectinload(Character.avatars),
                 selectinload(Character.user),
             )
             .limit(limit)
             .offset((page - 1) * limit)
+            .execution_options(skip_filter=True)
         )
         return await self.db_session.scalars(query)
 
@@ -168,7 +238,9 @@ class CharacterRepository:
         query = self._list_query(search, type, system_id, include_favorited)
         return (
             await self.db_session.scalar(
-                select(func.count()).select_from(query.subquery())
+                select(func.count())
+                .select_from(query.subquery())
+                .execution_options(skip_filter=True)
             )
             or 0
         )

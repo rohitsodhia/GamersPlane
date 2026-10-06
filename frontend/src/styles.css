@@ -22,6 +22,12 @@
 	--gp-success-green: light-dark(#070, #4a4);
 	--gp-error-red: light-dark(#faa, #400);
 
+	/* Banner accents: plain colors, since relative colors (the banner's tint)
+	   can't start from `light-dark()`. */
+	--gp-success-accent: oklch(0.6 0.15 145);
+	--gp-warning-accent: oklch(0.8 0.16 90);
+	--gp-error-accent: var(--gp-red);
+
 	--font-size-sm: 0.8rem;
 	--line-height: 1.5rem;
 
@@ -135,6 +141,14 @@ input:is([type="radio"], [type="checkbox"]) {
 	margin-right: 0.5em;
 }
 
+input:not([placeholder]) {
+	text-box-trim: trim-both;
+}
+
+textarea {
+	field-sizing: content;
+}
+
 a,
 a:visited,
 a:active,
@@ -157,21 +171,25 @@ p {
 }
 
 .banner {
-	padding: 1em 0.8em;
-	margin-bottom: 1em;
-	border: 2px solid transparent;
-	border-radius: 0.2em;
+	--banner-color: var(--gp-orange);
 	text-box-trim: trim-both;
+	margin-bottom: 1em;
+	padding: 1em;
+	border-left: 4px solid var(--banner-color);
+	background-color: oklch(from var(--banner-color) l c h / 0.3);
+	font-weight: bold;
 }
 
 .success-banner {
-	background-color: var(--gp-success-green);
-	border-color: light-dark(#070, #090);
+	--banner-color: var(--gp-success-accent);
+}
+
+.warning-banner {
+	--banner-color: var(--gp-warning-accent);
 }
 
 .error-banner {
-	background-color: var(--gp-error-red);
-	border-color: light-dark(#b00, #c00);
+	--banner-color: var(--gp-error-accent);
 }
 
 .headerbar,
@@ -444,7 +462,7 @@ h2.headerbar {
 	}
 }
 
-form.grid-layout {
+.grid-layout {
 	--label-col-width: 250px;
 
 	display: grid;
@@ -465,6 +483,10 @@ form.grid-layout {
 
 	.push-down {
 		margin-top: 0.4em;
+	}
+
+	label {
+		text-box-trim: trim-both;
 	}
 
 	div label {

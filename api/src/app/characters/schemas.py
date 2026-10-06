@@ -1,7 +1,17 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime
+
+from pydantic import field_validator
+
 from app.models import Character
 from app.schema_base import SchemaBase, filtered_str
+
+# Serialized size cap on a character's `values` document, measured as the
+# `json.dumps` length (non-ASCII is escaped, so this over- rather than
+# under-counts the stored bytes).
+MAX_VALUES_SIZE = 512 * 1024
 
 
 class SystemData(SchemaBase):
@@ -30,13 +40,24 @@ class UpdateCharacterInput(SchemaBase):
     type: Character.Type | None = None
     values: dict | None = None
 
+    @field_validator("values")
+    @classmethod
+    def validate_values_size(cls, v: dict | None) -> dict | None:
+        # Keys are checked against the sheet on save (`character_values.py`),
+        # but values themselves aren't, so keep a client from storing an
+        # unbounded blob.
+        if v is not None and len(json.dumps(v)) > MAX_VALUES_SIZE:
+            raise ValueError(
+                f"Character values can't exceed {MAX_VALUES_SIZE // 1024} KB"
+            )
+        return v
+
 
 class CharacterSheetData(SchemaBase):
     id: int
     name: str
     creator: UserData
     system: SystemData
-    layout: dict
 
 
 class CharacterAvatarData(SchemaBase):
@@ -53,7 +74,15 @@ class GetCharacterResponse(SchemaBase):
     type: Character.Type
     values: dict | None = None
     in_library: bool
+    character_sheet_id: int
+    # Still filled once the sheet is deleted; the character keeps working from
+    # its pinned version's layout.
     character_sheet: CharacterSheetData
+    sheet_deleted: bool
+    # The sheet version this character is pinned to, and its layout.
+    version_id: int
+    version_number: int
+    layout: dict
     avatars: list[CharacterAvatarData]
 
 
@@ -62,8 +91,21 @@ class LibraryUserData(SchemaBase):
     username: str
 
 
-class CharacterListItem(GetCharacterResponse):
+class CharacterListSheetData(SchemaBase):
+    id: int
+    name: str
+    system: SystemData
+
+
+class CharacterListItem(SchemaBase):
+    id: int
+    label: str
+    type: Character.Type
+    in_library: bool
     user: LibraryUserData
+    character_sheet_id: int
+    character_sheet: CharacterListSheetData
+    sheet_deleted: bool
 
 
 class GetCharactersResponse(SchemaBase):
@@ -84,6 +126,47 @@ class GetLibraryResponse(SchemaBase):
     characters: list[LibraryCharacterData]
     total: int
     page: int
+
+
+class SheetMoveVersionData(SchemaBase):
+    number: int
+    published_at: datetime
+    changelog: dict | None
+
+
+class SheetMoveCopyData(SchemaBase):
+    id: int
+    name: str
+    creator: LibraryUserData
+    latest_version_number: int
+
+
+class GetSheetMovesResponse(SchemaBase):
+    # Upgrades: newer published versions of the character's own sheet, newest
+    # first. Empty once the sheet is deleted or no longer visible.
+    versions: list[SheetMoveVersionData]
+    # Changes: published copies of the character's sheet, at any depth.
+    copies: list[SheetMoveCopyData]
+
+
+class HiddenValueData(SchemaBase):
+    id: str
+    # The field's value path in the character's current layout.
+    label: str
+
+
+class GetSheetMovePreviewResponse(SchemaBase):
+    name: str
+    layout: dict
+    # Values the character has that the target layout won't show. They stay
+    # stored on the character.
+    hidden_values: list[HiddenValueData]
+
+
+class MoveSheetInput(SchemaBase):
+    character_ids: list[int]
+    character_sheet_id: int
+    version: int
 
 
 class ToggleCharacterFavoriteResponse(SchemaBase):

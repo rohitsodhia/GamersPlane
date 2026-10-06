@@ -68,9 +68,7 @@ class TestGetForum:
             {"id": parent.id, "title": "Parent"},
         ]
 
-    async def test_get_forum_missing_heritage_forum_returns_404(
-        self, client, create
-    ):
+    async def test_get_forum_missing_heritage_forum_returns_404(self, client, create):
         forum = await create(ForumFactory, heritage=[999999])
 
         response = await client.get(f"/forums/{forum.id}")

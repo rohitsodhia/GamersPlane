@@ -99,3 +99,59 @@ def _validate_node(node: object, *, path: str, depth: int) -> None:
             raise ValidationError(f"Sheet element at {path}.{key} must be an array")
         for index, child in enumerate(children):
             _validate_node(child, path=f"{path}.{key}[{index}]", depth=depth + 1)
+
+
+# Fields every published sheet must carry: name -> required element type.
+REQUIRED_FIELDS = {"name": "input", "notes": "textarea"}
+
+# Containers whose children write into the parent value scope, so a field
+# inside one is still a single root-level value. ``loop`` is transparent too but
+# can render its content many times, so a required field can't live in one.
+_ROOT_SCOPE_CONTAINERS = frozenset({"section", "group", "list", "collapsible"})
+
+
+def validate_publishable_layout(layout: object) -> None:
+    """Shape check plus the fields every published sheet must have.
+
+    Drafts only need :func:`validate_sheet_layout`; this is the stricter gate
+    for publishing. Each required field must appear exactly once in the root
+    value scope (repeater and grid content is per-row, so it doesn't count).
+    """
+
+    validate_sheet_layout(layout)
+
+    found: dict[str, list[str]] = {name: [] for name in REQUIRED_FIELDS}
+    _collect_root_fields(layout["elements"], found, path="elements")  # type: ignore[index]
+
+    for name, element_type in REQUIRED_FIELDS.items():
+        paths = found[name]
+        if not paths:
+            raise ValidationError(
+                f"Sheet must have a top-level '{element_type}' named '{name}'"
+            )
+        if len(paths) > 1:
+            raise ValidationError(
+                f"Sheet has more than one '{name}' field ({', '.join(paths)})"
+            )
+
+
+def _collect_root_fields(
+    nodes: list, found: dict[str, list[str]], *, path: str
+) -> None:
+    for index, node in enumerate(nodes):
+        node_path = f"{path}[{index}]"
+        node_type = node["type"]
+        name = node.get("name")
+
+        if name in REQUIRED_FIELDS:
+            if node_type != REQUIRED_FIELDS[name]:
+                raise ValidationError(
+                    f"'{name}' at {node_path} must be a '{REQUIRED_FIELDS[name]}', "
+                    f"not '{node_type}'"
+                )
+            found[name].append(node_path)
+
+        if node_type in _ROOT_SCOPE_CONTAINERS:
+            _collect_root_fields(
+                node.get("content", []), found, path=f"{node_path}.content"
+            )

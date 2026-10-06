@@ -1,0 +1,29 @@
+.copies {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* Name and creator on the left, version picker and Preview on the right. */
+.copy {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5em 2em;
+	padding-block: 0.75em;
+
+	& + & {
+		border-top: 1px solid light-dark(#ccc, #444);
+	}
+}
+
+.copy-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+
+	span {
+		font-weight: bold;
+	}
+}

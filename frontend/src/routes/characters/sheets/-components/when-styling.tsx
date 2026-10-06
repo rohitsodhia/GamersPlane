@@ -8,7 +8,7 @@ import {
 } from "react";
 import { type Expr, evaluate, FormulaError } from "./formula";
 import { useRefResolver } from "./loop-context";
-import { useScopePrefix, useSheetStore } from "./sheet-values";
+import { useSheetSubscribe } from "./sheet-values";
 import { filterUtilityClasses, resolveStyles } from "./style-allowlist";
 import type { StyleBundle, StyleWhen } from "./types";
 
@@ -67,8 +67,8 @@ interface WhenStyledProps {
 /**
  * Wraps one element so its `class_when` / `style_when` conditions are evaluated
  * against the current value scope and re-applied whenever a referenced value
- * changes. Subscribes to the whole scope prefix (like `computed`) so any sibling
- * write re-runs the conditions. Returns a stable merged object while the active
+ * changes. Subscribes to the whole sheet (like `computed`) so any write a
+ * condition's ref paths might see re-runs the conditions. Returns a stable merged object while the active
  * set is unchanged, so it is safe as a `useSyncExternalStore` snapshot.
  */
 export function WhenStyled({
@@ -78,14 +78,8 @@ export function WhenStyled({
 	context,
 	children,
 }: WhenStyledProps) {
-	const store = useSheetStore();
-	const prefix = useScopePrefix();
 	const resolve = useRefResolver();
-
-	const subscribe = useCallback(
-		(cb: () => void) => store.subscribe(prefix, cb),
-		[store, prefix],
-	);
+	const subscribe = useSheetSubscribe();
 
 	const cache = useRef<{
 		key: string;

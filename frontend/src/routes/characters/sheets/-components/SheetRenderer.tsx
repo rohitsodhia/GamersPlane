@@ -20,6 +20,7 @@ import { Loop } from "./Loop";
 import { Repeater } from "./Repeater";
 import { Section } from "./Section";
 import { Select } from "./Select";
+import { RootScopeProvider } from "./sheet-values";
 import {
 	filterUtilityClasses,
 	resolveElementStyles,
@@ -194,6 +195,8 @@ function normalizeGrid(node: GridElement): {
 					: undefined,
 			rows: node.items.map((item) => ({
 				key: item.key,
+				storeKey: item.id || item.key,
+				template: rowTemplate,
 				cells: [
 					{
 						type: "text",
@@ -213,6 +216,8 @@ function normalizeGrid(node: GridElement): {
 		header: headerNode ? { cells: headerNode.content } : undefined,
 		rows: rowNodes.map((r) => ({
 			key: r.key,
+			storeKey: r.id || r.key,
+			template: r.content,
 			cells: r.content,
 			rowClass: sanitizeClassAttr(r.class, `grid_row "${r.key}"`),
 		})),
@@ -366,9 +371,11 @@ function renderNode(node: SheetElement, path: string, bundles: StyleBundles) {
 export function SheetRenderer({ schema }: { schema: SheetSchema }) {
 	return (
 		<div className="char-sheet">
-			<CollapsibleScopeProvider>
-				{schema.elements.map((node, i) => renderNode(node, `${i}`, schema.classes))}
-			</CollapsibleScopeProvider>
+			<RootScopeProvider nodes={schema.elements}>
+				<CollapsibleScopeProvider>
+					{schema.elements.map((node, i) => renderNode(node, `${i}`, schema.classes))}
+				</CollapsibleScopeProvider>
+			</RootScopeProvider>
 		</div>
 	);
 }

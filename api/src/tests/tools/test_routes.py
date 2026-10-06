@@ -1,11 +1,15 @@
 class TestRollDiceBasic:
     async def test_roll_dice_is_public(self, client):
-        response = await client.get("/tools/dice", params={"system": "basic", "roll": "2d6"})
+        response = await client.get(
+            "/tools/dice", params={"system": "basic", "roll": "2d6"}
+        )
 
         assert response.status_code == 200
 
     async def test_roll_dice_basic(self, client):
-        response = await client.get("/tools/dice", params={"system": "basic", "roll": "2d6+3"})
+        response = await client.get(
+            "/tools/dice", params={"system": "basic", "roll": "2d6+3"}
+        )
 
         assert response.status_code == 200
         body = response.json()
@@ -22,7 +26,9 @@ class TestRollDiceBasic:
         assert body["total"] == group["total"]
 
     async def test_roll_dice_basic_invalid_expression(self, client):
-        response = await client.get("/tools/dice", params={"system": "basic", "roll": "0d6"})
+        response = await client.get(
+            "/tools/dice", params={"system": "basic", "roll": "0d6"}
+        )
 
         assert response.status_code == 400
 
@@ -88,6 +94,8 @@ class TestRollDiceStarWarsFFG:
 
 class TestRollDiceInvalidSystem:
     async def test_roll_dice_invalid_system(self, client):
-        response = await client.get("/tools/dice", params={"system": "bogus", "roll": "1"})
+        response = await client.get(
+            "/tools/dice", params={"system": "bogus", "roll": "1"}
+        )
 
         assert response.status_code == 422
