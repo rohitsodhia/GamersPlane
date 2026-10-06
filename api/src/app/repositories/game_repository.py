@@ -85,6 +85,18 @@ class GameRepository:
             or 0
         )
 
+    async def get_latest(self, system_id: str | None, limit: int) -> list[Game]:
+        query = (
+            select(Game)
+            .where(Game.retired.is_(None))
+            .options(selectinload(Game.gm), selectinload(Game.system))
+            .order_by(Game.created.desc(), Game.id.desc())
+            .limit(limit)
+        )
+        if system_id:
+            query = query.where(Game.system_id == system_id)
+        return list(await self.db_session.scalars(query))
+
     async def get_player_counts(self, game_ids: list[int]) -> dict[int, int]:
         if not game_ids:
             return {}

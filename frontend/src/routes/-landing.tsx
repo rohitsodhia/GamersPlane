@@ -1,6 +1,12 @@
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useEffect } from "react";
+import clsx from "clsx";
+import { useEffect, useState } from "react";
+import { Autocomplete } from "#/components/Autocomplete";
+import LoadingSpinner from "#/components/LoadingSpinner";
 import { useHbMargined } from "#/lib/use-hb-margined";
+import { latestGamesQueryOptions } from "#/queries/game";
+import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { useLayoutStore } from "#/stores/layout";
 import styles from "./-landing.module.css";
 
@@ -16,17 +22,55 @@ const SYSTEM_LOGOS = [
 	{ id: "savageworlds", alt: "Savage Worlds" },
 ];
 
-// Placeholder entries: there's no games-list query/route in the rebuilt
-// frontend yet, so this section isn't wired to live data.
-const PLACEHOLDER_GAMES = [
-	{ title: "The Sunless Citadel", players: "4 / 6", system: "D&D 5e", gm: "Alaric" },
-	{ title: "Voidrunners", players: "3 / 5", system: "Star Wars (FFG)", gm: "Nyx" },
-	{ title: "Embers of the Fate", players: "5 / 5", system: "Fate Core", gm: "Cass" },
-];
+function LatestGames({ systemId }: { systemId: string | null }) {
+	const { data: games, isPending } = useQuery(latestGamesQueryOptions(systemId));
+
+	if (isPending) {
+		return (
+			<div className={styles["games-loading"]}>
+				<LoadingSpinner />
+			</div>
+		);
+	}
+	if (!games?.length) {
+		return (
+			<div className={styles["no-games"]}>
+				{systemId ? (
+					<>
+						<p>No games found for this system.</p>
+						<p>Join and start one!</p>
+					</>
+				) : (
+					"No games found."
+				)}
+			</div>
+		);
+	}
+
+	return games.map((game, index) => (
+		<div key={game.id} className={clsx(styles["game"], index === 0 && styles["first"])}>
+			<div className={styles["title"]}>
+				<Link to="/games/$gameId" params={{ gameId: game.id }}>
+					{game.title}
+				</Link>{" "}
+				({game.player_count} / {game.num_players})
+			</div>
+			<div className={styles["info"]}>
+				<span className={styles["system"]}>{game.system}</span> run by{" "}
+				<Link to="/user/$userId" params={{ userId: game.gm.id }} className="username">
+					{game.gm.username}
+				</Link>
+			</div>
+		</div>
+	));
+}
 
 function Landing() {
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
 	const setNoGap = useLayoutStore((state) => state.setNoGap);
+	// Preloaded by the "/" loader whenever it picks Landing.
+	const { data: systems } = useSuspenseQuery(systemsQueryOptions({ basic: true }));
+	const [systemId, setSystemId] = useState<string | null>(null);
 
 	useEffect(() => {
 		setNoGap(true);
@@ -54,23 +98,18 @@ function Landing() {
 							</h2>
 							<div style={{ marginInline: hbMargined.margin }}>
 								<div className={styles["system-search"]}>
-									<input type="text" placeholder="Search systems..." />
+									<Autocomplete
+										id="landing-system-search"
+										items={systems}
+										getId={(system: BasicSystem) => system.id}
+										getLabel={(system: BasicSystem) => system.name}
+										onAction={(id) => setSystemId(id)}
+										onClear={() => setSystemId(null)}
+										placeholder="Search systems..."
+									/>
 								</div>
 
-								{PLACEHOLDER_GAMES.map((game, index) => (
-									<div
-										key={game.title}
-										className={`${styles.game} ${index === 0 ? styles.first : ""}`}
-									>
-										<div className={styles.title}>
-											<strong>{game.title}</strong> ({game.players})
-										</div>
-										<div className={styles.info}>
-											<span className={styles.system}>{game.system}</span> run by{" "}
-											{game.gm}
-										</div>
-									</div>
-								))}
+								<LatestGames systemId={systemId} />
 							</div>
 						</div>
 						<div className={styles.signup}>

@@ -75,12 +75,28 @@
 	border: 2px solid #bbb;
 	border-top: 0;
 
+	:global(.autocomplete) {
+		/* Fill the bar (field and its dropdown) instead of sizing to the options. */
+		--rac-autocomplete-width: 100%;
+		--rac-field-width: 100%;
+		display: block;
+	}
+
 	input {
 		width: 100%;
 		border: none;
 		outline: none;
 		background: none;
 	}
+}
+
+.games-loading {
+	padding-block: 16px;
+}
+
+.no-games {
+	margin: 0;
+	padding: 8px 30px;
 }
 
 .game {

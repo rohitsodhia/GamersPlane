@@ -97,6 +97,10 @@ class GetMyGamesResponse(SchemaBase):
     games: list[MyGameData]
 
 
+class GetLatestGamesResponse(SchemaBase):
+    games: list[GameData]
+
+
 class FavoriteGameResponse(SchemaBase):
     favorite: bool
 
