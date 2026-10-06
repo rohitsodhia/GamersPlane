@@ -43,6 +43,26 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			},
 		],
 		links: [
+			// sizes="32x32" (rather than "any") keeps Chrome from preferring the
+			// .ico over the SVG; browsers without SVG favicon support fall back to it.
+			{
+				rel: "icon",
+				href: "/favicon.ico",
+				sizes: "32x32",
+			},
+			{
+				rel: "icon",
+				type: "image/svg+xml",
+				href: "/icon.svg",
+			},
+			{
+				rel: "apple-touch-icon",
+				href: "/apple-touch-icon.png",
+			},
+			{
+				rel: "manifest",
+				href: "/manifest.json",
+			},
 			{
 				rel: "preload",
 				href: "/fonts/LucidaGrande.woff2",
@@ -62,21 +82,23 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 	}),
 	shellComponent: RootDocument,
 	component: RootLayout,
+	// Settles the auth token in beforeLoad rather than the loader: beforeLoads run
+	// parent-to-child before any loader, while loaders run in parallel, so doing
+	// it here guarantees child loaders (e.g. "/" deciding Landing vs. Home) read
+	// the final token from the store.
+	beforeLoad: async () => {
+		const { token, setToken } = useAuthStore.getState();
+		if (token && !isTokenValid(token)) {
+			setToken(null);
+			return;
+		}
+		if (token && isTokenExpiringSoon(token, REFRESH_THRESHOLD_MS)) {
+			setToken(await refreshToken());
+		}
+	},
 	loader: async ({ context }) => {
 		const { token, setToken } = useAuthStore.getState();
-		let validToken = token ? isTokenValid(token) : false;
-		if (token && !validToken) {
-			setToken(null);
-		}
-		if (validToken && token && isTokenExpiringSoon(token, REFRESH_THRESHOLD_MS)) {
-			const newToken = await refreshToken();
-			if (newToken) {
-				setToken(newToken);
-			} else {
-				setToken(null);
-				validToken = false;
-			}
-		}
+		const validToken = isTokenValid(token);
 		await Promise.all([
 			context.queryClient.ensureQueryData(referralLinksQueryOptions),
 			...(validToken
