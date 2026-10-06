@@ -40,6 +40,7 @@ import { Route as ToolsDiceRouteImport } from './routes/tools/dice'
 import { Route as UserUserIdRouteImport } from './routes/user.$userId'
 import { Route as AcpRoleRoleIdRouteImport } from './routes/acp/role.$roleId'
 import { Route as CharactersCharacterIdIndexRouteImport } from './routes/characters/$characterId/index'
+import { Route as CharactersCharacterIdChangeSheetRouteImport } from './routes/characters/$characterId/change-sheet'
 import { Route as CharactersCharacterIdEditRouteImport } from './routes/characters/$characterId/edit'
 import { Route as CharactersCharacterIdSheetPreviewRouteImport } from './routes/characters/$characterId/sheet-preview'
 import { Route as CharactersSheetsIndexRouteImport } from './routes/characters/sheets/index'
@@ -210,6 +211,12 @@ const CharactersCharacterIdIndexRoute =
     path: '/characters/$characterId/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const CharactersCharacterIdChangeSheetRoute =
+  CharactersCharacterIdChangeSheetRouteImport.update({
+    id: '/characters/$characterId/change-sheet',
+    path: '/characters/$characterId/change-sheet',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const CharactersCharacterIdEditRoute =
   CharactersCharacterIdEditRouteImport.update({
     id: '/characters/$characterId/edit',
@@ -306,6 +313,7 @@ export interface FileRoutesByFullPath {
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
+  '/characters/$characterId/change-sheet': typeof CharactersCharacterIdChangeSheetRoute
   '/characters/$characterId/edit': typeof CharactersCharacterIdEditRoute
   '/characters/$characterId/sheet-preview': typeof CharactersCharacterIdSheetPreviewRoute
   '/characters/sheets/library': typeof CharactersSheetsLibraryRoute
@@ -349,6 +357,7 @@ export interface FileRoutesByTo {
   '/pms': typeof PmsIndexRoute
   '/register': typeof RegisterIndexRoute
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
+  '/characters/$characterId/change-sheet': typeof CharactersCharacterIdChangeSheetRoute
   '/characters/$characterId/edit': typeof CharactersCharacterIdEditRoute
   '/characters/$characterId/sheet-preview': typeof CharactersCharacterIdSheetPreviewRoute
   '/characters/sheets/library': typeof CharactersSheetsLibraryRoute
@@ -395,6 +404,7 @@ export interface FileRoutesById {
   '/pms/': typeof PmsIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/acp/role/$roleId': typeof AcpRoleRoleIdRoute
+  '/characters/$characterId/change-sheet': typeof CharactersCharacterIdChangeSheetRoute
   '/characters/$characterId/edit': typeof CharactersCharacterIdEditRoute
   '/characters/$characterId/sheet-preview': typeof CharactersCharacterIdSheetPreviewRoute
   '/characters/sheets/library': typeof CharactersSheetsLibraryRoute
@@ -442,6 +452,7 @@ export interface FileRouteTypes {
     | '/pms/'
     | '/register/'
     | '/acp/role/$roleId'
+    | '/characters/$characterId/change-sheet'
     | '/characters/$characterId/edit'
     | '/characters/$characterId/sheet-preview'
     | '/characters/sheets/library'
@@ -485,6 +496,7 @@ export interface FileRouteTypes {
     | '/pms'
     | '/register'
     | '/acp/role/$roleId'
+    | '/characters/$characterId/change-sheet'
     | '/characters/$characterId/edit'
     | '/characters/$characterId/sheet-preview'
     | '/characters/sheets/library'
@@ -530,6 +542,7 @@ export interface FileRouteTypes {
     | '/pms/'
     | '/register/'
     | '/acp/role/$roleId'
+    | '/characters/$characterId/change-sheet'
     | '/characters/$characterId/edit'
     | '/characters/$characterId/sheet-preview'
     | '/characters/sheets/library'
@@ -572,6 +585,7 @@ export interface RootRouteChildren {
   GamesIndexRoute: typeof GamesIndexRoute
   PmsIndexRoute: typeof PmsIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
+  CharactersCharacterIdChangeSheetRoute: typeof CharactersCharacterIdChangeSheetRoute
   CharactersCharacterIdEditRoute: typeof CharactersCharacterIdEditRoute
   CharactersCharacterIdSheetPreviewRoute: typeof CharactersCharacterIdSheetPreviewRoute
   CharactersSheetsLibraryRoute: typeof CharactersSheetsLibraryRoute
@@ -805,6 +819,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CharactersCharacterIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/characters/$characterId/change-sheet': {
+      id: '/characters/$characterId/change-sheet'
+      path: '/characters/$characterId/change-sheet'
+      fullPath: '/characters/$characterId/change-sheet'
+      preLoaderRoute: typeof CharactersCharacterIdChangeSheetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/characters/$characterId/edit': {
       id: '/characters/$characterId/edit'
       path: '/characters/$characterId/edit'
@@ -949,6 +970,7 @@ const rootRouteChildren: RootRouteChildren = {
   GamesIndexRoute: GamesIndexRoute,
   PmsIndexRoute: PmsIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
+  CharactersCharacterIdChangeSheetRoute: CharactersCharacterIdChangeSheetRoute,
   CharactersCharacterIdEditRoute: CharactersCharacterIdEditRoute,
   CharactersCharacterIdSheetPreviewRoute:
     CharactersCharacterIdSheetPreviewRoute,

@@ -29,8 +29,10 @@ export const Route = createFileRoute("/characters/$characterId/sheet-preview")({
 	validateSearch: z.object({
 		sheet: z.number(),
 		version: z.number(),
+		// The page Cancel returns to; the edit page unless it's set.
+		from: z.enum(["edit", "change-sheet"]).optional(),
 	}),
-	loaderDeps: ({ search }) => search,
+	loaderDeps: ({ search }) => ({ sheet: search.sheet, version: search.version }),
 	loader: async ({ context, params, deps, location }) => {
 		const character = await redirectToLoginOnAuthFailure(
 			context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
@@ -58,7 +60,7 @@ export const Route = createFileRoute("/characters/$characterId/sheet-preview")({
 
 function RouteComponent() {
 	const { characterId } = Route.useParams();
-	const { sheet: sheetId, version } = Route.useSearch();
+	const { sheet: sheetId, version, from } = Route.useSearch();
 	const { data: character } = useSuspenseQuery(characterQueryOptions(characterId));
 	const { data: preview } = useSuspenseQuery(
 		characterSheetMovePreviewQueryOptions(characterId, sheetId, version),
@@ -173,7 +175,11 @@ function RouteComponent() {
 					{isUpgrade ? "Upgrade" : "Change Sheet"}
 				</button>
 				<Link
-					to="/characters/$characterId/edit"
+					to={
+						from === "change-sheet"
+							? "/characters/$characterId/change-sheet"
+							: "/characters/$characterId/edit"
+					}
 					params={{ characterId }}
 					className="skew-btn"
 				>

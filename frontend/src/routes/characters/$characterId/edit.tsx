@@ -255,6 +255,19 @@ function RouteComponent() {
 								</Link>
 							</>
 						)}
+						{sheetMoves && sheetMoves.copies.length > 0 ? (
+							<>
+								{" "}
+								(
+								<Link
+									to="/characters/$characterId/change-sheet"
+									params={{ characterId }}
+								>
+									Change Sheet
+								</Link>
+								)
+							</>
+						) : null}
 					</span>
 				</div>
 				<div>
