@@ -96,6 +96,19 @@ export const browseGamesQueryOptions = (
 		placeholderData: keepPreviousData,
 	});
 
+// With no systemId, returns the latest games across all systems.
+export const latestGamesQueryOptions = (systemId: string | null) =>
+	queryOptions({
+		queryKey: ["games", "latest", systemId],
+		queryFn: async (): Promise<GameListItem[]> => {
+			const qs = systemId ? `?${new URLSearchParams({ system: systemId })}` : "";
+			const res = await apiFetch(`/games/latest${qs}`);
+			if (!res.ok) throw new Error("Failed to fetch latest games");
+			return (await res.json()).games;
+		},
+		staleTime: 1000 * 60,
+	});
+
 export const gameDetailsQueryOptions = (gameId: number) =>
 	queryOptions({
 		queryKey: ["game", gameId],

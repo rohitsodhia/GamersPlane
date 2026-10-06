@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
@@ -596,6 +598,109 @@ class TestGetGames(_GameFixtures):
             "public": True,
             "favorited": False,
         }
+
+
+class TestGetLatestGames(_GameFixtures):
+    """GET /games/latest - the landing page's newest games for one system."""
+
+    @pytest.fixture
+    def make_dated_game(self, db_session, make_game):
+        # Every game in a test shares one transaction, and Postgres now() is
+        # the transaction's start time, so `created` must be set explicitly
+        # for ordering to be observable.
+        async def _make_dated_game(gm, days_ago, **kwargs):
+            game = await make_game(gm, **kwargs)
+            game.created = datetime.now(timezone.utc) - timedelta(days=days_ago)
+            await db_session.flush()
+            return game
+
+        return _make_dated_game
+
+    async def test_get_latest_games_requires_no_auth(self, client):
+        response = await client.get("/games/latest")
+
+        assert response.status_code == 200
+
+    async def test_get_latest_games_returns_three_newest_first(
+        self, client, gm, make_dated_game
+    ):
+        await make_dated_game(gm, days_ago=4, title="Oldest")
+        third = await make_dated_game(gm, days_ago=3)
+        newest = await make_dated_game(gm, days_ago=1)
+        second = await make_dated_game(gm, days_ago=2)
+
+        response = await client.get("/games/latest", params={"system": "dnd5e"})
+
+        game_ids = [g["id"] for g in response.json()["games"]]
+        assert game_ids == [newest.id, second.id, third.id]
+
+    async def test_get_latest_games_filters_by_system(
+        self, client, gm, make_game, create
+    ):
+        other_system = await create(SystemFactory, id="pf2e")
+        game = await make_game(gm)
+        await make_game(gm, system_id=other_system.id)
+
+        response = await client.get("/games/latest", params={"system": "dnd5e"})
+
+        assert [g["id"] for g in response.json()["games"]] == [game.id]
+
+    async def test_get_latest_games_without_system_spans_all_systems(
+        self, client, gm, make_game, create
+    ):
+        other_system = await create(SystemFactory, id="pf2e")
+        game_dnd = await make_game(gm)
+        game_pf2e = await make_game(gm, system_id=other_system.id)
+
+        response = await client.get("/games/latest")
+
+        game_ids = {g["id"] for g in response.json()["games"]}
+        assert game_ids == {game_dnd.id, game_pf2e.id}
+
+    async def test_get_latest_games_excludes_retired_games(
+        self, client, db_session, gm, make_game
+    ):
+        game = await make_game(gm)
+        retired = await make_game(gm)
+        await GameRepository(db_session, principal=gm).toggle_retire(retired)
+
+        response = await client.get("/games/latest", params={"system": "dnd5e"})
+
+        assert [g["id"] for g in response.json()["games"]] == [game.id]
+
+    async def test_get_latest_games_includes_viewers_own_games(
+        self, auth_as, client, gm, make_game
+    ):
+        game = await make_game(gm)
+        client = auth_as(gm)
+
+        response = await client.get("/games/latest", params={"system": "dnd5e"})
+
+        assert [g["id"] for g in response.json()["games"]] == [game.id]
+
+    async def test_get_latest_games_returns_expected_fields(
+        self, client, gm, system, make_game
+    ):
+        game = await make_game(gm, title="My Campaign")
+
+        response = await client.get("/games/latest", params={"system": system.id})
+
+        assert response.json()["games"] == [
+            {
+                "id": game.id,
+                "title": "My Campaign",
+                "system": system.name,
+                "gm": {"id": gm.id, "username": gm.username},
+                "post_frequency": {"times_per": 3, "per_period": "w"},
+                "num_players": 4,
+                "player_count": 0,
+                "forum_id": game.root_forum_id,
+                "is_retired": False,
+                "status": "open",
+                "public": True,
+                "favorited": False,
+            }
+        ]
 
 
 class TestGetMyGames(_GameFixtures):

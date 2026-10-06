@@ -158,6 +158,27 @@ async def get_my_games(db_session: DBSessionDependency, principal: Principal):
     )
 
 
+LATEST_GAMES_LIMIT = 3
+
+
+@games.get("/latest", response_model=schemas.GetLatestGamesResponse)
+@public
+async def get_latest_games(
+    db_session: DBSessionDependency, principal: Principal, system: str | None = None
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    games = await game_repository.get_latest(system, LATEST_GAMES_LIMIT)
+
+    game_ids = [game.id for game in games]
+    player_counts, favorited_ids = await _get_player_counts_and_favorites(
+        db_session, game_repository, principal, game_ids
+    )
+
+    return schemas.GetLatestGamesResponse(
+        games=[_game_to_data(game, player_counts, favorited_ids) for game in games],
+    )
+
+
 @games.get("/{game_id}", response_model=schemas.GetGameResponse)
 @public
 async def get_game(game_id: int, db_session: DBSessionDependency, principal: Principal):
