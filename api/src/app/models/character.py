@@ -39,3 +39,7 @@ class Character(Base, SoftDeleteMixin, TimestampMixin):
     values: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
     avatars: Mapped[list[CharacterAvatar]] = relationship(back_populates="character")
     in_library: Mapped[bool] = mapped_column(default=False, server_default=false())
+    # Set once the character is submitted to a game; `approved` marks the GM
+    # accepting it. A pending submission still counts as being in the game.
+    game_id: Mapped[int | None] = mapped_column(ForeignKey("games.id"), nullable=True)
+    approved: Mapped[bool] = mapped_column(default=False, server_default=false())

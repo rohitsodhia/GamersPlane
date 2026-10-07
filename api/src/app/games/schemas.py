@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import datetime
-from typing import Literal
+from typing import Annotated, Literal
+
+from annotated_types import Len
 
 from app.schema_base import SchemaBase, filtered_str
+
+# A game must allow at least one character sheet.
+AllowedCharSheets = Annotated[list[str], Len(min_length=1)]
 
 
 class NewGameInput(SchemaBase):
     title: str = filtered_str()
     system_id: str
-    allowed_char_sheets: list[str]
+    allowed_char_sheets: AllowedCharSheets
     post_frequency: str
     num_players: int
     chars_per_player: int
@@ -37,11 +42,18 @@ class PostFrequencyData(SchemaBase):
 PlayerState = Literal["invited", "applied", "accepted"]
 
 
+class PlayerCharacterData(SchemaBase):
+    id: int
+    label: str
+    approved: bool
+
+
 class PlayerData(SchemaBase):
     id: int
     username: str
     is_gm: bool
     state: PlayerState
+    characters: list[PlayerCharacterData]
 
 
 class GetGameResponse(SchemaBase):
@@ -109,10 +121,14 @@ class InvitePlayerInput(SchemaBase):
     username: str
 
 
+class SubmitCharacterInput(SchemaBase):
+    character_id: int
+
+
 class UpdateGameInput(SchemaBase):
     title: str = filtered_str()
     system_id: str
-    allowed_char_sheets: list[str]
+    allowed_char_sheets: AllowedCharSheets
     post_frequency: str
     num_players: int
     chars_per_player: int

@@ -4,11 +4,19 @@ import { ApiError, apiFetch } from "#/lib/api";
 
 export type GamePlayerState = "invited" | "applied" | "accepted";
 
+export type GamePlayerCharacter = {
+	id: number;
+	label: string;
+	approved: boolean;
+};
+
 export type GamePlayer = {
 	id: number;
 	username: string;
 	is_gm: boolean;
 	state: GamePlayerState;
+	// Pending characters are only included for the game's GMs and their owner.
+	characters: GamePlayerCharacter[];
 };
 
 export type GameDetails = {
@@ -172,6 +180,47 @@ export const toggleRetireGame = async (gameId: number): Promise<void> => {
 
 export const applyToGame = async (gameId: number): Promise<void> => {
 	const res = await apiFetch(`/games/${gameId}/apply`, { method: "POST" });
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
+export const submitCharacter = async (
+	gameId: number,
+	characterId: number,
+): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/characters`, {
+		method: "POST",
+		body: JSON.stringify({ character_id: characterId }),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
+export const approveCharacter = async (
+	gameId: number,
+	characterId: number,
+): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/characters/${characterId}/approve`, {
+		method: "POST",
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};
+
+// Rejects, removes, or withdraws a character, depending on who asks.
+export const removeCharacter = async (
+	gameId: number,
+	characterId: number,
+): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/characters/${characterId}`, {
+		method: "DELETE",
+	});
 	if (!res.ok) {
 		const { errors } = await res.json();
 		throw new ApiError(res.status, errors);

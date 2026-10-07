@@ -44,7 +44,7 @@ function RouteComponent() {
 			</h1>
 
 			<div id="games-playing">
-				<div className="hb-topper">
+				<div className={`hb-topper ${styles["topper"]}`}>
 					<div className="trapezoid red-trapezoid">
 						<Link to="/forums/{-$forumId}" params={{ forumId: 10 }}>
 							Visit the Games Tavern
@@ -85,7 +85,7 @@ function RouteComponent() {
 			</div>
 
 			<div id="games-running">
-				<div className="hb-topper">
+				<div className={`hb-topper ${styles["topper"]}`}>
 					<div className="trapezoid red-trapezoid">
 						<Link to="/games/new">Create a New Game</Link>
 					</div>

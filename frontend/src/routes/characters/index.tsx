@@ -318,7 +318,7 @@ function CharacterList() {
 		myCharactersQueryOptions({
 			search: urlSearch,
 			type: urlType,
-			system_id: urlSystemId,
+			systems: urlSystemId ? [urlSystemId] : undefined,
 			page,
 		}),
 	);

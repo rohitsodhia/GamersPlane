@@ -108,6 +108,10 @@ def upgrade() -> None:
         sa.Column(
             "in_library", sa.Boolean(), server_default=sa.text("false"), nullable=False
         ),
+        sa.Column("game_id", sa.Integer(), nullable=True),
+        sa.Column(
+            "approved", sa.Boolean(), server_default=sa.text("false"), nullable=False
+        ),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -118,6 +122,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["character_sheet_version_id"],
             ["character_sheet_versions.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["game_id"],
+            ["games.id"],
         ),
         sa.ForeignKeyConstraint(
             ["user_id"],

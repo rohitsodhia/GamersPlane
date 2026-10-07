@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import ScalarResult, and_, delete, func, or_, select
+from sqlalchemy import ScalarResult, and_, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
@@ -76,6 +76,54 @@ class CharacterRepository:
         await self.db_session.flush()
 
         return character
+
+    async def submit_to_game(self, character: Character, game_id: int) -> None:
+        """Attach the character to the game, pending the GM's approval."""
+        character.game_id = game_id
+        character.approved = False
+        await self.db_session.flush()
+
+    async def approve(self, character: Character) -> None:
+        character.approved = True
+        await self.db_session.flush()
+
+    async def remove_from_game(self, character: Character) -> None:
+        """Detach the character from its game, whether pending or approved."""
+        character.game_id = None
+        character.approved = False
+        await self.db_session.flush()
+
+    async def remove_user_characters_from_game(
+        self, game_id: int, user_id: int
+    ) -> None:
+        """Detach every character the user has in the game, e.g. when they leave."""
+        await self.db_session.execute(
+            update(Character)
+            .where(Character.game_id == game_id)
+            .where(Character.user_id == user_id)
+            .values(game_id=None, approved=False)
+            .execution_options(synchronize_session="fetch")
+        )
+        await self.db_session.flush()
+
+    async def count_approved_in_game(self, game_id: int) -> int:
+        """How many of the principal's characters the game's GM has approved."""
+        query = (
+            select(func.count(Character.id))
+            .where(Character.user_id == self.principal.id)
+            .where(Character.game_id == game_id)
+            .where(Character.approved.is_(True))
+        )
+        return await self.db_session.scalar(query) or 0
+
+    async def get_in_game(self, game_id: int) -> list[Character]:
+        """Every character submitted to the game, pending or approved, by label."""
+        query = (
+            select(Character)
+            .where(Character.game_id == game_id)
+            .order_by(Character.label.asc())
+        )
+        return list(await self.db_session.scalars(query))
 
     async def toggle_library(self, character: Character) -> None:
         character.in_library = not character.in_library
@@ -172,7 +220,8 @@ class CharacterRepository:
         self,
         search: str | None = None,
         type: Character.Type | None = None,
-        system_id: str | None = None,
+        system_ids: list[str] | None = None,
+        in_game: bool | None = None,
         include_favorited: bool = False,
     ):
         ownership = Character.user_id == self.principal.id
@@ -199,21 +248,28 @@ class CharacterRepository:
             query = query.where(Character.label.ilike(f"%{search}%"))
         if type:
             query = query.where(Character.type == type)
-        if system_id:
-            query = query.where(CharacterSheet.system_id == system_id)
+        if system_ids:
+            query = query.where(CharacterSheet.system_id.in_(system_ids))
+        if in_game is not None:
+            query = query.where(
+                Character.game_id.is_not(None)
+                if in_game
+                else Character.game_id.is_(None)
+            )
         return query
 
     async def get_all(
         self,
         search: str | None = None,
         type: Character.Type | None = None,
-        system_id: str | None = None,
+        system_ids: list[str] | None = None,
+        in_game: bool | None = None,
         page: int = 1,
         limit: int = configs.PAGINATE_PER_PAGE,
         include_favorited: bool = False,
     ) -> ScalarResult[Character]:
         query = (
-            self._list_query(search, type, system_id, include_favorited)
+            self._list_query(search, type, system_ids, in_game, include_favorited)
             .join(CharacterSheet.system)
             .order_by(System.sort_name.asc(), Character.label.asc())
             .options(
@@ -232,10 +288,11 @@ class CharacterRepository:
         self,
         search: str | None = None,
         type: Character.Type | None = None,
-        system_id: str | None = None,
+        system_ids: list[str] | None = None,
+        in_game: bool | None = None,
         include_favorited: bool = False,
     ) -> int:
-        query = self._list_query(search, type, system_id, include_favorited)
+        query = self._list_query(search, type, system_ids, in_game, include_favorited)
         return (
             await self.db_session.scalar(
                 select(func.count())

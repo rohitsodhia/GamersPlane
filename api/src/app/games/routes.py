@@ -3,7 +3,12 @@ from typing import Literal
 from fastapi import APIRouter, Query, status
 
 from app.database import DBSessionDependency
-from app.exceptions import ConflictException, ForbiddenException, NotFoundException
+from app.exceptions import (
+    ConflictException,
+    ForbiddenException,
+    NotFoundException,
+    ValidationError,
+)
 from app.games import schemas
 from app.games.functions import (
     get_deck_or_404,
@@ -14,8 +19,9 @@ from app.games.functions import (
 )
 from app.helpers.decorators import public
 from app.middleware import Principal
-from app.models import Deck, Game, Player
+from app.models import Character, Deck, Game, Player
 from app.repositories import (
+    CharacterRepository,
     DeckRepository,
     FavoritesRepository,
     GameRepository,
@@ -39,10 +45,9 @@ async def create_game(
     if system is None:
         raise NotFoundException("System not found")
 
-    if game_data.allowed_char_sheets:
-        char_sheets = await system_repository.get_by_ids(game_data.allowed_char_sheets)
-        if len(char_sheets) != len(set(game_data.allowed_char_sheets)):
-            raise NotFoundException("One or more allowed char sheets not found")
+    char_sheets = await system_repository.get_by_ids(game_data.allowed_char_sheets)
+    if len(char_sheets) != len(set(game_data.allowed_char_sheets)):
+        raise NotFoundException("One or more allowed char sheets not found")
 
     game_repository = GameRepository(db_session, principal=principal)
     game = await game_repository.create(
@@ -192,21 +197,40 @@ async def get_game(game_id: int, db_session: DBSessionDependency, principal: Pri
         game_id, only_accepted=not is_gm
     )
 
+    viewer_player = None
+    viewer_state = None
+    if principal is not None:
+        viewer_player = await player_repository.get_player(game_id, principal.id)
+        if viewer_player is not None:
+            viewer_state = viewer_player.state.value
+    viewer_is_gm = viewer_player is not None and viewer_player.is_gm
+
+    # Pending submissions are only shown to the GMs and the character's owner.
+    character_repository = CharacterRepository(db_session, principal=principal)
+    characters_by_user: dict[int, list[schemas.PlayerCharacterData]] = {}
+    for character in await character_repository.get_in_game(game_id):
+        if not (
+            character.approved
+            or viewer_is_gm
+            or (principal is not None and character.user_id == principal.id)
+        ):
+            continue
+        characters_by_user.setdefault(character.user_id, []).append(
+            schemas.PlayerCharacterData(
+                id=character.id, label=character.label, approved=character.approved
+            )
+        )
+
     players = [
         schemas.PlayerData(
             id=player.user.id,
             username=player.user.username,
             is_gm=player.is_gm,
             state=player.state.value,
+            characters=characters_by_user.get(player.user.id, []),
         )
         for player in all_players
     ]
-
-    viewer_state = None
-    if principal is not None:
-        viewer_player = await player_repository.get_player(game_id, principal.id)
-        if viewer_player is not None:
-            viewer_state = viewer_player.state.value
 
     favorited = False
     if principal is not None:
@@ -260,15 +284,10 @@ async def update_game(
         raise NotFoundException("System not found")
 
     update_data = request_body.model_dump()
-    if request_body.allowed_char_sheets:
-        char_sheets = await system_repository.get_by_ids(
-            request_body.allowed_char_sheets
-        )
-        if len(char_sheets) != len(set(request_body.allowed_char_sheets)):
-            raise NotFoundException("One or more allowed char sheets not found")
-        update_data["allowed_char_sheets"] = list(char_sheets)
-    else:
-        update_data["allowed_char_sheets"] = []
+    char_sheets = await system_repository.get_by_ids(request_body.allowed_char_sheets)
+    if len(char_sheets) != len(set(request_body.allowed_char_sheets)):
+        raise NotFoundException("One or more allowed char sheets not found")
+    update_data["allowed_char_sheets"] = list(char_sheets)
 
     return await game_repository.update(game, **update_data)
 
@@ -454,7 +473,120 @@ async def delete_player(
     ):
         raise ForbiddenException("Only game masters can edit players")
 
+    character_repository = CharacterRepository(db_session, principal=principal)
+    await character_repository.remove_user_characters_from_game(game_id, user_id)
     await player_repository.delete_player(player)
+
+
+async def _get_game_character_or_404(
+    character_repository: CharacterRepository, game_id: int, character_id: int
+) -> Character:
+    character = await character_repository.get(character_id)
+    if character is None or character.game_id != game_id:
+        raise NotFoundException("Character not in game")
+    return character
+
+
+@games.post("/{game_id}/characters", status_code=status.HTTP_204_NO_CONTENT)
+async def submit_character(
+    game_id: int,
+    data: schemas.SubmitCharacterInput,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+    if game.retired:
+        raise ForbiddenException("Game is retired")
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    player = await player_repository.get_player(game_id, principal.id)
+    if player is None or player.state is not Player.States.ACCEPTED:
+        raise ForbiddenException("Only players in the game can submit characters")
+
+    character_repository = CharacterRepository(db_session, principal=principal)
+    character = await character_repository.get(data.character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+    if character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
+    if character.game_id is not None:
+        raise ConflictException("Character is already in a game")
+    allowed_systems = {system.id for system in game.allowed_char_sheets}
+    if character.character_sheet.system_id not in allowed_systems:
+        raise ValidationError("Character sheet isn't allowed in this game")
+    # Only approved characters count toward the limit, so a player can put up
+    # several for the GM to pick from. GMs aren't held to it, so they can bring
+    # in NPCs.
+    if (
+        not player.is_gm
+        and await character_repository.count_approved_in_game(game_id)
+        >= game.chars_per_player
+    ):
+        raise ForbiddenException("You cannot submit any more characters to this game")
+
+    await character_repository.submit_to_game(character, game_id)
+
+
+@games.post(
+    "/{game_id}/characters/{character_id}/approve",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def approve_character(
+    game_id: int,
+    character_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    await require_game_exists(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    await require_gm(
+        player_repository,
+        game_id,
+        principal.id,
+        "Only game masters can approve characters",
+    )
+
+    character_repository = CharacterRepository(db_session, principal=principal)
+    character = await _get_game_character_or_404(
+        character_repository, game_id, character_id
+    )
+    if character.approved:
+        raise ConflictException("Character already approved")
+
+    await character_repository.approve(character)
+
+
+@games.delete(
+    "/{game_id}/characters/{character_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def remove_character(
+    game_id: int,
+    character_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    """Reject a pending character, remove an approved one, or (for the owner)
+    withdraw either."""
+    game_repository = GameRepository(db_session, principal=principal)
+    await require_game_exists(game_repository, game_id)
+
+    character_repository = CharacterRepository(db_session, principal=principal)
+    character = await _get_game_character_or_404(
+        character_repository, game_id, character_id
+    )
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    if character.user_id != principal.id and not await player_repository.is_gm(
+        game_id, principal.id
+    ):
+        raise ForbiddenException(
+            "Only game masters can remove other players' characters"
+        )
+
+    await character_repository.remove_from_game(character)
 
 
 def _deck_to_data(deck: Deck) -> schemas.DeckData:
