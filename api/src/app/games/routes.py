@@ -39,10 +39,9 @@ async def create_game(
     if system is None:
         raise NotFoundException("System not found")
 
-    if game_data.allowed_char_sheets:
-        char_sheets = await system_repository.get_by_ids(game_data.allowed_char_sheets)
-        if len(char_sheets) != len(set(game_data.allowed_char_sheets)):
-            raise NotFoundException("One or more allowed char sheets not found")
+    char_sheets = await system_repository.get_by_ids(game_data.allowed_char_sheets)
+    if len(char_sheets) != len(set(game_data.allowed_char_sheets)):
+        raise NotFoundException("One or more allowed char sheets not found")
 
     game_repository = GameRepository(db_session, principal=principal)
     game = await game_repository.create(
@@ -260,15 +259,10 @@ async def update_game(
         raise NotFoundException("System not found")
 
     update_data = request_body.model_dump()
-    if request_body.allowed_char_sheets:
-        char_sheets = await system_repository.get_by_ids(
-            request_body.allowed_char_sheets
-        )
-        if len(char_sheets) != len(set(request_body.allowed_char_sheets)):
-            raise NotFoundException("One or more allowed char sheets not found")
-        update_data["allowed_char_sheets"] = list(char_sheets)
-    else:
-        update_data["allowed_char_sheets"] = []
+    char_sheets = await system_repository.get_by_ids(request_body.allowed_char_sheets)
+    if len(char_sheets) != len(set(request_body.allowed_char_sheets)):
+        raise NotFoundException("One or more allowed char sheets not found")
+    update_data["allowed_char_sheets"] = list(char_sheets)
 
     return await game_repository.update(game, **update_data)
 

@@ -11,6 +11,7 @@ import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
+import { myCharactersQueryOptions } from "#/queries/character";
 import { deckTypesQueryOptions } from "#/queries/deckTypes";
 import {
 	acceptInvite,
@@ -257,6 +258,8 @@ function RouteComponent() {
 	});
 
 	const playersInGame = players.filter((player) => player.state === "accepted");
+	// The primary GM doesn't take up one of the game's player slots.
+	const playerCount = playersInGame.filter((player) => player.id !== game.gm.id).length;
 	const playersInvited = players.filter((player) => player.state === "invited");
 	const pendingInvite = viewerPlayerState === "invited";
 	const pendingApplication = viewerPlayerState === "applied";
@@ -275,8 +278,21 @@ function RouteComponent() {
 		pendingApplication,
 		status,
 		loggedIn,
-		full: game.num_players <= playersInGame.length,
+		full: game.num_players <= playerCount,
 	});
+
+	const { data: submittableData, isError: submittableError } = useQuery({
+		...myCharactersQueryOptions({
+			systems: game.allowed_char_sheets,
+			in_game: false,
+		}),
+		enabled: rightPanel === "submitCharacter",
+	});
+	// The list also carries characters favorited from the library; only the
+	// viewer's own can be submitted.
+	const submittableCharacters = (submittableData?.characters ?? []).filter(
+		(character) => character.user.id === me?.id,
+	);
 
 	const submitInvite = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -302,7 +318,7 @@ function RouteComponent() {
 	return (
 		<div>
 			{me && (
-				<div className="hb-topper">
+				<div className={`hb-topper ${styles["topper"]}`}>
 					<div className="trapezoid">
 						<button
 							type="button"
@@ -329,7 +345,7 @@ function RouteComponent() {
 					</div>
 				</div>
 			)}
-			<h1 className="headerbar has-topper" ref={hbMarginedH1.ref}>
+			<h1 className={`headerbar has-topper ${styles["title"]}`} ref={hbMarginedH1.ref}>
 				<i className="ra ra-d6" /> {game.title}
 			</h1>
 
@@ -340,7 +356,7 @@ function RouteComponent() {
 					</div>
 				)}
 
-				<div className={styles.details}>
+				<div className={styles["details"]}>
 					{game.description && (
 						<>
 							<TiptapContent
@@ -354,7 +370,7 @@ function RouteComponent() {
 					<DetailRow label="Game Status">
 						{status === "open"
 							? "Open for game applications"
-							: "Closed for applications"}
+							: "Closed for applications"}{" "}
 						{isGM && (
 							<button
 								type="button"
@@ -389,7 +405,7 @@ function RouteComponent() {
 						{game.post_frequency.per_period === "d" ? "day" : "week"}
 					</DetailRow>
 					<DetailRow label="Number of Players">
-						{playersInGame.length} / {game.num_players}
+						{playerCount} / {game.num_players}
 					</DetailRow>
 					<DetailRow label="Number of Characters per Player">
 						{game.chars_per_player}
@@ -488,7 +504,10 @@ function RouteComponent() {
 					{game.char_gen_info && (
 						<>
 							<hr />
-							<DetailRow label="Character Generation Info">
+							<DetailRow
+								label="Character Generation Info"
+								className={styles["char-gen-info"]}
+							>
 								<TiptapContent content={game.char_gen_info} />
 							</DetailRow>
 						</>
@@ -497,166 +516,173 @@ function RouteComponent() {
 
 				<div className={styles.columns}>
 					<div className={styles["left-col"]}>
-						<h2 className="headerbar hb-dark" ref={hbMarginedH2.ref}>
-							<i className="ra ra-double-team" /> Players in Game
-						</h2>
-						<ul
-							className={styles["row-list"]}
-							style={{ marginInline: hbMarginedH2.margin }}
-						>
-							{playersInGame.map((player) => (
-								<li key={player.id}>
-									<div className={styles["player-info"]}>
-										<div>
-											<Link
-												to="/user/$userId"
-												params={{ userId: player.id }}
-												className="username"
-											>
-												{player.username}
-											</Link>{" "}
-											{player.is_gm && <GMBadge />}
-										</div>
-										<div className={styles["action-links"]}>
-											{me &&
-												player.id !== game.gm.id &&
-												(isGM || player.id === me.id) && (
+						<div id="players">
+							<h2 className="headerbar hb-dark" ref={hbMarginedH2.ref}>
+								<i className="ra ra-double-team" /> Players in Game
+							</h2>
+							<ul
+								className={styles["row-list"]}
+								style={{ marginInline: hbMarginedH2.margin }}
+							>
+								{playersInGame.map((player) => (
+									<li key={player.id}>
+										<div className={styles["player-info"]}>
+											<div className={styles["player-name"]}>
+												<Link
+													to="/user/$userId"
+													params={{ userId: player.id }}
+													className="username"
+												>
+													{player.username}
+												</Link>{" "}
+												{player.is_gm && <GMBadge />}
+											</div>
+											<div className={styles["action-links"]}>
+												{me &&
+													player.id !== game.gm.id &&
+													(isGM || player.id === me.id) && (
+														<button
+															type="button"
+															className={styles["inline-action"]}
+															onClick={() => deletePlayerMutation.mutate(player.id)}
+															disabled={deletePlayerMutation.isPending}
+														>
+															{player.id === me.id ? "Leave Game" : "Remove player"}
+														</button>
+													)}
+												{isPrimaryGM && player.id !== game.gm.id && (
 													<button
 														type="button"
 														className={styles["inline-action"]}
-														onClick={() => deletePlayerMutation.mutate(player.id)}
-														disabled={deletePlayerMutation.isPending}
+														onClick={() => toggleGmMutation.mutate(player.id)}
+														disabled={toggleGmMutation.isPending}
 													>
-														{player.id === me.id ? "Leave Game" : "Remove player"}
+														{player.is_gm ? "Remove as" : "Make"} GM
 													</button>
 												)}
-											{isPrimaryGM && player.id !== game.gm.id && (
-												<button
-													type="button"
-													className={styles["inline-action"]}
-													onClick={() => toggleGmMutation.mutate(player.id)}
-													disabled={toggleGmMutation.isPending}
-												>
-													{player.is_gm ? "Remove as" : "Make"} GM
-												</button>
-											)}
-										</div>
-									</div>
-									{/* TODO: character submission isn't wired to a real endpoint yet, so
-									    there's no per-player character list to render here. */}
-								</li>
-							))}
-							{playersInGame.length === 0 && (
-								<li className={styles.notice}>No players have joined yet.</li>
-							)}
-						</ul>
-						{deletePlayerError && <div className="error">{deletePlayerError}</div>}
-						{toggleGmError && <div className="error">{toggleGmError}</div>}
-
-						{!retired && isGM && playersAwaitingApproval.length > 0 && (
-							<>
-								<h2 className="headerbar hb-dark">Players Pending Approval</h2>
-								<ul
-									className={styles["player-list"]}
-									style={{ marginInline: hbMarginedH2.margin }}
-								>
-									{playersAwaitingApproval.map((player) => (
-										<li key={player.id}>
-											<div className={styles["player-info"]}>
-												<div>
-													<Link to="/user/$userId" params={{ userId: player.id }}>
-														{player.username}
-													</Link>
-												</div>
-												<div className={styles["action-links"]}>
-													<button
-														type="button"
-														className={styles["inline-action"]}
-														onClick={() => approvePlayerMutation.mutate(player.id)}
-														disabled={approvePlayerMutation.isPending}
-													>
-														Approve
-													</button>
-													<button
-														type="button"
-														className={styles["inline-action"]}
-														onClick={() => deletePlayerMutation.mutate(player.id)}
-														disabled={deletePlayerMutation.isPending}
-													>
-														Reject
-													</button>
-												</div>
 											</div>
-										</li>
-									))}
-								</ul>
-								{approvePlayerError && (
-									<div className="error">{approvePlayerError}</div>
-								)}
-							</>
-						)}
-
-						{!retired && (
-							<>
-								<h2 className="headerbar hb-dark">
-									<i className="ra ra-hourglass" /> Invited
-								</h2>
-								<div style={{ marginInline: hbMarginedH2.margin }}>
-									<ul className={styles["player-list"]}>
-										{playersInvited.map((player) => (
+										</div>
+										{/* TODO: character submission isn't wired to a real endpoint yet, so
+											there's no per-player character list to render here. */}
+									</li>
+								))}
+							</ul>
+							{deletePlayerError && <div className="error">{deletePlayerError}</div>}
+							{toggleGmError && <div className="error">{toggleGmError}</div>}
+							{!retired && isGM && playersAwaitingApproval.length > 0 && (
+								<>
+									<h2 className="headerbar hb-dark">Players Pending Approval</h2>
+									<ul
+										className={styles["row-list"]}
+										style={{ marginInline: hbMarginedH2.margin }}
+									>
+										{playersAwaitingApproval.map((player) => (
 											<li key={player.id}>
 												<div className={styles["player-info"]}>
-													<div>{player.username}</div>
-													{isGM && (
-														<div className={styles["action-links"]}>
-															<button
-																type="button"
-																className={styles["inline-action"]}
-																onClick={() => deletePlayerMutation.mutate(player.id)}
-																disabled={deletePlayerMutation.isPending}
-															>
-																Withdraw Invite
-															</button>
-														</div>
-													)}
+													<div>
+														<Link
+															to="/user/$userId"
+															params={{ userId: player.id }}
+															className="username"
+														>
+															{player.username}
+														</Link>
+													</div>
+													<div className={styles["action-links"]}>
+														<button
+															type="button"
+															className={styles["inline-action"]}
+															onClick={() => approvePlayerMutation.mutate(player.id)}
+															disabled={approvePlayerMutation.isPending}
+														>
+															Approve
+														</button>
+														<button
+															type="button"
+															className={styles["inline-action"]}
+															onClick={() => deletePlayerMutation.mutate(player.id)}
+															disabled={deletePlayerMutation.isPending}
+														>
+															Reject
+														</button>
+													</div>
 												</div>
 											</li>
 										))}
-										{playersInvited.length === 0 && (
-											<li className={styles.notice}>No pending invites.</li>
-										)}
 									</ul>
-									{deletePlayerError && (
-										<div className="error">{deletePlayerError}</div>
+									{approvePlayerError && (
+										<div className="error">{approvePlayerError}</div>
 									)}
-									{isGM && (
-										<>
-											<form className={styles["invite-form"]} onSubmit={submitInvite}>
-												<label htmlFor="invite-username">Invite player:</label>
-												<input
-													id="invite-username"
-													type="text"
-													value={inviteUsername}
-													onChange={(e) => setInviteUsername(e.target.value)}
-													placeholder="Username"
-													disabled={inviteMutation.isPending}
-												/>
-												<button
-													type="submit"
-													className="skew-btn"
-													disabled={inviteMutation.isPending}
-												>
-													Invite
-												</button>
-											</form>
-											{inviteError && <div className="error">{inviteError}</div>}
-										</>
-									)}
-								</div>
-							</>
-						)}
+								</>
+							)}
+						</div>
 
-						<div>
+						<div id="invited">
+							{!retired && (
+								<>
+									<h2 className="headerbar hb-dark">
+										<i className="ra ra-hourglass" /> Invited
+									</h2>
+									<div style={{ marginInline: hbMarginedH2.margin }}>
+										{playersInvited.length === 0 ? (
+											<p className={styles["notice"]}>No pending invites.</p>
+										) : (
+											<ul className={styles["player-list"]}>
+												{playersInvited.map((player) => (
+													<li key={player.id}>
+														<div className={styles["player-info"]}>
+															<div>{player.username}</div>
+															{isGM && (
+																<div className={styles["action-links"]}>
+																	<button
+																		type="button"
+																		className={styles["inline-action"]}
+																		onClick={() =>
+																			deletePlayerMutation.mutate(player.id)
+																		}
+																		disabled={deletePlayerMutation.isPending}
+																	>
+																		Withdraw Invite
+																	</button>
+																</div>
+															)}
+														</div>
+													</li>
+												))}
+											</ul>
+										)}
+										{deletePlayerError && (
+											<div className="error">{deletePlayerError}</div>
+										)}
+										{isGM && (
+											<>
+												<form className={styles["invite-form"]} onSubmit={submitInvite}>
+													<label htmlFor="invite-username">Invite player:</label>
+													<input
+														id="invite-username"
+														type="text"
+														value={inviteUsername}
+														onChange={(e) => setInviteUsername(e.target.value)}
+														placeholder="Username"
+														disabled={inviteMutation.isPending}
+													/>
+													<button
+														type="submit"
+														className="skew-btn"
+														disabled={inviteMutation.isPending}
+													>
+														Invite
+													</button>
+												</form>
+												{inviteError && <div className="error">{inviteError}</div>}
+											</>
+										)}
+									</div>
+								</>
+							)}
+						</div>
+
+						<div id="decks">
 							{!retired && isGM && (
 								<div style={{ marginLeft: hbMarginedH2.margin }}>
 									<button
@@ -671,12 +697,9 @@ function RouteComponent() {
 							<h2 className="headerbar hb-dark has-topper">
 								<i className="ra ra-spades-card" /> Decks
 							</h2>
-							<div
-								className={styles["decks-body"]}
-								style={{ marginInline: hbMarginedH2.margin }}
-							>
+							<div style={{ marginInline: hbMarginedH2.margin }}>
 								{decks.length === 0 && (
-									<p className={styles.notice}>
+									<p className={styles["notice"]}>
 										There are no decks available at this time
 									</p>
 								)}
@@ -776,7 +799,7 @@ function RouteComponent() {
 									<i className="ra ra-round-shield" /> Game Closed
 								</h2>
 								<p
-									className={styles.notice}
+									className={styles["notice"]}
 									style={{ marginInline: hbMarginedH2.margin }}
 								>
 									This game is closed for applications
@@ -805,7 +828,7 @@ function RouteComponent() {
 									<i className="ra ra-round-shield" /> Game Full
 								</h2>
 								<p
-									className={styles.notice}
+									className={styles["notice"]}
 									style={{ marginInline: hbMarginedH2.margin }}
 								>
 									This game is currently full
@@ -874,11 +897,11 @@ function RouteComponent() {
 									<i className="ra ra-player-teleport" /> Join Game
 								</h2>
 								<div style={{ marginInline: hbMarginedH2.margin }}>
-									<p className={styles.notice}>
+									<p className={styles["notice"]}>
 										Your request to join this game is awaiting approval
 									</p>
 									<p>
-										If you're tired of waiting, you can
+										If you're tired of waiting, you can{" "}
 										<button
 											type="button"
 											className={styles["inline-action"]}
@@ -890,7 +913,7 @@ function RouteComponent() {
 										>
 											withdraw
 										</button>{" "}
-										from the game if you're tired of waiting.
+										from the game.
 									</p>
 								</div>
 							</div>
@@ -934,12 +957,29 @@ function RouteComponent() {
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Submit a Character
 								</h2>
-								{/* TODO: game <-> character submission isn't wired up yet */}
-								<div
-									className={styles.notice}
-									style={{ marginInline: hbMarginedH2.margin }}
-								>
-									Character submission isn't available yet.
+								<div style={{ marginInline: hbMarginedH2.margin }}>
+									{submittableError ? (
+										<div className="error">Failed to load your characters</div>
+									) : !submittableData ? null : submittableCharacters.length === 0 ? (
+										<p className={styles["notice"]}>
+											You have no characters available for this game
+										</p>
+									) : (
+										// TODO: submitting a character isn't wired to an endpoint yet
+										<ul className={styles["row-list"]}>
+											{submittableCharacters.map((character) => (
+												<li key={character.id}>
+													<Link
+														to="/characters/$characterId"
+														params={{ characterId: character.id }}
+													>
+														{character.label}
+													</Link>{" "}
+													({character.character_sheet.system.name})
+												</li>
+											))}
+										</ul>
+									)}
 								</div>
 							</div>
 						)}
@@ -950,9 +990,17 @@ function RouteComponent() {
 	);
 }
 
-function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+function DetailRow({
+	label,
+	children,
+	className,
+}: {
+	label: string;
+	children: React.ReactNode;
+	className?: string;
+}) {
 	return (
-		<div>
+		<div className={className}>
 			<div>{label}</div>
 			<div>{children}</div>
 		</div>

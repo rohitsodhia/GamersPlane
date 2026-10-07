@@ -2,7 +2,7 @@ import io
 
 import pytest
 from PIL import Image
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.characters.schemas import MAX_VALUES_SIZE
 from app.configs import configs
@@ -13,8 +13,12 @@ from app.models import (
     FavoriteCharacter,
     UserMeta,
 )
-from app.repositories import CharacterRepository, CharacterSheetRepository
-from tests.factories import ActivatedUserFactory, SystemFactory
+from app.repositories import (
+    CharacterRepository,
+    CharacterSheetRepository,
+    GameRepository,
+)
+from tests.factories import ActivatedUserFactory, ForumFactory, SystemFactory
 
 SHEET_LAYOUT = {
     "schema_version": 1,
@@ -363,6 +367,33 @@ class TestGetCharacters:
     async def owner(self, create):
         return await create(ActivatedUserFactory)
 
+    @pytest.fixture
+    async def game(self, create, db_session, system, wrap_in_savepoint):
+        await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        gm = await create(ActivatedUserFactory)
+        return await GameRepository(db_session, principal=gm).create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
     async def _make_character(
         self, db_session, owner, sheet, label, type=Character.Type.PC
     ):
@@ -463,7 +494,7 @@ class TestGetCharacters:
         assert body["characters"][1]["sheet_deleted"] is True
         assert body["characters"][1]["character_sheet"]["system"]["id"] == "dnd5e"
 
-        filtered = await client.get("/characters", params={"system_id": "dnd5e"})
+        filtered = await client.get("/characters", params={"systems": "dnd5e"})
 
         assert filtered.json()["total"] == 2
         assert [c["label"] for c in filtered.json()["characters"]] == ["Aaron", "Zed"]
@@ -548,7 +579,7 @@ class TestGetCharacters:
         assert body["total"] == 1
         assert [c["label"] for c in body["characters"]] == ["Orc Grunt"]
 
-    async def test_filters_by_system(
+    async def test_filters_by_systems(
         self,
         client,
         owner,
@@ -558,24 +589,57 @@ class TestGetCharacters:
         db_session,
         wrap_in_savepoint,
     ):
-        system_a = await create(SystemFactory, id="dnd5e", sort_name="D&D 5e")
-        system_b = await create(SystemFactory, id="pf2e", sort_name="Pathfinder 2e")
-        sheet_a = await _make_sheet(
-            db_session, sheet_creator, system_a, status=CharacterSheet.Status.PUBLIC
-        )
-        sheet_b = await _make_sheet(
-            db_session, sheet_creator, system_b, status=CharacterSheet.Status.PUBLIC
-        )
-        await self._make_character(db_session, owner, sheet_a, "Aragorn")
-        await self._make_character(db_session, owner, sheet_b, "Seelah")
+        for system_id, label in (
+            ("coc", "Harvey"),
+            ("dnd5e", "Aragorn"),
+            ("pf2e", "Seelah"),
+        ):
+            system = await create(SystemFactory, id=system_id, sort_name=system_id)
+            sheet = await _make_sheet(
+                db_session, sheet_creator, system, status=CharacterSheet.Status.PUBLIC
+            )
+            await self._make_character(db_session, owner, sheet, label)
         auth_as(owner)
 
-        response = await client.get("/characters", params={"system_id": "pf2e"})
+        response = await client.get(
+            "/characters", params=[("systems", "dnd5e"), ("systems", "pf2e")]
+        )
 
         assert response.status_code == 200
         body = response.json()
-        assert body["total"] == 1
-        assert [c["label"] for c in body["characters"]] == ["Seelah"]
+        assert body["total"] == 2
+        assert [c["label"] for c in body["characters"]] == ["Aragorn", "Seelah"]
+
+    async def test_filters_by_in_game(
+        self,
+        client,
+        public_sheet,
+        owner,
+        game,
+        auth_as,
+        db_session,
+        wrap_in_savepoint,
+    ):
+        await self._make_character(db_session, owner, public_sheet, "Aragorn")
+        pending = await self._make_character(db_session, owner, public_sheet, "Boromir")
+        approved = await self._make_character(db_session, owner, public_sheet, "Gimli")
+        pending.game_id = game.id
+        approved.game_id = game.id
+        approved.approved = True
+        await db_session.flush()
+        auth_as(owner)
+
+        free = await client.get("/characters", params={"in_game": "false"})
+        in_game = await client.get("/characters", params={"in_game": "true"})
+
+        assert free.json()["total"] == 1
+        assert [c["label"] for c in free.json()["characters"]] == ["Aragorn"]
+        # A submission awaiting approval already counts as in the game.
+        assert in_game.json()["total"] == 2
+        assert [c["label"] for c in in_game.json()["characters"]] == [
+            "Boromir",
+            "Gimli",
+        ]
 
     async def test_paginates_results(
         self, client, public_sheet, owner, auth_as, db_session, wrap_in_savepoint

@@ -56,7 +56,8 @@ async def get_characters(
     principal: Principal,
     search: str | None = None,
     type: Character.Type | None = None,
-    system_id: str | None = None,
+    systems: list[str] = Query([]),
+    in_game: bool | None = None,
     page: int = 1,
 ):
     if page < 1:
@@ -66,12 +67,17 @@ async def get_characters(
     characters = await character_repository.get_all(
         search=search,
         type=type,
-        system_id=system_id,
+        system_ids=systems,
+        in_game=in_game,
         page=page,
         include_favorited=True,
     )
     total = await character_repository.count_all(
-        search=search, type=type, system_id=system_id, include_favorited=True
+        search=search,
+        type=type,
+        system_ids=systems,
+        in_game=in_game,
+        include_favorited=True,
     )
 
     return schemas.GetCharactersResponse(

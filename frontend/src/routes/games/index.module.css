@@ -1,11 +1,11 @@
-:global(.hb-topper) {
+.topper {
 	a {
 		padding: 0.5em 0.8em;
 	}
 }
 
 :global(#games-playing) {
-	:global(.hb-topper) {
+	.topper {
 		a:first-child {
 			border-right: 1px solid var(--gp-light-red);
 		}

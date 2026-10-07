@@ -62,7 +62,8 @@ export const myCharactersQueryOptions = (
 	params: {
 		search?: string;
 		type?: CharacterType;
-		system_id?: string;
+		systems?: string[];
+		in_game?: boolean;
 		page?: number;
 	} = {},
 ) =>
@@ -72,7 +73,8 @@ export const myCharactersQueryOptions = (
 			const search = new URLSearchParams();
 			if (params.search) search.set("search", params.search);
 			if (params.type) search.set("type", params.type);
-			if (params.system_id) search.set("system_id", params.system_id);
+			for (const systemId of params.systems ?? []) search.append("systems", systemId);
+			if (params.in_game !== undefined) search.set("in_game", String(params.in_game));
 			if (params.page) search.set("page", String(params.page));
 			const qs = search.toString();
 			const res = await apiFetch(`/characters${qs ? `?${qs}` : ""}`);

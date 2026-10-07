@@ -172,7 +172,8 @@ class CharacterRepository:
         self,
         search: str | None = None,
         type: Character.Type | None = None,
-        system_id: str | None = None,
+        system_ids: list[str] | None = None,
+        in_game: bool | None = None,
         include_favorited: bool = False,
     ):
         ownership = Character.user_id == self.principal.id
@@ -199,21 +200,28 @@ class CharacterRepository:
             query = query.where(Character.label.ilike(f"%{search}%"))
         if type:
             query = query.where(Character.type == type)
-        if system_id:
-            query = query.where(CharacterSheet.system_id == system_id)
+        if system_ids:
+            query = query.where(CharacterSheet.system_id.in_(system_ids))
+        if in_game is not None:
+            query = query.where(
+                Character.game_id.is_not(None)
+                if in_game
+                else Character.game_id.is_(None)
+            )
         return query
 
     async def get_all(
         self,
         search: str | None = None,
         type: Character.Type | None = None,
-        system_id: str | None = None,
+        system_ids: list[str] | None = None,
+        in_game: bool | None = None,
         page: int = 1,
         limit: int = configs.PAGINATE_PER_PAGE,
         include_favorited: bool = False,
     ) -> ScalarResult[Character]:
         query = (
-            self._list_query(search, type, system_id, include_favorited)
+            self._list_query(search, type, system_ids, in_game, include_favorited)
             .join(CharacterSheet.system)
             .order_by(System.sort_name.asc(), Character.label.asc())
             .options(
@@ -232,10 +240,11 @@ class CharacterRepository:
         self,
         search: str | None = None,
         type: Character.Type | None = None,
-        system_id: str | None = None,
+        system_ids: list[str] | None = None,
+        in_game: bool | None = None,
         include_favorited: bool = False,
     ) -> int:
-        query = self._list_query(search, type, system_id, include_favorited)
+        query = self._list_query(search, type, system_ids, in_game, include_favorited)
         return (
             await self.db_session.scalar(
                 select(func.count())

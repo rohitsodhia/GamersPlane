@@ -19,7 +19,7 @@ def _payload(**overrides):
     fields = {
         "title": "My Campaign",
         "system_id": "dnd5e",
-        "allowed_char_sheets": [],
+        "allowed_char_sheets": ["dnd5e"],
         "post_frequency": "3/w",
         "num_players": 4,
         "chars_per_player": 1,
@@ -97,18 +97,14 @@ class TestCreateGame:
 
         assert response.status_code == 404
 
-    async def test_create_game_with_allowed_char_sheets(
-        self, authed_client, system, create
+    async def test_create_game_requires_an_allowed_char_sheet(
+        self, authed_client, system
     ):
         client, _user = authed_client
-        sheet = await create(SystemFactory, id="sheet-a")
 
-        response = await client.post(
-            "/games/",
-            json=_payload(allowed_char_sheets=[sheet.id]),
-        )
+        response = await client.post("/games/", json=_payload(allowed_char_sheets=[]))
 
-        assert response.status_code == 200
+        assert response.status_code == 422
 
     async def test_create_game_strips_and_converts_title(
         self, authed_client, system, db_session
@@ -1037,6 +1033,17 @@ class TestUpdateGame:
             Game, game.id, options=[selectinload(Game.allowed_char_sheets)]
         )
         assert [s.id for s in updated.allowed_char_sheets] == [sheet.id]
+
+    async def test_update_game_requires_an_allowed_char_sheet(
+        self, auth_as, client, game, gm
+    ):
+        client = auth_as(gm)
+
+        response = await client.patch(
+            f"/games/{game.id}", json=_payload(allowed_char_sheets=[])
+        )
+
+        assert response.status_code == 422
 
     async def test_update_game_system_not_found(self, auth_as, client, game, gm):
         client = auth_as(gm)
