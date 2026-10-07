@@ -23,7 +23,6 @@ import { Route as AcpRbacRouteImport } from './routes/acp/rbac'
 import { Route as AcpUsersRouteImport } from './routes/acp/users'
 import { Route as CharactersIndexRouteImport } from './routes/characters/index'
 import { Route as CharactersLibraryRouteImport } from './routes/characters/library'
-import { Route as CharactersNewRouteImport } from './routes/characters/new'
 import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
 import { Route as GamesIndexRouteImport } from './routes/games/index'
 import { Route as GamesListRouteImport } from './routes/games/list'
@@ -122,11 +121,6 @@ const CharactersIndexRoute = CharactersIndexRouteImport.update({
 const CharactersLibraryRoute = CharactersLibraryRouteImport.update({
   id: '/characters/library',
   path: '/characters/library',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CharactersNewRoute = CharactersNewRouteImport.update({
-  id: '/characters/new',
-  path: '/characters/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForumsChar123ForumIdChar125Route =
@@ -295,7 +289,6 @@ export interface FileRoutesByFullPath {
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
   '/characters/library': typeof CharactersLibraryRoute
-  '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
   '/games/new': typeof GamesNewRoute
@@ -340,7 +333,6 @@ export interface FileRoutesByTo {
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
   '/characters/library': typeof CharactersLibraryRoute
-  '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/new': typeof GamesNewRoute
   '/pms/$pmId': typeof PmsPmIdRoute
@@ -386,7 +378,6 @@ export interface FileRoutesById {
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
   '/characters/library': typeof CharactersLibraryRoute
-  '/characters/new': typeof CharactersNewRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
   '/games/new': typeof GamesNewRoute
@@ -434,7 +425,6 @@ export interface FileRouteTypes {
     | '/acp/rbac'
     | '/acp/users'
     | '/characters/library'
-    | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/list'
     | '/games/new'
@@ -479,7 +469,6 @@ export interface FileRouteTypes {
     | '/acp/rbac'
     | '/acp/users'
     | '/characters/library'
-    | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/new'
     | '/pms/$pmId'
@@ -524,7 +513,6 @@ export interface FileRouteTypes {
     | '/acp/rbac'
     | '/acp/users'
     | '/characters/library'
-    | '/characters/new'
     | '/forums/{-$forumId}'
     | '/games/list'
     | '/games/new'
@@ -569,7 +557,6 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
   CharactersLibraryRoute: typeof CharactersLibraryRoute
-  CharactersNewRoute: typeof CharactersNewRoute
   ForumsChar123ForumIdChar125Route: typeof ForumsChar123ForumIdChar125Route
   GamesListRoute: typeof GamesListRouteWithChildren
   GamesNewRoute: typeof GamesNewRoute
@@ -698,13 +685,6 @@ declare module '@tanstack/react-router' {
       path: '/characters/library'
       fullPath: '/characters/library'
       preLoaderRoute: typeof CharactersLibraryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/characters/new': {
-      id: '/characters/new'
-      path: '/characters/new'
-      fullPath: '/characters/new'
-      preLoaderRoute: typeof CharactersNewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forums/{-$forumId}': {
@@ -954,7 +934,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,
   CharactersLibraryRoute: CharactersLibraryRoute,
-  CharactersNewRoute: CharactersNewRoute,
   ForumsChar123ForumIdChar125Route: ForumsChar123ForumIdChar125Route,
   GamesListRoute: GamesListRouteWithChildren,
   GamesNewRoute: GamesNewRoute,
