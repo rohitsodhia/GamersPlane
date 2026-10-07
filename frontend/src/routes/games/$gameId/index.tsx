@@ -6,6 +6,8 @@ import {
 } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
+import { ActionsMenu, type MenuAction } from "#/components/ActionsMenu";
+import { Autocomplete } from "#/components/Autocomplete";
 import GMBadge from "#/components/GMBadge";
 import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
@@ -16,15 +18,19 @@ import { deckTypesQueryOptions } from "#/queries/deckTypes";
 import {
 	acceptInvite,
 	applyToGame,
+	approveCharacter,
 	approvePlayer,
 	decksQueryOptions,
 	deleteDeck,
 	deletePlayer,
 	favoriteGame,
 	type GamePlayer,
+	type GamePlayerCharacter,
 	gameDetailsQueryOptions,
 	invitePlayer,
+	removeCharacter,
 	shuffleDeck,
+	submitCharacter,
 	toggleGameFlag,
 	toggleGm,
 	toggleRetireGame,
@@ -179,7 +185,13 @@ function RouteComponent() {
 		onSuccess: (user) => {
 			setPlayers((prev) => [
 				...prev,
-				{ id: user.id, username: user.username, is_gm: false, state: "invited" },
+				{
+					id: user.id,
+					username: user.username,
+					is_gm: false,
+					state: "invited",
+					characters: [],
+				},
 			]);
 			setInviteUsername("");
 		},
@@ -281,18 +293,109 @@ function RouteComponent() {
 		full: game.num_players <= playerCount,
 	});
 
+	// Only approved characters fill a player's slots, and GMs have no limit.
+	const approvedCharacterCount =
+		viewerPlayer?.characters.filter((character) => character.approved).length ?? 0;
+	const atCharacterLimit = !isGM && approvedCharacterCount >= game.chars_per_player;
+
 	const { data: submittableData, isError: submittableError } = useQuery({
 		...myCharactersQueryOptions({
 			systems: game.allowed_char_sheets,
 			in_game: false,
 		}),
-		enabled: rightPanel === "submitCharacter",
+		enabled: rightPanel === "submitCharacter" && !atCharacterLimit,
 	});
 	// The list also carries characters favorited from the library; only the
 	// viewer's own can be submitted.
 	const submittableCharacters = (submittableData?.characters ?? []).filter(
 		(character) => character.user.id === me?.id,
 	);
+
+	const updatePlayerCharacters = (
+		userId: number,
+		update: (characters: GamePlayerCharacter[]) => GamePlayerCharacter[],
+	) =>
+		setPlayers((prev) =>
+			prev.map((player) =>
+				player.id === userId
+					? { ...player, characters: update(player.characters) }
+					: player,
+			),
+		);
+	// A character leaving or joining a game changes who can submit it.
+	const refreshCharacterLists = () => {
+		queryClient.invalidateQueries({ queryKey: ["characters"] });
+		queryClient.invalidateQueries({
+			queryKey: gameDetailsQueryOptions(gameId).queryKey,
+		});
+	};
+
+	const [selectedCharacterId, setSelectedCharacterId] = useState<number | null>(null);
+	// Bumped after a submit to remount the picker, which clears its input.
+	const [characterPickerKey, setCharacterPickerKey] = useState(0);
+	const [submitCharacterError, setSubmitCharacterError] = useState<string | null>(null);
+	const submitCharacterMutation = useMutation({
+		mutationFn: (character: GamePlayerCharacter) =>
+			submitCharacter(gameId, character.id),
+		onSuccess: (_data, character) => {
+			if (me) {
+				updatePlayerCharacters(me.id, (characters) =>
+					[...characters, character].sort((a, b) => a.label.localeCompare(b.label)),
+				);
+			}
+			setSelectedCharacterId(null);
+			setCharacterPickerKey((key) => key + 1);
+			refreshCharacterLists();
+		},
+		onError: (error: unknown) => {
+			if (error instanceof ApiError && error.errors[0]?.detail) {
+				setSubmitCharacterError(error.errors[0].detail);
+			} else {
+				setSubmitCharacterError("Failed to submit character");
+			}
+		},
+	});
+	const submitSelectedCharacter = (e: React.FormEvent) => {
+		e.preventDefault();
+		const character = submittableCharacters.find(
+			(character) => character.id === selectedCharacterId,
+		);
+		if (!character) return;
+		setSubmitCharacterError(null);
+		submitCharacterMutation.mutate({
+			id: character.id,
+			label: character.label,
+			approved: false,
+		});
+	};
+
+	const [characterActionError, setCharacterActionError] = useState<string | null>(null);
+	const approveCharacterMutation = useMutation({
+		mutationFn: (args: { userId: number; characterId: number }) =>
+			approveCharacter(gameId, args.characterId),
+		onSuccess: (_data, { userId, characterId }) => {
+			updatePlayerCharacters(userId, (characters) =>
+				characters.map((character) =>
+					character.id === characterId ? { ...character, approved: true } : character,
+				),
+			);
+			queryClient.invalidateQueries({
+				queryKey: gameDetailsQueryOptions(gameId).queryKey,
+			});
+		},
+		onError: () => setCharacterActionError("Failed to approve character"),
+	});
+	const removeCharacterMutation = useMutation({
+		mutationFn: (args: { userId: number; characterId: number }) =>
+			removeCharacter(gameId, args.characterId),
+		onSuccess: (_data, { userId, characterId }) => {
+			updatePlayerCharacters(userId, (characters) =>
+				characters.filter((character) => character.id !== characterId),
+			);
+			refreshCharacterLists();
+		},
+		onError: () => setCharacterActionError("Failed to remove character"),
+	});
 
 	const submitInvite = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -309,11 +412,38 @@ function RouteComponent() {
 			setViewerPlayerState("accepted");
 			setPlayers((prev) => [
 				...prev,
-				{ id: me.id, username: me.username, is_gm: false, state: "accepted" },
+				{
+					id: me.id,
+					username: me.username,
+					is_gm: false,
+					state: "accepted",
+					characters: [],
+				},
 			]);
 		},
 		onError: () => setAcceptInviteError("Failed to accept invite"),
 	});
+
+	// The primary GM can't be removed or demoted, so their row has no actions.
+	const playerActions = (player: GamePlayer): MenuAction[] => {
+		if (!me || player.id === game.gm.id) return [];
+		const actions: MenuAction[] = [];
+		if (isGM || player.id === me.id) {
+			actions.push({
+				label: player.id === me.id ? "Leave game" : "Remove player",
+				onAction: () => deletePlayerMutation.mutate(player.id),
+				disabled: deletePlayerMutation.isPending,
+			});
+		}
+		if (isPrimaryGM) {
+			actions.push({
+				label: player.is_gm ? "Remove as GM" : "Make GM",
+				onAction: () => toggleGmMutation.mutate(player.id),
+				disabled: toggleGmMutation.isPending,
+			});
+		}
+		return actions;
+	};
 
 	return (
 		<div>
@@ -526,49 +656,100 @@ function RouteComponent() {
 							>
 								{playersInGame.map((player) => (
 									<li key={player.id}>
-										<div className={styles["player-info"]}>
-											<div className={styles["player-name"]}>
+										<div className={styles["row"]}>
+											<div className={styles["row-label"]}>
 												<Link
 													to="/user/$userId"
 													params={{ userId: player.id }}
 													className="username"
 												>
 													{player.username}
-												</Link>{" "}
+												</Link>
 												{player.is_gm && <GMBadge />}
 											</div>
-											<div className={styles["action-links"]}>
-												{me &&
-													player.id !== game.gm.id &&
-													(isGM || player.id === me.id) && (
-														<button
-															type="button"
-															className={styles["inline-action"]}
-															onClick={() => deletePlayerMutation.mutate(player.id)}
-															disabled={deletePlayerMutation.isPending}
-														>
-															{player.id === me.id ? "Leave Game" : "Remove player"}
-														</button>
-													)}
-												{isPrimaryGM && player.id !== game.gm.id && (
-													<button
-														type="button"
-														className={styles["inline-action"]}
-														onClick={() => toggleGmMutation.mutate(player.id)}
-														disabled={toggleGmMutation.isPending}
-													>
-														{player.is_gm ? "Remove as" : "Make"} GM
-													</button>
-												)}
-											</div>
+											<ActionsMenu
+												label={`Actions for ${player.username}`}
+												actions={playerActions(player)}
+											/>
 										</div>
-										{/* TODO: character submission isn't wired to a real endpoint yet, so
-											there's no per-player character list to render here. */}
+										{player.characters.length > 0 && (
+											<ul className={styles["characters"]}>
+												{player.characters.map((character) => {
+													const ownsCharacter = player.id === me?.id;
+													const characterArgs = {
+														userId: player.id,
+														characterId: character.id,
+													};
+													return (
+														<li key={character.id} className={styles["row"]}>
+															<div className={styles["row-label"]}>
+																{isGM || ownsCharacter ? (
+																	<Link
+																		to="/characters/$characterId"
+																		params={{ characterId: character.id }}
+																	>
+																		{character.label}
+																	</Link>
+																) : (
+																	<span>{character.label}</span>
+																)}
+																{!character.approved && (
+																	<span className={styles["pending-badge"]}>
+																		Pending
+																	</span>
+																)}
+															</div>
+															{/* Approving is the GM's main job here, so it stays in view
+																rather than in the menu. */}
+															{isGM && !character.approved && (
+																<button
+																	type="button"
+																	className={styles["inline-action"]}
+																	onClick={() => {
+																		setCharacterActionError(null);
+																		approveCharacterMutation.mutate(characterArgs);
+																	}}
+																	disabled={approveCharacterMutation.isPending}
+																>
+																	Approve
+																</button>
+															)}
+															<ActionsMenu
+																label={`Actions for ${character.label}`}
+																actions={
+																	isGM || ownsCharacter
+																		? [
+																				{
+																					label: ownsCharacter
+																						? "Withdraw character"
+																						: character.approved
+																							? "Remove character"
+																							: "Reject character",
+																					onAction: () => {
+																						setCharacterActionError(null);
+																						removeCharacterMutation.mutate(
+																							characterArgs,
+																						);
+																					},
+																					disabled: removeCharacterMutation.isPending,
+																				},
+																			]
+																		: []
+																}
+															/>
+														</li>
+													);
+												})}
+											</ul>
+										)}
 									</li>
 								))}
 							</ul>
 							{deletePlayerError && <div className="error">{deletePlayerError}</div>}
 							{toggleGmError && <div className="error">{toggleGmError}</div>}
+							{characterActionError && (
+								<div className="error">{characterActionError}</div>
+							)}
 							{!retired && isGM && playersAwaitingApproval.length > 0 && (
 								<>
 									<h2 className="headerbar hb-dark">Players Pending Approval</h2>
@@ -953,32 +1134,52 @@ function RouteComponent() {
 							</div>
 						)}
 						{rightPanel === "submitCharacter" && (
-							<div>
+							<div id={styles["submit-character"]}>
 								<h2 className="headerbar hb-dark">
 									<i className="ra ra-player-teleport" /> Submit a Character
 								</h2>
 								<div style={{ marginInline: hbMarginedH2.margin }}>
-									{submittableError ? (
+									{atCharacterLimit ? (
+										<p className={styles["notice"]}>
+											You cannot submit any more characters to this game
+										</p>
+									) : submittableError ? (
 										<div className="error">Failed to load your characters</div>
 									) : !submittableData ? null : submittableCharacters.length === 0 ? (
 										<p className={styles["notice"]}>
 											You have no characters available for this game
 										</p>
 									) : (
-										// TODO: submitting a character isn't wired to an endpoint yet
-										<ul className={styles["row-list"]}>
-											{submittableCharacters.map((character) => (
-												<li key={character.id}>
-													<Link
-														to="/characters/$characterId"
-														params={{ characterId: character.id }}
-													>
-														{character.label}
-													</Link>{" "}
-													({character.character_sheet.system.name})
-												</li>
-											))}
-										</ul>
+										<form
+											className={styles["submit-character-form"]}
+											onSubmit={submitSelectedCharacter}
+										>
+											<Autocomplete
+												key={characterPickerKey}
+												id="submit-character-picker"
+												items={submittableCharacters}
+												getId={(character) => String(character.id)}
+												getLabel={(character) =>
+													`${character.label} (${character.character_sheet.system.name})`
+												}
+												placeholder="Choose a character"
+												onAction={(id) => setSelectedCharacterId(Number(id))}
+												onClear={() => setSelectedCharacterId(null)}
+											/>
+											<button
+												type="submit"
+												className="skew-btn"
+												disabled={
+													selectedCharacterId === null ||
+													submitCharacterMutation.isPending
+												}
+											>
+												Submit
+											</button>
+										</form>
+									)}
+									{submitCharacterError && (
+										<div className="error">{submitCharacterError}</div>
 									)}
 								</div>
 							</div>

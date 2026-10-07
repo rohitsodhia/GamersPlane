@@ -42,11 +42,18 @@ class PostFrequencyData(SchemaBase):
 PlayerState = Literal["invited", "applied", "accepted"]
 
 
+class PlayerCharacterData(SchemaBase):
+    id: int
+    label: str
+    approved: bool
+
+
 class PlayerData(SchemaBase):
     id: int
     username: str
     is_gm: bool
     state: PlayerState
+    characters: list[PlayerCharacterData]
 
 
 class GetGameResponse(SchemaBase):
@@ -112,6 +119,10 @@ class FavoriteGameResponse(SchemaBase):
 
 class InvitePlayerInput(SchemaBase):
     username: str
+
+
+class SubmitCharacterInput(SchemaBase):
+    character_id: int
 
 
 class UpdateGameInput(SchemaBase):

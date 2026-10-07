@@ -6,13 +6,43 @@ from sqlalchemy.orm import selectinload
 
 from app.configs import configs
 from app.models import Deck, DeckPermission, FavoriteGame, Game, Player
-from app.repositories import DeckRepository, GameRepository, PlayerRepository
+from app.repositories import (
+    CharacterRepository,
+    CharacterSheetRepository,
+    DeckRepository,
+    GameRepository,
+    PlayerRepository,
+)
 from tests.factories import (
     ActivatedUserFactory,
     DeckTypeFactory,
     ForumFactory,
     SystemFactory,
 )
+
+SHEET_LAYOUT = {
+    "schema_version": 1,
+    "elements": [{"type": "input", "name": "str", "id": "str1"}],
+}
+
+
+async def _make_character(db_session, owner, system_id="dnd5e", label="Aragorn"):
+    sheet_repository = CharacterSheetRepository(db_session, principal=owner)
+    sheet = await sheet_repository.create(
+        name="Fighter", system_id=system_id, layout=SHEET_LAYOUT
+    )
+    version = await sheet_repository.publish(await sheet_repository.get_draft(sheet.id))
+    return await CharacterRepository(db_session, principal=owner).create(
+        character_sheet_id=sheet.id,
+        character_sheet_version_id=version.id,
+        label=label,
+    )
+
+
+async def _put_in_game(db_session, character, game_id, approved=False):
+    character.game_id = game_id
+    character.approved = approved
+    await db_session.flush()
 
 
 def _payload(**overrides):
@@ -312,7 +342,73 @@ class TestGetGame:
                 "username": user.username,
                 "is_gm": False,
                 "state": "accepted",
+                "characters": [],
             }
+        ]
+
+    async def test_get_game_player_characters_fields(
+        self, client, db_session, gm, game, create
+    ):
+        user = await create(ActivatedUserFactory)
+        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
+            game.id, user.id, state=Player.States.ACCEPTED
+        )
+        character = await _make_character(db_session, user)
+        await _put_in_game(db_session, character, game.id, approved=True)
+
+        response = await client.get(f"/games/{game.id}")
+
+        players = response.json()["players"]
+        assert players[0]["characters"] == [
+            {"id": character.id, "label": "Aragorn", "approved": True}
+        ]
+
+    @pytest.mark.parametrize("viewer", ["anonymous", "other_player"])
+    async def test_get_game_hides_pending_characters_from_others(
+        self, auth_as, client, db_session, gm, game, create, viewer
+    ):
+        player_repository = PlayerRepository(db_session, principal=gm)
+        owner = await create(ActivatedUserFactory)
+        await player_repository.attach_player_to_game(
+            game.id, owner.id, state=Player.States.ACCEPTED
+        )
+        approved = await _make_character(db_session, owner, label="Approved")
+        await _put_in_game(db_session, approved, game.id, approved=True)
+        pending = await _make_character(db_session, owner, label="Pending")
+        await _put_in_game(db_session, pending, game.id)
+        if viewer == "other_player":
+            other = await create(ActivatedUserFactory)
+            await player_repository.attach_player_to_game(
+                game.id, other.id, state=Player.States.ACCEPTED
+            )
+            client = auth_as(other)
+
+        response = await client.get(f"/games/{game.id}")
+
+        owner_data = next(p for p in response.json()["players"] if p["id"] == owner.id)
+        assert [c["label"] for c in owner_data["characters"]] == ["Approved"]
+
+    @pytest.mark.parametrize("viewer", ["owner", "gm"])
+    async def test_get_game_shows_pending_characters_to_owner_and_gm(
+        self, auth_as, client, db_session, gm, game, create, viewer
+    ):
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        owner = await create(ActivatedUserFactory)
+        await player_repository.attach_player_to_game(
+            game.id, owner.id, state=Player.States.ACCEPTED
+        )
+        pending = await _make_character(db_session, owner, label="Pending")
+        await _put_in_game(db_session, pending, game.id)
+        client = auth_as(owner if viewer == "owner" else gm)
+
+        response = await client.get(f"/games/{game.id}")
+
+        owner_data = next(p for p in response.json()["players"] if p["id"] == owner.id)
+        assert owner_data["characters"] == [
+            {"id": pending.id, "label": "Pending", "approved": False}
         ]
 
     async def test_get_game_favorited_true_when_favorited(self, authed_client, game):
@@ -2099,6 +2195,30 @@ class TestDeletePlayer:
 
         assert response.status_code == 403
 
+    async def test_delete_player_takes_their_characters_out_of_the_game(
+        self, auth_as, client, db_session, game, gm, create
+    ):
+        player = await create(ActivatedUserFactory)
+        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
+            game.id, player.id, state=Player.States.ACCEPTED
+        )
+        approved = await _make_character(db_session, player)
+        await _put_in_game(db_session, approved, game.id, approved=True)
+        pending = await _make_character(db_session, player)
+        await _put_in_game(db_session, pending, game.id)
+        gm_character = await _make_character(db_session, gm)
+        await _put_in_game(db_session, gm_character, game.id, approved=True)
+        client = auth_as(gm)
+
+        response = await client.delete(f"/games/{game.id}/player/{player.id}")
+
+        assert response.status_code == 204
+        for character in (approved, pending, gm_character):
+            await db_session.refresh(character)
+        assert (approved.game_id, approved.approved) == (None, False)
+        assert (pending.game_id, pending.approved) == (None, False)
+        assert gm_character.game_id == game.id
+
 
 class TestCreateDeck:
     @pytest.fixture(autouse=True)
@@ -3086,3 +3206,361 @@ class TestDeleteDeck:
             select(DeckPermission).where(DeckPermission.deck_id == deck.id)
         )
         assert list(permissions) == []
+
+
+class _GameCharacterFixtures:
+    @pytest.fixture(autouse=True)
+    async def games_root_forum(self, create, db_session):
+        forum = await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        return forum
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory, id="dnd5e")
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def game(self, db_session, gm, system):
+        game_repository = GameRepository(db_session, principal=gm)
+        game = await game_repository.create(
+            "My Campaign",
+            system.id,
+            [system.id],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        return game
+
+    @pytest.fixture
+    async def player(self, db_session, create, game, gm):
+        player = await create(ActivatedUserFactory)
+        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
+            game.id, player.id, state=Player.States.ACCEPTED
+        )
+        return player
+
+
+class TestSubmitCharacter(_GameCharacterFixtures):
+    async def test_requires_auth(self, client, game):
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": 1}
+        )
+
+        assert response.status_code == 403
+
+    async def test_game_not_found(self, auth_as, client, db_session, player):
+        character = await _make_character(db_session, player)
+        client = auth_as(player)
+
+        response = await client.post(
+            "/games/999999/characters", json={"character_id": character.id}
+        )
+
+        assert response.status_code == 404
+
+    async def test_retired_game_forbidden(
+        self, auth_as, client, db_session, game, gm, player
+    ):
+        await GameRepository(db_session, principal=gm).toggle_retire(game)
+        character = await _make_character(db_session, player)
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": character.id}
+        )
+
+        assert response.status_code == 403
+
+    async def test_non_player_forbidden(
+        self, auth_as, client, db_session, create, game
+    ):
+        stranger = await create(ActivatedUserFactory)
+        character = await _make_character(db_session, stranger)
+        client = auth_as(stranger)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": character.id}
+        )
+
+        assert response.status_code == 403
+
+    async def test_player_not_yet_accepted_forbidden(
+        self, auth_as, client, db_session, create, game, gm
+    ):
+        applicant = await create(ActivatedUserFactory)
+        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
+            game.id, applicant.id, state=Player.States.APPLIED
+        )
+        character = await _make_character(db_session, applicant)
+        client = auth_as(applicant)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": character.id}
+        )
+
+        assert response.status_code == 403
+
+    async def test_character_not_found(self, auth_as, client, game, player):
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": 999999}
+        )
+
+        assert response.status_code == 404
+
+    async def test_someone_elses_character_forbidden(
+        self, auth_as, client, db_session, create, game, player
+    ):
+        stranger = await create(ActivatedUserFactory)
+        character = await _make_character(db_session, stranger)
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": character.id}
+        )
+
+        assert response.status_code == 403
+
+    async def test_character_already_in_a_game_conflict(
+        self, auth_as, client, db_session, game, gm, player
+    ):
+        other_game = await GameRepository(db_session, principal=gm).create(
+            "Other Campaign",
+            "dnd5e",
+            ["dnd5e"],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        character = await _make_character(db_session, player)
+        await _put_in_game(db_session, character, other_game.id)
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": character.id}
+        )
+
+        assert response.status_code == 409
+
+    async def test_sheet_system_not_allowed(
+        self, auth_as, client, db_session, create, game, player
+    ):
+        await create(SystemFactory, id="pf2e")
+        character = await _make_character(db_session, player, system_id="pf2e")
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": character.id}
+        )
+
+        assert response.status_code == 400
+
+    async def test_player_at_character_limit_forbidden(
+        self, auth_as, client, db_session, game, player
+    ):
+        first = await _make_character(db_session, player)
+        await _put_in_game(db_session, first, game.id, approved=True)
+        second = await _make_character(db_session, player)
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": second.id}
+        )
+
+        assert response.status_code == 403
+
+    async def test_pending_characters_dont_count_toward_limit(
+        self, auth_as, client, db_session, game, player
+    ):
+        first = await _make_character(db_session, player)
+        await _put_in_game(db_session, first, game.id)
+        second = await _make_character(db_session, player)
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": second.id}
+        )
+
+        assert response.status_code == 204
+
+    async def test_gm_is_not_held_to_character_limit(
+        self, auth_as, client, db_session, game, gm
+    ):
+        first = await _make_character(db_session, gm)
+        await _put_in_game(db_session, first, game.id, approved=True)
+        second = await _make_character(db_session, gm)
+        client = auth_as(gm)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": second.id}
+        )
+
+        assert response.status_code == 204
+
+    async def test_submits_character_pending_approval(
+        self, auth_as, client, db_session, game, player
+    ):
+        character = await _make_character(db_session, player)
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": character.id}
+        )
+
+        assert response.status_code == 204
+        await db_session.refresh(character)
+        assert character.game_id == game.id
+        assert character.approved is False
+
+
+class TestApproveCharacter(_GameCharacterFixtures):
+    @pytest.fixture
+    async def pending(self, db_session, game, player):
+        character = await _make_character(db_session, player)
+        await _put_in_game(db_session, character, game.id)
+        return character
+
+    async def test_requires_auth(self, client, game, pending):
+        response = await client.post(
+            f"/games/{game.id}/characters/{pending.id}/approve"
+        )
+
+        assert response.status_code == 403
+
+    async def test_non_gm_forbidden(self, auth_as, client, game, player, pending):
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{game.id}/characters/{pending.id}/approve"
+        )
+
+        assert response.status_code == 403
+
+    async def test_character_in_another_game_not_found(
+        self, auth_as, client, db_session, game, gm, player
+    ):
+        other_game = await GameRepository(db_session, principal=gm).create(
+            "Other Campaign",
+            "dnd5e",
+            ["dnd5e"],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        character = await _make_character(db_session, player)
+        await _put_in_game(db_session, character, other_game.id)
+        client = auth_as(gm)
+
+        response = await client.post(
+            f"/games/{game.id}/characters/{character.id}/approve"
+        )
+
+        assert response.status_code == 404
+
+    async def test_already_approved_conflict(
+        self, auth_as, client, db_session, game, gm, pending
+    ):
+        pending.approved = True
+        await db_session.flush()
+        client = auth_as(gm)
+
+        response = await client.post(
+            f"/games/{game.id}/characters/{pending.id}/approve"
+        )
+
+        assert response.status_code == 409
+
+    async def test_approves_character(
+        self, auth_as, client, db_session, game, gm, pending
+    ):
+        client = auth_as(gm)
+
+        response = await client.post(
+            f"/games/{game.id}/characters/{pending.id}/approve"
+        )
+
+        assert response.status_code == 204
+        await db_session.refresh(pending)
+        assert pending.approved is True
+
+
+class TestRemoveCharacter(_GameCharacterFixtures):
+    @pytest.fixture
+    async def character(self, db_session, game, player):
+        character = await _make_character(db_session, player)
+        await _put_in_game(db_session, character, game.id, approved=True)
+        return character
+
+    async def test_requires_auth(self, client, game, character):
+        response = await client.delete(f"/games/{game.id}/characters/{character.id}")
+
+        assert response.status_code == 403
+
+    async def test_character_not_in_game_not_found(
+        self, auth_as, client, db_session, game, gm, player
+    ):
+        character = await _make_character(db_session, player)
+        client = auth_as(gm)
+
+        response = await client.delete(f"/games/{game.id}/characters/{character.id}")
+
+        assert response.status_code == 404
+
+    async def test_other_player_forbidden(
+        self, auth_as, client, db_session, create, game, gm, character
+    ):
+        other = await create(ActivatedUserFactory)
+        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
+            game.id, other.id, state=Player.States.ACCEPTED
+        )
+        client = auth_as(other)
+
+        response = await client.delete(f"/games/{game.id}/characters/{character.id}")
+
+        assert response.status_code == 403
+
+    @pytest.mark.parametrize("remover", ["owner", "gm"])
+    async def test_removes_character_from_game(
+        self, auth_as, client, db_session, game, gm, player, character, remover
+    ):
+        client = auth_as(player if remover == "owner" else gm)
+
+        response = await client.delete(f"/games/{game.id}/characters/{character.id}")
+
+        assert response.status_code == 204
+        await db_session.refresh(character)
+        assert (character.game_id, character.approved) == (None, False)

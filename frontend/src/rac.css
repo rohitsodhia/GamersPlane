@@ -48,6 +48,22 @@
 	}
 }
 
+.react-aria-SearchField {
+	display: inline-flex;
+	align-items: center;
+	width: min(100%, var(--rac-field-width));
+
+	.react-aria-Input {
+		width: 100%;
+
+		/* Native clear button on input[type="search"] (WebKit/Blink) — signal
+		   it's clickable. */
+		&::-webkit-search-cancel-button {
+			cursor: pointer;
+		}
+	}
+}
+
 /* A SearchField driving a persistent ListBox beneath it (FilterableListBox):
    stack label / input / list instead of the inline combobox layout. */
 .filterable-listbox {
@@ -112,22 +128,6 @@
 	}
 }
 
-.react-aria-SearchField {
-	display: inline-flex;
-	align-items: center;
-	width: min(100%, var(--rac-field-width));
-
-	.react-aria-Input {
-		width: 100%;
-
-		/* Native clear button on input[type="search"] (WebKit/Blink) — signal
-		   it's clickable. */
-		&::-webkit-search-cancel-button {
-			cursor: pointer;
-		}
-	}
-}
-
 /* Any wrapper that directly contains a SearchField immediately followed by a
    Menu (the Autocomplete pattern) becomes the positioning context for that
    Menu, so it always floats under the field without per-usage CSS. */
@@ -138,6 +138,8 @@
 .react-aria-Menu {
 	margin-top: 0.3em;
 
+	/* biome-ignore lint/style/noDescendingSpecificity: compared against
+	   `.filterable-listbox .react-aria-ListBox[data-empty]`, a different element. */
 	&[data-empty] {
 		display: none;
 	}
@@ -168,6 +170,21 @@
 
 .react-aria-Popover {
 	box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+
+	/* A Menu inside a Popover (MenuTrigger): the Popover already supplies the
+	   surface, so drop the Menu's own border and offset. */
+	> .react-aria-Menu {
+		border: none;
+		margin-top: 0;
+		outline: none;
+	}
+
+	/* Hovering a menu item also focuses it, and that focus stays once the
+	   pointer leaves, so highlight only while hovered or keyboard-focused. */
+	.react-aria-MenuItem[data-focused]:not([data-hovered], [data-focus-visible]) {
+		background-color: transparent;
+		color: inherit;
+	}
 }
 
 .react-aria-Checkbox {
@@ -281,15 +298,22 @@
    --autocomplete-measured-width. A consumer that sets --rac-autocomplete-width
    on .autocomplete from its own stylesheet opts into a fixed width instead. */
 .autocomplete {
+	--autocomplete-width: var(
+		--rac-autocomplete-width,
+		var(--autocomplete-measured-width, min(100%, var(--rac-field-width)))
+	);
 	display: inline-block;
 	position: relative;
 	max-width: 100%;
 
 	.react-aria-SearchField {
-		width: var(
-			--rac-autocomplete-width,
-			var(--autocomplete-measured-width, min(100%, var(--rac-field-width)))
-		);
+		width: var(--autocomplete-width);
+	}
+
+	/* The menu shares the field's width, overriding the generic
+	   `.react-aria-SearchField ~ .react-aria-Menu` cap at --rac-field-width. */
+	.react-aria-SearchField ~ .react-aria-Menu {
+		width: var(--autocomplete-width);
 	}
 }
 

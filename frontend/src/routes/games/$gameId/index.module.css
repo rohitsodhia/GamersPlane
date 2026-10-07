@@ -124,7 +124,7 @@
 	list-style: none;
 	padding: 0;
 
-	li {
+	> li {
 		padding: 0.6em 0.6em;
 		border: 1px solid transparent;
 
@@ -143,14 +143,56 @@
 	gap: 0.5em;
 }
 
-.player-name {
+/* A player or character row: the label takes the free space (wrapping long
+   names) and any actions sit at the end. */
+.row {
 	display: flex;
 	align-items: center;
+	gap: 0.75em;
+}
+
+.row-label {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
 	gap: 0.5em;
+	overflow-wrap: anywhere;
 
 	a {
 		text-box-trim: trim-both;
 	}
+}
+
+/* Characters sit on a gray band, indented under their player. */
+.characters {
+	list-style: none;
+	margin: 0.4em 0 0;
+	padding: 0;
+
+	li {
+		padding: 0.35em 0.6em 0.35em 1.5em;
+		background: light-dark(#ececec, #2a2a2a);
+
+		& + li {
+			margin-top: 2px;
+		}
+	}
+}
+
+.row-list > li:hover .characters li {
+	background: light-dark(#dcdcdc, #333);
+}
+
+.pending-badge {
+	padding: 0.1em 0.5em;
+	border: 1px solid currentColor;
+	border-radius: 1em;
+	color: light-dark(#8a6d00, #e0c050);
+	font-size: 0.75em;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
 }
 
 .action-links {
@@ -166,6 +208,19 @@
 	text-align: center;
 	text-box-trim: trim-both;
 	padding-block: 1.5em;
+}
+
+.submit-character-form {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.75em;
+	margin-bottom: 1em;
+
+	:global(.autocomplete) {
+		--rac-autocomplete-width: 100%;
+		width: 100%;
+	}
 }
 
 .invite-form {
@@ -197,5 +252,11 @@
 
 	img {
 		display: block;
+	}
+}
+
+#submit-character {
+	form {
+		margin-top: 0.5em;
 	}
 }

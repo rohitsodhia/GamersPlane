@@ -15,7 +15,11 @@ from app.exceptions import (
 from app.helpers.avatars import process_avatar_upload, save_avatar
 from app.middleware import Principal
 from app.models import Character, CharacterSheet, CharacterSheetVersion
-from app.repositories import CharacterRepository, CharacterSheetRepository
+from app.repositories import (
+    CharacterRepository,
+    CharacterSheetRepository,
+    PlayerRepository,
+)
 
 characters = APIRouter(prefix="/characters")
 
@@ -189,7 +193,18 @@ async def get_character(
     character = await character_repository.get(character_id)
     if character is None:
         raise NotFoundException("Character not found")
-    if not character.in_library and character.user_id != principal.id:
+    # Besides the owner, a library character is open to anyone, and one
+    # submitted to a game is open to that game's GMs.
+    if (
+        not character.in_library
+        and character.user_id != principal.id
+        and not (
+            character.game_id is not None
+            and await PlayerRepository(db_session, principal).is_gm(
+                character.game_id, principal.id
+            )
+        )
+    ):
         raise ForbiddenException("Character not available")
 
     return _character_response(character)

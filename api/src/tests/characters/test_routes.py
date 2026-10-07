@@ -11,12 +11,14 @@ from app.models import (
     CharacterFavorite,
     CharacterSheet,
     FavoriteCharacter,
+    Player,
     UserMeta,
 )
 from app.repositories import (
     CharacterRepository,
     CharacterSheetRepository,
     GameRepository,
+    PlayerRepository,
 )
 from tests.factories import ActivatedUserFactory, ForumFactory, SystemFactory
 
@@ -360,6 +362,45 @@ class TestGetCharacter:
 
         assert response.status_code == 200
         assert response.json()["id"] == character.id
+
+    @pytest.mark.parametrize("is_gm", [True, False])
+    async def test_only_gms_of_its_game_can_read_a_submitted_character(
+        self, client, character, create, auth_as, db_session, system, is_gm
+    ):
+        await create(ForumFactory, id=2, heritage=[])
+        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+        # later auto-generated forum id in this test could collide with it.
+        await db_session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        viewer = await create(ActivatedUserFactory)
+        game = await GameRepository(db_session, principal=viewer).create(
+            "My Campaign",
+            system.id,
+            [system.id],
+            viewer.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        await PlayerRepository(db_session, principal=viewer).attach_player_to_game(
+            game.id, viewer.id, is_gm=is_gm, state=Player.States.ACCEPTED
+        )
+        character.game_id = game.id
+        await db_session.flush()
+        auth_as(viewer)
+
+        response = await client.get(f"/characters/{character.id}")
+
+        assert response.status_code == (200 if is_gm else 403)
 
 
 class TestGetCharacters:
