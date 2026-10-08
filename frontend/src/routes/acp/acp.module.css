@@ -190,6 +190,59 @@
 	}
 }
 
+.member-list,
+.member-checklist {
+	list-style: none;
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+.member-checklist li {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+	padding: 0.25em 0;
+}
+
+.role-section h4 {
+	font-size: 1em;
+	margin: 1em 0 0.5em;
+}
+
+.role-delete {
+	margin-top: 1.5em;
+}
+
+.permission-note {
+	font-size: 0.85em;
+	color: #666;
+}
+
+.permission-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.25em 1.25em;
+	padding: 0.4em 0;
+
+	& > span {
+		min-width: 11em;
+	}
+
+	label {
+		display: inline-flex;
+		align-items: center;
+	}
+
+	input[type="radio"] {
+		padding: 0;
+	}
+
+	input:disabled {
+		opacity: 0.6;
+	}
+}
+
 .save-row {
 	display: flex;
 	align-items: center;

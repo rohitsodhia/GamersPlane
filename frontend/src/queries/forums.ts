@@ -118,7 +118,7 @@ export function forumQueryOptions(id: number) {
 	});
 }
 
-async function forumMutate(path: string, method: string, body?: unknown) {
+export async function forumMutate(path: string, method: string, body?: unknown) {
 	const res = await apiFetch(path, {
 		method,
 		...(body === undefined ? {} : { body: JSON.stringify(body) }),

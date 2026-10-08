@@ -9,7 +9,11 @@ import {
 import { Fragment } from "react";
 import { requireForumModerator } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { forumQueryOptions, hasEditableDetails } from "#/queries/forums";
+import {
+	forumQueryOptions,
+	hasEditableDetails,
+	isGameRootForum,
+} from "#/queries/forums";
 import styles from "../acp.module.css";
 
 export const Route = createFileRoute("/acp/forums/$forumId")({
@@ -69,6 +73,14 @@ function RouteComponent() {
 						)}
 						<Link to="/acp/forums/$forumId/subforums" params={{ forumId }}>
 							Subforums
+						</Link>
+						{isGameRootForum(forum) && (
+							<Link to="/acp/forums/$forumId/roles" params={{ forumId }}>
+								Roles
+							</Link>
+						)}
+						<Link to="/acp/forums/$forumId/permissions" params={{ forumId }}>
+							Permissions
 						</Link>
 					</nav>
 					<div>

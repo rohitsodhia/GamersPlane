@@ -3,7 +3,6 @@ import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Select } from "#/components/Select";
-import { ApiError } from "#/lib/api";
 import {
 	type ChildForum,
 	createSubforum,
@@ -15,6 +14,7 @@ import {
 	reorderSubforums,
 } from "#/queries/forums";
 import styles from "../acp.module.css";
+import { ErrorBanner, errorList } from "./-acp-shared";
 
 export const Route = createFileRoute("/acp/forums/$forumId/subforums")({
 	component: RouteComponent,
@@ -24,24 +24,6 @@ const TYPE_OPTIONS: { value: ForumType; label: string }[] = [
 	{ value: "f", label: "Forum" },
 	{ value: "c", label: "Category" },
 ];
-
-function errorList(exception: unknown): string[] {
-	if (exception instanceof ApiError) return exception.errors.map((e) => e.detail);
-	return ["Something went wrong."];
-}
-
-function ErrorBanner({ errors }: { errors: string[] }) {
-	if (errors.length === 0) return null;
-	return (
-		<div className="banner error-banner">
-			<ul>
-				{errors.map((error) => (
-					<li key={error}>{error}</li>
-				))}
-			</ul>
-		</div>
-	);
-}
 
 // Game forums come and go with their games.
 const canDelete = (forum: ChildForum) =>
