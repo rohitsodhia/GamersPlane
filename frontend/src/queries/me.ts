@@ -9,6 +9,9 @@ export type MeResponse = {
 	username: string;
 	avatar: string;
 	acp: boolean;
+	// Moderates at least one forum. Forum moderation is scoped, so it isn't in
+	// `permissions`.
+	forumModerate: boolean;
 	permissions: string[];
 };
 
@@ -124,6 +127,7 @@ export const refreshMe = async (queryClient: QueryClient) => {
 		username: full.username,
 		avatar: full.avatar,
 		acp: full.acp,
+		forumModerate: full.forumModerate,
 		permissions: full.permissions,
 	});
 };

@@ -6,7 +6,16 @@ from sqlalchemy import text
 from app.models import FavoriteGame, Forum, Player, RolePermission
 from app.repositories import GameRepository
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
-from tests.factories import ActivatedUserFactory, ForumFactory, SystemFactory
+from tests.factories import (
+    ActivatedUserFactory,
+    ForumFactory,
+    RoleFactory,
+    SystemFactory,
+)
+
+Verbs = RolePermission.ValidPermissions
+ALLOW = RolePermission.Effects.ALLOW
+DENY = RolePermission.Effects.DENY
 
 
 class TestGetForum:
@@ -162,37 +171,43 @@ class TestGetForumVisibility:
         assert [c["title"] for c in response.json()["children"]] == ["Shown"]
 
 
+@pytest.fixture
+async def site(create, db_session, open_forums, wrap_in_savepoint):
+    index = await create(ForumFactory, id=0, heritage=[], title="Index")
+    games_root = await create(
+        ForumFactory, id=GAMES_ROOT_FORUM_ID, parent_id=0, heritage=[0], title="Games"
+    )
+    # Explicit ids bypass the forums sequence; resync it so later forums
+    # don't collide.
+    await db_session.execute(
+        text(
+            "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+            "(SELECT MAX(id) FROM forums))"
+        )
+    )
+    await open_forums(index.id)
+    return index, games_root
+
+
+@pytest.fixture
+async def gm(create):
+    return await create(ActivatedUserFactory)
+
+
+@pytest.fixture
+async def make_game(create, db_session, gm):
+    system = await create(SystemFactory)
+
+    async def _make_game(title, *, public=True):
+        return await GameRepository(db_session, principal=gm).create(
+            title, system.id, [], gm.id, "1/d", 4, 1, None, None, public, None, None
+        )
+
+    return _make_game
+
+
 class TestForumIndexGames:
     """The index and games forum list only the user's own and favorited games."""
-
-    @pytest.fixture
-    async def site(self, create, db_session, open_forums, wrap_in_savepoint):
-        index = await create(ForumFactory, id=0, heritage=[], title="Index")
-        games_root = await create(
-            ForumFactory, id=GAMES_ROOT_FORUM_ID, parent_id=0, heritage=[0]
-        )
-        # Explicit ids bypass the forums sequence; resync it so later forums
-        # don't collide.
-        await db_session.execute(
-            text(
-                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
-                "(SELECT MAX(id) FROM forums))"
-            )
-        )
-        await open_forums(index.id)
-        return index, games_root
-
-    @pytest.fixture
-    async def make_game(self, create, db_session):
-        system = await create(SystemFactory)
-        gm = await create(ActivatedUserFactory)
-
-        async def _make_game(title, *, public=True):
-            return await GameRepository(db_session, principal=gm).create(
-                title, system.id, [], gm.id, "1/d", 4, 1, None, None, public, None, None
-            )
-
-        return _make_game
 
     async def test_logged_in_user_sees_only_played_and_favorited_games(
         self, authed_client, site, make_game, db_session
@@ -243,6 +258,170 @@ class TestForumIndexGames:
 
         assert response.status_code == 200
         assert response.json()["permissions"] == ["forum_read"]
+
+
+async def grant_role(db_session, user, *grants):
+    """Give ``user`` a role holding ``(verb, forum_id, effect)`` grants; a
+    ``None`` forum id makes the grant global."""
+    role = RoleFactory.build()
+    db_session.add(role)
+    for verb, forum_id, effect in grants:
+        role.grant(
+            verb,
+            scope_type=None if forum_id is None else RolePermission.ScopeTypes.FORUM,
+            scope_id=forum_id,
+            effect=effect,
+        )
+    role.users.append(user)
+    await db_session.flush()
+
+
+class TestGetModeratedForums:
+    @pytest.fixture
+    async def general(self, create, site):
+        """Index -> General -> Announcements -> Archive."""
+        index, _games_root = site
+        general = await create(
+            ForumFactory, parent_id=index.id, heritage=[index.id], title="General"
+        )
+        announcements = await create(
+            ForumFactory,
+            parent_id=general.id,
+            heritage=[index.id, general.id],
+            title="Announcements",
+        )
+        archive = await create(
+            ForumFactory,
+            parent_id=announcements.id,
+            heritage=[index.id, general.id, announcements.id],
+            title="Archive",
+        )
+        return general, announcements, archive
+
+    async def test_requires_auth(self, client):
+        response = await client.get("/forums/moderated")
+
+        assert response.status_code == 403
+
+    async def test_non_moderator_gets_nothing(self, authed_client, general):
+        client, _user = authed_client
+
+        response = await client.get("/forums/moderated")
+
+        assert response.status_code == 200
+        assert response.json() == []
+
+    async def test_moderated_forum_nests_under_heading_with_its_subforums(
+        self, authed_client, db_session, general
+    ):
+        client, user = authed_client
+        general_forum, announcements, archive = general
+        await grant_role(
+            db_session, user, (Verbs.FORUM_MODERATE, announcements.id, ALLOW)
+        )
+
+        response = await client.get("/forums/moderated")
+
+        assert response.json() == [
+            {
+                "id": general_forum.id,
+                "title": "General",
+                "moderate": False,
+                "children": [
+                    {
+                        "id": announcements.id,
+                        "title": "Announcements",
+                        "moderate": True,
+                        "children": [
+                            {
+                                "id": archive.id,
+                                "title": "Archive",
+                                "moderate": True,
+                                "children": [],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+
+    async def test_denied_subforum_is_left_out(
+        self, authed_client, db_session, general
+    ):
+        client, user = authed_client
+        _general, announcements, archive = general
+        await grant_role(
+            db_session,
+            user,
+            (Verbs.FORUM_MODERATE, announcements.id, ALLOW),
+            (Verbs.FORUM_MODERATE, archive.id, DENY),
+        )
+
+        response = await client.get("/forums/moderated")
+
+        [heading] = response.json()
+        assert heading["children"][0]["children"] == []
+
+    async def test_overlapping_moderation_lists_each_forum_once(
+        self, authed_client, db_session, general
+    ):
+        client, user = authed_client
+        general_forum, announcements, _archive = general
+        await grant_role(
+            db_session,
+            user,
+            (Verbs.FORUM_MODERATE, general_forum.id, ALLOW),
+            (Verbs.FORUM_MODERATE, announcements.id, ALLOW),
+        )
+
+        response = await client.get("/forums/moderated")
+
+        [heading] = response.json()
+        assert heading["moderate"] is True
+        [child] = heading["children"]
+        assert child["id"] == announcements.id
+        assert len(child["children"]) == 1
+
+    async def test_admin_gets_top_level_forums_but_not_other_peoples_games(
+        self, authed_client, db_session, site, make_game
+    ):
+        client, user = authed_client
+        await make_game("Stranger's")
+        await grant_role(db_session, user, (Verbs.ADMIN, None, ALLOW))
+
+        response = await client.get("/forums/moderated")
+
+        [games] = response.json()
+        assert games["title"] == "Games"
+        assert games["moderate"] is True
+        assert games["children"] == []
+
+    async def test_admin_who_gms_a_game_gets_that_game(
+        self, auth_as, db_session, site, make_game, gm
+    ):
+        game = await make_game("Mine")
+        await grant_role(db_session, gm, (Verbs.ADMIN, None, ALLOW))
+        client = auth_as(gm)
+
+        response = await client.get("/forums/moderated")
+
+        [games] = response.json()
+        assert [f["id"] for f in games["children"]] == [game.root_forum_id]
+
+    async def test_gm_gets_their_game_forum_under_the_games_heading(
+        self, auth_as, site, make_game, gm
+    ):
+        game = await make_game("Mine")
+        client = auth_as(gm)
+
+        response = await client.get("/forums/moderated")
+
+        [games] = response.json()
+        assert games["title"] == "Games"
+        assert games["moderate"] is False
+        [game_forum] = games["children"]
+        assert game_forum["id"] == game.root_forum_id
+        assert game_forum["moderate"] is True
 
 
 class TestGetForumBreadcrumbs:

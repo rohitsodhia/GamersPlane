@@ -1,10 +1,11 @@
 from collections.abc import Iterable
 
-from sqlalchemy import or_, select
+from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import NotFoundException
 from app.models import Forum, Game, Role, RolePermission, User, UserRole
+from app.repositories.forum_repository import SITE_ROOT_FORUM_ID
 
 Verbs = RolePermission.ValidPermissions
 Effects = RolePermission.Effects
@@ -12,6 +13,48 @@ Effects = RolePermission.Effects
 FORUM_VERBS = frozenset(
     verb for verb in Verbs if RolePermission.ScopeTypes.FORUM in verb.allowed_scopes
 )
+
+
+def held_by(principal: User | None) -> ColumnElement[bool]:
+    """Filter on ``Role`` for the roles a principal holds: their assigned roles
+    plus Registered, or just Guest for an anonymous request."""
+    if principal is None:
+        return Role.id == Role.GUEST_ID
+    return or_(
+        Role.id == Role.REGISTERED_ID,
+        Role.id.in_(select(UserRole.role_id).where(UserRole.user_id == principal.id)),
+    )
+
+
+async def moderated_roots(db_session: AsyncSession, principal: User) -> list[Forum]:
+    """The forums a principal's moderation starts from.
+
+    That's each forum one of their ``forum_moderate`` allows names, if it still
+    resolves to moderate there (a deny on the same forum beats it), plus the
+    site root for global admins. Moderation cascades down from these, so they
+    may overlap.
+    """
+    granted = await db_session.scalars(
+        select(Forum).where(
+            Forum.id.in_(
+                select(RolePermission.scope_id)
+                .join(Role)
+                .where(
+                    RolePermission.scope_type == RolePermission.ScopeTypes.FORUM,
+                    RolePermission.permission == Verbs.FORUM_MODERATE,
+                    RolePermission.effect == Effects.ALLOW,
+                    held_by(principal),
+                )
+            )
+        )
+    )
+    roots = list(granted)
+    if Verbs.ADMIN.value in await principal.awaitable_attrs.global_permissions:
+        site_root = await db_session.get(Forum, SITE_ROOT_FORUM_ID)
+        if site_root is not None and site_root not in roots:
+            roots.append(site_root)
+    permissions = await ForumPermissions.load(db_session, principal, roots)
+    return [root for root in roots if permissions.has(root, Verbs.FORUM_MODERATE)]
 
 
 class ForumPermissions:
@@ -61,15 +104,6 @@ class ForumPermissions:
         if is_admin or not forums:
             return cls(forum_ids, {}, is_admin)
 
-        if principal is None:
-            role_filter = Role.id == Role.GUEST_ID
-        else:
-            role_filter = or_(
-                Role.id == Role.REGISTERED_ID,
-                Role.id.in_(
-                    select(UserRole.role_id).where(UserRole.user_id == principal.id)
-                ),
-            )
         chain_ids = {
             forum_id for forum in forums for forum_id in (*forum.heritage, forum.id)
         }
@@ -85,7 +119,7 @@ class ForumPermissions:
             .where(
                 RolePermission.scope_type == RolePermission.ScopeTypes.FORUM,
                 RolePermission.scope_id.in_(chain_ids),
-                role_filter,
+                held_by(principal),
             )
         )
 

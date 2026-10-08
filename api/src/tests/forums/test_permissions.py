@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.forums.permissions import FORUM_VERBS, ForumPermissions
+from app.forums.permissions import FORUM_VERBS, ForumPermissions, moderated_roots
 from app.models import Game, Role, RolePermission
 from tests.factories import (
     ActivatedUserFactory,
@@ -293,6 +293,30 @@ class TestPublicGames:
 
         assert await check(db_session, user, root, Verbs.FORUM_READ)
         assert not await check(db_session, user, subforum, Verbs.FORUM_READ)
+
+
+class TestModeratedRoots:
+    async def test_returns_the_forums_moderate_allows_name(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        root, parent, _child = forums
+        await implicit_roles()
+        await make_role(
+            (Verbs.FORUM_MODERATE, parent, Effects.ALLOW),
+            (Verbs.FORUM_WRITE, root, Effects.ALLOW),
+            members=[user],
+        )
+
+        assert await moderated_roots(db_session, user) == [parent]
+
+    async def test_deny_on_the_same_forum_drops_it(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        _root, parent, _child = forums
+        await implicit_roles(registered=[(Verbs.FORUM_MODERATE, parent, Effects.DENY)])
+        await make_role((Verbs.FORUM_MODERATE, parent, Effects.ALLOW), members=[user])
+
+        assert await moderated_roots(db_session, user) == []
 
 
 class TestLoad:

@@ -5,6 +5,7 @@ from fastapi import APIRouter, File, UploadFile, status
 from app.auth.functions import validate_password_change
 from app.configs import configs
 from app.database import DBSessionDependency
+from app.forums.permissions import moderated_roots
 from app.helpers.avatars import process_avatar_upload, save_avatar
 from app.helpers.functions import error_response
 from app.me import schemas
@@ -31,14 +32,21 @@ _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
 
 
 @me.get("", response_model=schemas.UserOutput, response_model_exclude_none=True)
-async def get_current_user(current_user: Principal, full: bool = False):
+async def get_current_user(
+    current_user: Principal, db_session: DBSessionDependency, full: bool = False
+):
+    # Forum moderation is scoped, so moderators reach the ACP without a global
+    # access_acp grant.
+    forum_moderate = bool(await moderated_roots(db_session, current_user))
     output = {
         "id": current_user.id,
         "username": current_user.username,
         "avatar": current_user.avatar_url,
-        "acp": current_user.has_global_permission(
+        "acp": forum_moderate
+        or current_user.has_global_permission(
             RolePermission.ValidPermissions.ACP_ACCESS.value
         ),
+        "forumModerate": forum_moderate,
         "permissions": sorted(current_user.global_permissions),
     }
     if full:

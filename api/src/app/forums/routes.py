@@ -3,14 +3,56 @@ from fastapi import APIRouter
 from app.database import DBSessionDependency
 from app.exceptions import NotFoundException
 from app.forums import schemas
-from app.forums.functions import build_forum_tree, get_heritage, prune_unreadable
-from app.forums.permissions import ForumPermissions, Verbs
+from app.forums.functions import (
+    build_forum_tree,
+    build_moderated_tree,
+    get_heritage,
+    prune_unreadable,
+)
+from app.forums.permissions import ForumPermissions, Verbs, moderated_roots
 from app.helpers.decorators import public
 from app.middleware import Principal
 from app.repositories import ForumRepository, GameRepository, ThreadRepository
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 
 forums = APIRouter(prefix="/forums")
+
+
+@forums.get("/moderated", response_model=list[schemas.ModeratedForumData])
+async def get_moderated_forums(db_session: DBSessionDependency, principal: Principal):
+    """The forums the principal moderates, nested under their ancestors.
+
+    Game forums are only listed for games where the principal moderates one of
+    the game's forums directly, so site-wide moderators don't get every game.
+    """
+    roots = await moderated_roots(db_session, principal)
+    if not roots:
+        return []
+
+    forum_repository = ForumRepository(db_session, principal=principal)
+    subtrees = list(
+        await forum_repository.get_subtrees(
+            [root.id for root in roots],
+            only_game_ids={root.game_id for root in roots if root.game_id is not None},
+        )
+    )
+    permissions = await ForumPermissions.load(db_session, principal, subtrees)
+    moderated = [
+        forum for forum in subtrees if permissions.has(forum, Verbs.FORUM_MODERATE)
+    ]
+
+    heading_ids = {forum_id for forum in moderated for forum_id in forum.heritage} - {
+        forum.id for forum in subtrees
+    }
+    headings = (
+        list(await forum_repository.get_multiple(list(heading_ids)))
+        if heading_ids
+        else []
+    )
+
+    return build_moderated_tree(
+        [*subtrees, *headings], {forum.id for forum in moderated}
+    )
 
 
 @forums.get(

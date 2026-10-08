@@ -1,10 +1,13 @@
 from collections.abc import Collection
 
-from sqlalchemy import ScalarResult, func, select
+from sqlalchemy import ScalarResult, Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import NotFoundException
 from app.models import Forum, User
+
+# The forum index; every other forum descends from it.
+SITE_ROOT_FORUM_ID = 0
 
 
 class ForumRepository:
@@ -64,8 +67,26 @@ class ForumRepository:
             .where(Forum.heritage.contains([forum_id]))
             .order_by(Forum.order)
         )
-        if only_game_ids is not None:
-            query = query.where(
-                Forum.game_id.is_(None) | Forum.game_id.in_(only_game_ids)
-            )
-        return await self.db_session.scalars(query)
+        return await self.db_session.scalars(_limit_games(query, only_game_ids))
+
+    async def get_subtrees(
+        self, forum_ids: Collection[int], only_game_ids: Collection[int] | None = None
+    ) -> ScalarResult[Forum]:
+        """The given forums and every forum below them.
+
+        ``only_game_ids`` limits game forums to those games, as in
+        ``get_descendants``.
+        """
+        forum_ids = list(forum_ids)
+        query = (
+            select(Forum)
+            .where(Forum.id.in_(forum_ids) | Forum.heritage.overlap(forum_ids))
+            .order_by(Forum.order)
+        )
+        return await self.db_session.scalars(_limit_games(query, only_game_ids))
+
+
+def _limit_games(query: Select, only_game_ids: Collection[int] | None) -> Select:
+    if only_game_ids is None:
+        return query
+    return query.where(Forum.game_id.is_(None) | Forum.game_id.in_(only_game_ids))

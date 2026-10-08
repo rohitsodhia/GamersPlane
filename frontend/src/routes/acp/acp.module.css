@@ -18,6 +18,31 @@
 	}
 }
 
+.forum-tree {
+	ul {
+		list-style: none;
+		margin: 0;
+		padding-left: 1.25em;
+	}
+
+	& > ul {
+		padding-left: 0;
+	}
+
+	li {
+		margin: 0.35em 0;
+	}
+
+	summary {
+		cursor: pointer;
+	}
+
+	/* Line leaf forums up with the titles of their collapsible siblings. */
+	li:not(:has(> details)) {
+		padding-left: 1em;
+	}
+}
+
 .roles-switch-btn {
 	margin-bottom: 1em;
 }

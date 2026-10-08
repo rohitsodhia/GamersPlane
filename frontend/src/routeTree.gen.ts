@@ -37,6 +37,7 @@ import { Route as RegisterSuccessRouteImport } from './routes/register/success'
 import { Route as ToolsCardsRouteImport } from './routes/tools/cards'
 import { Route as ToolsDiceRouteImport } from './routes/tools/dice'
 import { Route as UserUserIdRouteImport } from './routes/user.$userId'
+import { Route as AcpForumsIndexRouteImport } from './routes/acp/forums/index'
 import { Route as AcpRoleRoleIdRouteImport } from './routes/acp/role.$roleId'
 import { Route as CharactersCharacterIdIndexRouteImport } from './routes/characters/$characterId/index'
 import { Route as CharactersCharacterIdChangeSheetRouteImport } from './routes/characters/$characterId/change-sheet'
@@ -50,6 +51,7 @@ import { Route as ForumsThreadThreadIdRouteImport } from './routes/forums/thread
 import { Route as GamesGameIdIndexRouteImport } from './routes/games/$gameId/index'
 import { Route as GamesGameIdEditRouteImport } from './routes/games/$gameId/edit'
 import { Route as GamesListIndexRouteImport } from './routes/games/list.index'
+import { Route as AcpForumsForumIdIndexRouteImport } from './routes/acp/forums/$forumId.index'
 import { Route as CharactersSheetsSheetIdIndexRouteImport } from './routes/characters/sheets/$sheetId/index'
 import { Route as CharactersSheetsSheetIdChangelogRouteImport } from './routes/characters/sheets/$sheetId/changelog'
 
@@ -194,6 +196,11 @@ const UserUserIdRoute = UserUserIdRouteImport.update({
   path: '/user/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcpForumsIndexRoute = AcpForumsIndexRouteImport.update({
+  id: '/forums/',
+  path: '/forums/',
+  getParentRoute: () => AcpRouteRoute,
+} as any)
 const AcpRoleRoleIdRoute = AcpRoleRoleIdRouteImport.update({
   id: '/role/$roleId',
   path: '/role/$roleId',
@@ -263,6 +270,11 @@ const GamesListIndexRoute = GamesListIndexRouteImport.update({
   path: '/',
   getParentRoute: () => GamesListRoute,
 } as any)
+const AcpForumsForumIdIndexRoute = AcpForumsForumIdIndexRouteImport.update({
+  id: '/forums/$forumId/',
+  path: '/forums/$forumId/',
+  getParentRoute: () => AcpRouteRoute,
+} as any)
 const CharactersSheetsSheetIdIndexRoute =
   CharactersSheetsSheetIdIndexRouteImport.update({
     id: '/characters/sheets/$sheetId/',
@@ -314,11 +326,13 @@ export interface FileRoutesByFullPath {
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
+  '/acp/forums/': typeof AcpForumsIndexRoute
   '/characters/$characterId/': typeof CharactersCharacterIdIndexRoute
   '/characters/sheets/': typeof CharactersSheetsIndexRoute
   '/games/$gameId/': typeof GamesGameIdIndexRoute
   '/games/list/': typeof GamesListIndexRoute
   '/characters/sheets/$sheetId/changelog': typeof CharactersSheetsSheetIdChangelogRoute
+  '/acp/forums/$forumId/': typeof AcpForumsForumIdIndexRoute
   '/characters/sheets/$sheetId/': typeof CharactersSheetsSheetIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -357,11 +371,13 @@ export interface FileRoutesByTo {
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
+  '/acp/forums': typeof AcpForumsIndexRoute
   '/characters/$characterId': typeof CharactersCharacterIdIndexRoute
   '/characters/sheets': typeof CharactersSheetsIndexRoute
   '/games/$gameId': typeof GamesGameIdIndexRoute
   '/games/list': typeof GamesListIndexRoute
   '/characters/sheets/$sheetId/changelog': typeof CharactersSheetsSheetIdChangelogRoute
+  '/acp/forums/$forumId': typeof AcpForumsForumIdIndexRoute
   '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdIndexRoute
 }
 export interface FileRoutesById {
@@ -403,11 +419,13 @@ export interface FileRoutesById {
   '/forums/new-thread/$forumId': typeof ForumsNewThreadForumIdRoute
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
+  '/acp/forums/': typeof AcpForumsIndexRoute
   '/characters/$characterId/': typeof CharactersCharacterIdIndexRoute
   '/characters/sheets/': typeof CharactersSheetsIndexRoute
   '/games/$gameId/': typeof GamesGameIdIndexRoute
   '/games/list/': typeof GamesListIndexRoute
   '/characters/sheets/$sheetId/changelog': typeof CharactersSheetsSheetIdChangelogRoute
+  '/acp/forums/$forumId/': typeof AcpForumsForumIdIndexRoute
   '/characters/sheets/$sheetId/': typeof CharactersSheetsSheetIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -450,11 +468,13 @@ export interface FileRouteTypes {
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
+    | '/acp/forums/'
     | '/characters/$characterId/'
     | '/characters/sheets/'
     | '/games/$gameId/'
     | '/games/list/'
     | '/characters/sheets/$sheetId/changelog'
+    | '/acp/forums/$forumId/'
     | '/characters/sheets/$sheetId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -493,11 +513,13 @@ export interface FileRouteTypes {
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
+    | '/acp/forums'
     | '/characters/$characterId'
     | '/characters/sheets'
     | '/games/$gameId'
     | '/games/list'
     | '/characters/sheets/$sheetId/changelog'
+    | '/acp/forums/$forumId'
     | '/characters/sheets/$sheetId'
   id:
     | '__root__'
@@ -538,11 +560,13 @@ export interface FileRouteTypes {
     | '/forums/new-thread/$forumId'
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
+    | '/acp/forums/'
     | '/characters/$characterId/'
     | '/characters/sheets/'
     | '/games/$gameId/'
     | '/games/list/'
     | '/characters/sheets/$sheetId/changelog'
+    | '/acp/forums/$forumId/'
     | '/characters/sheets/$sheetId/'
   fileRoutesById: FileRoutesById
 }
@@ -785,6 +809,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/acp/forums/': {
+      id: '/acp/forums/'
+      path: '/forums'
+      fullPath: '/acp/forums/'
+      preLoaderRoute: typeof AcpForumsIndexRouteImport
+      parentRoute: typeof AcpRouteRoute
+    }
     '/acp/role/$roleId': {
       id: '/acp/role/$roleId'
       path: '/role/$roleId'
@@ -876,6 +907,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GamesListIndexRouteImport
       parentRoute: typeof GamesListRoute
     }
+    '/acp/forums/$forumId/': {
+      id: '/acp/forums/$forumId/'
+      path: '/forums/$forumId'
+      fullPath: '/acp/forums/$forumId/'
+      preLoaderRoute: typeof AcpForumsForumIdIndexRouteImport
+      parentRoute: typeof AcpRouteRoute
+    }
     '/characters/sheets/$sheetId/': {
       id: '/characters/sheets/$sheetId/'
       path: '/characters/sheets/$sheetId'
@@ -898,6 +936,8 @@ interface AcpRouteRouteChildren {
   AcpUsersRoute: typeof AcpUsersRoute
   AcpIndexRoute: typeof AcpIndexRoute
   AcpRoleRoleIdRoute: typeof AcpRoleRoleIdRoute
+  AcpForumsIndexRoute: typeof AcpForumsIndexRoute
+  AcpForumsForumIdIndexRoute: typeof AcpForumsForumIdIndexRoute
 }
 
 const AcpRouteRouteChildren: AcpRouteRouteChildren = {
@@ -905,6 +945,8 @@ const AcpRouteRouteChildren: AcpRouteRouteChildren = {
   AcpUsersRoute: AcpUsersRoute,
   AcpIndexRoute: AcpIndexRoute,
   AcpRoleRoleIdRoute: AcpRoleRoleIdRoute,
+  AcpForumsIndexRoute: AcpForumsIndexRoute,
+  AcpForumsForumIdIndexRoute: AcpForumsForumIdIndexRoute,
 }
 
 const AcpRouteRouteWithChildren = AcpRouteRoute._addFileChildren(

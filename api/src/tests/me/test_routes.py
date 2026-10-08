@@ -5,7 +5,7 @@ from PIL import Image
 
 from app.configs import configs
 from app.models import RolePermission
-from tests.factories import PMFactory, RoleFactory, UserFactory
+from tests.factories import ForumFactory, PMFactory, RoleFactory, UserFactory
 
 
 def _make_png_bytes(size=(10, 10)):
@@ -52,6 +52,29 @@ class TestGetCurrentUser:
         body = response.json()
         assert body["permissions"] == []
         assert body["acp"] is False
+        assert body["forumModerate"] is False
+
+    async def test_forum_moderator_gets_acp_access(
+        self, authed_client, db_session, create
+    ):
+        client, user = authed_client
+        forum = await create(ForumFactory)
+        role = RoleFactory.build(owner=user)
+        db_session.add(role)
+        role.grant(
+            RolePermission.ValidPermissions.FORUM_MODERATE,
+            scope_type=RolePermission.ScopeTypes.FORUM,
+            scope_id=forum.id,
+        )
+        user.roles.append(role)
+        await db_session.flush()
+
+        response = await client.get("/me")
+
+        body = response.json()
+        assert body["acp"] is True
+        assert body["forumModerate"] is True
+        assert body["permissions"] == []
 
     async def test_get_current_user_reports_global_permission_verbs(
         self, authed_client, db_session

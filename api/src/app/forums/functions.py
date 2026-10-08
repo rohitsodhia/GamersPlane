@@ -4,6 +4,7 @@ from app.exceptions import NotFoundException
 from app.forums import schemas
 from app.models import Forum, Post
 from app.repositories import ForumRepository
+from app.repositories.forum_repository import SITE_ROOT_FORUM_ID
 
 
 async def get_heritage(
@@ -92,6 +93,42 @@ def prune_unreadable(
     for forum in children_by_parent.get(root_id, []):
         visit(forum)
     return kept
+
+
+def build_moderated_tree(
+    forums: list[Forum], moderated_ids: Collection[int]
+) -> list[schemas.ModeratedForumData]:
+    """Nest the forums in ``moderated_ids`` under their ancestors.
+
+    Ancestors the principal doesn't moderate stay as headings; ``forums`` must
+    include them. The site root is never listed (everything falls under it), so
+    the tree starts at the top-level forums.
+    """
+    visible_ids = set(moderated_ids)
+    for forum in forums:
+        if forum.id in moderated_ids:
+            visible_ids.update(forum.heritage)
+    visible_ids.discard(SITE_ROOT_FORUM_ID)
+
+    children_by_parent: dict[int | None, list[Forum]] = {}
+    for forum in sorted(forums, key=lambda forum: forum.order):
+        if forum.id not in visible_ids:
+            continue
+        parent_id = forum.parent_id if forum.parent_id in visible_ids else None
+        children_by_parent.setdefault(parent_id, []).append(forum)
+
+    def build(parent_id: int | None) -> list[schemas.ModeratedForumData]:
+        return [
+            schemas.ModeratedForumData(
+                id=forum.id,
+                title=forum.title,
+                moderate=forum.id in moderated_ids,
+                children=build(forum.id),
+            )
+            for forum in children_by_parent.get(parent_id, [])
+        ]
+
+    return build(None)
 
 
 def build_forum_tree(

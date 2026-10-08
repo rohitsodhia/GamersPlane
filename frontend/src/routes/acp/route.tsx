@@ -45,6 +45,11 @@ function RouteComponent() {
 								<Link to="/acp/users">Users</Link>
 							</li>
 						)}
+						{me.forumModerate && (
+							<li>
+								<Link to="/acp/forums">Forums</Link>
+							</li>
+						)}
 					</ul>
 				</nav>
 				<Outlet />

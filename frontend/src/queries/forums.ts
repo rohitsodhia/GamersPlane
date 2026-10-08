@@ -67,6 +67,24 @@ export type ForumBreadcrumbs = {
 	heritage: HeritageForum[];
 };
 
+export type ModeratedForum = {
+	id: number;
+	title: string;
+	// False for a forum listed only as a heading over forums the user moderates.
+	moderate: boolean;
+	children: ModeratedForum[];
+};
+
+export const moderatedForumsQueryOptions = queryOptions({
+	queryKey: ["forums", "moderated"],
+	queryFn: async (): Promise<ModeratedForum[]> => {
+		const res = await apiFetch("/forums/moderated");
+		if (!res.ok) throw new Error("Failed to fetch moderated forums");
+		return res.json();
+	},
+	staleTime: 1000 * 60,
+});
+
 export function forumQueryOptions(id: number) {
 	return queryOptions({
 		queryKey: ["forums", id],

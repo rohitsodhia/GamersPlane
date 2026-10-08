@@ -37,6 +37,18 @@ class ChildForumData(SchemaBase):
 ChildForumData.model_rebuild()
 
 
+class ModeratedForumData(SchemaBase):
+    id: int
+    title: str
+    # False for a forum listed only as a heading over forums the principal
+    # moderates.
+    moderate: bool
+    children: list[ModeratedForumData] = []
+
+
+ModeratedForumData.model_rebuild()
+
+
 class GetForumBreadcrumbsResponse(SchemaBase):
     id: int
     title: str
