@@ -7,6 +7,7 @@
             "mcp__claude-in-chrome__get_page_text",
             "mcp__claude-in-chrome__read_console_messages",
             "mcp__claude-in-chrome__read_network_requests",
+            "Bash(cd *)",
             "Bash(npx biome *)",
             "Bash(npx tsc *)",
             "Bash(uv run ruff *)",
@@ -15,7 +16,15 @@
             "Bash(npm test *)",
             "Bash(npx vitest *)",
             "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
-            "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/)"
+            "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/)",
+            "Bash(grep *)",
+            "Bash(/usr/bin/grep *)",
+            "Bash(sed -n *)",
+            "Bash(/usr/bin/sed -n *)",
+            "Bash(tail *)",
+            "Bash(/usr/bin/tail *)",
+            "Bash(head *)",
+            "Bash(/usr/bin/head *)"
         ]
     },
     "hooks": {
