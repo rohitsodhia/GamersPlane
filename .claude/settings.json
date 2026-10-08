@@ -8,6 +8,7 @@
             "mcp__claude-in-chrome__read_console_messages",
             "mcp__claude-in-chrome__read_network_requests",
             "Bash(cd *)",
+            "Bash(git diff *)",
             "Bash(npx biome *)",
             "Bash(npx tsc *)",
             "Bash(uv run ruff *)",

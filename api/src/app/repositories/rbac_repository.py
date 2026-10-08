@@ -24,12 +24,36 @@ PROTECTED_ROLE_MEMBER_ID = 1
 # member lists can't be edited. Their names, owners and grants stay editable —
 # grants on them are how site-wide forum defaults are set.
 IMPLICIT_ROLE_IDS = frozenset({Role.REGISTERED_ID, Role.GUEST_ID})
+# A game's GM role is fixed (moderate on the game's forum, set at creation), and
+# both the GM and Player roles take their members from the game's player list.
+GM_GRANTS_LOCKED = "A game's GM role's grants can't be changed"
 
 
 class RBACkRepository:
     def __init__(self, db_session: AsyncSession, principal: User):
         self.db_session = db_session
         self.principal = principal
+
+    async def _game_role_kind(self, role_id: int) -> str | None:
+        """``"gm"`` or ``"player"`` if the role is a game's GM or Player role."""
+        row = (
+            await self.db_session.execute(
+                select(Game.gm_role_id, Game.player_role_id)
+                .where(or_(Game.gm_role_id == role_id, Game.player_role_id == role_id))
+                .limit(1)
+            )
+        ).first()
+        if row is None:
+            return None
+        return "gm" if row.gm_role_id == role_id else "player"
+
+    async def _require_not_gm_role(self, role_id: int, message: str) -> None:
+        if await self._game_role_kind(role_id) == "gm":
+            raise ForbiddenException(message)
+
+    async def _require_members_unmanaged(self, role_id: int) -> None:
+        if await self._game_role_kind(role_id) is not None:
+            raise ForbiddenException("This role's members are managed by its game")
 
     def get_permissions(self):
         return [
@@ -152,13 +176,17 @@ class RBACkRepository:
                 names[(RolePermission.ScopeTypes.ROLE, role_id)] = name
         return names
 
-    async def create_role(self, name: str, owner_id: int) -> Role:
+    async def create_role(
+        self, name: str, owner_id: int, game_id: int | None = None
+    ) -> Role:
         """Create a role. The plural is derived from the name by the model."""
-        role = Role(owner_id=owner_id)
+        role = Role(owner_id=owner_id, game_role=game_id)
         role.name = name
-        self.db_session.add(role)
         try:
-            await self.db_session.flush()
+            # A savepoint, so a name collision leaves the session usable.
+            async with self.db_session.begin_nested():
+                self.db_session.add(role)
+                await self.db_session.flush()
         except IntegrityError as exc:
             raise ConflictException("A role with that name already exists") from exc
         return role
@@ -173,11 +201,18 @@ class RBACkRepository:
         if role.id == PROTECTED_ROLE_ID:
             raise ForbiddenException("This role is protected and can't be edited")
         if name is not None:
-            role.name = name
-        if owner is not None:
-            role.owner = owner
+            await self._require_not_gm_role(
+                role.id, "A game's GM role can't be renamed"
+            )
         try:
-            await self.db_session.flush()
+            # A savepoint, so a name collision leaves the session usable (and the
+            # role unchanged).
+            async with self.db_session.begin_nested():
+                if name is not None:
+                    role.name = name
+                if owner is not None:
+                    role.owner = owner
+                await self.db_session.flush()
         except IntegrityError as exc:
             raise ConflictException("A role with that name already exists") from exc
         return role
@@ -203,6 +238,7 @@ class RBACkRepository:
             raise ForbiddenException(
                 "This role is protected and its grants can't be changed"
             )
+        await self._require_not_gm_role(role.id, GM_GRANTS_LOCKED)
         if not permission.scope_allowed(scope_type):
             scope_label = scope_type.value if scope_type else "global"
             raise ValidationError(
@@ -236,6 +272,7 @@ class RBACkRepository:
             raise ForbiddenException(
                 "This role is protected and its grants can't be changed"
             )
+        await self._require_not_gm_role(grant.role_id, GM_GRANTS_LOCKED)
         grant.effect = effect
         await self.db_session.flush()
         return grant
@@ -251,6 +288,7 @@ class RBACkRepository:
             raise ForbiddenException(
                 "This role is protected and its grants can't be changed"
             )
+        await self._require_not_gm_role(role.id, GM_GRANTS_LOCKED)
         role.grants.remove(grant)
         await self.db_session.flush()
 
@@ -258,6 +296,7 @@ class RBACkRepository:
         """Idempotent: no-op if the user already holds the role."""
         if role.id in IMPLICIT_ROLE_IDS:
             raise ForbiddenException("Membership in this role is automatic")
+        await self._require_members_unmanaged(role.id)
         if any(member.id == user.id for member in role.users):
             return
         role.users.append(user)
@@ -269,6 +308,7 @@ class RBACkRepository:
             raise ForbiddenException("Membership in this role is automatic")
         if role.id == PROTECTED_ROLE_ID and user_id == PROTECTED_ROLE_MEMBER_ID:
             raise ForbiddenException("This user can't be removed from this role")
+        await self._require_members_unmanaged(role.id)
         member = next((m for m in role.users if m.id == user_id), None)
         if member is None:
             return

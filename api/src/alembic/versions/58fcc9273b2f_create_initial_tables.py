@@ -116,14 +116,28 @@ def upgrade() -> None:
         "roles",
         ["name"],
         unique=True,
-        postgresql_where=sa.text("deleted IS NULL"),
+        postgresql_where=sa.text("deleted IS NULL AND game_role IS NULL"),
+    )
+    op.create_index(
+        "uq_roles_game_name_active",
+        "roles",
+        ["game_role", "name"],
+        unique=True,
+        postgresql_where=sa.text("deleted IS NULL AND game_role IS NOT NULL"),
     )
     op.create_index(
         "uq_roles_plural_active",
         "roles",
         ["plural"],
         unique=True,
-        postgresql_where=sa.text("deleted IS NULL"),
+        postgresql_where=sa.text("deleted IS NULL AND game_role IS NULL"),
+    )
+    op.create_index(
+        "uq_roles_game_plural_active",
+        "roles",
+        ["game_role", "plural"],
+        unique=True,
+        postgresql_where=sa.text("deleted IS NULL AND game_role IS NOT NULL"),
     )
     op.create_table(
         "systems",

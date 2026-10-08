@@ -110,18 +110,33 @@ class Role(Base, TimestampMixin, SoftDeleteMixin):
         # Names are unique among *live* roles only. A soft-deleted role must not
         # block reusing its name, and the IntegrityError in
         # RbacRepository.create_role/update_role should only fire on a real
-        # collision with an active role.
+        # collision with an active role. Site roles share one namespace; each
+        # game's roles get their own, so two games can both have a "Scout".
         Index(
             "uq_roles_name_active",
             "name",
             unique=True,
-            postgresql_where=text("deleted IS NULL"),
+            postgresql_where=text("deleted IS NULL AND game_role IS NULL"),
+        ),
+        Index(
+            "uq_roles_game_name_active",
+            "game_role",
+            "name",
+            unique=True,
+            postgresql_where=text("deleted IS NULL AND game_role IS NOT NULL"),
         ),
         Index(
             "uq_roles_plural_active",
             "plural",
             unique=True,
-            postgresql_where=text("deleted IS NULL"),
+            postgresql_where=text("deleted IS NULL AND game_role IS NULL"),
+        ),
+        Index(
+            "uq_roles_game_plural_active",
+            "game_role",
+            "plural",
+            unique=True,
+            postgresql_where=text("deleted IS NULL AND game_role IS NOT NULL"),
         ),
     )
 

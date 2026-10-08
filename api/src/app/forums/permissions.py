@@ -13,6 +13,8 @@ Effects = RolePermission.Effects
 FORUM_VERBS = frozenset(
     verb for verb in Verbs if RolePermission.ScopeTypes.FORUM in verb.allowed_scopes
 )
+# Declaration order: read first, moderate last.
+FORUM_VERBS_ORDERED = tuple(verb for verb in Verbs if verb in FORUM_VERBS)
 
 
 def held_by(principal: User | None) -> ColumnElement[bool]:
@@ -197,6 +199,22 @@ class ForumPermissions:
         if not permissions.has(forum, Verbs.FORUM_READ):
             raise NotFoundException("Forum not found")
         raise ForbiddenException("You can't moderate this forum")
+
+    @classmethod
+    def resolve_role_verbs(
+        cls,
+        role_grants: dict[int, list[tuple[Verbs, Effects]]],
+        chain: Iterable[int],
+    ) -> dict[Verbs, bool]:
+        """What one role alone resolves to for every forum verb along ``chain``
+        (forum ids, root first), with ``forum_moderate`` implying the rest."""
+        chain = tuple(chain)
+        if cls._resolve_role(role_grants, chain, Verbs.FORUM_MODERATE):
+            return {verb: True for verb in FORUM_VERBS_ORDERED}
+        return {
+            verb: cls._resolve_role(role_grants, chain, verb)
+            for verb in FORUM_VERBS_ORDERED
+        }
 
     def _resolve(self, chain: tuple[int, ...], verb: Verbs) -> bool:
         return any(

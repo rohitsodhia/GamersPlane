@@ -1133,3 +1133,97 @@ class TestRemoveUserFromRole:
         assert response.status_code == 403
         body = (await client.get(f"/rbac/roles/{role.id}")).json()
         assert [u["id"] for u in body["users"]] == [member.id]
+
+
+class TestGameBackedRoles:
+    """A game's GM role is fixed and both its GM and Player roles take members
+    from the game's player list."""
+
+    @pytest.fixture
+    async def gm_role(self, authed_client, db_session, create):
+        _client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(
+            db_session, grants=[(Verbs.FORUM_MODERATE, Scopes.FORUM, 99)]
+        )
+        await make_game_backed_by(db_session, create, gm_role=role)
+        return role
+
+    @pytest.fixture
+    async def player_role(self, authed_client, db_session, create):
+        _client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session)
+        await make_game_backed_by(db_session, create, player_role=role)
+        return role
+
+    async def test_gm_role_cannot_be_renamed(self, authed_client, gm_role):
+        client, _user = authed_client
+
+        response = await client.patch(f"/rbac/roles/{gm_role.id}", json={"name": "New"})
+
+        assert response.status_code == 403
+
+    async def test_gm_role_grants_cannot_be_changed(self, authed_client, gm_role):
+        client, _user = authed_client
+        grant_id = gm_role.grants[0].id
+
+        created = await client.post(
+            f"/rbac/roles/{gm_role.id}/grants", json={"permission": "access_acp"}
+        )
+        updated = await client.patch(
+            f"/rbac/roles/{gm_role.id}/grants/{grant_id}", json={"effect": "deny"}
+        )
+        deleted = await client.delete(f"/rbac/roles/{gm_role.id}/grants/{grant_id}")
+
+        assert (created.status_code, updated.status_code, deleted.status_code) == (
+            403,
+            403,
+            403,
+        )
+        grants = (await client.get(f"/rbac/roles/{gm_role.id}")).json()["grants"]
+        assert [(g["id"], g["effect"]) for g in grants] == [(grant_id, "allow")]
+
+    async def assert_members_locked(self, client, db_session, role):
+        member = (await make_role(db_session)).owner
+        other = (await make_role(db_session)).owner
+        await db_session.refresh(role, ["users"])
+        role.users.append(member)
+        await db_session.flush()
+
+        added = await client.post(
+            f"/rbac/roles/{role.id}/users", json={"user_id": other.id}
+        )
+        removed = await client.delete(f"/rbac/roles/{role.id}/users/{member.id}")
+
+        assert (added.status_code, removed.status_code) == (403, 403)
+        body = (await client.get(f"/rbac/roles/{role.id}")).json()
+        assert [u["id"] for u in body["users"]] == [member.id]
+
+    async def test_gm_role_members_are_managed_by_the_game(
+        self, authed_client, db_session, gm_role
+    ):
+        client, _user = authed_client
+
+        await self.assert_members_locked(client, db_session, gm_role)
+
+    async def test_player_role_members_are_managed_by_the_game(
+        self, authed_client, db_session, player_role
+    ):
+        client, _user = authed_client
+
+        await self.assert_members_locked(client, db_session, player_role)
+
+    async def test_player_role_can_still_be_renamed_and_granted(
+        self, authed_client, player_role
+    ):
+        client, _user = authed_client
+
+        renamed = await client.patch(
+            f"/rbac/roles/{player_role.id}", json={"name": "Adventurers"}
+        )
+        granted = await client.post(
+            f"/rbac/roles/{player_role.id}/grants", json={"permission": "access_acp"}
+        )
+
+        assert (renamed.status_code, granted.status_code) == (204, 204)

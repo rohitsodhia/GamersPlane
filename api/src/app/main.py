@@ -27,6 +27,7 @@ from app.exceptions import (
     SuspendedException,
     ValidationError,
 )
+from app.forums.acp_routes import forums_acp
 from app.forums.routes import forums
 from app.gamers.legacy_routes import gamers as legacy_gamers
 from app.games.routes import games
@@ -195,6 +196,7 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(systems)
     app.include_router(pms)
     app.include_router(forums)
+    app.include_router(forums_acp)
     app.include_router(threads)
     app.include_router(posts)
     app.include_router(tools)

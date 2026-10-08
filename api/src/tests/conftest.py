@@ -199,6 +199,10 @@ def unseeded_system_roles(monkeypatch):
     """
     monkeypatch.setattr(Role, "REGISTERED_ID", -1)
     monkeypatch.setattr(Role, "GUEST_ID", -1)
+    # Built from the real ids at import, so it needs emptying too.
+    monkeypatch.setattr(
+        "app.repositories.rbac_repository.IMPLICIT_ROLE_IDS", frozenset()
+    )
 
 
 @pytest.fixture
