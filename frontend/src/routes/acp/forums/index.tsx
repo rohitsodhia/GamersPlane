@@ -15,7 +15,7 @@ export const Route = createFileRoute("/acp/forums/")({
 
 function ForumNode({ forum }: { forum: ModeratedForum }) {
 	const title = forum.moderate ? (
-		<Link to="/acp/forums/$forumId" params={{ forumId: String(forum.id) }}>
+		<Link to="/acp/forums/$forumId" params={{ forumId: forum.id }}>
 			{forum.title}
 		</Link>
 	) : (

@@ -1,7 +1,16 @@
 from __future__ import annotations
 
+from typing import Annotated
+
+from pydantic import StringConstraints
+
 from app.models.forum import Forum
 from app.schema_base import SchemaBase
+
+ForumTitle = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=3, max_length=200)
+]
+ForumDescription = Annotated[str, StringConstraints(strip_whitespace=True)]
 
 
 class HeritageForumData(SchemaBase):
@@ -69,3 +78,23 @@ class GetForum(SchemaBase):
     # readable subforums lacks forum_read, and has no threads to list.
     permissions: list[str]
     children: list[ChildForumData] = []
+
+
+class UpdateForumInput(SchemaBase):
+    # Omitted fields are left alone; an empty description clears it.
+    title: ForumTitle | None = None
+    description: ForumDescription | None = None
+
+
+class CreateSubforumInput(SchemaBase):
+    title: ForumTitle
+    description: ForumDescription | None = None
+    forum_type: Forum.ForumTypes = Forum.ForumTypes.FORUM
+
+
+class ForumIdResponse(SchemaBase):
+    id: int
+
+
+class ReorderSubforumsInput(SchemaBase):
+    forum_ids: list[int]

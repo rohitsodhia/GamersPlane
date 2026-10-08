@@ -1,21 +1,31 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 
 from app.database import DBSessionDependency
-from app.exceptions import NotFoundException
+from app.exceptions import ForbiddenException, NotFoundException
 from app.forums import schemas
 from app.forums.functions import (
     build_forum_tree,
     build_moderated_tree,
     get_heritage,
+    is_game_root_forum,
     prune_unreadable,
 )
 from app.forums.permissions import ForumPermissions, Verbs, moderated_roots
 from app.helpers.decorators import public
 from app.middleware import Principal
+from app.models import Forum
 from app.repositories import ForumRepository, GameRepository, ThreadRepository
+from app.repositories.forum_repository import PROTECTED_FORUM_IDS, SITE_ROOT_FORUM_ID
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 
 forums = APIRouter(prefix="/forums")
+
+
+async def get_forum_or_404(forum_repository: ForumRepository, forum_id: int) -> Forum:
+    forum = await forum_repository.get(forum_id)
+    if forum is None:
+        raise NotFoundException("Forum not found")
+    return forum
 
 
 @forums.get("/moderated", response_model=list[schemas.ModeratedForumData])
@@ -147,3 +157,81 @@ async def get_forum(
         permissions=sorted(verb.value for verb in forum_permissions),
         children=children_forums_data,
     )
+
+
+@forums.patch("/{forum_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_forum(
+    forum_id: int,
+    data: schemas.UpdateForumInput,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    forum_repository = ForumRepository(db_session, principal=principal)
+    forum = await get_forum_or_404(forum_repository, forum_id)
+    await ForumPermissions.require_moderate(db_session, principal, forum)
+
+    if forum.id == SITE_ROOT_FORUM_ID:
+        raise ForbiddenException("The forum index can't be edited")
+    if is_game_root_forum(forum):
+        raise ForbiddenException("A game's forum follows the game's details")
+    if (
+        data.title is not None
+        and data.title != forum.title
+        and forum.id in PROTECTED_FORUM_IDS
+    ):
+        raise ForbiddenException("This forum can't be renamed")
+
+    await forum_repository.update(forum, title=data.title, description=data.description)
+
+
+@forums.post("/{forum_id}/subforums", response_model=schemas.ForumIdResponse)
+async def create_subforum(
+    forum_id: int,
+    data: schemas.CreateSubforumInput,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    forum_repository = ForumRepository(db_session, principal=principal)
+    parent = await get_forum_or_404(forum_repository, forum_id)
+    await ForumPermissions.require_moderate(db_session, principal, parent)
+
+    forum = await forum_repository.add(
+        title=data.title,
+        description=data.description or None,
+        forum_type=data.forum_type,
+        parent_id=parent.id,
+        game_id=parent.game_id,
+    )
+    return schemas.ForumIdResponse(id=forum.id)
+
+
+@forums.put("/{forum_id}/subforums/order", status_code=status.HTTP_204_NO_CONTENT)
+async def reorder_subforums(
+    forum_id: int,
+    data: schemas.ReorderSubforumsInput,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    forum_repository = ForumRepository(db_session, principal=principal)
+    parent = await get_forum_or_404(forum_repository, forum_id)
+    await ForumPermissions.require_moderate(db_session, principal, parent)
+
+    await forum_repository.reorder_children(parent.id, data.forum_ids)
+
+
+@forums.delete("/{forum_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_forum(
+    forum_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    """Deleting a forum is managing its parent's subforums, so it takes
+    moderation of the parent."""
+    forum_repository = ForumRepository(db_session, principal=principal)
+    forum = await get_forum_or_404(forum_repository, forum_id)
+    if forum.id in PROTECTED_FORUM_IDS:
+        raise ForbiddenException("This forum can't be deleted")
+    parent = await get_forum_or_404(forum_repository, forum.parent_id)
+    await ForumPermissions.require_moderate(db_session, principal, parent)
+    if is_game_root_forum(forum):
+        raise ForbiddenException("A game's forum is deleted with the game")
+
+    await forum_repository.delete(forum)

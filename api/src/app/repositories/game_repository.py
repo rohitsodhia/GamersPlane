@@ -248,6 +248,10 @@ class GameRepository:
     async def update(self, game: Game, **kwargs) -> Game:
         for key, value in kwargs.items():
             setattr(game, key, value)
+        # The game's forum is named after it and can't be renamed on its own.
+        if "title" in kwargs:
+            root_forum = await self.db_session.get(Forum, game.root_forum_id)
+            root_forum.title = game.title
         await self.db_session.flush()
         return game
 

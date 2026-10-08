@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.models import FavoriteGame, Forum, Player, RolePermission
 from app.repositories import GameRepository
@@ -481,3 +481,284 @@ class TestGetForumBreadcrumbs:
         response = await client.get(f"/forums/{forum.id}/breadcrumbs")
 
         assert response.status_code == 404
+
+
+@pytest.fixture
+async def board(create, db_session, site):
+    """Index -> General (1) -> Announcements (3), Lounge -> Off Topic, Chat.
+
+    General and Announcements take their protected ids explicitly.
+    """
+    general = await create(
+        ForumFactory, id=1, parent_id=0, heritage=[0], title="General", order=1
+    )
+    announcements = await create(
+        ForumFactory,
+        id=3,
+        parent_id=general.id,
+        heritage=[0, general.id],
+        title="Announcements",
+        order=1,
+    )
+    await db_session.execute(
+        text(
+            "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+            "(SELECT MAX(id) FROM forums))"
+        )
+    )
+    lounge = await create(
+        ForumFactory,
+        parent_id=general.id,
+        heritage=[0, general.id],
+        title="Lounge",
+        description="Old",
+        order=2,
+    )
+    off_topic = await create(
+        ForumFactory,
+        parent_id=lounge.id,
+        heritage=[0, general.id, lounge.id],
+        title="Off Topic",
+        order=1,
+    )
+    chat = await create(
+        ForumFactory,
+        parent_id=general.id,
+        heritage=[0, general.id],
+        title="Chat",
+        order=3,
+    )
+    return {
+        "general": general,
+        "announcements": announcements,
+        "lounge": lounge,
+        "off_topic": off_topic,
+        "chat": chat,
+    }
+
+
+@pytest.fixture
+async def moderator(authed_client, db_session, board):
+    """A client whose user moderates General."""
+    client, user = authed_client
+    await grant_role(
+        db_session, user, (Verbs.FORUM_MODERATE, board["general"].id, ALLOW)
+    )
+    return client
+
+
+@pytest.fixture
+async def admin(authed_client, db_session, board):
+    client, user = authed_client
+    await grant_role(db_session, user, (Verbs.ADMIN, None, ALLOW))
+    return client
+
+
+async def deleted_at(db_session, forum):
+    return await db_session.scalar(
+        select(Forum.deleted)
+        .where(Forum.id == forum.id)
+        .execution_options(skip_filter=True)
+    )
+
+
+class TestUpdateForum:
+    async def test_moderator_renames_and_clears_description(
+        self, moderator, db_session, board
+    ):
+        lounge = board["lounge"]
+
+        response = await moderator.patch(
+            f"/forums/{lounge.id}", json={"title": "  Hangout ", "description": ""}
+        )
+
+        assert response.status_code == 204
+        await db_session.refresh(lounge)
+        assert (lounge.title, lounge.description) == ("Hangout", None)
+
+    async def test_non_moderator_is_forbidden(self, authed_client, board):
+        client, _user = authed_client
+
+        response = await client.patch(
+            f"/forums/{board['lounge'].id}", json={"title": "Hangout"}
+        )
+
+        assert response.status_code == 403
+
+    async def test_unreadable_forum_is_not_found(
+        self, authed_client, db_session, board
+    ):
+        client, user = authed_client
+        lounge = board["lounge"]
+        await grant_role(db_session, user, (Verbs.FORUM_READ, lounge.id, DENY))
+
+        response = await client.patch(f"/forums/{lounge.id}", json={"title": "Hangout"})
+
+        assert response.status_code == 404
+
+    async def test_protected_forum_cant_be_renamed(self, admin, board):
+        response = await admin.patch(
+            f"/forums/{board['general'].id}", json={"title": "Renamed"}
+        )
+
+        assert response.status_code == 403
+
+    async def test_protected_forum_description_changes_alongside_its_own_title(
+        self, admin, db_session, board
+    ):
+        general = board["general"]
+
+        response = await admin.patch(
+            f"/forums/{general.id}", json={"title": "General", "description": "New"}
+        )
+
+        assert response.status_code == 204
+        await db_session.refresh(general)
+        assert general.description == "New"
+
+    async def test_game_forum_cant_be_edited(self, auth_as, site, make_game, gm):
+        game = await make_game("Mine")
+
+        response = await auth_as(gm).patch(
+            f"/forums/{game.root_forum_id}", json={"description": "New"}
+        )
+
+        assert response.status_code == 403
+
+    async def test_forum_index_cant_be_edited(self, admin, board):
+        response = await admin.patch("/forums/0", json={"description": "New"})
+
+        assert response.status_code == 403
+
+
+class TestCreateSubforum:
+    async def test_moderator_adds_subforum_after_the_last_one(
+        self, moderator, db_session, board
+    ):
+        general = board["general"]
+
+        response = await moderator.post(
+            f"/forums/{general.id}/subforums", json={"title": "New"}
+        )
+
+        forum = await db_session.get(Forum, response.json()["id"])
+        assert (forum.parent_id, forum.heritage, forum.order, forum.game_id) == (
+            general.id,
+            [0, general.id],
+            board["chat"].order + 1,
+            None,
+        )
+
+    async def test_order_counts_past_a_deleted_subforum(
+        self, moderator, db_session, board
+    ):
+        chat = board["chat"]
+        await moderator.delete(f"/forums/{chat.id}")
+
+        response = await moderator.post(
+            f"/forums/{board['general'].id}/subforums", json={"title": "New"}
+        )
+
+        forum = await db_session.get(Forum, response.json()["id"])
+        assert forum.order == chat.order + 1
+
+    async def test_subforum_of_game_forum_belongs_to_the_game(
+        self, auth_as, db_session, site, make_game, gm
+    ):
+        game = await make_game("Mine")
+
+        response = await auth_as(gm).post(
+            f"/forums/{game.root_forum_id}/subforums", json={"title": "OOC"}
+        )
+
+        forum = await db_session.get(Forum, response.json()["id"])
+        assert forum.game_id == game.id
+
+    async def test_non_moderator_is_forbidden(self, authed_client, board):
+        client, _user = authed_client
+
+        response = await client.post(
+            f"/forums/{board['general'].id}/subforums", json={"title": "New"}
+        )
+
+        assert response.status_code == 403
+
+
+class TestReorderSubforums:
+    async def test_listed_subforums_swap_their_slots(
+        self, moderator, db_session, board
+    ):
+        announcements, lounge, chat = (
+            board["announcements"],
+            board["lounge"],
+            board["chat"],
+        )
+
+        response = await moderator.put(
+            f"/forums/{board['general'].id}/subforums/order",
+            json={"forum_ids": [chat.id, announcements.id]},
+        )
+
+        assert response.status_code == 204
+        for forum in (announcements, lounge, chat):
+            await db_session.refresh(forum)
+        assert (chat.order, lounge.order, announcements.order) == (1, 2, 3)
+
+    @pytest.mark.parametrize(
+        "listed", [["announcements", "announcements"], ["announcements", "off_topic"]]
+    )
+    async def test_duplicate_or_foreign_forum_is_rejected(
+        self, moderator, board, listed
+    ):
+        response = await moderator.put(
+            f"/forums/{board['general'].id}/subforums/order",
+            json={"forum_ids": [board[name].id for name in listed]},
+        )
+
+        assert response.status_code == 400
+
+    async def test_non_moderator_is_forbidden(self, authed_client, board):
+        client, _user = authed_client
+
+        response = await client.put(
+            f"/forums/{board['general'].id}/subforums/order",
+            json={"forum_ids": [board["chat"].id]},
+        )
+
+        assert response.status_code == 403
+
+
+class TestDeleteForum:
+    async def test_soft_deletes_forum_and_its_subforums_together(
+        self, moderator, db_session, board
+    ):
+        response = await moderator.delete(f"/forums/{board['lounge'].id}")
+
+        assert response.status_code == 204
+        lounge_deleted = await deleted_at(db_session, board["lounge"])
+        assert lounge_deleted is not None
+        assert await deleted_at(db_session, board["off_topic"]) == lounge_deleted
+        assert await deleted_at(db_session, board["chat"]) is None
+
+    async def test_moderating_only_the_forum_itself_isnt_enough(
+        self, authed_client, db_session, board
+    ):
+        client, user = authed_client
+        lounge = board["lounge"]
+        await grant_role(db_session, user, (Verbs.FORUM_MODERATE, lounge.id, ALLOW))
+
+        response = await client.delete(f"/forums/{lounge.id}")
+
+        assert response.status_code == 403
+
+    async def test_protected_forum_cant_be_deleted(self, admin, board):
+        response = await admin.delete(f"/forums/{board['announcements'].id}")
+
+        assert response.status_code == 403
+
+    async def test_game_forum_cant_be_deleted(self, admin, make_game):
+        game = await make_game("Mine")
+
+        response = await admin.delete(f"/forums/{game.root_forum_id}")
+
+        assert response.status_code == 403

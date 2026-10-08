@@ -3,7 +3,7 @@ from collections.abc import Iterable
 from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import NotFoundException
+from app.exceptions import ForbiddenException, NotFoundException
 from app.models import Forum, Game, Role, RolePermission, User, UserRole
 from app.repositories.forum_repository import SITE_ROOT_FORUM_ID
 
@@ -172,6 +172,19 @@ class ForumPermissions:
         if not permissions.has(forum, Verbs.FORUM_READ):
             raise NotFoundException(not_found)
         return permissions
+
+    @classmethod
+    async def require_moderate(
+        cls, db_session: AsyncSession, principal: User, forum: Forum
+    ) -> None:
+        """403 unless the principal moderates the forum; 404 if they can't even
+        read it, as in ``require_read``."""
+        permissions = await cls.load(db_session, principal, [forum])
+        if permissions.has(forum, Verbs.FORUM_MODERATE):
+            return
+        if not permissions.has(forum, Verbs.FORUM_READ):
+            raise NotFoundException("Forum not found")
+        raise ForbiddenException("You can't moderate this forum")
 
     def _resolve(self, chain: tuple[int, ...], verb: Verbs) -> bool:
         verdict = False

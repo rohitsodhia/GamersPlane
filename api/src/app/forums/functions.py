@@ -5,6 +5,13 @@ from app.forums import schemas
 from app.models import Forum, Post
 from app.repositories import ForumRepository
 from app.repositories.forum_repository import SITE_ROOT_FORUM_ID
+from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
+
+
+def is_game_root_forum(forum: Forum) -> bool:
+    """A game's own forum, whose title follows the game and which goes away
+    with it."""
+    return forum.game_id is not None and forum.parent_id == GAMES_ROOT_FORUM_ID
 
 
 async def get_heritage(

@@ -1,7 +1,27 @@
 import { queryOptions } from "@tanstack/react-query";
-import { apiFetch } from "#/lib/api";
+import { ApiError, apiFetch } from "#/lib/api";
 
 export type ForumType = "f" | "c";
+
+export const SITE_ROOT_FORUM_ID = 0;
+export const GAMES_ROOT_FORUM_ID = 2;
+// Mirrors PROTECTED_FORUM_IDS in the API's forum_repository.py: these can't be
+// renamed or deleted.
+export const PROTECTED_FORUM_IDS = [SITE_ROOT_FORUM_ID, 1, GAMES_ROOT_FORUM_ID, 3];
+
+// A game's own forum: its title follows the game, and it's deleted with it.
+export const isGameRootForum = (forum: {
+	game_id?: number | null;
+	parent_id: number | null;
+}) => forum.game_id != null && forum.parent_id === GAMES_ROOT_FORUM_ID;
+
+// The index has no details of its own, and a game's forum takes its details
+// from the game.
+export const hasEditableDetails = (forum: {
+	id: number;
+	game_id?: number | null;
+	parent_id: number | null;
+}) => forum.id !== SITE_ROOT_FORUM_ID && !isGameRootForum(forum);
 
 export type HeritageForum = {
 	id: number;
@@ -96,6 +116,39 @@ export function forumQueryOptions(id: number) {
 		staleTime: 1000 * 60,
 	});
 }
+
+async function forumMutate(path: string, method: string, body?: unknown) {
+	const res = await apiFetch(path, {
+		method,
+		...(body === undefined ? {} : { body: JSON.stringify(body) }),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res;
+}
+
+// An empty description clears it.
+export const updateForum = (
+	forumId: number,
+	body: { title?: string; description?: string },
+) => forumMutate(`/forums/${forumId}`, "PATCH", body);
+
+export const createSubforum = async (
+	forumId: number,
+	body: { title: string; description?: string; forum_type: ForumType },
+): Promise<number> => {
+	const res = await forumMutate(`/forums/${forumId}/subforums`, "POST", body);
+	return (await res.json()).id;
+};
+
+// The listed subforums swap among the order slots they already hold.
+export const reorderSubforums = (forumId: number, forumIds: number[]) =>
+	forumMutate(`/forums/${forumId}/subforums/order`, "PUT", { forum_ids: forumIds });
+
+export const deleteForum = (forumId: number) =>
+	forumMutate(`/forums/${forumId}`, "DELETE");
 
 export function forumBreadcrumbsQueryOptions(id: number) {
 	return queryOptions({

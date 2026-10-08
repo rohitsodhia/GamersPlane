@@ -352,10 +352,7 @@ function RouteComponent() {
 						)}
 						{forum.permissions.includes("forum_moderate") && (
 							<div>
-								<Link
-									to="/acp/forums/$forumId"
-									params={{ forumId: String(forum.id) }}
-								>
+								<Link to="/acp/forums/$forumId" params={{ forumId: forum.id }}>
 									Administrative Control Panel
 								</Link>
 							</div>

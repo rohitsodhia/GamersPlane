@@ -425,3 +425,27 @@ class TestGameRepository:
 
         refetched = await repository.get(game.id)
         assert refetched.public is False
+
+    async def test_update_title_renames_root_forum(
+        self, repository, gm, system, db_session
+    ):
+        game = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        await repository.update(game, title="New Title")
+
+        root_forum = await db_session.get(Forum, game.root_forum_id)
+        await db_session.refresh(root_forum)
+        assert root_forum.title == "New Title"
