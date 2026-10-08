@@ -6,10 +6,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.configs import configs
-from app.models import FavoriteGame, Forum, Game, Player, Role, System, User
+from app.models import (
+    FavoriteGame,
+    Forum,
+    Game,
+    Player,
+    Role,
+    RolePermission,
+    System,
+    User,
+    UserRole,
+)
 from app.repositories.forum_repository import ForumRepository
 
 GAMES_ROOT_FORUM_ID = 2
+
+Verbs = RolePermission.ValidPermissions
+
+# Granted on the game's root forum, so they cascade to all its subforums.
+GM_FORUM_VERBS = (Verbs.FORUM_MODERATE,)
+PLAYER_FORUM_VERBS = (
+    Verbs.FORUM_READ,
+    Verbs.FORUM_WRITE,
+    Verbs.FORUM_EDIT,
+    Verbs.FORUM_CREATE_THREAD,
+    Verbs.FORUM_DELETE,
+    Verbs.FORUM_ADD_ROLLS,
+    Verbs.FORUM_ADD_DRAWS,
+)
 
 
 class GameRepository:
@@ -165,19 +189,32 @@ class GameRepository:
             select(System).where(System.id.in_(allowed_char_sheets))
         )
 
-        # Role names are created from the game's id, which doesn't exist until the
-        # game row is flushed, so start with placeholders and rename them after.
-        gm_role = Role(name=f"pending-role-{uuid.uuid4()}", owner_id=gm_id)
-        player_role = Role(name=f"pending-role-{uuid.uuid4()}", owner_id=gm_id)
-        self.db_session.add_all([gm_role, player_role])
-        await self.db_session.flush()
-
         forum_repository = ForumRepository(self.db_session, principal=self.principal)
         root_forum = await forum_repository.add(
             title=title,
             forum_type=Forum.ForumTypes.FORUM,
             parent_id=GAMES_ROOT_FORUM_ID,
         )
+
+        # Role names are created from the game's id, which doesn't exist until the
+        # game row is flushed, so start with placeholders and rename them after.
+        # Grants are attached before the roles' first flush, while `grants` can
+        # still be appended to without a lazy load.
+        gm_role = Role(name=f"pending-role-{uuid.uuid4()}", owner_id=gm_id)
+        player_role = Role(name=f"pending-role-{uuid.uuid4()}", owner_id=gm_id)
+        for role, verbs in (
+            (gm_role, GM_FORUM_VERBS),
+            (player_role, PLAYER_FORUM_VERBS),
+        ):
+            for verb in verbs:
+                role.grant(
+                    verb,
+                    scope_type=RolePermission.ScopeTypes.FORUM,
+                    scope_id=root_forum.id,
+                )
+        self.db_session.add_all([gm_role, player_role])
+        await self.db_session.flush()
+        self.db_session.add(UserRole(user_id=gm_id, role_id=gm_role.id))
 
         game = Game(
             title=title,
@@ -199,8 +236,8 @@ class GameRepository:
         self.db_session.add(game)
         await self.db_session.flush()
 
-        gm_role.name = f"Game Id {game.id} GM"
-        player_role.name = f"Game Id {game.id} Player"
+        gm_role.name = f"GM Role - Game #{game.id}"
+        player_role.name = f"Player Role - Game #{game.id}"
         gm_role.game_role = game.id
         player_role.game_role = game.id
         root_forum.game_id = game.id

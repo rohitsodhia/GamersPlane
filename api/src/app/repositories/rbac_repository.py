@@ -55,7 +55,7 @@ class RBACkRepository:
         verb = RolePermission.ValidPermissions.ROLE_ADMIN.value
         allowed: set[int] = set()
         denied: set[int] = set()
-        for role in self.principal.roles:
+        for role in self.principal.effective_roles:
             for grant in role.grants:
                 if (
                     grant.permission.value != verb

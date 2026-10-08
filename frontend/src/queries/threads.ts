@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
+import type { ForumPermission } from "#/queries/forums";
 
 export type ThreadOptions = {
 	sticky: boolean;
@@ -43,6 +44,8 @@ export type ThreadDetails = {
 	title: string;
 	options: ThreadOptions;
 	first_post_id: number;
+	// The user's permissions on the thread's forum.
+	permissions: ForumPermission[];
 };
 
 export function threadsQueryOptions(forumId: number, page = 1) {

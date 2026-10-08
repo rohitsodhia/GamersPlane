@@ -448,6 +448,8 @@ async def toggle_gm(
         raise ForbiddenException("Primary GM cannot be demoted")
 
     player = await get_player_or_404(player_repository, game_id, user_id)
+    if player.state is not Player.States.ACCEPTED:
+        raise ConflictException("Only accepted players can be made GMs")
 
     await player_repository.update_state(player, is_gm=not player.is_gm)
 

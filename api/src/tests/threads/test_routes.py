@@ -163,6 +163,18 @@ class TestGetThread:
         assert body["first_post_id"] == first_post.id
         assert body["options"] == Thread.Options(locked=True).model_dump(mode="json")
 
+    async def test_get_thread_returns_principals_forum_permissions(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        forum = await closed_forum(create)
+        await grant(db_session, user, forum, Verbs.FORUM_READ, Verbs.FORUM_WRITE)
+        thread, _first_post = await create_thread(create, db_session, forum=forum)
+
+        response = await client.get(f"/threads/{thread.id}")
+
+        assert response.json()["permissions"] == ["forum_read", "forum_write"]
+
     async def test_get_thread_in_unreadable_forum_returns_404(
         self, client, create, db_session
     ):

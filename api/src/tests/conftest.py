@@ -189,6 +189,18 @@ MEMBER_VERBS = (
 )
 
 
+@pytest.fixture(autouse=True)
+def unseeded_system_roles(monkeypatch):
+    """Point Registered/Guest at ids no role has.
+
+    Rolled-back tests don't rewind the roles sequence, so without this a role a
+    test creates could land on id 2 or 3 and be granted to everyone implicitly.
+    ``open_forums`` (or a test) repoints them at real roles.
+    """
+    monkeypatch.setattr(Role, "REGISTERED_ID", -1)
+    monkeypatch.setattr(Role, "GUEST_ID", -1)
+
+
 @pytest.fixture
 def open_forums(db_session, monkeypatch):
     """Give Registered users member access, and Guests read access, to forums.

@@ -60,7 +60,7 @@ async def get_thread(
     thread = await thread_repository.get(thread_id)
     if thread is None:
         raise NotFoundException("Thread not found")
-    await ForumPermissions.require_read(
+    permissions = await ForumPermissions.require_read(
         db_session, principal, thread.forum, "Thread not found"
     )
     assert thread.first_post is not None
@@ -71,6 +71,7 @@ async def get_thread(
         title=thread.first_post.title,
         options=thread.options,
         first_post_id=thread.first_post.id,
+        permissions=sorted(verb.value for verb in permissions.allowed(thread.forum)),
     )
 
 

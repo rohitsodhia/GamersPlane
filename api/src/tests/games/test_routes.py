@@ -1816,6 +1816,23 @@ class TestToggleGm:
 
         assert response.status_code == 403
 
+    @pytest.mark.parametrize("state", [Player.States.APPLIED, Player.States.INVITED])
+    async def test_toggle_gm_unaccepted_player_conflict(
+        self, auth_as, client, db_session, game, gm, create, state
+    ):
+        client = auth_as(gm)
+        target = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(game.id, target.id, state=state)
+
+        response = await client.post(f"/games/{game.id}/player/{target.id}/toggle_gm")
+
+        assert response.status_code == 409
+        player = await db_session.get(
+            Player, {"game_id": game.id, "user_id": target.id}
+        )
+        assert player.is_gm is False
+
     async def test_toggle_gm_promotes_player(
         self, auth_as, client, db_session, game, gm, accepted_player
     ):

@@ -33,9 +33,11 @@ export const Route = createFileRoute("/forums/{-$forumId}")({
 	},
 	loaderDeps: ({ search }) => ({ page: search.page ?? 1 }),
 	loader: async ({ context, params, deps }) => {
-		const forum = await context.queryClient.ensureQueryData(
-			forumQueryOptions(params.forumId),
-		);
+		const forum = await context.queryClient
+			.ensureQueryData(forumQueryOptions(params.forumId))
+			.catch(() => {
+				throw notFound();
+			});
 		if (hasThreads(forum)) {
 			await context.queryClient.ensureQueryData(
 				threadsQueryOptions(params.forumId, deps.page),

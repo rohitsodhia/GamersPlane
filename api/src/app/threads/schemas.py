@@ -36,6 +36,8 @@ class GetThreadResponse(SchemaBase):
     title: str
     options: Thread.Options
     first_post_id: int
+    # The principal's verbs on the thread's forum.
+    permissions: list[str]
 
 
 class NewThreadInput(SchemaBase):
