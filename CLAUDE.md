@@ -99,6 +99,10 @@ Any time you need to interact with the running frontend dev server — via Claud
 
 After writing or substantially changing a suite of tests (a new test file, or a batch of new tests added to an existing one), spawn a subagent to audit the suite before considering the work done. Run the audit agent after tests are written or updated, but before running the tests. Ask it to flag tests that are low-value: ones that just re-assert a stdlib/framework guarantee rather than our code's behavior, trivial wrappers that don't exercise any real logic or branching, and redundant tests that cover the exact same code path as another test with no meaningfully different input or assertion. It should distinguish that from tests that look similar but exercise genuinely distinct branches (e.g. keep-highest vs. keep-lowest, or three variants of a type flag) — those should be kept. Have it report a verdict (KEEP/CUT/MERGE) per test rather than editing anything itself, then apply the agreed-on edits and re-run the suite.
 
+## Implementation Workflow
+
+The main session stays on its current model (Opus) for discussion, planning and review; it doesn't write implementation code itself. Once a plan is agreed with the user, spawn a subagent on Sonnet (`model: "sonnet"`) to do the work. The subagent starts with no context, so brief it fully: the agreed decisions, the exact files involved, the project rules from this file that apply, and the testing workflow above (it spawns the test-audit agent itself, also on Sonnet). Split large work into phases, with a review between each. When the subagent reports back, review its diff (`git diff`, plus targeted reads only where something needs a closer look) before reporting to the user, and send fixes back to the subagent rather than making them in the main session.
+
 ## API Architecture
 
 ### App structure
