@@ -16,6 +16,8 @@ ForumDescription = Annotated[str, StringConstraints(strip_whitespace=True)]
 class HeritageForumData(SchemaBase):
     id: int
     title: str
+    # Whether the principal moderates this ancestor (so can open its ACP).
+    moderate: bool
 
 
 class AuthorData(SchemaBase):

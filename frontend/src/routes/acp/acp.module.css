@@ -43,6 +43,10 @@
 	}
 }
 
+.forum-acp-breadcrumbs {
+	margin-bottom: 0.75em;
+}
+
 .forum-acp-nav {
 	display: flex;
 	flex-wrap: wrap;

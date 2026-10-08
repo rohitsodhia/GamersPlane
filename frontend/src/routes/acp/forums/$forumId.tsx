@@ -6,6 +6,7 @@ import {
 	Outlet,
 	redirect,
 } from "@tanstack/react-router";
+import { Fragment } from "react";
 import { requireForumModerator } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { forumQueryOptions, hasEditableDetails } from "#/queries/forums";
@@ -44,6 +45,21 @@ function RouteComponent() {
 				{forum.id ? forum.title : "Forums"}
 			</h2>
 			<div style={{ marginInline: `${hbMargined.margin}px` }}>
+				<div className={styles["forum-acp-breadcrumbs"]}>
+					{forum.heritage.map((ancestor) => (
+						<Fragment key={ancestor.id}>
+							{ancestor.moderate ? (
+								<Link to="/acp/forums/$forumId" params={{ forumId: ancestor.id }}>
+									{ancestor.id ? ancestor.title : "Forums"}
+								</Link>
+							) : (
+								<span>{ancestor.id ? ancestor.title : "Forums"}</span>
+							)}{" "}
+							{`> `}
+						</Fragment>
+					))}
+					<span>{forum.id ? forum.title : "Forums"}</span>
+				</div>
 				<div className={styles["forum-acp-nav"]}>
 					<nav className={styles["forum-acp-tabs"]}>
 						{hasEditableDetails(forum) && (

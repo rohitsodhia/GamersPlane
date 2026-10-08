@@ -29,9 +29,10 @@ def held_by(principal: User | None) -> ColumnElement[bool]:
 async def moderated_roots(db_session: AsyncSession, principal: User) -> list[Forum]:
     """The forums a principal's moderation starts from.
 
-    That's each forum one of their ``forum_moderate`` allows names, if it still
-    resolves to moderate there (a deny on the same forum beats it), plus the
-    site root for global admins. Moderation cascades down from these, so they
+    That's each forum one of their ``forum_moderate`` allows names, if some role
+    still resolves to moderate there (the allowing role's own deny on the same
+    forum beats it, but another role's deny doesn't), plus the site root for
+    global admins. Moderation cascades down from these, so they
     may overlap.
     """
     granted = await db_session.scalars(
@@ -63,27 +64,32 @@ class ForumPermissions:
     Build with ``load()``, passing every forum you intend to check; the grants for
     each forum's whole ancestor chain are fetched in one query.
 
-    Resolution for one verb on one forum walks the chain root -> forum (forums
-    carry their ancestors in ``heritage``). At each forum, a ``deny`` beats an
-    ``allow``; a more specific forum's verdict overwrites a less specific one's.
-    No matching grant anywhere means deny.
+    Each role resolves independently. For one verb on one forum, a role walks the
+    chain root -> forum (forums carry their ancestors in ``heritage``). At each
+    forum, the role's ``deny`` beats its ``allow``; a more specific forum's
+    verdict overwrites a less specific one's. No matching grant anywhere means
+    deny. The principal holds the verb if any of their roles resolves to allow,
+    so one role's deny never cancels another role's allow.
 
     The principal's roles are their assigned roles plus one implicit role:
     Registered for a logged-in user, Guest for an anonymous request.
-    ``forum_moderate`` implies every other forum verb, and holders of the global
-    ``admin`` verb are allowed everything.
+    ``forum_moderate`` implies every other forum verb (checked per role: a role
+    that moderates grants everything, whatever other roles deny), and holders of
+    the global ``admin`` verb are allowed everything.
 
     A public game's root forum carries an implicit ``forum_read`` allow for
-    everyone, so it behaves like a grant at that forum: it cascades into the
-    game's subforums, and a deny on a subforum (or on the root itself) still wins.
+    everyone. It is modelled as a grant on the implicit Registered/Guest role at
+    that forum: it cascades into the game's subforums, and a Registered/Guest
+    deny on a subforum (or on the root itself) still wins over it.
     """
 
     def __init__(
         self,
         forum_ids: set[int],
-        grants: dict[int, list[tuple[Verbs, Effects]]],
+        grants: dict[int, dict[int, list[tuple[Verbs, Effects]]]],
         is_admin: bool,
     ):
+        # role id -> forum id -> that role's (verb, effect) grants there
         self._forum_ids = forum_ids
         self._grants = grants
         self._is_admin = is_admin
@@ -111,6 +117,7 @@ class ForumPermissions:
         # soft-delete criteria drop a deleted role's grants.
         rows = await db_session.execute(
             select(
+                RolePermission.role_id,
                 RolePermission.scope_id,
                 RolePermission.permission,
                 RolePermission.effect,
@@ -123,9 +130,14 @@ class ForumPermissions:
             )
         )
 
-        grants: dict[int, list[tuple[Verbs, Effects]]] = {}
-        for scope_id, permission, effect in rows:
-            grants.setdefault(scope_id, []).append((permission, effect))
+        grants: dict[int, dict[int, list[tuple[Verbs, Effects]]]] = {}
+        for role_id, scope_id, permission, effect in rows:
+            grants.setdefault(role_id, {}).setdefault(scope_id, []).append(
+                (permission, effect)
+            )
+
+        implicit_role_id = Role.GUEST_ID if principal is None else Role.REGISTERED_ID
+        implicit_grants = grants.setdefault(implicit_role_id, {})
 
         public_game_roots = await db_session.scalars(
             select(Game.root_forum_id).where(
@@ -133,7 +145,7 @@ class ForumPermissions:
             )
         )
         for root_forum_id in public_game_roots:
-            grants.setdefault(root_forum_id, []).append(
+            implicit_grants.setdefault(root_forum_id, []).append(
                 (Verbs.FORUM_READ, Effects.ALLOW)
             )
 
@@ -187,11 +199,22 @@ class ForumPermissions:
         raise ForbiddenException("You can't moderate this forum")
 
     def _resolve(self, chain: tuple[int, ...], verb: Verbs) -> bool:
+        return any(
+            self._resolve_role(role_grants, chain, verb)
+            for role_grants in self._grants.values()
+        )
+
+    @staticmethod
+    def _resolve_role(
+        role_grants: dict[int, list[tuple[Verbs, Effects]]],
+        chain: tuple[int, ...],
+        verb: Verbs,
+    ) -> bool:
         verdict = False
         for forum_id in chain:
             effects = {
                 effect
-                for permission, effect in self._grants.get(forum_id, ())
+                for permission, effect in role_grants.get(forum_id, ())
                 if permission is verb
             }
             if Effects.DENY in effects:

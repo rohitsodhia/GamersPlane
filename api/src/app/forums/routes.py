@@ -21,6 +21,19 @@ from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 forums = APIRouter(prefix="/forums")
 
 
+def build_heritage_data(
+    heritage_forums: list[Forum], permissions: ForumPermissions
+) -> list[schemas.HeritageForumData]:
+    return [
+        schemas.HeritageForumData(
+            id=heritage_forum.id,
+            title=heritage_forum.title,
+            moderate=permissions.has(heritage_forum, Verbs.FORUM_MODERATE),
+        )
+        for heritage_forum in heritage_forums
+    ]
+
+
 async def get_forum_or_404(forum_repository: ForumRepository, forum_id: int) -> Forum:
     forum = await forum_repository.get(forum_id)
     if forum is None:
@@ -76,18 +89,17 @@ async def get_forum_breadcrumbs(
     forum = await forum_repository.get(forum_id)
     if forum is None:
         raise NotFoundException("Forum not found")
-    await ForumPermissions.require_read(db_session, principal, forum, "Forum not found")
-
     heritage_forums = await get_heritage(forum_repository, forum.heritage)
-    heritage_forums_data = [
-        schemas.HeritageForumData(id=heritage_forum.id, title=heritage_forum.title)
-        for heritage_forum in heritage_forums
-    ]
+    permissions = await ForumPermissions.load(
+        db_session, principal, [forum, *heritage_forums]
+    )
+    if not permissions.has(forum, Verbs.FORUM_READ):
+        raise NotFoundException("Forum not found")
 
     return schemas.GetForumBreadcrumbsResponse(
         id=forum.id,
         title=forum.title,
-        heritage=heritage_forums_data,
+        heritage=build_heritage_data(heritage_forums, permissions),
     )
 
 
@@ -102,10 +114,6 @@ async def get_forum(
         raise NotFoundException("Forum not found")
 
     heritage_forums = await get_heritage(forum_repository, forum.heritage)
-    heritage_forums_data = [
-        schemas.HeritageForumData(id=heritage_forum.id, title=heritage_forum.title)
-        for heritage_forum in heritage_forums
-    ]
 
     # The games forum holds every game's forum; listing it (or the index above
     # it) shows only the games the user plays in or has favorited.
@@ -123,7 +131,7 @@ async def get_forum(
     )
 
     permissions = await ForumPermissions.load(
-        db_session, principal, [forum, *descendants]
+        db_session, principal, [forum, *descendants, *heritage_forums]
     )
     readable_ids = {
         candidate.id
@@ -150,7 +158,7 @@ async def get_forum(
         description=forum.description,
         forum_type=forum.forum_type,
         parent_id=forum.parent_id,
-        heritage=heritage_forums_data,
+        heritage=build_heritage_data(heritage_forums, permissions),
         order=forum.order,
         game_id=forum.game_id,
         thread_count=forum.thread_count if Verbs.FORUM_READ in forum_permissions else 0,

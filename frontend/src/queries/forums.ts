@@ -26,6 +26,7 @@ export const hasEditableDetails = (forum: {
 export type HeritageForum = {
 	id: number;
 	title: string;
+	moderate: boolean;
 };
 
 type LastPostAuthor = {

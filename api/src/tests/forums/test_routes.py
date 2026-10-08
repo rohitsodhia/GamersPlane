@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import select, text
 
-from app.models import FavoriteGame, Forum, Player, RolePermission
+from app.models import FavoriteGame, Forum, Player, Role, RolePermission
 from app.repositories import GameRepository
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 from tests.factories import (
@@ -84,8 +84,35 @@ class TestGetForum:
 
         body = response.json()
         assert body["heritage"] == [
-            {"id": grandparent.id, "title": "Grandparent"},
-            {"id": parent.id, "title": "Parent"},
+            {"id": grandparent.id, "title": "Grandparent", "moderate": False},
+            {"id": parent.id, "title": "Parent", "moderate": False},
+        ]
+
+    async def test_get_forum_heritage_flags_moderated_ancestors(
+        self, authed_client, db_session, create, open_forums
+    ):
+        client, user = authed_client
+        grandparent = await create(ForumFactory, title="Top", heritage=[])
+        parent = await create(
+            ForumFactory,
+            parent_id=grandparent.id,
+            heritage=[grandparent.id],
+            title="Mid",
+        )
+        forum = await create(
+            ForumFactory,
+            parent_id=parent.id,
+            heritage=[grandparent.id, parent.id],
+            title="Leaf",
+        )
+        await open_forums(grandparent.id)
+        await grant_role(db_session, user, (Verbs.FORUM_MODERATE, parent.id, ALLOW))
+
+        response = await client.get(f"/forums/{forum.id}")
+
+        assert [(h["id"], h["moderate"]) for h in response.json()["heritage"]] == [
+            (grandparent.id, False),
+            (parent.id, True),
         ]
 
     async def test_get_forum_missing_heritage_forum_returns_404(self, client, create):
@@ -471,8 +498,8 @@ class TestGetForumBreadcrumbs:
         response = await client.get(f"/forums/{forum.id}/breadcrumbs")
 
         assert response.json()["heritage"] == [
-            {"id": grandparent.id, "title": "Grandparent"},
-            {"id": parent.id, "title": "Parent"},
+            {"id": grandparent.id, "title": "Grandparent", "moderate": False},
+            {"id": parent.id, "title": "Parent", "moderate": False},
         ]
 
     async def test_missing_heritage_forum_returns_404(self, client, create):
@@ -588,9 +615,20 @@ class TestUpdateForum:
     async def test_unreadable_forum_is_not_found(
         self, authed_client, db_session, board
     ):
-        client, user = authed_client
+        client, _user = authed_client
         lounge = board["lounge"]
-        await grant_role(db_session, user, (Verbs.FORUM_READ, lounge.id, DENY))
+        # Registered is what opens the board, so the deny goes on Registered;
+        # another role's deny wouldn't cancel its allow.
+        db_session.add(
+            RolePermission(
+                role_id=Role.REGISTERED_ID,
+                permission=Verbs.FORUM_READ,
+                scope_type=RolePermission.ScopeTypes.FORUM,
+                scope_id=lounge.id,
+                effect=DENY,
+            )
+        )
+        await db_session.flush()
 
         response = await client.patch(f"/forums/{lounge.id}", json={"title": "Hangout"})
 

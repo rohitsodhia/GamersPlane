@@ -181,14 +181,29 @@ class TestResolution:
 
         assert await check(db_session, user, child, Verbs.FORUM_WRITE)
 
-    async def test_deny_beats_allow_on_the_same_forum(
+    async def test_another_roles_deny_on_the_same_forum_does_not_cancel_an_allow(
         self, db_session, forums, user, make_role, implicit_roles
     ):
         root, _, _ = forums
         await implicit_roles(registered=[(Verbs.FORUM_WRITE, root, Effects.DENY)])
         await make_role((Verbs.FORUM_WRITE, root, Effects.ALLOW), members=[user])
 
-        assert not await check(db_session, user, root, Verbs.FORUM_WRITE)
+        assert await check(db_session, user, root, Verbs.FORUM_WRITE)
+
+    async def test_a_roles_child_deny_stands_until_another_role_allows_there(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        root, _, child = forums
+        await implicit_roles()
+        await make_role(
+            (Verbs.FORUM_READ, root, Effects.ALLOW),
+            (Verbs.FORUM_READ, child, Effects.DENY),
+            members=[user],
+        )
+        assert not await check(db_session, user, child, Verbs.FORUM_READ)
+
+        await make_role((Verbs.FORUM_READ, child, Effects.ALLOW), members=[user])
+        assert await check(db_session, user, child, Verbs.FORUM_READ)
 
     async def test_grants_for_other_verbs_do_not_apply(
         self, db_session, forums, user, implicit_roles
@@ -221,6 +236,15 @@ class TestModerate:
         await make_role((Verbs.FORUM_MODERATE, root, Effects.ALLOW), members=[user])
 
         assert await check(db_session, user, child, Verbs.FORUM_WRITE)
+
+    async def test_moderate_cascades_despite_another_roles_deny_of_that_verb(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        root, _, child = forums
+        await implicit_roles(registered=[(Verbs.FORUM_READ, root, Effects.DENY)])
+        await make_role((Verbs.FORUM_MODERATE, root, Effects.ALLOW), members=[user])
+
+        assert await check(db_session, user, child, Verbs.FORUM_READ)
 
     async def test_denied_moderate_no_longer_implies_other_verbs(
         self, db_session, forums, user, make_role, implicit_roles
@@ -294,6 +318,16 @@ class TestPublicGames:
         assert await check(db_session, user, root, Verbs.FORUM_READ)
         assert not await check(db_session, user, subforum, Verbs.FORUM_READ)
 
+    async def test_registered_deny_on_the_root_overrides_public_read_but_not_other_roles(
+        self, db_session, user, make_game, make_role, implicit_roles
+    ):
+        root, subforum = await make_game(public=True)
+        await implicit_roles(registered=[(Verbs.FORUM_READ, root, Effects.DENY)])
+        assert not await check(db_session, user, subforum, Verbs.FORUM_READ)
+
+        await make_role((Verbs.FORUM_READ, root, Effects.ALLOW), members=[user])
+        assert await check(db_session, user, subforum, Verbs.FORUM_READ)
+
 
 class TestModeratedRoots:
     async def test_returns_the_forums_moderate_allows_name(
@@ -309,14 +343,14 @@ class TestModeratedRoots:
 
         assert await moderated_roots(db_session, user) == [parent]
 
-    async def test_deny_on_the_same_forum_drops_it(
+    async def test_another_roles_deny_does_not_drop_it(
         self, db_session, forums, user, make_role, implicit_roles
     ):
         _root, parent, _child = forums
         await implicit_roles(registered=[(Verbs.FORUM_MODERATE, parent, Effects.DENY)])
         await make_role((Verbs.FORUM_MODERATE, parent, Effects.ALLOW), members=[user])
 
-        assert await moderated_roots(db_session, user) == []
+        assert await moderated_roots(db_session, user) == [parent]
 
 
 class TestLoad:
