@@ -53,4 +53,7 @@ class GetForum(SchemaBase):
     order: int
     game_id: int | None
     thread_count: int
+    # Forum verbs the principal holds here. A forum shown only because it has
+    # readable subforums lacks forum_read, and has no threads to list.
+    permissions: list[str]
     children: list[ChildForumData] = []

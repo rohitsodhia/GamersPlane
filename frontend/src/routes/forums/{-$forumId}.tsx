@@ -32,15 +32,23 @@ export const Route = createFileRoute("/forums/{-$forumId}")({
 		if (Number.isNaN(params.forumId)) throw notFound();
 	},
 	loaderDeps: ({ search }) => ({ page: search.page ?? 1 }),
-	loader: ({ context, params, deps }) =>
-		Promise.all([
-			context.queryClient.ensureQueryData(forumQueryOptions(params.forumId)),
-			context.queryClient.ensureQueryData(
+	loader: async ({ context, params, deps }) => {
+		const forum = await context.queryClient.ensureQueryData(
+			forumQueryOptions(params.forumId),
+		);
+		if (hasThreads(forum)) {
+			await context.queryClient.ensureQueryData(
 				threadsQueryOptions(params.forumId, deps.page),
-			),
-		]),
+			);
+		}
+	},
 	component: RouteComponent,
 });
+
+// The root forum only holds subforums, and a forum the user can't read is only
+// shown as a heading over the subforums they can.
+const hasThreads = (forum: Forum) =>
+	forum.id !== 0 && forum.permissions.includes("forum_read");
 
 const getRootForum = (forum: Forum) => forum.heritage[0]?.id ?? forum.id;
 
@@ -224,21 +232,81 @@ function InlineThreadPagination({
 	);
 }
 
-function RouteComponent() {
-	const loggedIn = useAuthStore((state) => !!state.token);
-
-	const { forumId } = Route.useParams();
+function ForumThreads({
+	forumId,
+	canCreateThread,
+}: {
+	forumId: number;
+	canCreateThread: boolean;
+}) {
 	const { page: searchPage } = Route.useSearch();
-	const { data: forum } = useSuspenseQuery(forumQueryOptions(forumId));
 	const [page, setPage] = useState(searchPage ?? 1);
 	const {
 		data: { threads, count },
 	} = useSuspenseQuery(threadsQueryOptions(forumId, page));
 
+	const hbMarginedThreadHeader = useHbMargined<HTMLDivElement>();
+
+	return (
+		<div className={styles["forum-threads"]}>
+			<div
+				className={styles["forum-threads-header"]}
+				style={{ marginLeft: hbMarginedThreadHeader.margin }}
+			>
+				{canCreateThread && (
+					<Link
+						to="/forums/new-thread/$forumId"
+						params={{ forumId }}
+						className="skew-btn"
+					>
+						New Thread
+					</Link>
+				)}
+
+				<div
+					className={styles["thread-pagination"]}
+					style={{ marginInline: hbMarginedThreadHeader.margin }}
+				>
+					<Paginate numItems={count} current={page} onPageChange={setPage} />
+				</div>
+			</div>
+			<div
+				className={`headerbar hb-dark listed-items-header ${styles["column-titles"]}`}
+				ref={hbMarginedThreadHeader.ref}
+			>
+				<div></div>
+				<div className={styles["thread-info"]}>Thread</div>
+				<div># of Posts</div>
+				<div>Last Post</div>
+			</div>
+			<div
+				className={styles["thread-list"]}
+				style={{ marginInline: hbMarginedThreadHeader.margin }}
+			>
+				{threads.map((thread) => (
+					<Thread key={thread.id} thread={thread} />
+				))}
+				{threads.length === 0 && <div className={styles["no-threads"]}>No threads</div>}
+			</div>
+			<div
+				className="thread-pagination"
+				style={{ marginInline: hbMarginedThreadHeader.margin }}
+			>
+				<Paginate numItems={count} current={page} onPageChange={setPage} />
+			</div>
+		</div>
+	);
+}
+
+function RouteComponent() {
+	const loggedIn = useAuthStore((state) => !!state.token);
+
+	const { forumId } = Route.useParams();
+	const { data: forum } = useSuspenseQuery(forumQueryOptions(forumId));
+
 	const rootForum = getRootForum(forum);
 
 	const hbMarginedHeader = useHbMargined<HTMLHeadingElement>();
-	const hbMarginedThreadHeader = useHbMargined<HTMLDivElement>();
 
 	const categories = forum.children.filter((child) => child.forum_type === "c");
 	const uncategorizedForums = forum.children.filter(
@@ -296,53 +364,12 @@ function RouteComponent() {
 				<CategoryGroup title="Subforums" forums={uncategorizedForums} />
 			)}
 
-			<div className={styles["forum-threads"]}>
-				<div
-					className={styles["forum-threads-header"]}
-					style={{ marginLeft: hbMarginedThreadHeader.margin }}
-				>
-					<Link
-						to="/forums/new-thread/$forumId"
-						params={{ forumId: forum.id }}
-						className="skew-btn"
-					>
-						New Thread
-					</Link>
-
-					<div
-						className={styles["thread-pagination"]}
-						style={{ marginInline: hbMarginedThreadHeader.margin }}
-					>
-						<Paginate numItems={count} current={page} onPageChange={setPage} />
-					</div>
-				</div>
-				<div
-					className={`headerbar hb-dark listed-items-header ${styles["column-titles"]}`}
-					ref={hbMarginedThreadHeader.ref}
-				>
-					<div></div>
-					<div className={styles["thread-info"]}>Thread</div>
-					<div># of Posts</div>
-					<div>Last Post</div>
-				</div>
-				<div
-					className={styles["thread-list"]}
-					style={{ marginInline: hbMarginedThreadHeader.margin }}
-				>
-					{threads.map((thread) => (
-						<Thread key={thread.id} thread={thread} />
-					))}
-					{threads.length === 0 && (
-						<div className={styles["no-threads"]}>No threads</div>
-					)}
-				</div>
-				<div
-					className="thread-pagination"
-					style={{ marginInline: hbMarginedThreadHeader.margin }}
-				>
-					<Paginate numItems={count} current={page} onPageChange={setPage} />
-				</div>
-			</div>
+			{hasThreads(forum) && (
+				<ForumThreads
+					forumId={forumId}
+					canCreateThread={forum.permissions.includes("forum_create_thread")}
+				/>
+			)}
 
 			<div
 				className={styles["forums-bottom-nav"]}

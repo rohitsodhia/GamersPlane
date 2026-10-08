@@ -1,3 +1,5 @@
+from collections.abc import Collection
+
 from sqlalchemy import ScalarResult, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,9 +51,21 @@ class ForumRepository:
             select(Forum).where(Forum.id.in_(forum_ids))
         )
 
-    async def get_descendants(self, forum_id: int) -> ScalarResult[Forum]:
-        return await self.db_session.scalars(
+    async def get_descendants(
+        self, forum_id: int, only_game_ids: Collection[int] | None = None
+    ) -> ScalarResult[Forum]:
+        """Every forum below ``forum_id``.
+
+        ``only_game_ids`` limits game forums to those games; non-game forums are
+        unaffected.
+        """
+        query = (
             select(Forum)
             .where(Forum.heritage.contains([forum_id]))
             .order_by(Forum.order)
         )
+        if only_game_ids is not None:
+            query = query.where(
+                Forum.game_id.is_(None) | Forum.game_id.in_(only_game_ids)
+            )
+        return await self.db_session.scalars(query)

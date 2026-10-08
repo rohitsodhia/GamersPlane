@@ -310,7 +310,6 @@ class TestCountByAuthor:
     async def game_forum(self, db_session, create, wrap_in_savepoint):
         system = await create(SystemFactory)
         gm = await create(UserFactory)
-        role = await create(RoleFactory)
         root_forum = await create(ForumFactory)
         game = Game(
             title="Test Game",
@@ -319,7 +318,8 @@ class TestCountByAuthor:
             post_frequency="1/d",
             num_players=4,
             root_forum=root_forum,
-            role=role,
+            gm_role=await create(RoleFactory),
+            player_role=await create(RoleFactory),
             public=True,
         )
         db_session.add(game)

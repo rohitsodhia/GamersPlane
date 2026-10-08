@@ -5,17 +5,34 @@ import clsx from "clsx";
 import { useState } from "react";
 import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import type { ForumBreadcrumbs } from "#/queries/forums";
+import type { ForumBreadcrumbs, ForumPermission } from "#/queries/forums";
 import { Breadcrumbs } from "./-breadcrumbs";
 import styles from "./-post-form.module.css";
 
+// Each option needs a forum permission to set; mirrors OPTION_VERBS in the API.
 const optionCheckboxes = [
-	{ name: "options.sticky", label: "Sticky thread" },
-	{ name: "options.locked", label: "Lock thread" },
-	{ name: "options.allow_public_posting", label: "Allow public posting" },
-	{ name: "options.allow_rolls", label: "Allow adding rolls to posts" },
-	{ name: "options.allow_draws", label: "Allow adding draws to posts" },
-] as const;
+	{ name: "options.sticky", label: "Sticky thread", permission: "forum_moderate" },
+	{ name: "options.locked", label: "Lock thread", permission: "forum_moderate" },
+	{
+		name: "options.allow_public_posting",
+		label: "Allow public posting",
+		permission: "forum_moderate",
+	},
+	{
+		name: "options.allow_rolls",
+		label: "Allow adding rolls to posts",
+		permission: "forum_add_rolls",
+	},
+	{
+		name: "options.allow_draws",
+		label: "Allow adding draws to posts",
+		permission: "forum_add_draws",
+	},
+] as const satisfies readonly {
+	name: string;
+	label: string;
+	permission: ForumPermission;
+}[];
 
 function FieldError({ message }: { message: string | undefined }) {
 	if (!message) return null;
@@ -42,6 +59,7 @@ export function PostForm({
 	defaultTitle = "",
 	defaultBody = emptyContent,
 	showThreadOptions = true,
+	permissions = [],
 	submitLabel,
 	isSubmitting = false,
 	apiErrors,
@@ -53,6 +71,8 @@ export function PostForm({
 	defaultTitle?: string;
 	defaultBody?: JSONContent;
 	showThreadOptions?: boolean;
+	// The user's permissions on the forum; decides which thread options show.
+	permissions?: ForumPermission[];
 	submitLabel: string;
 	isSubmitting?: boolean;
 	apiErrors: string[];
@@ -83,39 +103,48 @@ export function PostForm({
 		},
 	});
 
+	const canSet = (permission: ForumPermission) =>
+		permissions.includes(permission) || permissions.includes("forum_moderate");
+
 	function Options() {
 		return (
 			<div>
-				{optionCheckboxes.map(({ name, label }) => (
-					<form.Field key={name} name={name}>
-						{(field) => (
-							<div>
-								<input
-									type="checkbox"
-									id={field.name}
-									checked={field.state.value}
-									onChange={(e) => field.handleChange(e.target.checked)}
-								/>{" "}
-								<label htmlFor={field.name}>{label}</label>
-							</div>
-						)}
-					</form.Field>
-				))}
-				<hr />
-				<form.Field name="options.discord_webhook">
-					{(field) => (
-						<>
-							<label htmlFor={field.name}>Discord Webhook</label>
-							<input
-								type="text"
-								id={field.name}
-								value={field.state.value ?? ""}
-								onBlur={field.handleBlur}
-								onChange={(e) => field.handleChange(e.target.value)}
-							/>
-						</>
-					)}
-				</form.Field>
+				{optionCheckboxes
+					.filter(({ permission }) => canSet(permission))
+					.map(({ name, label }) => (
+						<form.Field key={name} name={name}>
+							{(field) => (
+								<div>
+									<input
+										type="checkbox"
+										id={field.name}
+										checked={field.state.value}
+										onChange={(e) => field.handleChange(e.target.checked)}
+									/>{" "}
+									<label htmlFor={field.name}>{label}</label>
+								</div>
+							)}
+						</form.Field>
+					))}
+				{canSet("forum_moderate") && (
+					<>
+						<hr />
+						<form.Field name="options.discord_webhook">
+							{(field) => (
+								<>
+									<label htmlFor={field.name}>Discord Webhook</label>
+									<input
+										type="text"
+										id={field.name}
+										value={field.state.value ?? ""}
+										onBlur={field.handleBlur}
+										onChange={(e) => field.handleChange(e.target.value)}
+									/>
+								</>
+							)}
+						</form.Field>
+					</>
+				)}
 			</div>
 		);
 	}

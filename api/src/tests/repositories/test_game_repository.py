@@ -147,8 +147,9 @@ class TestGameRepository:
         root_forum = await db_session.get(Forum, game.root_forum_id)
         assert root_forum.title == "My Campaign"
         assert root_forum.parent_id == games_root_forum.id
+        assert root_forum.game_id == game.id
 
-    async def test_create_creates_player_role_named_after_game_id(
+    async def test_create_creates_game_roles_named_after_game_id(
         self, repository, gm, system, db_session
     ):
         game = await repository.create(
@@ -166,9 +167,13 @@ class TestGameRepository:
             None,
         )
 
-        role = await db_session.get(Role, game.role_id)
-        assert role.name == f"Game Id {game.id} Player"
-        assert role.owner_id == gm.id
+        gm_role = await db_session.get(Role, game.gm_role_id)
+        player_role = await db_session.get(Role, game.player_role_id)
+        assert gm_role.name == f"Game Id {game.id} GM"
+        assert player_role.name == f"Game Id {game.id} Player"
+        for role in (gm_role, player_role):
+            assert role.owner_id == gm.id
+            assert role.game_role == game.id
 
     async def test_get_returns_the_game(self, repository, gm, system):
         created = await repository.create(

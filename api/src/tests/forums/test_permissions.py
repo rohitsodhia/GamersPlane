@@ -1,0 +1,327 @@
+from datetime import UTC, datetime
+
+import pytest
+
+from app.forums.permissions import FORUM_VERBS, ForumPermissions
+from app.models import Game, Role, RolePermission
+from tests.factories import (
+    ActivatedUserFactory,
+    ForumFactory,
+    RoleFactory,
+    SystemFactory,
+)
+
+Verbs = RolePermission.ValidPermissions
+Scopes = RolePermission.ScopeTypes
+Effects = RolePermission.Effects
+
+
+@pytest.fixture(autouse=True)
+async def _isolate(wrap_in_savepoint):
+    pass
+
+
+@pytest.fixture
+async def forums(create):
+    """A root -> parent -> child chain, linked through ``heritage``."""
+    root = await create(ForumFactory, heritage=[])
+    parent = await create(ForumFactory, parent_id=root.id, heritage=[root.id])
+    child = await create(
+        ForumFactory, parent_id=parent.id, heritage=[root.id, parent.id]
+    )
+    return root, parent, child
+
+
+@pytest.fixture
+async def user(create):
+    return await create(ActivatedUserFactory)
+
+
+@pytest.fixture
+def make_role(db_session):
+    async def _make_role(*grants, members=()):
+        """Build a role holding ``(verb, forum, effect)`` grants."""
+        role = RoleFactory.build()
+        db_session.add(role)
+        for verb, forum, effect in grants:
+            role.grant(
+                verb,
+                scope_type=None if forum is None else Scopes.FORUM,
+                scope_id=None if forum is None else forum.id,
+                effect=effect,
+            )
+        for member in members:
+            role.users.append(member)
+        await db_session.flush()
+        return role
+
+    return _make_role
+
+
+@pytest.fixture
+def implicit_roles(monkeypatch, make_role):
+    """Build stand-ins for Registered/Guest and point ``Role``'s ids at them.
+
+    Forcing the real ids 2/3 past the shared sequence isn't practical, so the
+    class constants are repointed for the test instead.
+    """
+
+    async def _implicit_roles(*, registered=(), guest=()):
+        registered_role = await make_role(*registered)
+        guest_role = await make_role(*guest)
+        monkeypatch.setattr(Role, "REGISTERED_ID", registered_role.id)
+        monkeypatch.setattr(Role, "GUEST_ID", guest_role.id)
+
+    return _implicit_roles
+
+
+async def check(db_session, principal, forum, verb):
+    permissions = await ForumPermissions.load(db_session, principal, [forum])
+    return permissions.has(forum, verb)
+
+
+class TestImplicitRoles:
+    async def test_no_grants_denies(self, db_session, forums, user, implicit_roles):
+        await implicit_roles()
+        root, _, _ = forums
+
+        assert not await check(db_session, user, root, Verbs.FORUM_READ)
+        assert not await check(db_session, None, root, Verbs.FORUM_READ)
+
+    async def test_guest_grants_apply_only_to_anonymous_requests(
+        self, db_session, forums, user, implicit_roles
+    ):
+        root, _, _ = forums
+        await implicit_roles(guest=[(Verbs.FORUM_READ, root, Effects.ALLOW)])
+
+        assert await check(db_session, None, root, Verbs.FORUM_READ)
+        assert not await check(db_session, user, root, Verbs.FORUM_READ)
+
+    async def test_registered_grants_apply_only_to_logged_in_users(
+        self, db_session, forums, user, implicit_roles
+    ):
+        root, _, _ = forums
+        await implicit_roles(registered=[(Verbs.FORUM_READ, root, Effects.ALLOW)])
+
+        assert await check(db_session, user, root, Verbs.FORUM_READ)
+        assert not await check(db_session, None, root, Verbs.FORUM_READ)
+
+
+class TestAssignedRoles:
+    async def test_assigned_role_grants_apply(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        await implicit_roles()
+        root, _, _ = forums
+        await make_role((Verbs.FORUM_WRITE, root, Effects.ALLOW), members=[user])
+
+        assert await check(db_session, user, root, Verbs.FORUM_WRITE)
+
+    async def test_unassigned_role_grants_do_not_apply(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        await implicit_roles()
+        root, _, _ = forums
+        await make_role((Verbs.FORUM_WRITE, root, Effects.ALLOW))
+
+        assert not await check(db_session, user, root, Verbs.FORUM_WRITE)
+
+    async def test_deleted_role_grants_are_ignored(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        await implicit_roles()
+        root, _, _ = forums
+        role = await make_role((Verbs.FORUM_WRITE, root, Effects.ALLOW), members=[user])
+        role.deleted = datetime.now(UTC)
+        await db_session.flush()
+
+        assert not await check(db_session, user, root, Verbs.FORUM_WRITE)
+
+    async def test_global_admin_is_allowed_everything(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        await implicit_roles()
+        _, _, child = forums
+        await make_role((Verbs.ADMIN, None, Effects.ALLOW), members=[user])
+
+        permissions = await ForumPermissions.load(db_session, user, [child])
+
+        assert permissions.allowed(child) == FORUM_VERBS
+
+
+class TestResolution:
+    async def test_ancestor_grant_cascades_down(
+        self, db_session, forums, user, implicit_roles
+    ):
+        root, _, child = forums
+        await implicit_roles(registered=[(Verbs.FORUM_READ, root, Effects.ALLOW)])
+
+        assert await check(db_session, user, child, Verbs.FORUM_READ)
+
+    async def test_more_specific_deny_overrides_ancestor_allow(
+        self, db_session, forums, user, implicit_roles
+    ):
+        root, parent, child = forums
+        await implicit_roles(
+            registered=[
+                (Verbs.FORUM_READ, root, Effects.ALLOW),
+                (Verbs.FORUM_READ, parent, Effects.DENY),
+            ]
+        )
+
+        assert await check(db_session, user, root, Verbs.FORUM_READ)
+        assert not await check(db_session, user, child, Verbs.FORUM_READ)
+
+    async def test_more_specific_allow_overrides_ancestor_deny(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        root, _, child = forums
+        await implicit_roles(registered=[(Verbs.FORUM_WRITE, root, Effects.DENY)])
+        await make_role((Verbs.FORUM_WRITE, child, Effects.ALLOW), members=[user])
+
+        assert await check(db_session, user, child, Verbs.FORUM_WRITE)
+
+    async def test_deny_beats_allow_on_the_same_forum(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        root, _, _ = forums
+        await implicit_roles(registered=[(Verbs.FORUM_WRITE, root, Effects.DENY)])
+        await make_role((Verbs.FORUM_WRITE, root, Effects.ALLOW), members=[user])
+
+        assert not await check(db_session, user, root, Verbs.FORUM_WRITE)
+
+    async def test_grants_for_other_verbs_do_not_apply(
+        self, db_session, forums, user, implicit_roles
+    ):
+        root, _, _ = forums
+        await implicit_roles(registered=[(Verbs.FORUM_READ, root, Effects.ALLOW)])
+
+        permissions = await ForumPermissions.load(db_session, user, [root])
+
+        assert permissions.allowed(root) == {Verbs.FORUM_READ}
+
+
+class TestModerate:
+    async def test_moderate_implies_every_forum_verb(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        await implicit_roles()
+        root, _, child = forums
+        await make_role((Verbs.FORUM_MODERATE, root, Effects.ALLOW), members=[user])
+
+        permissions = await ForumPermissions.load(db_session, user, [child])
+
+        assert permissions.allowed(child) == FORUM_VERBS
+
+    async def test_moderate_overrides_a_deny_on_another_verb(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        root, _, child = forums
+        await implicit_roles(registered=[(Verbs.FORUM_WRITE, child, Effects.DENY)])
+        await make_role((Verbs.FORUM_MODERATE, root, Effects.ALLOW), members=[user])
+
+        assert await check(db_session, user, child, Verbs.FORUM_WRITE)
+
+    async def test_denied_moderate_no_longer_implies_other_verbs(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        root, _, child = forums
+        await implicit_roles()
+        await make_role(
+            (Verbs.FORUM_MODERATE, root, Effects.ALLOW),
+            (Verbs.FORUM_MODERATE, child, Effects.DENY),
+            members=[user],
+        )
+
+        assert not await check(db_session, user, child, Verbs.FORUM_WRITE)
+
+
+class TestPublicGames:
+    @pytest.fixture
+    async def make_game(self, create, db_session):
+        system = await create(SystemFactory)
+        gm = await create(ActivatedUserFactory)
+        games_root = await create(ForumFactory, heritage=[])
+
+        async def _make_game(*, public):
+            forum = await create(
+                ForumFactory, parent_id=games_root.id, heritage=[games_root.id]
+            )
+            game = Game(
+                title="Game",
+                system=system,
+                gm=gm,
+                post_frequency="1/d",
+                num_players=4,
+                root_forum=forum,
+                gm_role=RoleFactory.build(owner=gm),
+                player_role=RoleFactory.build(owner=gm),
+                public=public,
+            )
+            db_session.add(game)
+            await db_session.flush()
+            subforum = await create(
+                ForumFactory, parent_id=forum.id, heritage=[games_root.id, forum.id]
+            )
+            return forum, subforum
+
+        return _make_game
+
+    async def test_public_game_forums_are_readable_by_everyone(
+        self, db_session, user, make_game, implicit_roles
+    ):
+        await implicit_roles()
+        root, subforum = await make_game(public=True)
+
+        assert await check(db_session, None, root, Verbs.FORUM_READ)
+        assert await check(db_session, user, subforum, Verbs.FORUM_READ)
+        assert not await check(db_session, user, root, Verbs.FORUM_WRITE)
+
+    async def test_private_game_forums_are_not(
+        self, db_session, user, make_game, implicit_roles
+    ):
+        await implicit_roles()
+        root, _subforum = await make_game(public=False)
+
+        assert not await check(db_session, user, root, Verbs.FORUM_READ)
+
+    async def test_deny_on_a_subforum_overrides_public_read(
+        self, db_session, user, make_game, implicit_roles
+    ):
+        root, subforum = await make_game(public=True)
+        await implicit_roles(registered=[(Verbs.FORUM_READ, subforum, Effects.DENY)])
+
+        assert await check(db_session, user, root, Verbs.FORUM_READ)
+        assert not await check(db_session, user, subforum, Verbs.FORUM_READ)
+
+
+class TestLoad:
+    async def test_resolves_several_forums_from_one_load(
+        self, db_session, forums, user, implicit_roles
+    ):
+        root, parent, child = forums
+        await implicit_roles(
+            registered=[
+                (Verbs.FORUM_READ, root, Effects.ALLOW),
+                (Verbs.FORUM_READ, child, Effects.DENY),
+            ]
+        )
+
+        permissions = await ForumPermissions.load(
+            db_session, user, [root, parent, child]
+        )
+
+        assert permissions.has(root, Verbs.FORUM_READ)
+        assert permissions.has(parent, Verbs.FORUM_READ)
+        assert not permissions.has(child, Verbs.FORUM_READ)
+
+    async def test_checking_an_unloaded_forum_raises(
+        self, db_session, forums, user, implicit_roles
+    ):
+        await implicit_roles()
+        root, _, child = forums
+
+        permissions = await ForumPermissions.load(db_session, user, [root])
+
+        with pytest.raises(ValueError):
+            permissions.has(child, Verbs.FORUM_READ)

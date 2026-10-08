@@ -61,7 +61,25 @@ def protect_role(monkeypatch):
     return _protect
 
 
-async def make_game_backed_by(db_session, create, role):
+@pytest.fixture
+def implicit_role(monkeypatch):
+    """Treat a role built by the test as an implicit-membership role.
+
+    Same reasoning as ``protect_role``: repoint the repository's id set rather
+    than force ids 2/3 past the shared sequence.
+    """
+
+    def _implicit(role):
+        monkeypatch.setattr(
+            "app.repositories.rbac_repository.IMPLICIT_ROLE_IDS",
+            frozenset({role.id}),
+        )
+
+    return _implicit
+
+
+async def make_game_backed_by(db_session, create, *, gm_role=None, player_role=None):
+    """A game whose GM/player roles are the given ones (fresh roles otherwise)."""
     system = await create(SystemFactory)
     gm = await create(UserFactory)
     root_forum = await create(ForumFactory)
@@ -72,7 +90,8 @@ async def make_game_backed_by(db_session, create, role):
         post_frequency="1/d",
         num_players=4,
         root_forum=root_forum,
-        role=role,
+        gm_role=gm_role or await make_role(db_session),
+        player_role=player_role or await make_role(db_session),
         public=True,
     )
     db_session.add(game)
@@ -83,13 +102,12 @@ async def make_game_backed_by(db_session, create, role):
 async def make_game_role(db_session, create, *, name=None):
     """A role scoped to a game (``Role.game_role`` points at that game).
 
-    Also builds the backing game graph (system/GM/forum/game) plus a plain
-    ``primary`` role to satisfy the game's NOT NULL ``role_id``; that primary
-    role has ``game_role IS NULL``, so callers asserting on exact result sets
-    should account for it.
+    Also builds the backing game graph (system/GM/forum/game) plus plain GM and
+    player roles to satisfy the game's NOT NULL role columns; those roles have
+    ``game_role IS NULL``, so callers asserting on exact result sets should
+    account for them.
     """
-    primary = await make_role(db_session)
-    game = await make_game_backed_by(db_session, create, primary)
+    game = await make_game_backed_by(db_session, create)
     role = await make_role(db_session, name=name)
     role.game = game
     await db_session.flush()
@@ -117,6 +135,13 @@ class TestGetPermissions:
             "role_admin",
             "forum_read",
             "forum_write",
+            "forum_edit",
+            "forum_delete",
+            "forum_create_thread",
+            "forum_delete_thread",
+            "forum_add_poll",
+            "forum_add_rolls",
+            "forum_add_draws",
             "forum_moderate",
         }
         acp = next(p for p in permissions if p["value"] == "access_acp")
@@ -576,13 +601,14 @@ class TestDeleteRole:
 
         assert response.status_code == 404
 
+    @pytest.mark.parametrize("game_role", ["gm_role", "player_role"])
     async def test_role_backing_a_game_returns_409(
-        self, authed_client, db_session, create
+        self, authed_client, db_session, create, game_role
     ):
         client, user = authed_client
         await make_admin(db_session, user)
         role = await make_role(db_session)
-        await make_game_backed_by(db_session, create, role)
+        await make_game_backed_by(db_session, create, **{game_role: role})
 
         response = await client.delete(f"/rbac/roles/{role.id}")
 
@@ -596,6 +622,19 @@ class TestDeleteRole:
         await make_admin(db_session, user)
         role = await make_role(db_session)
         protect_role(role)
+
+        response = await client.delete(f"/rbac/roles/{role.id}")
+
+        assert response.status_code == 403
+        assert (await client.get(f"/rbac/roles/{role.id}")).status_code == 200
+
+    async def test_implicit_role_cannot_be_deleted(
+        self, authed_client, db_session, implicit_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session)
+        implicit_role(role)
 
         response = await client.delete(f"/rbac/roles/{role.id}")
 
@@ -784,6 +823,22 @@ class TestCreateGrant:
 
         assert response.status_code == 403
         assert (await client.get(f"/rbac/roles/{role.id}")).json()["grants"] == []
+
+    async def test_implicit_role_grants_can_be_added(
+        self, authed_client, db_session, implicit_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session)
+        implicit_role(role)
+
+        response = await client.post(
+            f"/rbac/roles/{role.id}/grants", json={"permission": "access_acp"}
+        )
+
+        assert response.status_code == 204
+        grants = (await client.get(f"/rbac/roles/{role.id}")).json()["grants"]
+        assert [g["permission"]["value"] for g in grants] == ["access_acp"]
 
 
 class TestUpdateGrant:
@@ -977,6 +1032,22 @@ class TestAddUserToRole:
         body = (await client.get(f"/rbac/roles/{role.id}")).json()
         assert target.id in [u["id"] for u in body["users"]]
 
+    async def test_users_cannot_be_added_to_an_implicit_role(
+        self, authed_client, db_session, implicit_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session)
+        implicit_role(role)
+        target = (await make_role(db_session)).owner
+
+        response = await client.post(
+            f"/rbac/roles/{role.id}/users", json={"user_id": target.id}
+        )
+
+        assert response.status_code == 403
+        assert (await client.get(f"/rbac/roles/{role.id}")).json()["users"] == []
+
 
 class TestRemoveUserFromRole:
     async def test_requires_admin(self, authed_client):
@@ -1047,3 +1118,18 @@ class TestRemoveUserFromRole:
         assert response.status_code == 204
         body = (await client.get(f"/rbac/roles/{role.id}")).json()
         assert [u["id"] for u in body["users"]] == [protected_member.id]
+
+    async def test_users_cannot_be_removed_from_an_implicit_role(
+        self, authed_client, db_session, implicit_role
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        member = (await make_role(db_session)).owner
+        role = await make_role(db_session, members=[member])
+        implicit_role(role)
+
+        response = await client.delete(f"/rbac/roles/{role.id}/users/{member.id}")
+
+        assert response.status_code == 403
+        body = (await client.get(f"/rbac/roles/{role.id}")).json()
+        assert [u["id"] for u in body["users"]] == [member.id]

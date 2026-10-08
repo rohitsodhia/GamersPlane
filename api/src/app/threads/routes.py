@@ -1,13 +1,14 @@
 from fastapi import APIRouter
 
 from app.database import DBSessionDependency
-from app.exceptions import NotFoundException
+from app.exceptions import ForbiddenException, NotFoundException
+from app.forums.permissions import ForumPermissions, Verbs
 from app.helpers.decorators import public
 from app.middleware import Principal
 from app.models import Post
 from app.repositories import ForumRepository, PostRepository, ThreadRepository
 from app.threads import schemas
-from app.threads.functions import build_post_data
+from app.threads.functions import build_post_data, check_thread_options
 
 threads = APIRouter(prefix="/threads")
 
@@ -24,6 +25,7 @@ async def get_threads(
     forum = await forum_repository.get(forum_id)
     if forum is None:
         raise NotFoundException("Forum not found")
+    await ForumPermissions.require_read(db_session, principal, forum, "Forum not found")
 
     thread_repository = ThreadRepository(db_session, principal=principal)
     threads = await thread_repository.get_all(forum_id, page=page) or []
@@ -58,6 +60,9 @@ async def get_thread(
     thread = await thread_repository.get(thread_id)
     if thread is None:
         raise NotFoundException("Thread not found")
+    await ForumPermissions.require_read(
+        db_session, principal, thread.forum, "Thread not found"
+    )
     assert thread.first_post is not None
 
     return schemas.GetThreadResponse(
@@ -79,6 +84,12 @@ async def create_thread(
     forum = await forum_repository.get(thread_data.forum_id)
     if forum is None:
         raise NotFoundException("Forum not found")
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, forum, "Forum not found"
+    )
+    if not permissions.has(forum, Verbs.FORUM_CREATE_THREAD):
+        raise ForbiddenException("You can't create threads in this forum")
+    check_thread_options(permissions, forum, thread_data.options)
 
     thread_repository = ThreadRepository(db_session, principal=principal)
     thread = await thread_repository.create(

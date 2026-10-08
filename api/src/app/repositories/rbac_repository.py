@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -18,8 +18,12 @@ from app.models import Forum, Game, Role, RolePermission, User
 # Both are hard-locked below so no API caller can rename, delete, re-own, or
 # re-grant the role, or drop the primary account out of it — the goal is that
 # the primary user can never be locked out, even by another admin.
-PROTECTED_ROLE_ID = 1
+PROTECTED_ROLE_ID = Role.ADMIN_ID
 PROTECTED_ROLE_MEMBER_ID = 1
+# Registered/Guest membership is implicit, so they can't be deleted and their
+# member lists can't be edited. Their names, owners and grants stay editable —
+# grants on them are how site-wide forum defaults are set.
+IMPLICIT_ROLE_IDS = frozenset({Role.REGISTERED_ID, Role.GUEST_ID})
 
 
 class RBACkRepository:
@@ -252,6 +256,8 @@ class RBACkRepository:
 
     async def add_user_to_role(self, role: Role, user: User) -> None:
         """Idempotent: no-op if the user already holds the role."""
+        if role.id in IMPLICIT_ROLE_IDS:
+            raise ForbiddenException("Membership in this role is automatic")
         if any(member.id == user.id for member in role.users):
             return
         role.users.append(user)
@@ -259,6 +265,8 @@ class RBACkRepository:
 
     async def remove_user_from_role(self, role: Role, user_id: int) -> None:
         """Idempotent: no-op if the user isn't in the role."""
+        if role.id in IMPLICIT_ROLE_IDS:
+            raise ForbiddenException("Membership in this role is automatic")
         if role.id == PROTECTED_ROLE_ID and user_id == PROTECTED_ROLE_MEMBER_ID:
             raise ForbiddenException("This user can't be removed from this role")
         member = next((m for m in role.users if m.id == user_id), None)
@@ -268,11 +276,13 @@ class RBACkRepository:
         await self.db_session.flush()
 
     async def delete_role(self, role: Role) -> None:
-        """Soft-delete a role. Refuses if the role is a game's primary role."""
-        if role.id == PROTECTED_ROLE_ID:
+        """Soft-delete a role. Refuses if the role is a game's GM or player role."""
+        if role.id == PROTECTED_ROLE_ID or role.id in IMPLICIT_ROLE_IDS:
             raise ForbiddenException("This role is protected and can't be deleted")
         backing_game = await self.db_session.execute(
-            select(Game.id).where(Game.role_id == role.id).limit(1)
+            select(Game.id)
+            .where(or_(Game.gm_role_id == role.id, Game.player_role_id == role.id))
+            .limit(1)
         )
         if backing_game.scalar_one_or_none() is not None:
             raise ConflictException("This role backs a game and can't be deleted")

@@ -33,6 +33,18 @@ export type ChildForum = {
 	children: ChildForum[];
 };
 
+export type ForumPermission =
+	| "forum_read"
+	| "forum_write"
+	| "forum_edit"
+	| "forum_delete"
+	| "forum_create_thread"
+	| "forum_delete_thread"
+	| "forum_add_poll"
+	| "forum_add_rolls"
+	| "forum_add_draws"
+	| "forum_moderate";
+
 export type Forum = {
 	id: number;
 	title: string;
@@ -43,6 +55,9 @@ export type Forum = {
 	order: number;
 	game_id: number | null;
 	thread_count: number;
+	// Without forum_read the forum is only shown as a heading over subforums the
+	// user can read, and has no threads to list.
+	permissions: ForumPermission[];
 	children: ChildForum[];
 };
 

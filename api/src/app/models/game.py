@@ -58,10 +58,12 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
     char_gen_info: Mapped[dict | None] = mapped_column(JSON(), nullable=True)
     root_forum_id: Mapped[int] = mapped_column(ForeignKey("forums.id"))
     root_forum: Mapped[Forum] = relationship(foreign_keys=[root_forum_id])
-    role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
-    role: Mapped[Role] = relationship(foreign_keys=[role_id])
+    gm_role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
+    gm_role: Mapped[Role] = relationship(foreign_keys=[gm_role_id])
+    player_role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
+    player_role: Mapped[Role] = relationship(foreign_keys=[player_role_id])
     # Roles created within this game (Role.game_role points back here). The game's
-    # primary role is `role` above; this collection is every role scoped to the game.
+    # GM and player roles are above; this collection is every role scoped to the game.
     game_roles: Mapped[list[Role]] = relationship(
         "Role", foreign_keys="Role.game_role", back_populates="game"
     )

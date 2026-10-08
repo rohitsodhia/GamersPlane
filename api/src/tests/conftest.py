@@ -7,7 +7,7 @@ from sqlalchemy import URL
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env.test", override=True)
 
-from tests.factories import ActivatedUserFactory
+from tests.factories import ActivatedUserFactory, RoleFactory
 
 import pytest
 from alembic.config import Config
@@ -18,6 +18,7 @@ from alembic import command
 from app.configs import configs
 from app.database import get_db_session, get_legacy_db_session, session_manager
 from app.main import create_app
+from app.models import Role, RolePermission
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -172,3 +173,46 @@ async def authed_client(client, create, auth_as):
     user = await create(ActivatedUserFactory)
     auth_as(user)
     return client, user
+
+
+# Forum id every real forum descends from. Tests can put a forum under it via
+# heritage without creating the row, since the resolver only needs the id.
+SITE_ROOT_FORUM_ID = 0
+
+MEMBER_VERBS = (
+    RolePermission.ValidPermissions.FORUM_READ,
+    RolePermission.ValidPermissions.FORUM_WRITE,
+    RolePermission.ValidPermissions.FORUM_EDIT,
+    RolePermission.ValidPermissions.FORUM_DELETE,
+    RolePermission.ValidPermissions.FORUM_CREATE_THREAD,
+    RolePermission.ValidPermissions.FORUM_DELETE_THREAD,
+)
+
+
+@pytest.fixture
+def open_forums(db_session, monkeypatch):
+    """Give Registered users member access, and Guests read access, to forums.
+
+    Builds stand-ins for the Registered/Guest roles and repoints ``Role``'s ids
+    at them (forcing the real ids 2/3 past the shared sequence isn't practical).
+    Call it once per test.
+    """
+
+    async def _open_forums(*forum_ids):
+        registered = RoleFactory.build()
+        guest = RoleFactory.build()
+        db_session.add_all([registered, guest])
+        for forum_id in forum_ids:
+            scope = {
+                "scope_type": RolePermission.ScopeTypes.FORUM,
+                "scope_id": forum_id,
+            }
+            for verb in MEMBER_VERBS:
+                registered.grant(verb, **scope)
+            guest.grant(RolePermission.ValidPermissions.FORUM_READ, **scope)
+        await db_session.flush()
+        monkeypatch.setattr(Role, "REGISTERED_ID", registered.id)
+        monkeypatch.setattr(Role, "GUEST_ID", guest.id)
+        return registered, guest
+
+    return _open_forums

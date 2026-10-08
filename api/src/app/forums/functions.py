@@ -1,3 +1,5 @@
+from collections.abc import Collection
+
 from app.exceptions import NotFoundException
 from app.forums import schemas
 from app.models import Forum, Post
@@ -64,11 +66,46 @@ def build_last_post_details(post: Post | None) -> schemas.LastPostDetails | None
     )
 
 
+def prune_unreadable(
+    descendants: list[Forum], root_id: int, readable_ids: Collection[int]
+) -> list[Forum]:
+    """Drop forums the principal can't read, unless they lead to one they can.
+
+    Pruned bottom-up, so an unreadable forum (e.g. the games category) stays as
+    a heading over readable children, and disappears once it has none.
+    """
+    children_by_parent: dict[int | None, list[Forum]] = {}
+    for forum in descendants:
+        children_by_parent.setdefault(forum.parent_id, []).append(forum)
+
+    kept: list[Forum] = []
+
+    def visit(forum: Forum) -> bool:
+        has_visible_child = False
+        for child in children_by_parent.get(forum.id, []):
+            has_visible_child = visit(child) or has_visible_child
+        visible = forum.id in readable_ids or has_visible_child
+        if visible:
+            kept.append(forum)
+        return visible
+
+    for forum in children_by_parent.get(root_id, []):
+        visit(forum)
+    return kept
+
+
 def build_forum_tree(
     descendants: list[Forum],
     root_id: int,
     last_posts_by_forum_id: dict[int, Post],
+    readable_ids: Collection[int] | None = None,
 ) -> list[schemas.ChildForumData]:
+    """Nest ``descendants`` under ``root_id``.
+
+    Forums outside ``readable_ids`` (when given) report no threads; pass only
+    readable forums' posts in ``last_posts_by_forum_id`` to keep their last
+    posts hidden too.
+    """
     children_by_parent: dict[int | None, list[Forum]] = {}
     for forum in descendants:
         children_by_parent.setdefault(forum.parent_id, []).append(forum)
@@ -84,7 +121,9 @@ def build_forum_tree(
                 forum_type=forum.forum_type,
                 parent_id=forum.parent_id,
                 order=forum.order,
-                thread_count=forum.thread_count,
+                thread_count=forum.thread_count
+                if readable_ids is None or forum.id in readable_ids
+                else 0,
                 post_count=0,
                 last_post=build_last_post_details(cascaded_last_posts.get(forum.id)),
                 children=build(forum.id),

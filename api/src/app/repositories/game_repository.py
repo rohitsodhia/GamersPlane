@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.configs import configs
-from app.models import Forum, Game, Player, Role, System, User
+from app.models import FavoriteGame, Forum, Game, Player, Role, System, User
 from app.repositories.forum_repository import ForumRepository
 
 GAMES_ROOT_FORUM_ID = 2
@@ -40,6 +40,24 @@ class GameRepository:
             .order_by(Game.title.asc())
         )
         return list(await self.db_session.scalars(query))
+
+    async def get_forum_listed_game_ids(self, user_id: int) -> set[int]:
+        """Games whose forums show in the forum index for this user.
+
+        The games forum holds every game's forum, far too many to list, so the
+        index only shows unretired games the user plays in or has favorited.
+        """
+        played = select(Player.game_id).where(
+            Player.user_id == user_id, Player.state == Player.States.ACCEPTED
+        )
+        favorited = select(FavoriteGame.game_id).where(FavoriteGame.user_id == user_id)
+        rows = await self.db_session.scalars(
+            select(Game.id).where(
+                Game.retired.is_(None),
+                Game.id.in_(played) | Game.id.in_(favorited),
+            )
+        )
+        return set(rows)
 
     def _browse_query(self, search: str | None, system_ids: list[str] | None = None):
         query = select(Game).order_by(Game.title.asc())
@@ -147,10 +165,11 @@ class GameRepository:
             select(System).where(System.id.in_(allowed_char_sheets))
         )
 
-        # Role.name is created from the game's id, which doesn't exist until the
-        # game row is flushed, so start with a placeholder and rename it after.
+        # Role names are created from the game's id, which doesn't exist until the
+        # game row is flushed, so start with placeholders and rename them after.
+        gm_role = Role(name=f"pending-role-{uuid.uuid4()}", owner_id=gm_id)
         player_role = Role(name=f"pending-role-{uuid.uuid4()}", owner_id=gm_id)
-        self.db_session.add(player_role)
+        self.db_session.add_all([gm_role, player_role])
         await self.db_session.flush()
 
         forum_repository = ForumRepository(self.db_session, principal=self.principal)
@@ -170,7 +189,8 @@ class GameRepository:
             description=description,
             char_gen_info=char_gen_info,
             root_forum_id=root_forum.id,
-            role_id=player_role.id,
+            gm_role_id=gm_role.id,
+            player_role_id=player_role.id,
             public=public,
             recruitment_thread_id=recruitment_thread_id,
             advanced_options=advanced_options,
@@ -179,7 +199,11 @@ class GameRepository:
         self.db_session.add(game)
         await self.db_session.flush()
 
+        gm_role.name = f"Game Id {game.id} GM"
         player_role.name = f"Game Id {game.id} Player"
+        gm_role.game_role = game.id
+        player_role.game_role = game.id
+        root_forum.game_id = game.id
         await self.db_session.flush()
 
         return game

@@ -138,11 +138,46 @@ async def seed():
         user.activate()
         typer.echo("Users added")
 
-        admin_role = Role(name="Administrator", owner=primary_user)
+        admin_role = Role(id=Role.ADMIN_ID, name="Administrator", owner=primary_user)
         admin_role.grant(RolePermission.ValidPermissions.ADMIN)
         admin_role.users.append(primary_user)
         session.add(admin_role)
-        typer.echo("Admin role added")
+        registered_role = Role(
+            id=Role.REGISTERED_ID, name="Registered User", owner=primary_user
+        )
+        guest_role = Role(id=Role.GUEST_ID, name="Guest", owner=primary_user)
+        # Site-wide forum defaults: members everywhere except the games forum
+        # (2), whose game forums get access from their games; the Games Tavern
+        # (10) inside it is open to all.
+        verbs = RolePermission.ValidPermissions
+        forum_scope = RolePermission.ScopeTypes.FORUM
+        deny = RolePermission.Effects.DENY
+        member_verbs = (
+            verbs.FORUM_READ,
+            verbs.FORUM_WRITE,
+            verbs.FORUM_EDIT,
+            verbs.FORUM_DELETE,
+            verbs.FORUM_CREATE_THREAD,
+            verbs.FORUM_DELETE_THREAD,
+        )
+        for verb in member_verbs:
+            registered_role.grant(verb, scope_type=forum_scope, scope_id=0)
+            registered_role.grant(verb, scope_type=forum_scope, scope_id=2, effect=deny)
+            registered_role.grant(verb, scope_type=forum_scope, scope_id=10)
+        guest_role.grant(verbs.FORUM_READ, scope_type=forum_scope, scope_id=0)
+        guest_role.grant(
+            verbs.FORUM_READ, scope_type=forum_scope, scope_id=2, effect=deny
+        )
+        guest_role.grant(verbs.FORUM_READ, scope_type=forum_scope, scope_id=10)
+        session.add_all([registered_role, guest_role])
+        await session.flush()
+        await session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('roles', 'id'), "
+                "(SELECT MAX(id) FROM roles))"
+            )
+        )
+        typer.echo("System roles added")
 
         with open("data/forums.json") as f:
             forums_data = json.load(f)

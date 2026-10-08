@@ -64,7 +64,8 @@ def upgrade() -> None:
         sa.Column("description", sa.JSON(), nullable=True),
         sa.Column("char_gen_info", sa.JSON(), nullable=True),
         sa.Column("root_forum_id", sa.Integer(), nullable=False),
-        sa.Column("role_id", sa.Integer(), nullable=False),
+        sa.Column("gm_role_id", sa.Integer(), nullable=False),
+        sa.Column("player_role_id", sa.Integer(), nullable=False),
         sa.Column("status", sa.Boolean(), nullable=False),
         sa.Column("public", sa.Boolean(), nullable=False),
         sa.Column("recruitment_thread_id", sa.Integer(), nullable=True),
@@ -78,7 +79,11 @@ def upgrade() -> None:
             ["users.id"],
         ),
         sa.ForeignKeyConstraint(
-            ["role_id"],
+            ["gm_role_id"],
+            ["roles.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["player_role_id"],
             ["roles.id"],
         ),
         sa.ForeignKeyConstraint(
