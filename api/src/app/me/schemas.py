@@ -17,6 +17,8 @@ class UserOutput(SchemaBase):
     avatar: str
     acp: bool = False
     forumModerate: bool = False
+    siteModerate: bool = False
+    roleAdmin: bool = False
     permissions: list[str] = []
     joinDate: datetime.datetime | None = None
     pronouns: str | None = filtered_str(pipelines=[strip_whitespace])

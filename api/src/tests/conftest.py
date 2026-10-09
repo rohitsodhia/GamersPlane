@@ -18,7 +18,7 @@ from alembic import command
 from app.configs import configs
 from app.database import get_db_session, get_legacy_db_session, session_manager
 from app.main import create_app
-from app.models import Role, RolePermission
+from app.models import Role, RolePermission, User
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -203,6 +203,16 @@ def unseeded_system_roles(monkeypatch):
     monkeypatch.setattr(
         "app.repositories.rbac_repository.IMPLICIT_ROLE_IDS", frozenset()
     )
+
+
+@pytest.fixture
+async def fallback_owner(create, monkeypatch):
+    """A persisted user standing in for ``User.FALLBACK_OWNER_ID`` (user 1 in
+    production, which test users never get), so handing a role back to the
+    fallback owner doesn't violate the owner foreign key. Opt-in."""
+    owner = await create(ActivatedUserFactory)
+    monkeypatch.setattr(User, "FALLBACK_OWNER_ID", owner.id)
+    return owner
 
 
 @pytest.fixture

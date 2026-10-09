@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 from collections.abc import Iterable
 from dataclasses import field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import bcrypt
 import jwt
@@ -72,6 +72,8 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
     implicit_roles: tuple[Role, ...] = field(default=(), init=False)
 
     MIN_PASSWORD_LENGTH: int = 8
+    # User 1 is the main admin account, the default owner for orphaned site roles.
+    FALLBACK_OWNER_ID: ClassVar[int] = 1
 
     # @property
     # def permissions(self) -> list[int]:

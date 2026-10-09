@@ -177,6 +177,7 @@ class ForumACPRepository:
         to_update: list[tuple[RolePermission, Effects]] = []
         to_delete: list[RolePermission] = []
         moderate_changed = False
+        moderate_role_ids: set[int] = set()
         for role_id, grants in entries:
             wanted = {forum_verbs[name]: effect for name, effect in grants.items()}
             for verb, effect in wanted.items():
@@ -195,14 +196,23 @@ class ForumACPRepository:
                     to_update.append((row, effect))
                 else:
                     continue
-                moderate_changed |= verb is Verbs.FORUM_MODERATE
+                if verb is Verbs.FORUM_MODERATE:
+                    moderate_changed = True
+                    moderate_role_ids.add(role_id)
             for (row_role_id, verb), row in existing.items():
                 if row_role_id == role_id and verb not in wanted:
                     to_delete.append(row)
-                    moderate_changed |= verb is Verbs.FORUM_MODERATE
+                    if verb is Verbs.FORUM_MODERATE:
+                        moderate_changed = True
+                        moderate_role_ids.add(role_id)
 
         if moderate_changed and not can_grant_moderate:
             raise ForbiddenException("Only administrators can change who moderates")
+
+        # Members of a role whose moderation changed may stop being site
+        # moderators, which hands their site roles back to the fallback owner.
+        rbac_repository = RBACkRepository(self.db_session, self.principal)
+        before = await rbac_repository.moderators_among_members(moderate_role_ids)
 
         self.db_session.add_all(to_add)
         for row, effect in to_update:
@@ -210,6 +220,7 @@ class ForumACPRepository:
         for row in to_delete:
             await self.db_session.delete(row)
         await self.db_session.flush()
+        await rbac_repository.release_lapsed_moderators(before)
 
     async def search_site_roles(self, name_filter: str | None) -> Sequence[Role]:
         """Site roles to add to a non-game forum's grid. Admin is locked and

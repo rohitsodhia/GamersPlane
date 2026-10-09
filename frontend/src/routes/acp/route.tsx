@@ -35,9 +35,9 @@ function RouteComponent() {
 				<nav className={styles.sidebar}>
 					<h2>Menu</h2>
 					<ul>
-						{hasPermission(me, "admin") && (
+						{me.roleAdmin && (
 							<li>
-								<Link to="/acp/rbac">RBAC</Link>
+								<Link to="/acp/rbac">Roles</Link>
 							</li>
 						)}
 						{hasPermission(me, "manage_users") && (

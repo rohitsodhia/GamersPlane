@@ -110,6 +110,7 @@ function RouteComponent() {
 										favoriteMutation.variables === game.id,
 								}}
 								end={<ForumLink forumId={game.forum_id} />}
+								hideGM
 							/>
 						))}
 					</ul>

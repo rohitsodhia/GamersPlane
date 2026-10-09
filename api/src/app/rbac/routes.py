@@ -3,9 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from app.database import DBSessionDependency
-from app.exceptions import NotFoundException
+from app.exceptions import ForbiddenException, NotFoundException
+from app.forums.permissions import is_site_moderator
 from app.helpers.decorators import requires
 from app.middleware import Principal
+from app.models import Role
 from app.rbac import schemas
 from app.repositories import RBACkRepository, UserRepository
 
@@ -22,6 +24,14 @@ def _grant_description(grant, scope_names: dict) -> str:
         return label
     name = scope_names.get((grant.scope_type, grant.scope_id), "unknown")
     return f"{label} - {name} (#{grant.scope_id})"
+
+
+async def _get_visible_role(rbac_repository: RBACkRepository, role_id: int) -> Role:
+    """Load a role, 404ing if it's missing or the principal can't see it."""
+    role = await rbac_repository.get_role(role_id)
+    if role is None or not rbac_repository.can_view_role(role):
+        raise NotFoundException("Role not found")
+    return role
 
 
 @rbac.get("/permissions", response_model=schemas.GetPermissionsResponse)
@@ -54,20 +64,25 @@ async def get_roles(
 
 
 @rbac.post("/roles", response_model=schemas.RoleIdResponse)
-@requires("admin")
 async def create_role(
-    body: schemas.CreateRoleInput,
+    data: schemas.CreateRoleInput,
     db_session: DBSessionDependency,
     principal: Principal,
 ):
-    owner_id = body.owner_id if body.owner_id is not None else principal.id
+    rbac_repository = RBACkRepository(db_session, principal=principal)
+    is_admin = rbac_repository.is_admin()
+    if not is_admin and not await is_site_moderator(db_session, principal):
+        raise ForbiddenException("Only admins and site moderators can create roles")
+
+    owner_id = data.owner_id if data.owner_id is not None else principal.id
+    if owner_id != principal.id and not is_admin:
+        raise ForbiddenException("Only an admin can set a role's owner")
     if owner_id != principal.id:
         user_repository = UserRepository(db_session)
         if await user_repository.get_user(owner_id) is None:
             raise NotFoundException("Owner not found")
 
-    rbac_repository = RBACkRepository(db_session, principal=principal)
-    role = await rbac_repository.create_role(body.name, owner_id)
+    role = await rbac_repository.create_role(data.name, owner_id)
     return schemas.RoleIdResponse(id=role.id)
 
 
@@ -78,15 +93,19 @@ async def get_role(
     principal: Principal,
 ):
     rbac_repository = RBACkRepository(db_session, principal=principal)
-    role = await rbac_repository.get_role(role_id)
-    if role is None or not rbac_repository.can_manage_role(role.id):
-        raise NotFoundException("Role not found")
+    role = await _get_visible_role(rbac_repository, role_id)
 
     scope_names = await rbac_repository.get_scope_names(role.grants)
+    managers = await rbac_repository.get_managers(role.id)
+    is_admin = rbac_repository.is_admin()
     return schemas.GetRoleResponse(
         id=role.id,
         name=role.name,
         owner=schemas.UserData(id=role.owner.id, username=role.owner.username),
+        managers=[schemas.RoleRef(id=m.id, name=m.name) for m in managers],
+        role_admin=rbac_repository.can_edit_role(role),
+        can_delete=rbac_repository.can_delete_role(role),
+        admin=is_admin,
         users=[
             schemas.UserData(id=user.id, username=user.username) for user in role.users
         ],
@@ -107,7 +126,6 @@ async def get_role(
 
 
 @rbac.patch("/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
-@requires("admin")
 async def update_role(
     role_id: int,
     body: schemas.UpdateRoleInput,
@@ -115,9 +133,16 @@ async def update_role(
     principal: Principal,
 ):
     rbac_repository = RBACkRepository(db_session, principal=principal)
-    role = await rbac_repository.get_role(role_id)
-    if role is None:
-        raise NotFoundException("Role not found")
+    role = await _get_visible_role(rbac_repository, role_id)
+    if not rbac_repository.can_edit_role(role):
+        raise ForbiddenException("You can't edit this role")
+    if (
+        "owner_id" in body.model_fields_set
+        and body.owner_id is not None
+        and body.owner_id != role.owner_id
+        and not rbac_repository.is_admin()
+    ):
+        raise ForbiddenException("Only an admin can change a role's owner")
 
     name = body.name if "name" in body.model_fields_set else None
 
@@ -135,16 +160,15 @@ async def update_role(
 
 
 @rbac.delete("/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
-@requires("admin")
 async def delete_role(
     role_id: int,
     db_session: DBSessionDependency,
     principal: Principal,
 ):
     rbac_repository = RBACkRepository(db_session, principal=principal)
-    role = await rbac_repository.get_role(role_id)
-    if role is None:
-        raise NotFoundException("Role not found")
+    role = await _get_visible_role(rbac_repository, role_id)
+    if not rbac_repository.can_delete_role(role):
+        raise ForbiddenException("You can't delete this role")
 
     await rbac_repository.delete_role(role)
 
@@ -217,7 +241,6 @@ async def delete_grant(
 
 
 @rbac.post("/roles/{role_id}/users", status_code=status.HTTP_204_NO_CONTENT)
-@requires("admin")
 async def add_user_to_role(
     role_id: int,
     body: schemas.AddUserToRoleInput,
@@ -225,9 +248,9 @@ async def add_user_to_role(
     principal: Principal,
 ):
     rbac_repository = RBACkRepository(db_session, principal=principal)
-    role = await rbac_repository.get_role(role_id)
-    if role is None:
-        raise NotFoundException("Role not found")
+    role = await _get_visible_role(rbac_repository, role_id)
+    if not rbac_repository.can_edit_role(role):
+        raise ForbiddenException("You can't edit this role")
 
     user_repository = UserRepository(db_session)
     user = await user_repository.get_user(body.user_id)
@@ -238,7 +261,6 @@ async def add_user_to_role(
 
 
 @rbac.delete("/roles/{role_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-@requires("admin")
 async def remove_user_from_role(
     role_id: int,
     user_id: int,
@@ -246,8 +268,8 @@ async def remove_user_from_role(
     principal: Principal,
 ):
     rbac_repository = RBACkRepository(db_session, principal=principal)
-    role = await rbac_repository.get_role(role_id)
-    if role is None:
-        raise NotFoundException("Role not found")
+    role = await _get_visible_role(rbac_repository, role_id)
+    if not rbac_repository.can_edit_role(role):
+        raise ForbiddenException("You can't edit this role")
 
     await rbac_repository.remove_user_from_role(role, user_id)

@@ -13,10 +13,12 @@ export function GameRow({
 	game,
 	favorite,
 	end,
+	hideGM = false,
 }: {
 	game: GameListItem;
 	favorite?: Favorite;
 	end?: ReactNode;
+	hideGM?: boolean;
 }) {
 	return (
 		<li>
@@ -44,11 +46,13 @@ export function GameRow({
 				</Link>
 			</span>
 			<div className={styles["system-type"]}>{game.system}</div>
-			<div className={styles["gm-info"]}>
-				<Link to="/user/$userId" params={{ userId: game.gm.id }} className="username">
-					{game.gm.username}
-				</Link>
-			</div>
+			{!hideGM && (
+				<div className={styles["gm-info"]}>
+					<Link to="/user/$userId" params={{ userId: game.gm.id }} className="username">
+						{game.gm.username}
+					</Link>
+				</div>
+			)}
 			{end}
 		</li>
 	);

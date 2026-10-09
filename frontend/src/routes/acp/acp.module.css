@@ -154,6 +154,47 @@
 	}
 }
 
+.role-heading {
+	display: flex;
+	align-items: baseline;
+	gap: 1em;
+}
+
+.role-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4em;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+/* Drawn rather than a ▸ glyph, which comes from a fallback font with its own
+   metrics; a shape centers on the text's capitals regardless. */
+.role-chevron {
+	width: 0.45em;
+	height: 0.55em;
+	flex-shrink: 0;
+	background-color: currentColor;
+	clip-path: polygon(0 0, 100% 50%, 0 100%);
+	transition: transform 0.15s;
+
+	[aria-expanded="true"] > & {
+		transform: rotate(90deg);
+	}
+}
+
+.role-unsaved {
+	color: var(--gp-red);
+	font-size: 0.85em;
+	font-weight: bold;
+}
+
 .entity-list {
 	list-style: none;
 	margin: 0 0 1em;
@@ -247,4 +288,18 @@
 	display: flex;
 	align-items: center;
 	gap: 0.75em;
+}
+
+/* A save that covers the whole page, set apart from the last section's own
+   controls. */
+.page-save {
+	border-top: 1px solid #999;
+	margin-top: 2em;
+	padding-top: 1.5em;
+}
+
+.unsaved-note {
+	color: var(--gp-red);
+	font-weight: bold;
+	margin-bottom: 0.75em;
 }

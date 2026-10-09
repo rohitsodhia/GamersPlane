@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 
 from sqlalchemy import or_, select
@@ -12,7 +12,8 @@ from app.exceptions import (
     NotFoundException,
     ValidationError,
 )
-from app.models import Forum, Game, Role, RolePermission, User
+from app.forums.permissions import is_site_moderator
+from app.models import Forum, Game, Role, RolePermission, User, UserRole
 
 # Role #1 is the bootstrap "site owner" role and user #1 its permanent member.
 # Both are hard-locked below so no API caller can rename, delete, re-own, or
@@ -92,17 +93,148 @@ class RBACkRepository:
                     allowed.add(grant.scope_id)
         return allowed - denied
 
-    def can_manage_role(self, role_id: int) -> bool:
-        """True if the principal may administer this role.
-
-        Global ``admin`` holders can manage every role; everyone else needs a
-        scoped ``role_admin`` grant for this specific role.
-        """
-        if self.principal.has_global_permission(
+    def is_admin(self) -> bool:
+        return self.principal.has_global_permission(
             RolePermission.ValidPermissions.ADMIN.value
-        ):
+        )
+
+    def _owns_site_role(self, role: Role) -> bool:
+        return role.game_role is None and role.owner_id == self.principal.id
+
+    def can_view_role(self, role: Role) -> bool:
+        """True if the principal can see this role at all.
+
+        Admins see everything; others see roles they hold a scoped ``role_admin``
+        grant for, plus the site roles they own.
+        """
+        return (
+            self.is_admin()
+            or role.id in self._manageable_role_ids()
+            or self._owns_site_role(role)
+        )
+
+    def _is_locked_role(self, role: Role) -> bool:
+        """The Admin role and the implicit Registered/Guest roles are admin-only."""
+        return role.id == PROTECTED_ROLE_ID or role.id in IMPLICIT_ROLE_IDS
+
+    def can_edit_role(self, role: Role) -> bool:
+        """Rename a role and add/remove its members.
+
+        Admins always (the per-action guards still apply); others only on an
+        unlocked site role they own or hold a scoped ``role_admin`` grant for.
+        """
+        if self.is_admin():
             return True
-        return role_id in self._manageable_role_ids()
+        if role.game_role is not None or self._is_locked_role(role):
+            return False
+        return self._owns_site_role(role) or role.id in self._manageable_role_ids()
+
+    def can_delete_role(self, role: Role) -> bool:
+        """Admins, or the owner of an unlocked site role (not ``role_admin``)."""
+        if self.is_admin():
+            return True
+        return self._owns_site_role(role) and not self._is_locked_role(role)
+
+    async def get_managers(self, role_id: int) -> Sequence[Role]:
+        """Roles holding an allowing scoped ``role_admin`` grant on this role."""
+        return (
+            (
+                await self.db_session.execute(
+                    select(Role)
+                    .join(RolePermission, RolePermission.role_id == Role.id)
+                    .where(
+                        RolePermission.permission
+                        == RolePermission.ValidPermissions.ROLE_ADMIN,
+                        RolePermission.scope_type == RolePermission.ScopeTypes.ROLE,
+                        RolePermission.scope_id == role_id,
+                        RolePermission.effect == RolePermission.Effects.ALLOW,
+                    )
+                    .order_by(Role._name)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    async def has_role_admin(self) -> bool:
+        """True if the principal administers or owns any role, or is a site
+        moderator (who can create roles). Gates the Roles ACP page."""
+        if self.is_admin() or self._manageable_role_ids():
+            return True
+        owned = await self.db_session.execute(
+            select(Role.id)
+            .where(Role.owner_id == self.principal.id, Role.game_role.is_(None))
+            .limit(1)
+        )
+        if owned.scalar_one_or_none() is not None:
+            return True
+        return await is_site_moderator(self.db_session, self.principal)
+
+    async def _site_moderator_ids(self, user_ids: Iterable[int]) -> set[int]:
+        """Which of these users are site moderators right now."""
+        user_ids = set(user_ids)
+        if not user_ids:
+            return set()
+        users = await self.db_session.scalars(select(User).where(User.id.in_(user_ids)))
+        return {
+            user.id for user in users if await is_site_moderator(self.db_session, user)
+        }
+
+    async def moderators_among_members(self, role_ids: Iterable[int]) -> set[int]:
+        """Site moderators among the roles' explicit members. Registered/Guest
+        membership is implicit, so those roles are skipped."""
+        role_ids = {role_id for role_id in role_ids if role_id not in IMPLICIT_ROLE_IDS}
+        if not role_ids:
+            return set()
+        member_ids = await self.db_session.scalars(
+            select(UserRole.user_id).where(UserRole.role_id.in_(role_ids))
+        )
+        return await self._site_moderator_ids(member_ids)
+
+    async def _confers_moderation(self, role_id: int) -> bool:
+        """True if the role holds an allowing ``forum_moderate`` or ``admin``
+        grant, i.e. if belonging to it could make someone a moderator."""
+        found = await self.db_session.scalar(
+            select(RolePermission.id)
+            .where(
+                RolePermission.role_id == role_id,
+                RolePermission.effect == RolePermission.Effects.ALLOW,
+                or_(
+                    RolePermission.permission
+                    == RolePermission.ValidPermissions.FORUM_MODERATE,
+                    RolePermission.permission == RolePermission.ValidPermissions.ADMIN,
+                ),
+            )
+            .limit(1)
+        )
+        return found is not None
+
+    async def release_lapsed_moderators(self, before: set[int]) -> None:
+        """Hand the site roles of users who were site moderators (``before``, as
+        captured ahead of a change and flushed since) but no longer are to the
+        fallback owner."""
+        if not before:
+            return
+        still = await self._site_moderator_ids(before)
+        await self.release_orphaned_roles(before - still)
+
+    async def release_orphaned_roles(self, user_ids: Iterable[int]) -> None:
+        """Move the unlocked site roles these users own to the fallback owner."""
+        user_ids = set(user_ids)
+        if not user_ids:
+            return
+        roles = await self.db_session.scalars(
+            select(Role).where(
+                Role.owner_id.in_(user_ids),
+                Role.game_role.is_(None),
+                Role.id.not_in({PROTECTED_ROLE_ID, *IMPLICIT_ROLE_IDS}),
+            )
+        )
+        for role in roles:
+            role.owner_id = User.FALLBACK_OWNER_ID
+            # The loaded owner would otherwise keep pointing at the old user.
+            self.db_session.expire(role, ["owner"])
+        await self.db_session.flush()
 
     async def get_roles(
         self, name_filter: str | None = None, game_roles: bool = False
@@ -110,7 +242,8 @@ class RBACkRepository:
         """Roles visible to the principal.
 
         Holders of the global ``admin`` verb get every role; everyone else gets
-        only the roles they hold a scoped ``role_admin`` grant for.
+        the roles they hold a scoped ``role_admin`` grant for, plus the site
+        roles they own.
         """
         query = select(Role).options(
             selectinload(Role.owner),
@@ -123,10 +256,12 @@ class RBACkRepository:
             query = query.where(Role.game_role.is_not(None))
         else:
             query = query.where(Role.game_role.is_(None))
-        if not self.principal.has_global_permission(
-            RolePermission.ValidPermissions.ADMIN.value
-        ):
-            query = query.where(Role.id.in_(self._manageable_role_ids()))
+        if not self.is_admin():
+            visible = Role.id.in_(self._manageable_role_ids())
+            if not game_roles:
+                # Owners see their own site roles (the query is already site-only).
+                visible = or_(visible, Role.owner_id == self.principal.id)
+            query = query.where(visible)
 
         return (await self.db_session.execute(query)).scalars().all()
 
@@ -252,6 +387,9 @@ class RBACkRepository:
         elif scope_type is RolePermission.ScopeTypes.ROLE:
             await self._require_scope_target(Role, scope_id, "Role")
 
+        # No release hook: a new grant can't end anyone's moderation, since a
+        # role's deny only beats its own allow on the same forum, and that pair
+        # would be the grant this one collides with.
         grant = role.grant(
             permission, scope_type=scope_type, scope_id=scope_id, effect=effect
         )
@@ -273,9 +411,21 @@ class RBACkRepository:
                 "This role is protected and its grants can't be changed"
             )
         await self._require_not_gm_role(grant.role_id, GM_GRANTS_LOCKED)
+        before = await self._moderators_if_moderate(grant)
         grant.effect = effect
         await self.db_session.flush()
+        await self.release_lapsed_moderators(before)
         return grant
+
+    async def _moderators_if_moderate(self, grant: RolePermission) -> set[int]:
+        """Site moderators among the grant's role's members, but only when the
+        grant is a ``forum_moderate`` (the only verb that can end moderation)."""
+        if grant.permission not in (
+            RolePermission.ValidPermissions.FORUM_MODERATE,
+            RolePermission.ValidPermissions.ADMIN,
+        ):
+            return set()
+        return await self.moderators_among_members([grant.role_id])
 
     async def delete_grant(self, role: Role, grant: RolePermission) -> None:
         """Hard-delete a grant row.
@@ -289,8 +439,10 @@ class RBACkRepository:
                 "This role is protected and its grants can't be changed"
             )
         await self._require_not_gm_role(role.id, GM_GRANTS_LOCKED)
+        before = await self._moderators_if_moderate(grant)
         role.grants.remove(grant)
         await self.db_session.flush()
+        await self.release_lapsed_moderators(before)
 
     async def add_user_to_role(self, role: Role, user: User) -> None:
         """Idempotent: no-op if the user already holds the role."""
@@ -312,8 +464,14 @@ class RBACkRepository:
         member = next((m for m in role.users if m.id == user_id), None)
         if member is None:
             return
+        before = (
+            await self._site_moderator_ids([user_id])
+            if await self._confers_moderation(role.id)
+            else set()
+        )
         role.users.remove(member)
         await self.db_session.flush()
+        await self.release_lapsed_moderators(before)
 
     async def delete_role(self, role: Role) -> None:
         """Soft-delete a role. Refuses if the role is a game's GM or player role."""
@@ -326,5 +484,11 @@ class RBACkRepository:
         )
         if backing_game.scalar_one_or_none() is not None:
             raise ConflictException("This role backs a game and can't be deleted")
+        before = (
+            await self.moderators_among_members([role.id])
+            if await self._confers_moderation(role.id)
+            else set()
+        )
         role.deleted = datetime.now(UTC)
         await self.db_session.flush()
+        await self.release_lapsed_moderators(before)

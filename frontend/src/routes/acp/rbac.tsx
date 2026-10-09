@@ -1,17 +1,18 @@
 import { useForm } from "@tanstack/react-form";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { UserAutocomplete, type UserRef } from "#/components/UserAutocomplete";
 import { ApiError } from "#/lib/api";
-import { requireAcpPermission } from "#/lib/auth-route";
+import { requireRoleAdmin } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
+import { hasPermission, meQueryOptions } from "#/queries/me";
 import { createRole, rolesQueryOptions } from "#/queries/rbac";
 import styles from "./acp.module.css";
 
 export const Route = createFileRoute("/acp/rbac")({
-	loader: requireAcpPermission("admin"),
+	loader: requireRoleAdmin,
 	component: RouteComponent,
 	validateSearch: z.object({
 		gameRoles: z.boolean().optional().catch(undefined),
@@ -30,6 +31,11 @@ function RouteComponent() {
 	const navigate = useNavigate();
 	const { gameRoles } = Route.useSearch();
 	const showingGameRoles = gameRoles ?? false;
+	const { data: me } = useSuspenseQuery(meQueryOptions);
+	// Admins and site moderators create roles; owners and role admins just manage
+	// theirs. Only admins pick the owner, everyone else owns what they make.
+	const siteModerate = me.siteModerate;
+	const admin = hasPermission(me, "admin");
 	const {
 		data: roles,
 		isPending,
@@ -43,12 +49,15 @@ function RouteComponent() {
 		defaultValues: { name: "" },
 		onSubmit: async ({ value }) => {
 			setCreateErrors([]);
-			if (!owner.id) {
+			if (admin && !owner.id) {
 				setCreateErrors(["An owner is required."]);
 				return;
 			}
 			try {
-				const roleId = await createRole({ name: value.name, owner_id: owner.id });
+				const roleId = await createRole({
+					name: value.name,
+					...(admin && owner.id && { owner_id: owner.id }),
+				});
 				createForm.reset();
 				setOwner(emptyOwner);
 				await refetch();
@@ -108,55 +117,59 @@ function RouteComponent() {
 					</ul>
 				)}
 
-				<section className={styles["role-section"]}>
-					<h3>Create role</h3>
-					{createErrors.length > 0 && (
-						<div className="banner error-banner">
-							<ul>
-								{createErrors.map((error) => (
-									<li key={error}>{error}</li>
-								))}
-							</ul>
-						</div>
-					)}
-					<form
-						className={styles["role-form"]}
-						onSubmit={(e) => {
-							e.preventDefault();
-							createForm.handleSubmit();
-						}}
-					>
-						<createForm.Field name="name">
-							{(field) => (
-								<div>
-									<label htmlFor={field.name}>Name</label>
-									<input
-										id={field.name}
-										name={field.name}
-										type="text"
-										maxLength={48}
-										value={field.state.value}
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-									/>
-								</div>
+				{siteModerate && (
+					<section className={styles["role-section"]}>
+						<h3>Create role</h3>
+						{createErrors.length > 0 && (
+							<div className="banner error-banner">
+								<ul>
+									{createErrors.map((error) => (
+										<li key={error}>{error}</li>
+									))}
+								</ul>
+							</div>
+						)}
+						<form
+							className={styles["role-form"]}
+							onSubmit={(e) => {
+								e.preventDefault();
+								createForm.handleSubmit();
+							}}
+						>
+							<createForm.Field name="name">
+								{(field) => (
+									<div>
+										<label htmlFor={field.name}>Name</label>
+										<input
+											id={field.name}
+											name={field.name}
+											type="text"
+											maxLength={48}
+											value={field.state.value}
+											onBlur={field.handleBlur}
+											onChange={(e) => field.handleChange(e.target.value)}
+										/>
+									</div>
+								)}
+							</createForm.Field>
+							{admin && (
+								<UserAutocomplete
+									id="create-role-owner"
+									label="Owner"
+									defaultUsername={owner.username}
+									onChange={setOwner}
+								/>
 							)}
-						</createForm.Field>
-						<UserAutocomplete
-							id="create-role-owner"
-							label="Owner"
-							defaultUsername={owner.username}
-							onChange={setOwner}
-						/>
-						<createForm.Subscribe selector={(state) => state.isSubmitting}>
-							{(isSubmitting) => (
-								<button type="submit" className="skew-btn" disabled={isSubmitting}>
-									Create
-								</button>
-							)}
-						</createForm.Subscribe>
-					</form>
-				</section>
+							<createForm.Subscribe selector={(state) => state.isSubmitting}>
+								{(isSubmitting) => (
+									<button type="submit" className="skew-btn" disabled={isSubmitting}>
+										Create
+									</button>
+								)}
+							</createForm.Subscribe>
+						</form>
+					</section>
+				)}
 			</div>
 		</div>
 	);

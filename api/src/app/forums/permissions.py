@@ -60,6 +60,16 @@ async def moderated_roots(db_session: AsyncSession, principal: User) -> list[For
     return [root for root in roots if permissions.has(root, Verbs.FORUM_MODERATE)]
 
 
+async def is_site_moderator(db_session: AsyncSession, user: User) -> bool:
+    """True for admins and anyone moderating at least one site (non-game) forum.
+
+    A GM who only moderates their game's forums isn't a site moderator.
+    """
+    if Verbs.ADMIN.value in await user.awaitable_attrs.global_permissions:
+        return True
+    return any(root.game_id is None for root in await moderated_roots(db_session, user))
+
+
 class ForumPermissions:
     """A principal's resolved forum permissions over a fixed set of forums.
 

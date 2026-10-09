@@ -300,14 +300,18 @@
 .autocomplete {
 	--autocomplete-width: var(
 		--rac-autocomplete-width,
-		var(--autocomplete-measured-width, min(100%, var(--rac-field-width)))
+		var(--autocomplete-measured-width, var(--rac-field-width))
 	);
 	display: inline-block;
 	position: relative;
 	max-width: 100%;
 
+	/* The fallback is a plain length, not min(100%, …): .autocomplete is
+	   shrink-to-fit, so a percentage here resolves against its own content and
+	   collapses the field (inside flex rows especially). max-width caps it. */
 	.react-aria-SearchField {
 		width: var(--autocomplete-width);
+		max-width: 100%;
 	}
 
 	/* The menu shares the field's width, overriding the generic

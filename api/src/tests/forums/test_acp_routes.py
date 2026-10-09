@@ -420,6 +420,35 @@ class TestSetForumPermissions:
         assert response.status_code == 204
         assert await grants_on(db_session, lounge, role) == {"forum_moderate": "allow"}
 
+    @pytest.mark.parametrize(
+        ("grants", "released"),
+        [
+            ({"forum_read": "allow"}, True),
+            ({"forum_moderate": "deny"}, True),
+            ({"forum_moderate": "allow", "forum_read": "deny"}, False),
+        ],
+        ids=["removed", "denied", "unchanged"],
+    )
+    async def test_changing_moderate_releases_lapsed_moderators_roles(
+        self, admin, db_session, board, fallback_owner, create, grants, released
+    ):
+        lounge = board["lounge"]
+        owner = await create(ActivatedUserFactory)
+        moderating = await make_role(
+            db_session,
+            grants=[(Verbs.FORUM_MODERATE, lounge.id, ALLOW)],
+            members=[owner],
+        )
+        owned = await make_role(db_session)
+        owned.owner = owner
+        await db_session.flush()
+
+        response = await self.put(admin, lounge, (moderating, grants))
+
+        assert response.status_code == 204
+        await db_session.refresh(owned)
+        assert owned.owner_id == (fallback_owner.id if released else owner.id)
+
     async def test_non_forum_verb_is_rejected(self, moderator, db_session, board):
         role = await make_role(db_session)
 
