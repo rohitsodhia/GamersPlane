@@ -8,7 +8,7 @@ from app.middleware import Principal
 from app.models import Post
 from app.posts import schemas
 from app.posts.functions import check_post_change
-from app.repositories import PostRepository, ThreadRepository
+from app.repositories import PostRepository, ReadTrackingRepository, ThreadRepository
 
 posts = APIRouter(prefix="/posts")
 
@@ -111,6 +111,10 @@ async def create_post(
         state=Post.States.PUBLISHED,
     )
     await thread_repository.attach_new_post(thread, post)
+    assert post.published_at is not None
+    await ReadTrackingRepository(db_session, principal=principal).mark_viewed(
+        thread, post.published_at
+    )
 
     return schemas.NewPostResponse(id=post.id)
 

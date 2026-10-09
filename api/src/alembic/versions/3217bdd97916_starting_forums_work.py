@@ -32,6 +32,7 @@ def upgrade() -> None:
         sa.Column("order", sa.Integer(), nullable=False),
         sa.Column("game_id", sa.Integer(), nullable=True),
         sa.Column("thread_count", sa.Integer(), nullable=False),
+        sa.Column("post_count", sa.Integer(), nullable=False),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),

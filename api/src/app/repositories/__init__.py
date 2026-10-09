@@ -11,6 +11,7 @@ from .pm_repository import PMRepository
 from .post_repository import PostRepository
 from .publisher_repository import PublisherRepository
 from .rbac_repository import RBACkRepository
+from .read_tracking_repository import ReadTrackingRepository
 from .referral_link_repository import ReferralLinkRepository
 from .system_repository import SystemRepository
 from .thread_repository import ThreadRepository

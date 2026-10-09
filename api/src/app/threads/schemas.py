@@ -22,6 +22,8 @@ class ThreadData(SchemaBase):
     last_post: PostData
     options: Thread.Options
     post_count: int
+    # Whether the principal has unread posts here. Always false for guests.
+    has_unread: bool
 
 
 class GetThreadsResponse(SchemaBase):
@@ -36,8 +38,17 @@ class GetThreadResponse(SchemaBase):
     title: str
     options: Thread.Options
     first_post_id: int
+    # The earliest post the principal hasn't read and the page it's on; both
+    # null for guests and when the thread is fully read.
+    first_unread_post_id: int | None
+    first_unread_page: int | None
     # The principal's verbs on the thread's forum.
     permissions: list[str]
+
+
+class MarkThreadViewedInput(SchemaBase):
+    # The last post shown on the page the principal just viewed.
+    post_id: int
 
 
 class NewThreadInput(SchemaBase):

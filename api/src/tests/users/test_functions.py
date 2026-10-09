@@ -1,8 +1,9 @@
 from datetime import date
 
 import pytest
+from sqlalchemy import select
 
-from app.models import User, UserMeta
+from app.models import ForumRead, User, UserMeta
 from app.users.exceptions import UserExists
 from app.users.functions import (
     calculate_age,
@@ -107,7 +108,26 @@ class TestCheckForExistingUser:
 
 
 class TestRegisterUser:
-    async def test_creates_user_with_hashed_password_and_default_meta(self, db_session):
+    async def test_starts_read_tracking_at_the_site_root(
+        self, db_session, site_root_forum
+    ):
+        user = await register_user(
+            db_session,
+            email="reader@example.com",
+            username="reader",
+            password="ValidPass1!",
+        )
+
+        forum_ids = (
+            await db_session.scalars(
+                select(ForumRead.forum_id).where(ForumRead.user_id == user.id)
+            )
+        ).all()
+        assert forum_ids == [site_root_forum.id]
+
+    async def test_creates_user_with_hashed_password_and_default_meta(
+        self, db_session, site_root_forum
+    ):
         user = await register_user(
             db_session,
             email="new@example.com",

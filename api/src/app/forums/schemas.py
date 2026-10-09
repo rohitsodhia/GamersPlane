@@ -41,6 +41,9 @@ class ChildForumData(SchemaBase):
     order: int
     thread_count: int
     post_count: int
+    # Whether the forum, or a readable subforum, holds a thread the principal
+    # hasn't read. Always false for guests.
+    has_unread: bool = False
     last_post: LastPostDetails | None
     children: list[ChildForumData] = []
 
@@ -76,6 +79,8 @@ class GetForum(SchemaBase):
     order: int
     game_id: int | None
     thread_count: int
+    # As on ChildForumData, for this forum itself (false unless it's readable).
+    has_unread: bool = False
     # Forum verbs the principal holds here. A forum shown only because it has
     # readable subforums lacks forum_read, and has no threads to list.
     permissions: list[str]

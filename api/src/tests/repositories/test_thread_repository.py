@@ -131,6 +131,50 @@ class TestThreadRepository:
 
         assert thread.options == Thread.Options(sticky=True)
 
+    async def test_create_increments_forum_thread_count(self, repository, forum):
+        await repository.create(forum.id, Thread.Options())
+        await repository.create(forum.id, Thread.Options())
+
+        assert forum.thread_count == 2
+
+    async def test_attach_new_post_increments_forum_post_count(
+        self, repository, create, forum
+    ):
+        thread = await repository.create(forum.id, Thread.Options())
+        for _ in range(2):
+            post = await create(PostFactory, thread=thread)
+            await repository.attach_new_post(thread, post)
+
+        assert forum.post_count == 2
+
+    async def test_detach_post_decrements_forum_post_count(
+        self, repository, create, forum
+    ):
+        thread = await repository.create(forum.id, Thread.Options())
+        for _ in range(2):
+            post = await create(PostFactory, thread=thread)
+            await repository.attach_new_post(thread, post)
+
+        await repository.detach_post(thread, post)
+
+        assert forum.post_count == 1
+
+    async def test_delete_removes_thread_and_its_posts_from_forum_counts(
+        self, repository, create, forum
+    ):
+        other_thread = await repository.create(forum.id, Thread.Options())
+        other_post = await create(PostFactory, thread=other_thread)
+        await repository.attach_new_post(other_thread, other_post)
+        thread = await repository.create(forum.id, Thread.Options())
+        for _ in range(3):
+            post = await create(PostFactory, thread=thread)
+            await repository.attach_new_post(thread, post)
+
+        await repository.delete(thread)
+
+        assert forum.thread_count == 1
+        assert forum.post_count == 1
+
     async def test_attach_new_post_sets_first_and_last_post(
         self, repository, create, forum
     ):
@@ -141,6 +185,7 @@ class TestThreadRepository:
 
         assert thread.first_post_id == post.id
         assert thread.last_post_id == post.id
+        assert thread.last_post_at == post.published_at
         assert thread.post_count == 1
 
     async def test_attach_new_post_keeps_first_post_and_updates_last_post(
@@ -155,6 +200,7 @@ class TestThreadRepository:
 
         assert thread.first_post_id == first_post.id
         assert thread.last_post_id == second_post.id
+        assert thread.last_post_at == second_post.published_at
         assert thread.post_count == 2
 
     async def test_attach_new_post_rejects_unpublished_post(
@@ -204,6 +250,7 @@ class TestThreadRepository:
         await repository.detach_post(thread, second_post)
 
         assert thread.last_post_id == first_post.id
+        assert thread.last_post_at == first_post.published_at
 
     async def test_detach_post_leaves_last_post_when_not_last_post(
         self, repository, create, forum
@@ -219,6 +266,7 @@ class TestThreadRepository:
         await repository.detach_post(thread, second_post)
 
         assert thread.last_post_id == third_post.id
+        assert thread.last_post_at == third_post.published_at
         assert thread.post_count == 2
 
     async def test_detach_post_rejects_first_post(self, repository, create, forum):

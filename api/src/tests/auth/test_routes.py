@@ -219,7 +219,7 @@ class TestRefresh:
 
 
 class TestRegister:
-    async def test_register_creates_user(self, client, db_session):
+    async def test_register_creates_user(self, client, db_session, site_root_forum):
         response = await client.post(
             "/auth/register",
             json={

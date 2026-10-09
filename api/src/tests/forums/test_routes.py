@@ -4,13 +4,15 @@ import pytest
 from sqlalchemy import select, text
 
 from app.models import FavoriteGame, Forum, Player, Role, RolePermission
-from app.repositories import GameRepository
+from app.repositories import GameRepository, ThreadRepository
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 from tests.factories import (
     ActivatedUserFactory,
     ForumFactory,
+    PostFactory,
     RoleFactory,
     SystemFactory,
+    ThreadFactory,
 )
 from tests.rbac.test_routes import make_game_backed_by
 
@@ -139,6 +141,67 @@ class TestGetForum:
         body = response.json()
         assert len(body["children"]) == 1
         assert body["children"][0]["title"] == "Child"
+
+    async def test_get_forum_child_counts_include_readable_descendants(
+        self, client, create, open_forums
+    ):
+        root = await create(ForumFactory, heritage=[], thread_count=9, post_count=90)
+        child = await create(
+            ForumFactory,
+            parent_id=root.id,
+            heritage=[root.id],
+            thread_count=1,
+            post_count=10,
+        )
+        await create(
+            ForumFactory,
+            parent_id=child.id,
+            heritage=[root.id, child.id],
+            thread_count=2,
+            post_count=20,
+        )
+        await open_forums(root.id)
+
+        response = await client.get(f"/forums/{root.id}")
+
+        body = response.json()
+        # The top-level forum keeps its own count; it drives thread pagination.
+        assert body["thread_count"] == 9
+        assert body["children"][0]["thread_count"] == 3
+        assert body["children"][0]["post_count"] == 30
+
+    async def test_get_forum_child_counts_leave_out_unreadable_subforum(
+        self, client, create, db_session, open_forums
+    ):
+        root = await create(ForumFactory, heritage=[])
+        child = await create(
+            ForumFactory,
+            parent_id=root.id,
+            heritage=[root.id],
+            thread_count=1,
+            post_count=10,
+        )
+        hidden = await create(
+            ForumFactory,
+            parent_id=child.id,
+            heritage=[root.id, child.id],
+            thread_count=2,
+            post_count=20,
+        )
+        _registered, guest = await open_forums(root.id)
+        guest.grant(
+            RolePermission.ValidPermissions.FORUM_READ,
+            scope_type=RolePermission.ScopeTypes.FORUM,
+            scope_id=hidden.id,
+            effect=RolePermission.Effects.DENY,
+        )
+        await db_session.flush()
+
+        response = await client.get(f"/forums/{root.id}")
+
+        child_body = response.json()["children"][0]
+        assert child_body["thread_count"] == 1
+        assert child_body["post_count"] == 10
 
     async def test_get_forum_no_children(self, client, create, open_forums):
         forum = await create(ForumFactory, heritage=[])
@@ -828,3 +891,99 @@ class TestDeleteForum:
         response = await admin.delete(f"/forums/{game.root_forum_id}")
 
         assert response.status_code == 403
+
+
+async def add_unread_thread(create, db_session, forum):
+    thread = await create(ThreadFactory, forum=forum)
+    post = await create(
+        PostFactory, thread=thread, published_at=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+    await ThreadRepository(db_session, principal=None).attach_new_post(thread, post)
+    return thread
+
+
+def child_flags(children):
+    """``{forum id: has_unread}`` for every forum in a children tree."""
+    flags = {}
+    for child in children:
+        flags[child["id"]] = child["has_unread"]
+        flags.update(child_flags(child["children"]))
+    return flags
+
+
+@pytest.fixture
+async def unread_tree(create, db_session, site):
+    """Index > top > sub (holding an unread thread), plus an empty sibling."""
+    top = await create(ForumFactory, parent_id=0, heritage=[0])
+    sub = await create(ForumFactory, parent_id=top.id, heritage=[0, top.id])
+    quiet = await create(ForumFactory, parent_id=0, heritage=[0])
+    await add_unread_thread(create, db_session, sub)
+    return top, sub, quiet
+
+
+class TestForumUnreadFlags:
+    async def test_unread_thread_flags_its_forum_and_ancestors(
+        self, authed_client, unread_tree
+    ):
+        client, _user = authed_client
+        top, sub, quiet = unread_tree
+
+        body = (await client.get("/forums/0")).json()
+
+        flags = child_flags(body["children"])
+        assert flags[top.id] is True
+        assert flags[sub.id] is True
+        assert flags[quiet.id] is False
+        assert body["has_unread"] is True
+
+    async def test_guests_never_see_unread(self, client, unread_tree):
+        top, sub, quiet = unread_tree
+
+        body = (await client.get("/forums/0")).json()
+
+        flags = child_flags(body["children"])
+        assert set(flags) >= {top.id, sub.id, quiet.id}
+        assert not any(flags.values())
+        assert body["has_unread"] is False
+
+
+class TestMarkForumRead:
+    async def test_requires_auth(self, client, unread_tree):
+        top, _sub, _quiet = unread_tree
+
+        response = await client.post(f"/forums/{top.id}/mark-read")
+
+        assert response.status_code == 403
+
+    async def test_marks_the_forum_and_its_subforums_read(
+        self, authed_client, unread_tree
+    ):
+        client, _user = authed_client
+        top, sub, _quiet = unread_tree
+
+        response = await client.post(f"/forums/{top.id}/mark-read")
+
+        assert response.status_code == 204
+        flags = child_flags((await client.get("/forums/0")).json()["children"])
+        assert flags[top.id] is False
+        assert flags[sub.id] is False
+
+    async def test_forum_unreadable_itself_but_leading_to_a_readable_one_is_allowed(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        heading = await create(ForumFactory, heritage=[])
+        leaf = await create(ForumFactory, parent_id=heading.id, heritage=[heading.id])
+        await grant_role(db_session, user, (Verbs.FORUM_READ, leaf.id, ALLOW))
+
+        response = await client.post(f"/forums/{heading.id}/mark-read")
+
+        assert response.status_code == 204
+
+    async def test_forum_with_nothing_readable_returns_404(self, authed_client, create):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[])
+
+        response = await client.post(f"/forums/{forum.id}/mark-read")
+
+        assert response.status_code == 404

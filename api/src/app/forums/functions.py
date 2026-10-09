@@ -143,18 +143,36 @@ def build_forum_tree(
     root_id: int,
     last_posts_by_forum_id: dict[int, Post],
     readable_ids: Collection[int] | None = None,
+    unread_ids: Collection[int] = (),
 ) -> list[schemas.ChildForumData]:
     """Nest ``descendants`` under ``root_id``.
 
     Forums outside ``readable_ids`` (when given) report no threads; pass only
     readable forums' posts in ``last_posts_by_forum_id`` to keep their last
-    posts hidden too.
+    posts hidden too. Forums in ``unread_ids`` are flagged ``has_unread``.
     """
     children_by_parent: dict[int | None, list[Forum]] = {}
     for forum in descendants:
         children_by_parent.setdefault(forum.parent_id, []).append(forum)
 
     cascaded_last_posts = cascade_last_posts(descendants, last_posts_by_forum_id)
+
+    # A forum reports its own counts (if readable) plus those of everything
+    # readable below it.
+    totals: dict[int, tuple[int, int]] = {}
+
+    def total_counts(forum: Forum) -> tuple[int, int]:
+        if forum.id in totals:
+            return totals[forum.id]
+        threads, posts = 0, 0
+        if readable_ids is None or forum.id in readable_ids:
+            threads, posts = forum.thread_count, forum.post_count
+        for child in children_by_parent.get(forum.id, []):
+            child_threads, child_posts = total_counts(child)
+            threads += child_threads
+            posts += child_posts
+        totals[forum.id] = (threads, posts)
+        return threads, posts
 
     def build(parent_id: int) -> list[schemas.ChildForumData]:
         return [
@@ -165,10 +183,9 @@ def build_forum_tree(
                 forum_type=forum.forum_type,
                 parent_id=forum.parent_id,
                 order=forum.order,
-                thread_count=forum.thread_count
-                if readable_ids is None or forum.id in readable_ids
-                else 0,
-                post_count=0,
+                thread_count=total_counts(forum)[0],
+                post_count=total_counts(forum)[1],
+                has_unread=forum.id in unread_ids,
                 last_post=build_last_post_details(cascaded_last_posts.get(forum.id)),
                 children=build(forum.id),
             )

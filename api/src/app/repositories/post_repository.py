@@ -69,6 +69,21 @@ class PostRepository:
         )
         return position // limit + 1
 
+    async def get_first_published_after(
+        self, thread_id: int, after: datetime | None
+    ) -> Post | None:
+        """The thread's earliest published post past ``after`` (any, if None)."""
+        query = select(Post).where(
+            Post.thread_id == thread_id,
+            Post.state == Post.States.PUBLISHED,
+            Post.deleted.is_(None),
+        )
+        if after is not None:
+            query = query.where(Post.published_at > after)
+        return await self.db_session.scalar(
+            query.order_by(Post.published_at, Post.id).limit(1)
+        )
+
     async def get_all(
         self, thread_id: int, page: int = 1, limit: int = configs.PAGINATE_PER_PAGE
     ) -> ScalarResult[Post]:

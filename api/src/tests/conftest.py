@@ -7,7 +7,7 @@ from sqlalchemy import URL
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env.test", override=True)
 
-from tests.factories import ActivatedUserFactory, RoleFactory
+from tests.factories import ActivatedUserFactory, ForumFactory, RoleFactory
 
 import pytest
 from alembic.config import Config
@@ -178,6 +178,15 @@ async def authed_client(client, create, auth_as):
 # Forum id every real forum descends from. Tests can put a forum under it via
 # heritage without creating the row, since the resolver only needs the id.
 SITE_ROOT_FORUM_ID = 0
+
+
+@pytest.fixture
+async def site_root_forum(create, wrap_in_savepoint):
+    """The real forum 0 row, for tests that register users (registration seeds
+    their read tracking on it). Opt-in: other tests get by without the row, and
+    some create it themselves."""
+    return await create(ForumFactory, id=SITE_ROOT_FORUM_ID, heritage=[])
+
 
 MEMBER_VERBS = (
     RolePermission.ValidPermissions.FORUM_READ,

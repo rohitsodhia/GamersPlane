@@ -18,19 +18,25 @@ from app.models import (
     DeckType,
     Forum,
     Player,
+    Post,
     Role,
     RolePermission,
+    Thread,
     UserMeta,
 )
 from app.repositories import (
     CharacterRepository,
     CharacterSheetRepository,
+    ForumRepository,
     GameRepository,
     GenreRepository,
     PlayerRepository,
+    PostRepository,
     PublisherRepository,
+    ReadTrackingRepository,
     ReferralLinkRepository,
     SystemRepository,
+    ThreadRepository,
     UserRepository,
 )
 from app.users.functions import register_user
@@ -111,6 +117,21 @@ async def seed():
             )
         typer.echo("Systems added")
 
+        # Before the users: registering one starts its read tracking at the site
+        # root forum (0), which has to exist.
+        with open("data/forums.json") as f:
+            forums_data = json.load(f)
+        for forum_data in forums_data:
+            session.add(Forum(**forum_data))
+        await session.flush()
+        await session.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+                "(SELECT MAX(id) FROM forums))"
+            )
+        )
+        typer.echo("Forums added")
+
         primary_user = await register_user(
             session,
             email="contact@gamersplane.com",
@@ -178,19 +199,6 @@ async def seed():
             )
         )
         typer.echo("System roles added")
-
-        with open("data/forums.json") as f:
-            forums_data = json.load(f)
-        for forum_data in forums_data:
-            session.add(Forum(**forum_data))
-        await session.flush()
-        await session.execute(
-            text(
-                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
-                "(SELECT MAX(id) FROM forums))"
-            )
-        )
-        typer.echo("Forums added")
 
         with open("data/deck_types.json") as f:
             deck_types_data = json.load(f)
@@ -304,7 +312,7 @@ async def create_game(
 async def create_char_sheet(
     system_id: str = typer.Option("custom", prompt=True),
     user_id: int = typer.Option(default=1, prompt=True),
-    name: str = typer.Option(..., prompt=True),
+    name: str = typer.Option("", prompt="Name (blank for random)", show_default=False),
     status: CharacterSheet.Status = typer.Option(
         default=CharacterSheet.Status.PUBLIC, prompt=True
     ),
@@ -321,6 +329,7 @@ async def create_char_sheet(
         help="Publish the draft so characters can be created from it.",
     ),
 ):
+    name = name.strip() or " ".join(mimesis_text.words(3))
     layout = None
     if layout_file is not None:
         try:
@@ -377,8 +386,11 @@ async def create_character(
     user_id: int = typer.Option(default=1, prompt=True),
     type: Character.Type = typer.Option(default=Character.Type.PC, prompt=True),
     in_library: bool = typer.Option(default=True, prompt=True),
-    label: str = typer.Option(..., prompt=True),
+    label: str = typer.Option(
+        "", prompt="Label (blank for random)", show_default=False
+    ),
 ):
+    label = label.strip() or " ".join(mimesis_text.words(3))
     async with session_manager.session() as session:
         user_repository = UserRepository(session)
         user = await user_repository.get_user(user_id)
@@ -405,6 +417,73 @@ async def create_character(
         character.user_id = user_id
         character.in_library = in_library
         typer.echo(f"Character {character.id} created: {character.label}")
+
+
+def random_post_content() -> tuple[str, dict]:
+    title = " ".join(mimesis_text.words(3))
+    body = prose(mimesis_text.text(quantity=random.randint(3, 5)))
+    return title, body
+
+
+@app.command()
+@async_command
+async def create_thread(
+    forum_id: int = typer.Option(default=1, prompt=True),
+    user_id: int = typer.Option(default=1, prompt=True),
+):
+    async with session_manager.session() as session:
+        user = await UserRepository(session).get_user(user_id)
+        if user is None:
+            typer.echo(f"No user with id {user_id}")
+            raise typer.Exit(code=1)
+
+        if await ForumRepository(session, principal=user).get(forum_id) is None:
+            typer.echo(f"No forum with id {forum_id}")
+            raise typer.Exit(code=1)
+
+        thread_repository = ThreadRepository(session, principal=user)
+        thread = await thread_repository.create(forum_id, Thread.Options())
+
+        title, body = random_post_content()
+        post = await PostRepository(session, principal=user).create(
+            thread.id, user.id, title, body, state=Post.States.PUBLISHED
+        )
+        await thread_repository.attach_new_post(thread, post)
+        await ReadTrackingRepository(session, principal=user).mark_viewed(
+            thread, post.published_at
+        )
+
+        typer.echo(f"Thread {thread.id} created in forum {forum_id}: {title}")
+
+
+@app.command()
+@async_command
+async def create_post(
+    thread_id: int = typer.Option(..., prompt=True),
+    user_id: int = typer.Option(default=1, prompt=True),
+):
+    async with session_manager.session() as session:
+        user = await UserRepository(session).get_user(user_id)
+        if user is None:
+            typer.echo(f"No user with id {user_id}")
+            raise typer.Exit(code=1)
+
+        thread_repository = ThreadRepository(session, principal=user)
+        thread = await thread_repository.get(thread_id)
+        if thread is None:
+            typer.echo(f"No thread with id {thread_id}")
+            raise typer.Exit(code=1)
+
+        title, body = random_post_content()
+        post = await PostRepository(session, principal=user).create(
+            thread.id, user.id, title, body, state=Post.States.PUBLISHED
+        )
+        await thread_repository.attach_new_post(thread, post)
+        await ReadTrackingRepository(session, principal=user).mark_viewed(
+            thread, post.published_at
+        )
+
+        typer.echo(f"Post {post.id} created in thread {thread.id}")
 
 
 if __name__ == "__main__":

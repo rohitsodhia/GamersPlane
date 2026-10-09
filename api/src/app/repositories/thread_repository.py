@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import ScalarResult, false, func, select
+from sqlalchemy import ScalarResult, false, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.configs import configs
-from app.models import Post, Thread, User
+from app.models import Forum, Post, Thread, User
 
 
 class ThreadRepository:
@@ -19,6 +19,27 @@ class ThreadRepository:
             )
             or 0
         )
+
+    async def _adjust_forum_counts(
+        self, forum_id: int, thread_delta: int = 0, post_delta: int = 0
+    ) -> None:
+        """Move a forum's counters in SQL, so concurrent writers don't clobber
+        each other, then refresh any loaded ``Forum`` so it isn't left stale
+        (``thread.forum`` is the same identity-mapped instance)."""
+        if not thread_delta and not post_delta:
+            return
+        await self.db_session.execute(
+            update(Forum)
+            .where(Forum.id == forum_id)
+            .values(
+                thread_count=Forum.thread_count + thread_delta,
+                post_count=Forum.post_count + post_delta,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        forum = await self.db_session.get(Forum, forum_id)
+        if forum is not None:
+            await self.db_session.refresh(forum, ["thread_count", "post_count"])
 
     async def get(self, thread_id: int) -> Thread | None:
         thread = await self.db_session.get(Thread, thread_id)
@@ -47,6 +68,7 @@ class ThreadRepository:
         thread = Thread(forum_id=forum_id, options=options)
         self.db_session.add(thread)
         await self.db_session.flush()
+        await self._adjust_forum_counts(forum_id, thread_delta=1)
         return thread
 
     async def attach_new_post(self, thread: Thread, post: Post) -> Thread:
@@ -54,22 +76,28 @@ class ThreadRepository:
         if thread.first_post_id is None:
             thread.first_post_id = post.id
         thread.last_post_id = post.id
+        thread.last_post_at = post.published_at
         thread.post_count += 1
         await self.db_session.flush()
+        await self._adjust_forum_counts(thread.forum_id, post_delta=1)
         return thread
 
     async def delete(self, thread: Thread) -> Thread:
         thread.deleted = datetime.now(UTC)
         self.db_session.add(thread)
         await self.db_session.flush()
+        await self._adjust_forum_counts(
+            thread.forum_id, thread_delta=-1, post_delta=-thread.post_count
+        )
         return thread
 
     async def detach_post(self, thread: Thread, post: Post) -> Thread:
         assert post.id != thread.first_post_id
         thread.post_count -= 1
+        await self._adjust_forum_counts(thread.forum_id, post_delta=-1)
         if post.id == thread.last_post_id:
-            new_last_post_id = await self.db_session.scalar(
-                select(Post.id)
+            new_last_post = await self.db_session.execute(
+                select(Post.id, Post.published_at)
                 .where(
                     Post.thread_id == thread.id,
                     Post.state == Post.States.PUBLISHED,
@@ -79,7 +107,9 @@ class ThreadRepository:
                 .order_by(Post.published_at.desc())
                 .limit(1)
             )
-            thread.last_post_id = new_last_post_id
+            row = new_last_post.first()
+            thread.last_post_id = row.id if row else None
+            thread.last_post_at = row.published_at if row else None
         await self.db_session.flush()
         return thread
 

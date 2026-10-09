@@ -16,3 +16,4 @@ class ForumFactory(SQLAlchemyModelFactory):
     order = Sequence(lambda n: n)
     game_id = None
     thread_count = 0
+    post_count = 0

@@ -13,6 +13,7 @@
             "Bash(npx tsc *)",
             "Bash(uv run ruff *)",
             "Bash(npm run lint)",
+            "Bash(docker/api_tests *)",
             "Bash(./docker/api_tests *)",
             "Bash(../docker/api_tests *)",
             "Bash(npm test *)",

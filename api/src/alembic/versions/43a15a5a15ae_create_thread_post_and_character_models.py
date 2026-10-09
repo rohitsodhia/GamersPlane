@@ -185,6 +185,7 @@ def upgrade() -> None:
         sa.Column("options", sa.JSON(), nullable=False),
         sa.Column("first_post_id", sa.Integer(), nullable=True),
         sa.Column("last_post_id", sa.Integer(), nullable=True),
+        sa.Column("last_post_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("post_count", sa.Integer(), nullable=False),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -204,13 +205,55 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_threads_forum_id"), "threads", ["forum_id"], unique=False)
+    op.create_index(
+        "ix_threads_forum_id_last_post_at",
+        "threads",
+        ["forum_id", "last_post_at"],
+        unique=False,
+    )
     op.create_foreign_key(
         "fk_posts_thread_id_threads", "posts", "threads", ["thread_id"], ["id"]
+    )
+    op.create_table(
+        "forum_reads",
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("forum_id", sa.Integer(), nullable=False),
+        sa.Column("read_until", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["forum_id"],
+            ["forums.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("user_id", "forum_id"),
+    )
+    op.create_table(
+        "thread_reads",
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("thread_id", sa.Integer(), nullable=False),
+        sa.Column("read_until", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "pinned", sa.Boolean(), server_default=sa.text("false"), nullable=False
+        ),
+        sa.ForeignKeyConstraint(
+            ["thread_id"],
+            ["threads.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("user_id", "thread_id"),
     )
 
 
 def downgrade() -> None:
+    op.drop_table("thread_reads")
+    op.drop_table("forum_reads")
     op.drop_constraint("fk_posts_thread_id_threads", "posts", type_="foreignkey")
+    op.drop_index("ix_threads_forum_id_last_post_at", table_name="threads")
     op.drop_index(op.f("ix_threads_forum_id"), table_name="threads")
     op.drop_table("threads")
     op.drop_index(op.f("ix_posts_thread_id"), table_name="posts")

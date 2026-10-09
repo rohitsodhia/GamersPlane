@@ -1,4 +1,10 @@
-from app.models import RolePermission, Thread
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from app.configs import configs
+from app.models import Post, RolePermission, Thread
+from app.repositories import ThreadRepository
 from tests.conftest import SITE_ROOT_FORUM_ID
 from tests.factories import (
     ForumFactory,
@@ -35,6 +41,7 @@ async def create_thread(create, db_session, **thread_kwargs):
     first_post = await create(PostFactory, thread=thread, title="First Post")
     thread.first_post_id = first_post.id
     thread.last_post_id = first_post.id
+    thread.last_post_at = first_post.published_at
     thread.post_count = 1
     await db_session.flush()
     return thread, first_post
@@ -326,3 +333,224 @@ class TestCreateThread:
         )
 
         assert response.status_code == 422
+
+    async def test_create_thread_is_read_for_its_author(self, authed_client, create):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+
+        await client.post("/threads", json=new_thread_payload(forum_id=forum.id))
+
+        listing = await client.get("/threads", params={"forum_id": forum.id})
+        assert listing.json()["threads"][0]["has_unread"] is False
+
+
+BASE = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+async def add_post(create, db_session, thread, day):
+    """Publish a post on ``thread`` ``day`` days after BASE."""
+    post = await create(
+        PostFactory, thread=thread, published_at=BASE + timedelta(days=day)
+    )
+    await ThreadRepository(db_session, principal=None).attach_new_post(thread, post)
+    return post
+
+
+async def make_thread(create, db_session, forum, *days):
+    thread = await create(ThreadFactory, forum=forum)
+    posts = [await add_post(create, db_session, thread, day) for day in days]
+    return thread, posts
+
+
+class TestThreadsUnreadFlag:
+    async def test_get_threads_flags_only_unread_threads(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        unread, _ = await make_thread(create, db_session, forum, 1)
+        read, _ = await make_thread(create, db_session, forum, 1)
+        await client.post(f"/threads/{read.id}/mark-read")
+
+        response = await client.get("/threads", params={"forum_id": forum.id})
+
+        flags = {t["id"]: t["has_unread"] for t in response.json()["threads"]}
+        assert flags == {unread.id: True, read.id: False}
+
+    async def test_get_threads_has_unread_is_false_for_guests(
+        self, client, create, db_session
+    ):
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        await make_thread(create, db_session, forum, 1)
+
+        response = await client.get("/threads", params={"forum_id": forum.id})
+
+        assert response.json()["threads"][0]["has_unread"] is False
+
+
+class TestGetThreadFirstUnread:
+    async def test_unvisited_thread_points_at_first_post(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        thread, posts = await make_thread(create, db_session, forum, 1, 2)
+
+        body = (await client.get(f"/threads/{thread.id}")).json()
+
+        assert body["first_unread_post_id"] == posts[0].id
+        assert body["first_unread_page"] == 1
+
+    async def test_first_unread_page_follows_pagination(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        per_page = configs.PAGINATE_PER_PAGE
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        thread, posts = await make_thread(
+            create, db_session, forum, *range(1, per_page + 2)
+        )
+        await client.post(
+            f"/threads/{thread.id}/read", json={"post_id": posts[per_page - 1].id}
+        )
+
+        body = (await client.get(f"/threads/{thread.id}")).json()
+
+        assert body["first_unread_post_id"] == posts[per_page].id
+        assert body["first_unread_page"] == 2
+
+    async def test_fully_read_thread_has_no_first_unread(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        thread, _posts = await make_thread(create, db_session, forum, 1, 2)
+        response = await client.post(f"/threads/{thread.id}/mark-read")
+
+        assert response.status_code == 204
+        body = (await client.get(f"/threads/{thread.id}")).json()
+        assert body["first_unread_post_id"] is None
+        assert body["first_unread_page"] is None
+
+    async def test_guest_has_no_first_unread(self, client, create, db_session):
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        thread, _posts = await make_thread(create, db_session, forum, 1)
+
+        body = (await client.get(f"/threads/{thread.id}")).json()
+
+        assert body["first_unread_post_id"] is None
+        assert body["first_unread_page"] is None
+
+
+class TestMarkThreadViewed:
+    async def test_requires_auth(self, client, create, db_session):
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        thread, posts = await make_thread(create, db_session, forum, 1)
+
+        response = await client.post(
+            f"/threads/{thread.id}/read", json={"post_id": posts[0].id}
+        )
+
+        assert response.status_code == 403
+
+    async def test_marks_thread_read_up_to_the_post(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        thread, posts = await make_thread(create, db_session, forum, 1, 2)
+
+        response = await client.post(
+            f"/threads/{thread.id}/read", json={"post_id": posts[0].id}
+        )
+
+        assert response.status_code == 204
+        body = (await client.get(f"/threads/{thread.id}")).json()
+        assert body["first_unread_post_id"] == posts[1].id
+
+    async def test_unreadable_forum_returns_404(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        forum = await closed_forum(create)
+        thread, posts = await make_thread(create, db_session, forum, 1)
+
+        response = await client.post(
+            f"/threads/{thread.id}/read", json={"post_id": posts[0].id}
+        )
+
+        assert response.status_code == 404
+
+    async def test_post_from_another_thread_returns_404(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        thread, _posts = await make_thread(create, db_session, forum, 1)
+        _other, other_posts = await make_thread(create, db_session, forum, 1)
+
+        response = await client.post(
+            f"/threads/{thread.id}/read", json={"post_id": other_posts[0].id}
+        )
+
+        assert response.status_code == 404
+
+    async def test_nonexistent_post_returns_404(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        thread, _posts = await make_thread(create, db_session, forum, 1)
+
+        response = await client.post(
+            f"/threads/{thread.id}/read", json={"post_id": 999999}
+        )
+
+        assert response.status_code == 404
+
+    async def test_draft_post_returns_404(self, authed_client, create, db_session):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        thread, _posts = await make_thread(create, db_session, forum, 1)
+        draft = await create(PostFactory, thread=thread, state=Post.States.DRAFT)
+
+        response = await client.post(
+            f"/threads/{thread.id}/read", json={"post_id": draft.id}
+        )
+
+        assert response.status_code == 404
+
+
+class TestMarkThreadReadAndUnread:
+    async def test_mark_unread_makes_newest_post_unread(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        thread, posts = await make_thread(create, db_session, forum, 1, 2)
+        await client.post(f"/threads/{thread.id}/mark-read")
+
+        response = await client.post(f"/threads/{thread.id}/mark-unread")
+
+        assert response.status_code == 204
+        body = (await client.get(f"/threads/{thread.id}")).json()
+        assert body["first_unread_post_id"] == posts[1].id
+
+    @pytest.mark.parametrize("action", ["mark-read", "mark-unread"])
+    async def test_unreadable_forum_returns_404(
+        self, authed_client, create, db_session, action
+    ):
+        client, _user = authed_client
+        forum = await closed_forum(create)
+        thread, _posts = await make_thread(create, db_session, forum, 1)
+
+        response = await client.post(f"/threads/{thread.id}/{action}")
+
+        assert response.status_code == 404
+
+    async def test_mark_read_unknown_thread_returns_404(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post("/threads/999999/mark-read")
+
+        assert response.status_code == 404

@@ -7,6 +7,7 @@ from .character_sheet_version import CharacterSheetVersion
 from .decks import Deck, DeckPermission, DeckType
 from .favorites import FavoriteCharacter, FavoriteGame
 from .forum import Forum
+from .forum_read import ForumRead
 from .game import Game
 from .game_allowed_char_sheets import GameAllowedSystem
 from .genre import Genre
@@ -19,6 +20,7 @@ from .referral_link import ReferralLink
 from .system import System
 from .system_genres import SystemGenre
 from .thread import Thread
+from .thread_read import ThreadRead
 from .token import AccountActivationToken, PasswordResetToken, Token
 from .user import User
 from .user_meta import UserMeta
