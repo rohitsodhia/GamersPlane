@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from app.configs import configs
 from app.models import Post, RolePermission, Thread
 from app.repositories import PostRepository, ThreadRepository
@@ -230,6 +232,26 @@ class TestCreatePost:
 
         assert response.status_code == 200
         assert "id" in response.json()
+
+    async def test_create_post_is_read_for_its_author(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        thread = await create(ThreadFactory)
+        earlier = await create(
+            PostFactory, thread=thread, published_at=datetime(2020, 1, 1, tzinfo=UTC)
+        )
+        await ThreadRepository(db_session, principal=None).attach_new_post(
+            thread, earlier
+        )
+        params = {"forum_id": thread.forum_id}
+        before = await client.get("/threads", params=params)
+        assert before.json()["threads"][0]["has_unread"] is True
+
+        await client.post("/posts", json=new_post_payload(thread_id=thread.id))
+
+        after = await client.get("/threads", params=params)
+        assert after.json()["threads"][0]["has_unread"] is False
 
     async def test_create_post_unknown_thread_returns_404(self, authed_client):
         client, _user = authed_client

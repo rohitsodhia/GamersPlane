@@ -14,7 +14,12 @@ from app.forums.permissions import ForumPermissions, Verbs, moderated_roots
 from app.helpers.decorators import public
 from app.middleware import Principal
 from app.models import Forum
-from app.repositories import ForumRepository, GameRepository, ThreadRepository
+from app.repositories import (
+    ForumRepository,
+    GameRepository,
+    ReadTrackingRepository,
+    ThreadRepository,
+)
 from app.repositories.forum_repository import PROTECTED_FORUM_IDS, SITE_ROOT_FORUM_ID
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 
@@ -148,8 +153,19 @@ async def get_forum(
         list(readable_ids)
     )
 
+    # The forum itself joins the set only when readable, so a heading forum
+    # never reports threads the principal can't see.
+    unread_ids: set[int] = set()
+    if principal:
+        unread_candidates = set(readable_ids)
+        if Verbs.FORUM_READ in forum_permissions:
+            unread_candidates.add(forum.id)
+        unread_ids = await ReadTrackingRepository(
+            db_session, principal=principal
+        ).unread_forum_ids(unread_candidates)
+
     children_forums_data = build_forum_tree(
-        descendants, forum_id, last_posts_by_forum_id, readable_ids
+        descendants, forum_id, last_posts_by_forum_id, readable_ids, unread_ids
     )
 
     return schemas.GetForum(
@@ -162,9 +178,31 @@ async def get_forum(
         order=forum.order,
         game_id=forum.game_id,
         thread_count=forum.thread_count if Verbs.FORUM_READ in forum_permissions else 0,
+        has_unread=forum.id in unread_ids,
         permissions=sorted(verb.value for verb in forum_permissions),
         children=children_forums_data,
     )
+
+
+@forums.post("/{forum_id}/mark-read", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_forum_read(
+    forum_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    """Mark the forum and everything under it read. Visible on the same terms
+    as ``get_forum``: the forum is readable, or leads to a readable subforum
+    (so "mark all read" works from the index, forum 0)."""
+    forum_repository = ForumRepository(db_session, principal=principal)
+    forum = await get_forum_or_404(forum_repository, forum_id)
+    descendants = list(await forum_repository.get_descendants(forum_id))
+    permissions = await ForumPermissions.load(
+        db_session, principal, [forum, *descendants]
+    )
+    if not permissions.has(forum, Verbs.FORUM_READ) and not any(
+        permissions.has(descendant, Verbs.FORUM_READ) for descendant in descendants
+    ):
+        raise NotFoundException("Forum not found")
+
+    await ReadTrackingRepository(db_session, principal=principal).mark_forum_read(forum)
 
 
 @forums.patch("/{forum_id}", status_code=status.HTTP_204_NO_CONTENT)

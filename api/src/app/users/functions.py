@@ -4,6 +4,7 @@ from sqlalchemy import or_, select
 
 from app.database import DBSessionDependency
 from app.models import User, UserMeta
+from app.repositories import ReadTrackingRepository
 from app.schemas import ErrorItem
 from app.users.exceptions import UserExists
 
@@ -62,5 +63,6 @@ async def register_user(
 
     db_session.add(new_user)
     await db_session.flush()
+    await ReadTrackingRepository(db_session, principal=new_user).initialize_for_user()
 
     return new_user

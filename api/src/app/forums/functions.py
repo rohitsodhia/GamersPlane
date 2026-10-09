@@ -143,12 +143,13 @@ def build_forum_tree(
     root_id: int,
     last_posts_by_forum_id: dict[int, Post],
     readable_ids: Collection[int] | None = None,
+    unread_ids: Collection[int] = (),
 ) -> list[schemas.ChildForumData]:
     """Nest ``descendants`` under ``root_id``.
 
     Forums outside ``readable_ids`` (when given) report no threads; pass only
     readable forums' posts in ``last_posts_by_forum_id`` to keep their last
-    posts hidden too.
+    posts hidden too. Forums in ``unread_ids`` are flagged ``has_unread``.
     """
     children_by_parent: dict[int | None, list[Forum]] = {}
     for forum in descendants:
@@ -169,6 +170,7 @@ def build_forum_tree(
                 if readable_ids is None or forum.id in readable_ids
                 else 0,
                 post_count=0,
+                has_unread=forum.id in unread_ids,
                 last_post=build_last_post_details(cascaded_last_posts.get(forum.id)),
                 children=build(forum.id),
             )
