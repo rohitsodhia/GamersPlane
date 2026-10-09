@@ -35,6 +35,7 @@ async def create_thread(create, db_session, **thread_kwargs):
     first_post = await create(PostFactory, thread=thread, title="First Post")
     thread.first_post_id = first_post.id
     thread.last_post_id = first_post.id
+    thread.last_post_at = first_post.published_at
     thread.post_count = 1
     await db_session.flush()
     return thread, first_post

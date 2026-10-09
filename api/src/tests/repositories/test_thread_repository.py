@@ -141,6 +141,7 @@ class TestThreadRepository:
 
         assert thread.first_post_id == post.id
         assert thread.last_post_id == post.id
+        assert thread.last_post_at == post.published_at
         assert thread.post_count == 1
 
     async def test_attach_new_post_keeps_first_post_and_updates_last_post(
@@ -155,6 +156,7 @@ class TestThreadRepository:
 
         assert thread.first_post_id == first_post.id
         assert thread.last_post_id == second_post.id
+        assert thread.last_post_at == second_post.published_at
         assert thread.post_count == 2
 
     async def test_attach_new_post_rejects_unpublished_post(
@@ -204,6 +206,7 @@ class TestThreadRepository:
         await repository.detach_post(thread, second_post)
 
         assert thread.last_post_id == first_post.id
+        assert thread.last_post_at == first_post.published_at
 
     async def test_detach_post_leaves_last_post_when_not_last_post(
         self, repository, create, forum
@@ -219,6 +222,7 @@ class TestThreadRepository:
         await repository.detach_post(thread, second_post)
 
         assert thread.last_post_id == third_post.id
+        assert thread.last_post_at == third_post.published_at
         assert thread.post_count == 2
 
     async def test_detach_post_rejects_first_post(self, repository, create, forum):

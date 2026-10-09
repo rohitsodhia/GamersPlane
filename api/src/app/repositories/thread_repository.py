@@ -54,6 +54,7 @@ class ThreadRepository:
         if thread.first_post_id is None:
             thread.first_post_id = post.id
         thread.last_post_id = post.id
+        thread.last_post_at = post.published_at
         thread.post_count += 1
         await self.db_session.flush()
         return thread
@@ -68,8 +69,8 @@ class ThreadRepository:
         assert post.id != thread.first_post_id
         thread.post_count -= 1
         if post.id == thread.last_post_id:
-            new_last_post_id = await self.db_session.scalar(
-                select(Post.id)
+            new_last_post = await self.db_session.execute(
+                select(Post.id, Post.published_at)
                 .where(
                     Post.thread_id == thread.id,
                     Post.state == Post.States.PUBLISHED,
@@ -79,7 +80,9 @@ class ThreadRepository:
                 .order_by(Post.published_at.desc())
                 .limit(1)
             )
-            thread.last_post_id = new_last_post_id
+            row = new_last_post.first()
+            thread.last_post_id = row.id if row else None
+            thread.last_post_at = row.published_at if row else None
         await self.db_session.flush()
         return thread
 

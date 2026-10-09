@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import ForeignKey
+from sqlalchemy import DateTime, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin
@@ -25,6 +26,9 @@ class Thread(Base, SoftDeleteMixin, TimestampMixin):
         discord_webhook: str | None = None
 
     __tablename__ = "threads"
+    __table_args__ = (
+        Index("ix_threads_forum_id_last_post_at", "forum_id", "last_post_at"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     forum_id: Mapped[int] = mapped_column(ForeignKey("forums.id"), index=True)
@@ -41,6 +45,10 @@ class Thread(Base, SoftDeleteMixin, TimestampMixin):
     )
     last_post: Mapped[Post | None] = relationship(
         foreign_keys=[last_post_id], lazy="selectin"
+    )
+    # Denormalized last_post.published_at, so unread checks don't join posts.
+    last_post_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     post_count: Mapped[int] = mapped_column(default=0)
     posts: Mapped[list[Post]] = relationship(
