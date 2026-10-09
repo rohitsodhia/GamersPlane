@@ -30,12 +30,14 @@ function RouteComponent() {
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
 	const navigate = useNavigate();
 	const { gameRoles } = Route.useSearch();
-	const showingGameRoles = gameRoles ?? false;
 	const { data: me } = useSuspenseQuery(meQueryOptions);
 	// Admins and site moderators create roles; owners and role admins just manage
 	// theirs. Only admins pick the owner, everyone else owns what they make.
 	const siteModerate = me.siteModerate;
 	const admin = hasPermission(me, "admin");
+	// The game roles list is an admin overview; GMs manage theirs from the game
+	// forum's Roles tab.
+	const showingGameRoles = admin && (gameRoles ?? false);
 	const {
 		data: roles,
 		isPending,
@@ -74,18 +76,20 @@ function RouteComponent() {
 				Roles
 			</h2>
 			<div style={{ marginInline: `${hbMargined.margin}px` }}>
-				<button
-					type="button"
-					className={styles["roles-switch-btn"]}
-					onClick={() =>
-						navigate({
-							to: "/acp/rbac",
-							search: showingGameRoles ? {} : { gameRoles: true },
-						})
-					}
-				>
-					{showingGameRoles ? "Switch to non-Game roles" : "Switch to Game roles"}
-				</button>
+				{admin && (
+					<button
+						type="button"
+						className={styles["roles-switch-btn"]}
+						onClick={() =>
+							navigate({
+								to: "/acp/rbac",
+								search: showingGameRoles ? {} : { gameRoles: true },
+							})
+						}
+					>
+						{showingGameRoles ? "Switch to non-Game roles" : "Switch to Game roles"}
+					</button>
+				)}
 				{isPending && <div className="loading">Loading...</div>}
 				{isError && <div>Failed to load roles.</div>}
 				{roles && roles.length === 0 && <div>No roles</div>}
