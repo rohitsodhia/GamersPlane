@@ -6,6 +6,7 @@ from app.forums.permissions import ForumPermissions, Verbs
 from app.helpers.decorators import public
 from app.middleware import Principal
 from app.models import Post, Thread, User
+from app.posts.attachments import plan_attachments, save_attachments
 from app.repositories import (
     ForumRepository,
     PostRepository,
@@ -120,6 +121,15 @@ async def create_thread(
     if not permissions.has(forum, Verbs.FORUM_CREATE_THREAD):
         raise ForbiddenException("You can't create threads in this forum")
     check_thread_options(permissions, forum, thread_data.options)
+    attachments = await plan_attachments(
+        db_session,
+        principal,
+        forum,
+        permissions,
+        thread_data.options,
+        thread_data.rolls,
+        thread_data.draws,
+    )
 
     thread_repository = ThreadRepository(db_session, principal=principal)
     thread = await thread_repository.create(
@@ -135,6 +145,7 @@ async def create_thread(
         thread_data.body,
         state=Post.States.PUBLISHED,
     )
+    await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)
     assert post.published_at is not None
     await ReadTrackingRepository(db_session, principal=principal).mark_viewed(

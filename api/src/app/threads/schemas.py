@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+from pydantic import Field
+
 from app.models import Thread
+from app.posts.schemas import (
+    MAX_DRAWS_PER_REQUEST,
+    MAX_ROLLS_PER_REQUEST,
+    NewDrawInput,
+    NewRollInput,
+)
 from app.schema_base import SchemaBase, filtered_str
 
 
@@ -56,6 +64,8 @@ class NewThreadInput(SchemaBase):
     title: str = filtered_str()
     body: dict
     options: Thread.Options = Thread.Options()
+    rolls: list[NewRollInput] = Field(default=[], max_length=MAX_ROLLS_PER_REQUEST)
+    draws: list[NewDrawInput] = Field(default=[], max_length=MAX_DRAWS_PER_REQUEST)
 
 
 class NewThreadResponse(SchemaBase):

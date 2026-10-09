@@ -14,6 +14,8 @@ from .genre import Genre
 from .player import Player
 from .pm import PM
 from .post import Post
+from .post_draw import PostDraw
+from .post_roll import PostRoll
 from .publisher import Publisher
 from .rbac import Role, RolePermission, UserRole
 from .referral_link import ReferralLink

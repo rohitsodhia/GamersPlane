@@ -1,13 +1,15 @@
 from fastapi import APIRouter, status
 
 from app.database import DBSessionDependency
-from app.exceptions import ForbiddenException, NotFoundException
+from app.exceptions import ForbiddenException, NotFoundException, ValidationError
 from app.forums.permissions import ForumPermissions, Verbs
 from app.helpers.decorators import public
 from app.middleware import Principal
 from app.models import Post
 from app.posts import schemas
-from app.posts.functions import check_post_change
+from app.posts.attachments import plan_attachments, save_attachments
+from app.posts.functions import check_post_change, validate_roll_visibility
+from app.posts.visibility import redact_draw, redact_roll
 from app.repositories import PostRepository, ReadTrackingRepository, ThreadRepository
 
 posts = APIRouter(prefix="/posts")
@@ -25,16 +27,22 @@ async def get_posts(
     thread = await thread_repository.get(thread_id)
     if thread is None:
         raise NotFoundException("Thread not found")
-    await ForumPermissions.require_read(
+    permissions = await ForumPermissions.require_read(
         db_session, principal, thread.forum, "Thread not found"
     )
 
     post_repository = PostRepository(db_session, principal=principal)
-    posts = await post_repository.get_all(thread_id, page=page)
+    posts = list(await post_repository.get_all(thread_id, page=page))
+
+    # Moderator status is per request (it's per forum), not per roll.
+    is_moderator = permissions.has(thread.forum, Verbs.FORUM_MODERATE)
+    rolls = await post_repository.get_rolls([post.id for post in posts])
+    draws = await post_repository.get_draws([post.id for post in posts])
 
     posts_data = []
     for post in posts:
         assert post.published_at
+        is_author = principal is not None and post.author_id == principal.id
         posts_data.append(
             schemas.PostData(
                 id=post.id,
@@ -46,6 +54,13 @@ async def get_posts(
                     avatar=post.author.avatar_url,
                 ),
                 body=post.body,
+                rolls=[
+                    redact_roll(roll, full_view=is_author or is_moderator)
+                    for roll in rolls[post.id]
+                ],
+                draws=[
+                    redact_draw(draw, is_author=is_author) for draw in draws[post.id]
+                ],
             )
         )
 
@@ -62,9 +77,14 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
     post = await post_repository.get(post_id)
     if post is None:
         raise NotFoundException("Post not found")
-    await ForumPermissions.require_read(
+    permissions = await ForumPermissions.require_read(
         db_session, principal, post.thread.forum, "Post not found"
     )
+    full_view = principal.id == post.author_id or permissions.has(
+        post.thread.forum, Verbs.FORUM_MODERATE
+    )
+    rolls = (await post_repository.get_rolls([post.id]))[post.id]
+    draws = (await post_repository.get_draws([post.id]))[post.id]
 
     return schemas.GetPostResponse(
         id=post.id,
@@ -76,6 +96,11 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
             avatar=post.author.avatar_url,
         ),
         body=post.body,
+        rolls=[redact_roll(roll, full_view=full_view) for roll in rolls],
+        draws=[
+            redact_draw(draw, is_author=principal.id == post.author_id)
+            for draw in draws
+        ],
         is_first_post=post.thread.first_post_id == post.id,
         thread_id=post.thread_id,
         forum_id=post.thread.forum_id,
@@ -102,6 +127,16 @@ async def create_post(
         if not permissions.has(thread.forum, Verbs.FORUM_WRITE):
             raise ForbiddenException("You can't post in this forum")
 
+    attachments = await plan_attachments(
+        db_session,
+        principal,
+        thread.forum,
+        permissions,
+        thread.options,
+        post_data.rolls,
+        post_data.draws,
+    )
+
     post_repository = PostRepository(db_session, principal=principal)
     post = await post_repository.create(
         thread.id,
@@ -110,6 +145,7 @@ async def create_post(
         post_data.body,
         state=Post.States.PUBLISHED,
     )
+    await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)
     assert post.published_at is not None
     await ReadTrackingRepository(db_session, principal=principal).mark_viewed(
@@ -135,9 +171,74 @@ async def edit_post(
     )
     check_post_change(permissions, post, principal, Verbs.FORUM_EDIT)
 
+    # Moderators can change a roll's visibility but not add to someone else's
+    # post: a draw's cards are shown to the post's author, not to whoever drew.
+    if (post_data.rolls or post_data.draws) and post.author_id != principal.id:
+        raise ForbiddenException("Only the author can add rolls or draws to a post")
+    existing_rolls = (await post_repository.get_rolls([post.id]))[post.id]
+    visibility_changes = validate_roll_visibility(
+        existing_rolls, post_data.roll_visibility
+    )
+    attachments = await plan_attachments(
+        db_session,
+        principal,
+        post.thread.forum,
+        permissions,
+        post.thread.options,
+        post_data.rolls,
+        post_data.draws,
+    )
+
     await post_repository.update(post, post_data.title, post_data.body)
+    for roll, change in visibility_changes:
+        await post_repository.set_roll_visibility(
+            roll, change.hide_reason, change.hide_dice, change.hide_result
+        )
+    await save_attachments(db_session, principal, post, attachments)
 
     return schemas.EditPostResponse(id=post.id)
+
+
+@posts.post(
+    "/{post_id}/draws/{draw_id}/cards/{index}/toggle",
+    response_model=schemas.PostDrawData,
+)
+async def toggle_draw_card(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    post_id: int,
+    draw_id: int,
+    index: int,
+):
+    """Flip whether a drawn card is shown to other viewers.
+
+    Only the post's author may do this. Moderators and GMs can't, as revealing a
+    card to them would be revealing its face. In a locked thread the author also
+    needs to moderate the forum, as with any other change to a post.
+    """
+    post_repository = PostRepository(db_session, principal=principal)
+    post = await post_repository.get(post_id)
+    if post is None:
+        raise NotFoundException("Post not found")
+    forum = post.thread.forum
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, forum, "Post not found"
+    )
+    if post.author_id != principal.id:
+        raise ForbiddenException("Only the author can reveal or hide cards")
+    if post.thread.options.locked and not permissions.has(forum, Verbs.FORUM_MODERATE):
+        raise ForbiddenException("Thread is locked")
+
+    draw = await post_repository.get_draw(draw_id)
+    if draw is None or draw.post_id != post.id:
+        raise NotFoundException("Draw not found")
+    if not 0 <= index < len(draw.cards):
+        raise ValidationError("Card index out of range")
+
+    draw = await post_repository.set_card_revealed(
+        draw, index, not draw.revealed[index]
+    )
+    return redact_draw(draw, is_author=True)
 
 
 @posts.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
