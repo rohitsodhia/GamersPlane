@@ -317,9 +317,10 @@ function RouteComponent() {
 
 			<div className={styles["page-save"]}>
 				<p className={styles["permission-note"]}>
-					Each role works on its own. A user gets a permission if any of their roles
-					allows it. Inherit takes the nearest parent forum's setting for that role. A
-					role saved with every option on Inherit drops off this list.
+					The closest forum (this one, then its parents) where any of a user's roles
+					says Yes or No decides. If their roles disagree there, Yes wins. Inherit
+					leaves the decision to the parent forums. A role saved with every option on
+					Inherit drops off this list.
 				</p>
 				{dirty && (
 					<p className={styles["unsaved-note"]}>

@@ -17,6 +17,10 @@ from app.repositories.user_repository import UserRepository
 # constant and the guard in check_authorization to make `admin` an ordinary verb.
 ADMIN_OVERRIDE = RolePermission.ValidPermissions.ADMIN.value
 
+# Sent as "1" by the frontend while the user is in moderator mode; absent means
+# player mode (see ForumPermissions).
+MODERATOR_MODE_HEADER = "X-Moderator-Mode"
+
 
 async def principal(request: Request) -> User:
     return request.scope["user"]
@@ -61,6 +65,7 @@ async def validate_jwt(request: Request, db_session: DBSessionDependency):
                 user.implicit_roles = await load_implicit_roles(
                     db_session, Role.REGISTERED_ID
                 )
+                user.moderator_mode = request.headers.get(MODERATOR_MODE_HEADER) == "1"
                 request.scope["auth"] = await user.awaitable_attrs.global_permissions
                 request.scope["user"] = user
                 return

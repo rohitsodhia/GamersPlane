@@ -15,6 +15,9 @@ export type MeResponse = {
 	// An admin, or moderates at least one site (non-game) forum. Can create site
 	// roles.
 	siteModerate: boolean;
+	// An admin, or moderates the games forum or one of its ancestors. These users
+	// get the player/moderator mode switch.
+	gameModerate: boolean;
 	// Can reach the Roles page: a global admin, a site moderator, the owner of a
 	// site role, or holder of a scoped role_admin grant.
 	roleAdmin: boolean;
@@ -135,6 +138,7 @@ export const refreshMe = async (queryClient: QueryClient) => {
 		acp: full.acp,
 		forumModerate: full.forumModerate,
 		siteModerate: full.siteModerate,
+		gameModerate: full.gameModerate,
 		roleAdmin: full.roleAdmin,
 		permissions: full.permissions,
 	});

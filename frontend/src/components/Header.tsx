@@ -5,6 +5,7 @@ import { useCallback, useRef } from "react";
 import ThemeToggle from "#/components/ThemeToggle";
 import { meHeaderQueryOptions, meQueryOptions } from "#/queries/me";
 import { useAuthStore } from "#/stores/auth";
+import { useModeratorModeStore } from "#/stores/moderator-mode";
 import { useThemeStore } from "#/stores/theme";
 import styles from "./Header.module.css";
 
@@ -55,6 +56,12 @@ function Header() {
 	const navigate = useNavigate();
 	const setToken = useAuthStore((state) => state.setToken);
 	const queryClient = useQueryClient();
+	const moderatorMode = useModeratorModeStore((state) => state.moderatorMode);
+	const setModeratorMode = useModeratorModeStore((state) => state.setModeratorMode);
+	const toggleModeratorMode = () => {
+		setModeratorMode(!moderatorMode);
+		queryClient.resetQueries();
+	};
 	const logout = () => {
 		setToken(null);
 		queryClient.removeQueries({ queryKey: ["me"] });
@@ -150,6 +157,19 @@ function Header() {
 									<li>
 										<Link to="/pms">Messages{pmCount > 0 ? ` (${pmCount})` : ""}</Link>
 									</li>
+									{me.gameModerate && (
+										<li>
+											<button
+												type="button"
+												className="non-button"
+												onClick={toggleModeratorMode}
+											>
+												{moderatorMode
+													? "Switch to player mode"
+													: "Switch to moderator mode"}
+											</button>
+										</li>
+									)}
 									<li>
 										<ThemeToggle showLabel />
 									</li>

@@ -190,6 +190,16 @@ class TestResolution:
 
         assert await check(db_session, user, root, Verbs.FORUM_WRITE)
 
+    async def test_a_closer_deny_beats_another_roles_inherited_allow(
+        self, db_session, forums, user, make_role, implicit_roles
+    ):
+        root, _, child = forums
+        await implicit_roles(registered=[(Verbs.FORUM_READ, child, Effects.DENY)])
+        await make_role((Verbs.FORUM_READ, root, Effects.ALLOW), members=[user])
+
+        assert await check(db_session, user, root, Verbs.FORUM_READ)
+        assert not await check(db_session, user, child, Verbs.FORUM_READ)
+
     async def test_a_roles_child_deny_stands_until_another_role_allows_there(
         self, db_session, forums, user, make_role, implicit_roles
     ):
@@ -323,10 +333,127 @@ class TestPublicGames:
     ):
         root, subforum = await make_game(public=True)
         await implicit_roles(registered=[(Verbs.FORUM_READ, root, Effects.DENY)])
+        assert not await check(db_session, user, root, Verbs.FORUM_READ)
         assert not await check(db_session, user, subforum, Verbs.FORUM_READ)
 
         await make_role((Verbs.FORUM_READ, root, Effects.ALLOW), members=[user])
         assert await check(db_session, user, subforum, Verbs.FORUM_READ)
+
+
+class TestPlayerMode:
+    @pytest.fixture
+    async def tree(self, create, db_session):
+        """site root -> games root -> game root -> game subforum, plus a site forum
+        under the games root. The game's forums carry its ``game_id``."""
+        site_root = await create(ForumFactory, heritage=[])
+        games_root = await create(
+            ForumFactory, parent_id=site_root.id, heritage=[site_root.id]
+        )
+        site_forum = await create(
+            ForumFactory,
+            parent_id=games_root.id,
+            heritage=[site_root.id, games_root.id],
+        )
+        gm = await create(ActivatedUserFactory)
+        game_root = await create(
+            ForumFactory,
+            parent_id=games_root.id,
+            heritage=[site_root.id, games_root.id],
+        )
+        game = Game(
+            title="Game",
+            system=await create(SystemFactory),
+            gm=gm,
+            post_frequency="1/d",
+            num_players=4,
+            root_forum=game_root,
+            gm_role=RoleFactory.build(owner=gm),
+            player_role=RoleFactory.build(owner=gm),
+            public=False,
+        )
+        db_session.add(game)
+        await db_session.flush()
+        game_root.game_id = game.id
+        subforum = await create(
+            ForumFactory,
+            parent_id=game_root.id,
+            heritage=[site_root.id, games_root.id, game_root.id],
+            game_id=game.id,
+        )
+        return site_root, games_root, site_forum, game_root, subforum
+
+    @pytest.mark.parametrize("scope", ["site_root", "games_root"])
+    async def test_ancestor_moderator_gets_only_member_access_in_a_game(
+        self, db_session, tree, user, make_role, implicit_roles, scope
+    ):
+        site_root, games_root, _site_forum, _game_root, subforum = tree
+        await implicit_roles(registered=[(Verbs.FORUM_READ, site_root, Effects.ALLOW)])
+        scoped = {"site_root": site_root, "games_root": games_root}[scope]
+        await make_role((Verbs.FORUM_MODERATE, scoped, Effects.ALLOW), members=[user])
+        user.moderator_mode = False
+
+        permissions = await ForumPermissions.load(db_session, user, [subforum])
+
+        assert permissions.allowed(subforum) == {Verbs.FORUM_READ}
+
+    async def test_moderator_mode_keeps_ancestor_moderation_in_a_game(
+        self, db_session, tree, user, make_role, implicit_roles
+    ):
+        _site_root, games_root, _site_forum, _game_root, subforum = tree
+        await implicit_roles()
+        await make_role(
+            (Verbs.FORUM_MODERATE, games_root, Effects.ALLOW), members=[user]
+        )
+        user.moderator_mode = True
+
+        permissions = await ForumPermissions.load(db_session, user, [subforum])
+
+        assert permissions.allowed(subforum) == FORUM_VERBS
+
+    async def test_gm_keeps_moderation_of_their_game(
+        self, db_session, tree, user, make_role, implicit_roles
+    ):
+        _site_root, _games_root, _site_forum, game_root, subforum = tree
+        await implicit_roles()
+        await make_role(
+            (Verbs.FORUM_MODERATE, game_root, Effects.ALLOW), members=[user]
+        )
+        user.moderator_mode = False
+
+        assert await check(db_session, user, subforum, Verbs.FORUM_MODERATE)
+        assert await check(db_session, user, subforum, Verbs.FORUM_WRITE)
+
+    async def test_admin_is_not_bypassed_in_a_game_but_is_on_a_site_forum(
+        self, db_session, tree, user, make_role, implicit_roles
+    ):
+        site_root, _games_root, site_forum, _game_root, subforum = tree
+        await implicit_roles(registered=[(Verbs.FORUM_READ, site_root, Effects.ALLOW)])
+        await make_role((Verbs.ADMIN, None, Effects.ALLOW), members=[user])
+        user.moderator_mode = False
+
+        permissions = await ForumPermissions.load(
+            db_session, user, [subforum, site_forum]
+        )
+
+        assert permissions.allowed(subforum) == {Verbs.FORUM_READ}
+        assert permissions.allowed(site_forum) == FORUM_VERBS
+
+        user.moderator_mode = True
+        permissions = await ForumPermissions.load(db_session, user, [subforum])
+        assert permissions.allowed(subforum) == FORUM_VERBS
+
+    async def test_site_forum_moderation_is_unaffected(
+        self, db_session, tree, user, make_role, implicit_roles
+    ):
+        _site_root, games_root, site_forum, _game_root, _subforum = tree
+        await implicit_roles()
+        await make_role(
+            (Verbs.FORUM_MODERATE, games_root, Effects.ALLOW), members=[user]
+        )
+        user.moderator_mode = False
+
+        assert await check(db_session, user, site_forum, Verbs.FORUM_MODERATE)
+        assert await moderated_roots(db_session, user) == [games_root]
 
 
 class TestModeratedRoots:

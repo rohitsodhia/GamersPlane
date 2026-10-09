@@ -12,6 +12,7 @@ from tests.factories import (
     RoleFactory,
     SystemFactory,
 )
+from tests.rbac.test_routes import make_game_backed_by
 
 Verbs = RolePermission.ValidPermissions
 ALLOW = RolePermission.Effects.ALLOW
@@ -301,6 +302,33 @@ async def grant_role(db_session, user, *grants):
         )
     role.users.append(user)
     await db_session.flush()
+
+
+class TestModeratorModeHeader:
+    async def test_header_switches_a_game_forum_between_player_and_moderator_mode(
+        self, authed_client, db_session, create, open_forums
+    ):
+        client, user = authed_client
+        site_forum = await create(ForumFactory, heritage=[])
+        game = await make_game_backed_by(db_session, create)
+        game_forum = await create(
+            ForumFactory,
+            parent_id=site_forum.id,
+            heritage=[site_forum.id],
+            game_id=game.id,
+        )
+        await open_forums(site_forum.id)
+        await grant_role(db_session, user, (Verbs.FORUM_MODERATE, site_forum.id, ALLOW))
+        url = f"/forums/{game_forum.id}"
+
+        player = (await client.get(url)).json()["permissions"]
+        moderator = (await client.get(url, headers={"X-Moderator-Mode": "1"})).json()[
+            "permissions"
+        ]
+
+        assert "forum_moderate" not in player
+        assert "forum_read" in player
+        assert "forum_moderate" in moderator
 
 
 class TestGetModeratedForums:

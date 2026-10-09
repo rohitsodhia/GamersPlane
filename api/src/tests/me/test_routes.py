@@ -30,6 +30,79 @@ async def _give_permission(db_session, user, verb, **scope):
     await db_session.flush()
 
 
+@pytest.fixture
+async def games_root(create, monkeypatch):
+    """A site root -> games root chain, with the games forum id pointed at it."""
+    site_root = await create(ForumFactory, heritage=[])
+    games_root = await create(
+        ForumFactory, parent_id=site_root.id, heritage=[site_root.id]
+    )
+    monkeypatch.setattr("app.me.routes.GAMES_ROOT_FORUM_ID", games_root.id)
+    return site_root, games_root
+
+
+class TestGameModerate:
+    async def test_admin_gets_game_moderate(
+        self, authed_client, db_session, games_root
+    ):
+        client, user = authed_client
+        await _give_permission(db_session, user, RolePermission.ValidPermissions.ADMIN)
+
+        assert (await client.get("/me")).json()["gameModerate"] is True
+
+    @pytest.mark.parametrize("scope", ["site_root", "games_root"])
+    async def test_moderating_the_games_forum_or_an_ancestor_gets_game_moderate(
+        self, authed_client, db_session, games_root, scope
+    ):
+        client, user = authed_client
+        site_root, games_forum = games_root
+        await _give_permission(
+            db_session,
+            user,
+            RolePermission.ValidPermissions.FORUM_MODERATE,
+            scope_type=RolePermission.ScopeTypes.FORUM,
+            scope_id={"site_root": site_root, "games_root": games_forum}[scope].id,
+        )
+
+        assert (await client.get("/me")).json()["gameModerate"] is True
+
+    async def test_moderating_an_unrelated_site_forum_does_not(
+        self, authed_client, db_session, create, games_root
+    ):
+        client, user = authed_client
+        await make_site_moderator(db_session, create, user)
+
+        body = (await client.get("/me")).json()
+
+        assert body["siteModerate"] is True
+        assert body["gameModerate"] is False
+
+    async def test_a_gm_moderating_only_their_game_does_not(
+        self, authed_client, db_session, create, games_root
+    ):
+        client, user = authed_client
+        _site_root, games_forum = games_root
+        game = await make_game_backed_by(db_session, create)
+        game_forum = await create(
+            ForumFactory,
+            parent_id=games_forum.id,
+            heritage=[*games_forum.heritage, games_forum.id],
+            game_id=game.id,
+        )
+        await _give_permission(
+            db_session,
+            user,
+            RolePermission.ValidPermissions.FORUM_MODERATE,
+            scope_type=RolePermission.ScopeTypes.FORUM,
+            scope_id=game_forum.id,
+        )
+
+        body = (await client.get("/me")).json()
+
+        assert body["forumModerate"] is True
+        assert body["gameModerate"] is False
+
+
 class TestGetCurrentUser:
     async def test_get_current_user_requires_auth(self, client):
         response = await client.get("/me")

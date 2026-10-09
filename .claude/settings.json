@@ -14,6 +14,7 @@
             "Bash(uv run ruff *)",
             "Bash(npm run lint)",
             "Bash(./docker/api_tests *)",
+            "Bash(../docker/api_tests *)",
             "Bash(npm test *)",
             "Bash(npx vitest *)",
             "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",

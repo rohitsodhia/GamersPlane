@@ -70,6 +70,10 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
     # The implicit system role (Registered) the auth middleware attaches for the
     # request. Implicit membership has no user_roles row, so it isn't in ``roles``.
     implicit_roles: tuple[Role, ...] = field(default=(), init=False)
+    # False when the request opted into player mode (no ``X-Moderator-Mode: 1``
+    # header): outside-the-game moderation and the admin bypass then don't apply
+    # inside game forums. Defaults to full moderation for non-request code.
+    moderator_mode: bool = field(default=True, init=False)
 
     MIN_PASSWORD_LENGTH: int = 8
     # User 1 is the main admin account, the default owner for orphaned site roles.

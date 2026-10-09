@@ -10,7 +10,8 @@ from app.helpers.avatars import process_avatar_upload, save_avatar
 from app.helpers.functions import error_response
 from app.me import schemas
 from app.middleware import Principal
-from app.models import RolePermission, UserMeta
+from app.models import Forum, RolePermission, UserMeta
+from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 from app.repositories.pm_repository import PMRepository
 from app.repositories.rbac_repository import RBACkRepository
 from app.repositories.user_repository import UserRepository
@@ -51,6 +52,17 @@ async def get_current_user(
         site_moderate
         or await RBACkRepository(db_session, principal=current_user).has_role_admin()
     )
+    # Whether the player/moderator mode switch applies: admins, and moderators of a
+    # site forum that is the games forum or one of its ancestors. Moderating a
+    # non-game forum doesn't depend on the mode, so this holds in either mode.
+    games_root = await db_session.get(Forum, GAMES_ROOT_FORUM_ID)
+    games_root_line = {
+        GAMES_ROOT_FORUM_ID,
+        *(games_root.heritage if games_root else ()),
+    }
+    game_moderate = current_user.has_global_permission(
+        RolePermission.ValidPermissions.ADMIN.value
+    ) or any(root.game_id is None and root.id in games_root_line for root in roots)
     output = {
         "id": current_user.id,
         "username": current_user.username,
@@ -62,6 +74,7 @@ async def get_current_user(
         ),
         "forumModerate": forum_moderate,
         "siteModerate": site_moderate,
+        "gameModerate": game_moderate,
         "roleAdmin": role_admin,
         "permissions": sorted(current_user.global_permissions),
     }

@@ -18,6 +18,7 @@ class UserOutput(SchemaBase):
     acp: bool = False
     forumModerate: bool = False
     siteModerate: bool = False
+    gameModerate: bool = False
     roleAdmin: bool = False
     permissions: list[str] = []
     joinDate: datetime.datetime | None = None
