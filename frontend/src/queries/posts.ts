@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
+import type { DiceSystem, FengShuiRollType } from "#/queries/dice";
 
 type Author = {
 	id: number;
@@ -51,11 +52,39 @@ export function postQueryOptions(postId: number) {
 	});
 }
 
-export const createPost = async (data: {
-	thread_id: number;
-	title: string;
-	body: JSONContent;
-}): Promise<{ id: number }> => {
+export const MAX_ROLLS_PER_POST = 10;
+export const MAX_DRAWS_PER_POST = 10;
+
+export type NewRollInput = {
+	type: DiceSystem;
+	roll: string;
+	reason?: string;
+	// Only the option the system reads is sent.
+	options: { reroll_aces?: boolean; modifier?: number; roll_type?: FengShuiRollType };
+	hide_reason: boolean;
+	hide_dice: boolean;
+	hide_result: boolean;
+};
+
+export type NewDrawInput = {
+	deck_id: number;
+	count: number;
+	reason: string;
+};
+
+// Rolls happen, and cards are taken, when the post is saved.
+export type PostAttachmentsInput = {
+	rolls?: NewRollInput[];
+	draws?: NewDrawInput[];
+};
+
+export const createPost = async (
+	data: {
+		thread_id: number;
+		title: string;
+		body: JSONContent;
+	} & PostAttachmentsInput,
+): Promise<{ id: number }> => {
 	const res = await apiFetch("/posts", {
 		method: "POST",
 		body: JSON.stringify(data),
@@ -75,11 +104,14 @@ export const deletePost = async (postId: number): Promise<void> => {
 	}
 };
 
-export const editPost = async (data: {
-	post_id: number;
-	title: string;
-	body: JSONContent;
-}): Promise<{ id: number }> => {
+// Existing rolls and draws are never changed by an edit; these are added.
+export const editPost = async (
+	data: {
+		post_id: number;
+		title: string;
+		body: JSONContent;
+	} & PostAttachmentsInput,
+): Promise<{ id: number }> => {
 	const { post_id, ...body } = data;
 	const res = await apiFetch(`/posts/${post_id}`, {
 		method: "PATCH",

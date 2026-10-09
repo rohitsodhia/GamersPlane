@@ -47,7 +47,7 @@ function Footer() {
 						<Link to="/privacy-policy">Privacy Policy</Link>
 					</li>
 					<li>
-						<Link to="/community_guidelines">Community Guidelines</Link>
+						<Link to="/community-guidelines">Community Guidelines</Link>
 					</li>
 				</ul>
 				<ul>

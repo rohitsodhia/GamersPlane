@@ -1,12 +1,29 @@
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { JSONContent } from "@tiptap/core";
 import clsx from "clsx";
 import { useState } from "react";
+import { Checkbox } from "#/components/Checkbox";
 import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import type { ForumBreadcrumbs, ForumPermission } from "#/queries/forums";
+import {
+	type ForumBreadcrumbs,
+	type ForumPermission,
+	forumDecksQueryOptions,
+} from "#/queries/forums";
+import type { NewDrawInput, NewRollInput } from "#/queries/posts";
+import type { ThreadOptions } from "#/queries/threads";
+import {
+	type AttachmentAccess,
+	type Attachments,
+	attachmentAccess,
+	attachmentErrors,
+	buildAttachmentPayload,
+	emptyAttachments,
+} from "./-attachment-rows";
 import { Breadcrumbs } from "./-breadcrumbs";
+import { PostAttachmentsEditor } from "./-post-attachments";
 import styles from "./-post-form.module.css";
 
 // Each option needs a forum permission to set; mirrors OPTION_VERBS in the API.
@@ -39,7 +56,7 @@ function FieldError({ message }: { message: string | undefined }) {
 	return <>{message}</>;
 }
 
-export type PostFormValues = {
+type PostFormFields = {
 	title: string;
 	body: JSONContent;
 	options: {
@@ -52,6 +69,11 @@ export type PostFormValues = {
 	};
 };
 
+export type PostFormValues = PostFormFields & {
+	rolls: NewRollInput[];
+	draws: NewDrawInput[];
+};
+
 export function PostForm({
 	pageId,
 	headerTitle,
@@ -60,6 +82,8 @@ export function PostForm({
 	defaultBody = emptyContent,
 	showThreadOptions = true,
 	permissions = [],
+	threadOptions,
+	canAddAttachments = true,
 	submitLabel,
 	isSubmitting = false,
 	apiErrors,
@@ -71,8 +95,13 @@ export function PostForm({
 	defaultTitle?: string;
 	defaultBody?: JSONContent;
 	showThreadOptions?: boolean;
-	// The user's permissions on the forum; decides which thread options show.
+	// The user's permissions on the forum; decides which thread options show, and
+	// whether rolls and draws can be added.
 	permissions?: ForumPermission[];
+	// The existing thread's options, when they aren't being set here (editing).
+	threadOptions?: Pick<ThreadOptions, "allow_rolls" | "allow_draws">;
+	// False when the user can't add rolls or draws to this post (not its author).
+	canAddAttachments?: boolean;
 	submitLabel: string;
 	isSubmitting?: boolean;
 	apiErrors: string[];
@@ -84,6 +113,9 @@ export function PostForm({
 	const [optionsState, setOptionsState] = useState<"options" | "poll" | "dice_decks">(
 		showThreadOptions ? "options" : "dice_decks",
 	);
+
+	const [attachments, setAttachments] = useState<Attachments>(emptyAttachments);
+	const [showAttachmentErrors, setShowAttachmentErrors] = useState(false);
 
 	const form = useForm({
 		defaultValues: {
@@ -97,14 +129,39 @@ export function PostForm({
 				allow_draws: false,
 				discord_webhook: "",
 			},
-		} satisfies PostFormValues,
+		} satisfies PostFormFields,
 		onSubmit: async ({ value }) => {
-			await onSubmit(value);
+			if (Object.keys(attachmentRowErrors).length > 0) {
+				setShowAttachmentErrors(true);
+				setOptionsState("dice_decks");
+				return;
+			}
+			await onSubmit({
+				...value,
+				...buildAttachmentPayload(attachments, attachmentAccessNow),
+			});
 		},
 	});
 
 	const canSet = (permission: ForumPermission) =>
 		permissions.includes(permission) || permissions.includes("forum_moderate");
+
+	// A new thread's options are the form's own; an edit follows the thread's.
+	const formOptions = useStore(form.store, (state) => state.values.options);
+	const attachmentOptions = showThreadOptions
+		? formOptions
+		: (threadOptions ?? { allow_rolls: false, allow_draws: false });
+	const attachmentAccessNow: AttachmentAccess = canAddAttachments
+		? attachmentAccess(attachmentOptions, permissions)
+		: { rolls: false, draws: false };
+	const { data: decksData } = useQuery({
+		...forumDecksQueryOptions(forum.id),
+		enabled: attachmentAccessNow.draws,
+	});
+	const decks = attachmentAccessNow.draws ? (decksData ?? []) : [];
+	const attachmentRowErrors = attachmentErrors(attachments, attachmentAccessNow, decks);
+	const hasAttachmentUI =
+		attachmentAccessNow.rolls || (attachmentAccessNow.draws && decks.length > 0);
 
 	function Options() {
 		return (
@@ -114,13 +171,12 @@ export function PostForm({
 					.map(({ name, label }) => (
 						<form.Field key={name} name={name}>
 							{(field) => (
-								<div>
-									<input
-										type="checkbox"
+								<div className={styles["option-checkbox"]}>
+									<Checkbox
 										id={field.name}
 										checked={field.state.value}
-										onChange={(e) => field.handleChange(e.target.checked)}
-									/>{" "}
+										onChange={(checked) => field.handleChange(checked)}
+									/>
 									<label htmlFor={field.name}>{label}</label>
 								</div>
 							)}
@@ -153,8 +209,16 @@ export function PostForm({
 		return <div>Poll</div>;
 	}
 
-	function DiceDecks() {
-		return <div>Dice Decks</div>;
+	// Why the Rolls and Decks tab is empty, when it is.
+	function attachmentsHint() {
+		const canRoll =
+			permissions.includes("forum_add_rolls") || permissions.includes("forum_moderate");
+		const canDraw =
+			permissions.includes("forum_add_draws") || permissions.includes("forum_moderate");
+		if (!canRoll && !canDraw) return "You can't add rolls or draws in this forum.";
+		if (!attachmentAccessNow.rolls && !attachmentAccessNow.draws)
+			return 'Turn on "Allow adding rolls to posts" or "Allow adding draws to posts" under Options to add them.';
+		return "There are no decks you can draw from here.";
 	}
 
 	return (
@@ -169,12 +233,16 @@ export function PostForm({
 				<Breadcrumbs forum={forum} />
 				<div>
 					Be sure to read and follow the{" "}
-					<Link to="/community_guidelines">community guidelines</Link>.
+					<Link to="/community-guidelines">community guidelines</Link>.
 				</div>
 
-				{apiErrors.length > 0 && (
+				{(apiErrors.length > 0 ||
+					(showAttachmentErrors && Object.keys(attachmentRowErrors).length > 0)) && (
 					<div className="banner error-banner">
 						<ul>
+							{showAttachmentErrors && Object.keys(attachmentRowErrors).length > 0 && (
+								<li>Fix the problems under Rolls and Decks before posting.</li>
+							)}
 							{apiErrors.map((error) => (
 								<li key={error}>{error}</li>
 							))}
@@ -284,14 +352,29 @@ export function PostForm({
 					</div>
 				</div>
 			)}
-			<h2 className="headerbar hb-dark has-topper" ref={hbMarginedOptions.ref}>
-				Thread Options
-			</h2>
-			<div style={{ marginInline: `${hbMarginedOptions.margin}px` }}>
-				{optionsState === "options" && <Options />}
-				{optionsState === "poll" && <Poll />}
-				{optionsState === "dice_decks" && <DiceDecks />}
-			</div>
+			{(showThreadOptions || hasAttachmentUI) && (
+				<>
+					<h2 className="headerbar hb-dark has-topper" ref={hbMarginedOptions.ref}>
+						{showThreadOptions ? "Thread Options" : "Rolls and Decks"}
+					</h2>
+					<div style={{ marginInline: `${hbMarginedOptions.margin}px` }}>
+						{optionsState === "options" && <Options />}
+						{optionsState === "poll" && <Poll />}
+						{optionsState === "dice_decks" &&
+							(hasAttachmentUI ? (
+								<PostAttachmentsEditor
+									value={attachments}
+									onChange={setAttachments}
+									access={attachmentAccessNow}
+									decks={decks}
+									showErrors={showAttachmentErrors}
+								/>
+							) : (
+								<div>{attachmentsHint()}</div>
+							))}
+					</div>
+				</>
+			)}
 		</div>
 	);
 }

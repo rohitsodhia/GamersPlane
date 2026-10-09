@@ -52,6 +52,8 @@ function RouteComponent() {
 	const { postId } = Route.useParams();
 	const { data: post } = useSuspenseQuery(postQueryOptions(postId));
 	const { data: forum } = useSuspenseQuery(forumQueryOptions(post.forum_id));
+	const { data: thread } = useSuspenseQuery(threadQueryOptions(post.thread_id));
+	const { data: me } = useSuspenseQuery(meQueryOptions);
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
@@ -61,6 +63,8 @@ function RouteComponent() {
 		mutationFn: editPost,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["posts", post.thread_id] });
+			// Draws change the decks' remaining cards.
+			queryClient.invalidateQueries({ queryKey: ["forums", post.forum_id, "decks"] });
 		},
 	});
 
@@ -72,6 +76,10 @@ function RouteComponent() {
 			defaultTitle={post.title}
 			defaultBody={post.body}
 			showThreadOptions={false}
+			permissions={thread.permissions}
+			threadOptions={thread.options}
+			// Only the author can add rolls and draws, moderators included.
+			canAddAttachments={post.author.id === me.id}
 			submitLabel="Save Changes"
 			apiErrors={apiErrors}
 			isSubmitting={mutation.isPending}
@@ -82,6 +90,8 @@ function RouteComponent() {
 						post_id: postId,
 						title: value.title,
 						body: value.body,
+						rolls: value.rolls,
+						draws: value.draws,
 					});
 					navigate({
 						to: "/forums/thread/$threadId",

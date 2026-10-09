@@ -368,7 +368,7 @@ function RouteComponent() {
 				<div className={styles["forums-top-nav-links"]}>
 					<div>
 						Be sure to read and follow the{" "}
-						<Link to="/community_guidelines">community guidelines</Link>.
+						<Link to="/community-guidelines">community guidelines</Link>.
 					</div>
 					<div>
 						{forum.id === 0 && (

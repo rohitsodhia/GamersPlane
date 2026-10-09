@@ -865,7 +865,10 @@ function RouteComponent() {
 
 						<div id="decks">
 							{!retired && isGM && (
-								<div style={{ marginLeft: hbMarginedH2.margin }}>
+								<div
+									className={styles["deck-controls"]}
+									style={{ marginLeft: hbMarginedH2.margin }}
+								>
 									<button
 										type="button"
 										className="skew-btn"

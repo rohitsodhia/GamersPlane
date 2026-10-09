@@ -99,6 +99,17 @@ class CreateSubforumInput(SchemaBase):
     forum_type: Forum.ForumTypes = Forum.ForumTypes.FORUM
 
 
+class DrawableDeck(SchemaBase):
+    id: int
+    label: str
+    type: str
+    remaining: int
+
+
+class GetForumDecksResponse(SchemaBase):
+    decks: list[DrawableDeck]
+
+
 class ForumIdResponse(SchemaBase):
     id: int
 

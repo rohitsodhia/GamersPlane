@@ -120,6 +120,12 @@
 	margin: 0 0 1em;
 }
 
+/* Flex so the inline-block button doesn't sit on a text baseline, which leaves a
+   font-dependent gap above the header below it. */
+.deck-controls {
+	display: flex;
+}
+
 .row-list {
 	list-style: none;
 	padding: 0;

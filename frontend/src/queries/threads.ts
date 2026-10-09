@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { ForumPermission } from "#/queries/forums";
+import type { PostAttachmentsInput } from "#/queries/posts";
 
 export type ThreadOptions = {
 	sticky: boolean;
@@ -93,12 +94,14 @@ export const recordThreadRead = (threadId: number, postId: number) =>
 export const markThreadUnread = (threadId: number) =>
 	threadAction(`/threads/${threadId}/mark-unread`);
 
-export const createThread = async (data: {
-	forum_id: number;
-	title: string;
-	body: JSONContent;
-	options?: Partial<ThreadOptions>;
-}): Promise<{ id: number }> => {
+export const createThread = async (
+	data: {
+		forum_id: number;
+		title: string;
+		body: JSONContent;
+		options?: Partial<ThreadOptions>;
+	} & PostAttachmentsInput,
+): Promise<{ id: number }> => {
 	const res = await apiFetch("/threads", {
 		method: "POST",
 		body: JSON.stringify({ options: {}, ...data }),

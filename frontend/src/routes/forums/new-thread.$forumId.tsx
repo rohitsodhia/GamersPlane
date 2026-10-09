@@ -39,6 +39,8 @@ function RouteComponent() {
 		mutationFn: createThread,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["threads", forumId] });
+			// Draws change the decks' remaining cards.
+			queryClient.invalidateQueries({ queryKey: ["forums", forumId, "decks"] });
 		},
 	});
 

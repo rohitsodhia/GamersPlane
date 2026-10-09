@@ -15,8 +15,10 @@ from app.helpers.decorators import public
 from app.middleware import Principal
 from app.models import Forum
 from app.repositories import (
+    DeckRepository,
     ForumRepository,
     GameRepository,
+    PlayerRepository,
     ReadTrackingRepository,
     ThreadRepository,
 )
@@ -105,6 +107,42 @@ async def get_forum_breadcrumbs(
         id=forum.id,
         title=forum.title,
         heritage=build_heritage_data(heritage_forums, permissions),
+    )
+
+
+@forums.get("/{forum_id}/decks", response_model=schemas.GetForumDecksResponse)
+async def get_forum_decks(
+    forum_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    """The decks the principal could draw from when posting in this forum: all
+    of the game's decks for its GM, else those that list them. Empty outside
+    game forums or without ``forum_add_draws``."""
+    forum = await get_forum_or_404(
+        ForumRepository(db_session, principal=principal), forum_id
+    )
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, forum, "Forum not found"
+    )
+    if forum.game_id is None or not permissions.has(forum, Verbs.FORUM_ADD_DRAWS):
+        return schemas.GetForumDecksResponse(decks=[])
+
+    is_gm = await PlayerRepository(db_session, principal=principal).is_gm(
+        forum.game_id, principal.id
+    )
+    decks = await DeckRepository(db_session, principal=principal).get_all_for_game(
+        forum.game_id
+    )
+    return schemas.GetForumDecksResponse(
+        decks=[
+            schemas.DrawableDeck(
+                id=deck.id,
+                label=deck.label,
+                type=deck.type_id,
+                remaining=len(deck.order) - deck.position,
+            )
+            for deck in decks
+            if is_gm or any(p.user_id == principal.id for p in deck.permissions)
+        ]
     )
 
 
