@@ -84,6 +84,12 @@
 		margin-right: 1em;
 		font-size: var(--font-size-sm);
 
+		/* Sits apart from the other actions, at the bubble's left edge. */
+		.mark-unread {
+			margin-left: 1em;
+			margin-right: auto;
+		}
+
 		button {
 			color: var(--gp-light-red);
 

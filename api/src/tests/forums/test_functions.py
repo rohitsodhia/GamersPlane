@@ -53,7 +53,7 @@ class TestBuildModeratedTree:
 
 
 class TestBuildForumTree:
-    def make_forum(self, id, parent_id, title="Forum"):
+    def make_forum(self, id, parent_id, title="Forum", thread_count=0, post_count=0):
         return Forum(
             id=id,
             title=title,
@@ -61,8 +61,40 @@ class TestBuildForumTree:
             parent_id=parent_id,
             heritage=[],
             order=1,
-            thread_count=0,
+            thread_count=thread_count,
+            post_count=post_count,
         )
+
+    def test_build_forum_tree_counts_roll_up_through_descendants(self):
+        descendants = [
+            self.make_forum(2, 1, thread_count=1, post_count=10),
+            self.make_forum(3, 2, thread_count=2, post_count=20),
+            self.make_forum(4, 3, thread_count=4, post_count=40),
+            self.make_forum(5, 1, thread_count=8, post_count=80),
+        ]
+
+        tree = build_forum_tree(descendants, 1, {})
+
+        child, sibling = tree
+        assert (child.thread_count, child.post_count) == (7, 70)
+        assert (child.children[0].thread_count, child.children[0].post_count) == (6, 60)
+        assert (sibling.thread_count, sibling.post_count) == (8, 80)
+
+    def test_build_forum_tree_counts_skip_unreadable_forums(self):
+        descendants = [
+            self.make_forum(2, 1, thread_count=1, post_count=10),
+            self.make_forum(3, 2, thread_count=2, post_count=20),
+            self.make_forum(4, 2, thread_count=4, post_count=40),
+        ]
+
+        tree = build_forum_tree(descendants, 1, {}, readable_ids={3})
+
+        # The unreadable heading and unreadable sibling add nothing.
+        assert (tree[0].thread_count, tree[0].post_count) == (2, 20)
+        assert [(c.thread_count, c.post_count) for c in tree[0].children] == [
+            (2, 20),
+            (0, 0),
+        ]
 
     def test_build_forum_tree_empty(self):
         tree = build_forum_tree([], 1, {})

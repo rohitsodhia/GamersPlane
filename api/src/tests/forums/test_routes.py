@@ -142,6 +142,67 @@ class TestGetForum:
         assert len(body["children"]) == 1
         assert body["children"][0]["title"] == "Child"
 
+    async def test_get_forum_child_counts_include_readable_descendants(
+        self, client, create, open_forums
+    ):
+        root = await create(ForumFactory, heritage=[], thread_count=9, post_count=90)
+        child = await create(
+            ForumFactory,
+            parent_id=root.id,
+            heritage=[root.id],
+            thread_count=1,
+            post_count=10,
+        )
+        await create(
+            ForumFactory,
+            parent_id=child.id,
+            heritage=[root.id, child.id],
+            thread_count=2,
+            post_count=20,
+        )
+        await open_forums(root.id)
+
+        response = await client.get(f"/forums/{root.id}")
+
+        body = response.json()
+        # The top-level forum keeps its own count; it drives thread pagination.
+        assert body["thread_count"] == 9
+        assert body["children"][0]["thread_count"] == 3
+        assert body["children"][0]["post_count"] == 30
+
+    async def test_get_forum_child_counts_leave_out_unreadable_subforum(
+        self, client, create, db_session, open_forums
+    ):
+        root = await create(ForumFactory, heritage=[])
+        child = await create(
+            ForumFactory,
+            parent_id=root.id,
+            heritage=[root.id],
+            thread_count=1,
+            post_count=10,
+        )
+        hidden = await create(
+            ForumFactory,
+            parent_id=child.id,
+            heritage=[root.id, child.id],
+            thread_count=2,
+            post_count=20,
+        )
+        _registered, guest = await open_forums(root.id)
+        guest.grant(
+            RolePermission.ValidPermissions.FORUM_READ,
+            scope_type=RolePermission.ScopeTypes.FORUM,
+            scope_id=hidden.id,
+            effect=RolePermission.Effects.DENY,
+        )
+        await db_session.flush()
+
+        response = await client.get(f"/forums/{root.id}")
+
+        child_body = response.json()["children"][0]
+        assert child_body["thread_count"] == 1
+        assert child_body["post_count"] == 10
+
     async def test_get_forum_no_children(self, client, create, open_forums):
         forum = await create(ForumFactory, heritage=[])
         await open_forums(forum.id)

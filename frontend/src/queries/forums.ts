@@ -51,6 +51,7 @@ export type ChildForum = {
 	thread_count: number;
 	post_count: number;
 	last_post: LastPost | null;
+	has_unread: boolean;
 	children: ChildForum[];
 };
 
@@ -79,6 +80,7 @@ export type Forum = {
 	// Without forum_read the forum is only shown as a heading over subforums the
 	// user can read, and has no threads to list.
 	permissions: ForumPermission[];
+	has_unread: boolean;
 	children: ChildForum[];
 };
 
@@ -147,6 +149,10 @@ export const createSubforum = async (
 // The listed subforums swap among the order slots they already hold.
 export const reorderSubforums = (forumId: number, forumIds: number[]) =>
 	forumMutate(`/forums/${forumId}/subforums/order`, "PUT", { forum_ids: forumIds });
+
+// Marks the forum and every forum under it read. Forum 0 is the whole site.
+export const markForumRead = (forumId: number) =>
+	forumMutate(`/forums/${forumId}/mark-read`, "POST");
 
 export const deleteForum = (forumId: number) =>
 	forumMutate(`/forums/${forumId}`, "DELETE");

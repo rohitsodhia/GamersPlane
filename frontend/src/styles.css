@@ -156,6 +156,24 @@ a:hover {
 	text-decoration: underline;
 }
 
+/* A button that looks like a text link. */
+.link-btn {
+	padding: 0;
+	border: none;
+	background: none;
+	font: inherit;
+	cursor: pointer;
+
+	&:hover:not(:disabled) {
+		text-decoration: underline;
+	}
+
+	&:disabled {
+		opacity: 0.6;
+		cursor: default;
+	}
+}
+
 a.username,
 a.username:visited,
 a.username:active {

@@ -1,5 +1,6 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import clsx from "clsx";
 import { useState } from "react";
 import { z } from "zod";
 import DieIcon from "#/components/DieIcon";
@@ -11,7 +12,12 @@ import { PAGINATE_PER_PAGE } from "#/lib/config";
 import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { useResizeObserver } from "#/lib/use-resize-observer";
-import { type ChildForum, type Forum, forumQueryOptions } from "#/queries/forums";
+import {
+	type ChildForum,
+	type Forum,
+	forumQueryOptions,
+	markForumRead,
+} from "#/queries/forums";
 import {
 	type ThreadOptions,
 	type Thread as ThreadType,
@@ -106,8 +112,11 @@ function CategoryGroup({ title, forums }: { title: string; forums: ChildForum[] 
 function CategoryForum({ forum }: { forum: ChildForum }) {
 	return (
 		<div className={styles["forum-category-forum"]}>
-			<DieIcon className="forum-status-icon" title="Forum Status - Unread" />
-			<div className={`${styles["forum-info"]} read`}>
+			<DieIcon
+				className={clsx("forum-status-icon", !forum.has_unread && "read")}
+				title={forum.has_unread ? "Forum Status - Unread" : "Forum Status - Read"}
+			/>
+			<div className={styles["forum-info"]}>
 				<Link
 					to="/forums/{-$forumId}"
 					params={{ forumId: forum.id }}
@@ -148,16 +157,21 @@ function LastPostInfo({
 function Thread({ thread }: { thread: ThreadType }) {
 	return (
 		<div>
-			<ThreadStatusIcon options={thread.options} />
+			<ThreadStatusIcon options={thread.options} hasUnread={thread.has_unread} />
 			<div className={styles["thread-info"]}>
-				<Link
-					to="/forums/thread/$threadId"
-					params={{ threadId: thread.id }}
-					search={{ view: "new-post" }}
-					className="thread-title"
-				>
-					<img src="/images/icons/new-post.svg" alt="New Post" />
-				</Link>
+				{/* Keep the grid cell when read, so the title stays in its column. */}
+				{thread.has_unread ? (
+					<Link
+						to="/forums/thread/$threadId"
+						params={{ threadId: thread.id }}
+						search={{ view: "new-post" }}
+						className="thread-title"
+					>
+						<img src="/images/icons/new-post.svg" alt="New Post" />
+					</Link>
+				) : (
+					<div></div>
+				)}
 				<Link
 					to="/forums/thread/$threadId"
 					params={{ threadId: thread.id }}
@@ -165,19 +179,22 @@ function Thread({ thread }: { thread: ThreadType }) {
 				>
 					{thread.first_post.title}
 				</Link>
-				<div className="latest-posts">
+				<div className={styles["latest-posts"]}>
 					<InlineThreadPagination threadId={thread.id} postCount={thread.post_count} />
 					<Link
 						to="/forums/thread/$threadId"
 						params={{ threadId: thread.id }}
-						search={{ view: "last-post" }}
+						search={{
+							page: Math.max(1, Math.ceil(thread.post_count / PAGINATE_PER_PAGE)),
+						}}
+						hash={`post-${thread.last_post.id}`}
 						className="thread-title"
 					>
 						<img src="/images/icons/down-arrow.svg" alt="Last Post" />
 					</Link>
 				</div>
 				<div></div>
-				<div className="thread-author">
+				<div className={styles["thread-author"]}>
 					by{" "}
 					<Link
 						to="/user/$userId"
@@ -195,15 +212,26 @@ function Thread({ thread }: { thread: ThreadType }) {
 	);
 }
 
-function ThreadStatusIcon({ options }: { options: ThreadOptions }) {
-	const props = { className: "forum-status-icon" };
+function ThreadStatusIcon({
+	options,
+	hasUnread,
+}: {
+	options: ThreadOptions;
+	hasUnread: boolean;
+}) {
+	const className = clsx("forum-status-icon", !hasUnread && "read");
+	const readLabel = hasUnread ? "Unread" : "Read";
 	if (options.sticky) {
-		return <PinIcon {...props} title="Thread Status - Sticky" />;
+		return (
+			<PinIcon className={className} title={`Thread Status - Sticky, ${readLabel}`} />
+		);
 	}
 	if (options.locked) {
-		return <LockIcon {...props} title="Thread Status - Locked" />;
+		return (
+			<LockIcon className={className} title={`Thread Status - Locked, ${readLabel}`} />
+		);
 	}
-	return <DieIcon {...props} title="Forum Status - Unread" />;
+	return <DieIcon className={className} title={`Thread Status - ${readLabel}`} />;
 }
 
 function InlineThreadPagination({
@@ -305,6 +333,15 @@ function RouteComponent() {
 
 	const { forumId } = Route.useParams();
 	const { data: forum } = useSuspenseQuery(forumQueryOptions(forumId));
+	const queryClient = useQueryClient();
+	const markReadMutation = useMutation({
+		mutationFn: () => markForumRead(forumId),
+		onSuccess: () =>
+			Promise.all([
+				queryClient.invalidateQueries({ queryKey: ["forums"] }),
+				queryClient.invalidateQueries({ queryKey: ["threads"] }),
+			]),
+	});
 
 	const rootForum = getRootForum(forum);
 
@@ -379,9 +416,18 @@ function RouteComponent() {
 				className={styles["forums-bottom-nav"]}
 				style={{ marginInline: hbMarginedHeader.margin }}
 			>
-				<p>
-					<a href={`/forums/process/read/${forum.id}`}>Mark Forum As Read</a>
-				</p>
+				{loggedIn && (
+					<p>
+						<button
+							type="button"
+							className="link-btn"
+							disabled={markReadMutation.isPending}
+							onClick={() => markReadMutation.mutate()}
+						>
+							{forum.id === 0 ? "Mark All Forums As Read" : "Mark Forum As Read"}
+						</button>
+					</p>
+				)}
 				<p>
 					<a href={`/forums/process/subscribe/?forumID=${forum.id}`}>
 						{subscribed ? "Unsubscribe from" : "Subscribe to"} forum

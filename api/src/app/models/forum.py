@@ -37,3 +37,4 @@ class Forum(Base, SoftDeleteMixin, TimestampMixin):
     game_id: Mapped[int | None] = mapped_column(ForeignKey("games.id"), nullable=True)
     game: Mapped[Game] = relationship(foreign_keys=[game_id])
     thread_count: Mapped[int] = mapped_column(default=0)
+    post_count: Mapped[int] = mapped_column(default=0)

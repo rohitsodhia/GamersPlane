@@ -5,9 +5,15 @@ import {
 	useQueryClient,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
-import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	Link,
+	notFound,
+	redirect,
+	useNavigate,
+} from "@tanstack/react-router";
 import type { JSONContent } from "@tiptap/core";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import ChatPoint from "#/components/ChatPoint";
 import Editor, {
@@ -18,13 +24,18 @@ import Editor, {
 import Paginate from "#/components/Paginate";
 import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
+import { PAGINATE_PER_PAGE } from "#/lib/config";
 import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { useScrollToHash } from "#/lib/use-scroll-to-hash";
 import { forumBreadcrumbsQueryOptions } from "#/queries/forums";
 import { meFullQueryOptions, type PostSide } from "#/queries/me";
 import { createPost, deletePost, type Post, postsQueryOptions } from "#/queries/posts";
-import { threadQueryOptions } from "#/queries/threads";
+import {
+	markThreadUnread,
+	recordThreadRead,
+	threadQueryOptions,
+} from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
 import { Breadcrumbs } from "./-breadcrumbs";
 import { canChangePost, canWrite } from "./-permissions";
@@ -35,19 +46,39 @@ export const Route = createFileRoute("/forums/thread/$threadId")({
 		parse: (params) => ({ threadId: Number(params.threadId) }),
 	},
 	validateSearch: z.object({
-		view: z.enum(["new-post", "last-post"]).optional(),
+		view: z.enum(["new-post"]).optional(),
 		page: z.number().optional(),
 	}),
 	beforeLoad: ({ params }) => {
 		if (!Number.isInteger(params.threadId) || params.threadId < 0) throw notFound();
 	},
-	loaderDeps: ({ search }) => ({ page: search.page ?? 1 }),
+	loaderDeps: ({ search }) => ({ page: search.page ?? 1, view: search.view }),
 	loader: async ({ context, params, deps }) => {
-		const thread = await context.queryClient
-			.ensureQueryData(threadQueryOptions(params.threadId))
-			.catch(() => {
-				throw notFound();
+		const wantsNewPost = deps.view === "new-post";
+		// The unread position changes as the user reads, so a jump to the first
+		// new post must not use cached details.
+		const thread = await (wantsNewPost
+			? context.queryClient.fetchQuery({
+					...threadQueryOptions(params.threadId),
+					staleTime: 0,
+				})
+			: context.queryClient.ensureQueryData(threadQueryOptions(params.threadId))
+		).catch(() => {
+			throw notFound();
+		});
+
+		if (wantsNewPost) {
+			// Drops `view`; with nothing unread this stays on page 1.
+			throw redirect({
+				to: "/forums/thread/$threadId",
+				params: { threadId: params.threadId },
+				search: thread.first_unread_page ? { page: thread.first_unread_page } : {},
+				hash: thread.first_unread_post_id
+					? `post-${thread.first_unread_post_id}`
+					: undefined,
+				replace: true,
 			});
+		}
 
 		await Promise.all([
 			context.queryClient.ensureQueryData(
@@ -77,6 +108,7 @@ function PostItem({
 	canDelete,
 	onQuote,
 	onDelete,
+	onMarkUnread,
 }: {
 	post: Post;
 	sideClass: string;
@@ -89,6 +121,8 @@ function PostItem({
 	canDelete: boolean;
 	onQuote: (post: Post) => void;
 	onDelete: (post: Post) => void;
+	// Only passed for the thread's last post.
+	onMarkUnread?: () => void;
 }) {
 	const deleteConfirmId = `delete-post-confirm-${post.id}`;
 	return (
@@ -133,6 +167,15 @@ function PostItem({
 					<TiptapContent content={post.body} className="post-body" />
 				</div>
 				<div className={styles["post-actions"]}>
+					{onMarkUnread && (
+						<button
+							type="button"
+							className={styles["mark-unread"]}
+							onClick={onMarkUnread}
+						>
+							Mark as unread
+						</button>
+					)}
 					{canWrite && (
 						<button type="button" className="quote-post" onClick={() => onQuote(post)}>
 							Quote
@@ -197,12 +240,62 @@ function RouteComponent() {
 		forumBreadcrumbsQueryOptions(thread.forum_id),
 	);
 	const [page, setPage] = useState(searchPage ?? 1);
+	// The search param can change without a remount (e.g. a redirect or a post
+	// link on this same thread), so follow it.
+	const [prevSearchPage, setPrevSearchPage] = useState(searchPage);
+	if (searchPage !== prevSearchPage) {
+		setPrevSearchPage(searchPage);
+		setPage(searchPage ?? 1);
+	}
 	const {
 		data: { posts, count },
 	} = useSuspenseQuery(postsQueryOptions(threadId, page));
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
 	useScrollToHash([posts]);
+
+	const loggedIn = useAuthStore((state) => !!state.token);
+
+	const invalidateReadState = () =>
+		Promise.all([
+			queryClient.invalidateQueries({ queryKey: ["threads"] }),
+			queryClient.invalidateQueries({ queryKey: ["forums"] }),
+		]);
+
+	// Record what the user has seen, once per (thread, page) view. The ref keeps
+	// refetches of the details (e.g. after mark-unread) from firing it again and
+	// undoing the change.
+	const recordedRef = useRef<string | null>(null);
+	const lastPostId = posts.at(-1)?.id;
+	const firstUnreadPage = thread.first_unread_page;
+	useEffect(() => {
+		if (!loggedIn || lastPostId === undefined) return;
+		if (firstUnreadPage == null || page < firstUnreadPage) return;
+		const key = `${threadId}:${page}`;
+		if (recordedRef.current === key) return;
+		recordedRef.current = key;
+		recordThreadRead(threadId, lastPostId)
+			.then(() =>
+				Promise.all([
+					queryClient.invalidateQueries({ queryKey: ["threads"] }),
+					queryClient.invalidateQueries({ queryKey: ["forums"] }),
+				]),
+			)
+			.catch(() => {});
+	}, [loggedIn, threadId, page, lastPostId, firstUnreadPage, queryClient]);
+
+	const isLastPage = page >= Math.ceil(count / PAGINATE_PER_PAGE);
+	const markUnreadMutation = useMutation({
+		mutationFn: () => {
+			// The details refetch below must not read as "this page is newly seen".
+			recordedRef.current = `${threadId}:${page}`;
+			return markThreadUnread(threadId);
+		},
+		onSuccess: async () => {
+			await invalidateReadState();
+			navigate({ to: "/forums/{-$forumId}", params: { forumId: thread.forum_id } });
+		},
+	});
 
 	const deleteMutation = useMutation({
 		mutationFn: deletePost,
@@ -215,7 +308,6 @@ function RouteComponent() {
 		},
 	});
 
-	const loggedIn = useAuthStore((state) => !!state.token);
 	const { data: me } = useQuery({ ...meFullQueryOptions, enabled: loggedIn });
 	const postSide: PostSide = me?.postSide ?? "r";
 
@@ -230,6 +322,10 @@ function RouteComponent() {
 		mutationFn: createPost,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["posts", threadId] });
+			queryClient.invalidateQueries({
+				queryKey: threadQueryOptions(threadId).queryKey,
+			});
+			queryClient.invalidateQueries({ queryKey: ["forums"] });
 		},
 	});
 
@@ -322,6 +418,11 @@ function RouteComponent() {
 							)}
 							onQuote={handleQuote}
 							onDelete={(post) => deleteMutation.mutate(post.id)}
+							onMarkUnread={
+								loggedIn && isLastPage && index === posts.length - 1
+									? () => markUnreadMutation.mutate()
+									: undefined
+							}
 						/>
 					))}
 				</div>
