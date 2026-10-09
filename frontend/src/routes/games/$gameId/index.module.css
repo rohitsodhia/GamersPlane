@@ -159,10 +159,6 @@
 	flex-wrap: wrap;
 	gap: 0.5em;
 	overflow-wrap: anywhere;
-
-	a {
-		text-box-trim: trim-both;
-	}
 }
 
 /* Characters sit on a gray band, indented under their player. */

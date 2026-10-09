@@ -1,7 +1,32 @@
 from app.configs import configs
-from app.models import Post, Thread
+from app.models import Post, RolePermission, Thread
 from app.repositories import PostRepository, ThreadRepository
-from tests.factories import PostFactory, ThreadFactory, UserFactory, prose_doc
+from tests.factories import (
+    ForumFactory,
+    PostFactory,
+    RoleFactory,
+    ThreadFactory,
+    UserFactory,
+    prose_doc,
+)
+
+Verbs = RolePermission.ValidPermissions
+
+
+async def grant(db_session, user, forum, *verbs):
+    """Give ``user`` a role holding ``verbs`` on ``forum``."""
+    role = RoleFactory.build()
+    db_session.add(role)
+    for verb in verbs:
+        role.grant(verb, scope_type=RolePermission.ScopeTypes.FORUM, scope_id=forum.id)
+    role.users.append(user)
+    await db_session.flush()
+
+
+async def closed_thread(create, **kwargs):
+    """A thread in a forum outside the site root, so no default grants reach it."""
+    forum = await create(ForumFactory, heritage=[])
+    return await create(ThreadFactory, forum=forum, **kwargs)
 
 
 class TestGetPosts:
@@ -88,6 +113,13 @@ class TestGetPosts:
         assert author["username"] == "Alice"
         assert author["avatar"] == f"{configs.AVATARS_ROOT}/users/avatar.png"
 
+    async def test_get_posts_in_unreadable_forum_returns_404(self, client, create):
+        thread = await closed_thread(create)
+
+        response = await client.get("/posts", params={"thread_id": thread.id})
+
+        assert response.status_code == 404
+
 
 class TestGetPost:
     async def test_get_post_requires_auth(self, client, create):
@@ -156,6 +188,16 @@ class TestGetPost:
         assert body["forum_id"] == thread.forum_id
         assert body["page"] == 1
         assert body["is_first_post"] is True
+
+    async def test_get_post_in_unreadable_forum_returns_404(
+        self, authed_client, create
+    ):
+        client, _user = authed_client
+        post = await create(PostFactory, thread=await closed_thread(create))
+
+        response = await client.get(f"/posts/{post.id}")
+
+        assert response.status_code == 404
 
 
 def new_post_payload(**overrides):
@@ -243,6 +285,32 @@ class TestCreatePost:
 
         assert response.status_code == 403
 
+    async def test_create_post_without_write_permission_returns_403(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread = await closed_thread(create)
+        await grant(db_session, user, thread.forum, Verbs.FORUM_READ)
+
+        response = await client.post(
+            "/posts", json=new_post_payload(thread_id=thread.id)
+        )
+
+        assert response.status_code == 403
+
+    async def test_moderator_can_post_in_locked_thread(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread = await closed_thread(create, options=Thread.Options(locked=True))
+        await grant(db_session, user, thread.forum, Verbs.FORUM_MODERATE)
+
+        response = await client.post(
+            "/posts", json=new_post_payload(thread_id=thread.id)
+        )
+
+        assert response.status_code == 200
+
 
 def edit_post_payload(**overrides):
     payload = {
@@ -306,6 +374,32 @@ class TestEditPost:
         response = await client.patch(f"/posts/{post.id}", json=edit_post_payload())
 
         assert response.status_code == 403
+
+    async def test_edit_own_post_without_edit_permission_returns_403(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread = await closed_thread(create)
+        await grant(db_session, user, thread.forum, Verbs.FORUM_READ)
+        post = await create(PostFactory, thread=thread, author=user)
+
+        response = await client.patch(f"/posts/{post.id}", json=edit_post_payload())
+
+        assert response.status_code == 403
+
+    async def test_moderator_can_edit_others_posts_in_locked_thread(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread = await closed_thread(create, options=Thread.Options(locked=True))
+        await grant(db_session, user, thread.forum, Verbs.FORUM_MODERATE)
+        post = await create(
+            PostFactory, thread=thread, author=await create(UserFactory)
+        )
+
+        response = await client.patch(f"/posts/{post.id}", json=edit_post_payload())
+
+        assert response.status_code == 200
 
 
 class TestDeletePost:
@@ -393,3 +487,23 @@ class TestDeletePost:
         assert response.status_code == 204
         found = await thread_repository.get(thread.id)
         assert found.deleted is not None
+
+    async def test_deleting_first_post_needs_delete_thread_not_delete(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread_repository = ThreadRepository(db_session, principal=None)
+        thread = await closed_thread(create)
+        await grant(
+            db_session, user, thread.forum, Verbs.FORUM_READ, Verbs.FORUM_DELETE
+        )
+        first_post = await create(PostFactory, thread=thread, author=user)
+        await thread_repository.attach_new_post(thread, first_post)
+        reply = await create(PostFactory, thread=thread, author=user)
+        await thread_repository.attach_new_post(thread, reply)
+
+        first_response = await client.delete(f"/posts/{first_post.id}")
+        reply_response = await client.delete(f"/posts/{reply.id}")
+
+        assert first_response.status_code == 403
+        assert reply_response.status_code == 204

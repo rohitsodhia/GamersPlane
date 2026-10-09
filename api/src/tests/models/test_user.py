@@ -158,6 +158,17 @@ class TestGlobalPermissions:
 
         assert user.global_permissions == {"forum_read"}
 
+    def test_unions_assigned_and_implicit_roles(self):
+        user = _user()
+        assigned = Role(name="Moderators", owner=user)
+        assigned.grant(RolePermission.ValidPermissions.ROLE_ADMIN)
+        user.roles.append(assigned)
+        registered = Role(name="Registered", owner=user)
+        registered.grant(RolePermission.ValidPermissions.ACP_ACCESS)
+        user.implicit_roles = (registered,)
+
+        assert user.global_permissions == {"role_admin", "access_acp"}
+
 
 class TestRoleGrant:
     def test_defaults_to_global_allow(self):

@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 
 from app.exceptions import NotFoundException
-from app.forums.functions import build_forum_tree, get_heritage
+from app.forums.functions import build_forum_tree, build_moderated_tree, get_heritage
 from app.models import Forum, Post, User
 from app.repositories import ForumRepository
 from tests.factories import ForumFactory
@@ -37,6 +37,19 @@ class TestGetHeritage:
 
         with pytest.raises(NotFoundException):
             await get_heritage(repository, [grandparent.id, 999999])
+
+
+class TestBuildModeratedTree:
+    def test_siblings_follow_forum_order_whatever_the_input_order(self):
+        def forum(id, title, order):
+            return Forum(id=id, title=title, parent_id=1, heritage=[0, 1], order=order)
+
+        parent = Forum(id=1, title="General", parent_id=0, heritage=[0], order=1)
+        forums = [parent, forum(3, "Second", 2), forum(2, "First", 1)]
+
+        [heading] = build_moderated_tree(forums, {2, 3})
+
+        assert [child.title for child in heading.children] == ["First", "Second"]
 
 
 class TestBuildForumTree:

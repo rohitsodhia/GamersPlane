@@ -141,10 +141,6 @@ input:is([type="radio"], [type="checkbox"]) {
 	margin-right: 0.5em;
 }
 
-input:not([placeholder]) {
-	text-box-trim: trim-both;
-}
-
 textarea {
 	field-sizing: content;
 }

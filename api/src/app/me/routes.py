@@ -5,12 +5,15 @@ from fastapi import APIRouter, File, UploadFile, status
 from app.auth.functions import validate_password_change
 from app.configs import configs
 from app.database import DBSessionDependency
+from app.forums.permissions import moderated_roots
 from app.helpers.avatars import process_avatar_upload, save_avatar
 from app.helpers.functions import error_response
 from app.me import schemas
 from app.middleware import Principal
-from app.models import RolePermission, UserMeta
+from app.models import Forum, RolePermission, UserMeta
+from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 from app.repositories.pm_repository import PMRepository
+from app.repositories.rbac_repository import RBACkRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas import ErrorItem
 
@@ -31,14 +34,48 @@ _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
 
 
 @me.get("", response_model=schemas.UserOutput, response_model_exclude_none=True)
-async def get_current_user(current_user: Principal, full: bool = False):
+async def get_current_user(
+    current_user: Principal, db_session: DBSessionDependency, full: bool = False
+):
+    # Forum moderation is scoped, so moderators reach the ACP without a global
+    # access_acp grant.
+    roots = await moderated_roots(db_session, current_user)
+    forum_moderate = bool(roots)
+    # Admins and moderators of a site (non-game) forum can create site roles; a
+    # GM who only moderates their game's forums can't.
+    site_moderate = current_user.has_global_permission(
+        RolePermission.ValidPermissions.ADMIN.value
+    ) or any(root.game_id is None for root in roots)
+    # Likewise, owning a site role, holding a scoped role_admin grant or being a
+    # site moderator opens the Roles page.
+    role_admin = (
+        site_moderate
+        or await RBACkRepository(db_session, principal=current_user).has_role_admin()
+    )
+    # Whether the player/moderator mode switch applies: admins, and moderators of a
+    # site forum that is the games forum or one of its ancestors. Moderating a
+    # non-game forum doesn't depend on the mode, so this holds in either mode.
+    games_root = await db_session.get(Forum, GAMES_ROOT_FORUM_ID)
+    games_root_line = {
+        GAMES_ROOT_FORUM_ID,
+        *(games_root.heritage if games_root else ()),
+    }
+    game_moderate = current_user.has_global_permission(
+        RolePermission.ValidPermissions.ADMIN.value
+    ) or any(root.game_id is None and root.id in games_root_line for root in roots)
     output = {
         "id": current_user.id,
         "username": current_user.username,
         "avatar": current_user.avatar_url,
-        "acp": current_user.has_global_permission(
+        "acp": forum_moderate
+        or role_admin
+        or current_user.has_global_permission(
             RolePermission.ValidPermissions.ACP_ACCESS.value
         ),
+        "forumModerate": forum_moderate,
+        "siteModerate": site_moderate,
+        "gameModerate": game_moderate,
+        "roleAdmin": role_admin,
         "permissions": sorted(current_user.global_permissions),
     }
     if full:

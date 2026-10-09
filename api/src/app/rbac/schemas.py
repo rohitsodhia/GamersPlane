@@ -60,12 +60,27 @@ class GrantData(SchemaBase):
     effect: RolePermission.Effects
 
 
+class RoleRef(SchemaBase):
+    id: int
+    name: str
+
+
 class GetRoleResponse(SchemaBase):
     id: int
     name: str
     owner: UserData
     users: list[UserData]
     grants: list[GrantData]
+    # Roles holding an allowing scoped role_admin grant on this role.
+    managers: list[RoleRef] = []
+    # What the principal may do here (the per-action guards still apply).
+    # Flags named after the permission they check, except can_delete (admin or
+    # owner of the role).
+    role_admin: bool = False  # rename + add/remove members
+    can_delete: bool = False
+    admin: bool = False  # manage grants + change owner
+    # Forum ids, among this role's forum-scoped grants, the principal moderates.
+    moderated_forum_ids: list[int] = []
 
 
 class UpdateRoleInput(SchemaBase):

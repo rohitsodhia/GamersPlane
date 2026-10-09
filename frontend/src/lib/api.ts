@@ -1,4 +1,5 @@
 import { useAuthStore } from "#/stores/auth";
+import { useModeratorModeStore } from "#/stores/moderator-mode";
 
 export type ApiErrorItem = {
 	field?: string;
@@ -18,6 +19,7 @@ export class ApiError extends Error {
 export async function apiFetch(path: string, options: RequestInit = {}) {
 	const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 	const token = useAuthStore.getState().token;
+	const moderatorMode = useModeratorModeStore.getState().moderatorMode;
 	const { headers, ...restOptions } = options;
 
 	const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -27,6 +29,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 				? {}
 				: { "Content-Type": "application/json" }),
 			...(token ? { Authorization: `Bearer ${token}` } : {}),
+			...(moderatorMode ? { "X-Moderator-Mode": "1" } : {}),
 			...(headers instanceof Headers
 				? Object.fromEntries(headers.entries())
 				: Array.isArray(headers)

@@ -1,10 +1,25 @@
-import pytest
-from sqlalchemy import text
+from datetime import UTC, datetime
 
-from app.models import Player
+import pytest
+from sqlalchemy import select, text
+
+from app.models import Player, UserRole
 from app.repositories import GameRepository
 from app.repositories.player_repository import DuplicatePlayerError, PlayerRepository
-from tests.factories import ActivatedUserFactory, ForumFactory, SystemFactory
+from tests.factories import (
+    ActivatedUserFactory,
+    ForumFactory,
+    RoleFactory,
+    SystemFactory,
+)
+
+
+async def role_ids_of(db_session, user_id):
+    """Ids of the roles the user holds (soft-deleted memberships excluded)."""
+    rows = await db_session.scalars(
+        select(UserRole.role_id).where(UserRole.user_id == user_id)
+    )
+    return set(rows)
 
 
 class TestPlayerRepository:
@@ -181,6 +196,108 @@ class TestPlayerRepository:
         await repository.delete_player(player)
 
         assert await repository.get_player(game.id, user.id) is None
+
+    async def test_delete_player_removes_only_this_games_role_memberships(
+        self, repository, game, create, db_session
+    ):
+        user = await create(ActivatedUserFactory)
+        player = await repository.attach_player_to_game(
+            game.id, user.id, state=Player.States.ACCEPTED
+        )
+        extra_game_role = await create(RoleFactory, game_role=game.id)
+        unrelated_role = await create(RoleFactory)
+        for role_id in (
+            game.gm_role_id,
+            game.player_role_id,
+            extra_game_role.id,
+            unrelated_role.id,
+        ):
+            db_session.add(UserRole(user_id=user.id, role_id=role_id))
+        await db_session.flush()
+
+        await repository.delete_player(player)
+
+        assert await role_ids_of(db_session, user.id) == {unrelated_role.id}
+
+    async def test_update_state_accepting_adds_user_to_player_role(
+        self, repository, game, create, db_session
+    ):
+        user = await create(ActivatedUserFactory)
+        player = await repository.attach_player_to_game(game.id, user.id)
+
+        await repository.update_state(player, state=Player.States.ACCEPTED)
+
+        assert await role_ids_of(db_session, user.id) == {game.player_role_id}
+
+    async def test_update_state_non_accept_change_leaves_roles_alone(
+        self, repository, game, create, db_session
+    ):
+        user = await create(ActivatedUserFactory)
+        player = await repository.attach_player_to_game(game.id, user.id)
+
+        await repository.update_state(player, state=Player.States.INVITED)
+
+        assert await role_ids_of(db_session, user.id) == set()
+
+    async def test_update_state_promoting_swaps_player_roles_for_gm_role(
+        self, repository, game, create, db_session
+    ):
+        user = await create(ActivatedUserFactory)
+        player = await repository.attach_player_to_game(game.id, user.id)
+        await repository.update_state(player, state=Player.States.ACCEPTED)
+        extra_game_role = await create(RoleFactory, game_role=game.id)
+        unrelated_role = await create(RoleFactory)
+        for role_id in (extra_game_role.id, unrelated_role.id):
+            db_session.add(UserRole(user_id=user.id, role_id=role_id))
+        await db_session.flush()
+
+        await repository.update_state(player, is_gm=True)
+
+        assert await role_ids_of(db_session, user.id) == {
+            game.gm_role_id,
+            unrelated_role.id,
+        }
+
+    async def test_update_state_demoting_swaps_gm_role_for_player_role(
+        self, repository, game, create, db_session
+    ):
+        user = await create(ActivatedUserFactory)
+        player = await repository.attach_player_to_game(game.id, user.id)
+        await repository.update_state(player, state=Player.States.ACCEPTED)
+        await repository.update_state(player, is_gm=True)
+
+        await repository.update_state(player, is_gm=False)
+
+        assert await role_ids_of(db_session, user.id) == {game.player_role_id}
+
+    async def test_update_state_accepting_gm_adds_gm_role(
+        self, repository, game, create, db_session
+    ):
+        user = await create(ActivatedUserFactory)
+        player = await repository.attach_player_to_game(
+            game.id, user.id, is_gm=True, state=Player.States.INVITED
+        )
+
+        await repository.update_state(player, state=Player.States.ACCEPTED)
+
+        assert await role_ids_of(db_session, user.id) == {game.gm_role_id}
+
+    async def test_update_state_accepting_revives_soft_deleted_membership(
+        self, repository, game, create, db_session
+    ):
+        user = await create(ActivatedUserFactory)
+        db_session.add(
+            UserRole(
+                user_id=user.id,
+                role_id=game.player_role_id,
+                deleted=datetime.now(UTC),
+            )
+        )
+        player = await repository.attach_player_to_game(game.id, user.id)
+
+        await repository.update_state(player, state=Player.States.ACCEPTED)
+
+        assert await role_ids_of(db_session, user.id) == {game.player_role_id}
 
     async def test_is_gm_true_for_gm_player(self, repository, game, gm):
         await repository.attach_player_to_game(game.id, gm.id, is_gm=True)

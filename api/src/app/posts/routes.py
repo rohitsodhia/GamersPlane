@@ -2,10 +2,12 @@ from fastapi import APIRouter, status
 
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
+from app.forums.permissions import ForumPermissions, Verbs
 from app.helpers.decorators import public
 from app.middleware import Principal
 from app.models import Post
 from app.posts import schemas
+from app.posts.functions import check_post_change
 from app.repositories import PostRepository, ThreadRepository
 
 posts = APIRouter(prefix="/posts")
@@ -23,6 +25,9 @@ async def get_posts(
     thread = await thread_repository.get(thread_id)
     if thread is None:
         raise NotFoundException("Thread not found")
+    await ForumPermissions.require_read(
+        db_session, principal, thread.forum, "Thread not found"
+    )
 
     post_repository = PostRepository(db_session, principal=principal)
     posts = await post_repository.get_all(thread_id, page=page)
@@ -57,6 +62,9 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
     post = await post_repository.get(post_id)
     if post is None:
         raise NotFoundException("Post not found")
+    await ForumPermissions.require_read(
+        db_session, principal, post.thread.forum, "Post not found"
+    )
 
     return schemas.GetPostResponse(
         id=post.id,
@@ -85,8 +93,14 @@ async def create_post(
     thread = await thread_repository.get(post_data.thread_id)
     if thread is None:
         raise NotFoundException("Thread not found")
-    if thread.options.locked:
-        raise ForbiddenException("Thread is locked")
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, thread.forum, "Thread not found"
+    )
+    if not permissions.has(thread.forum, Verbs.FORUM_MODERATE):
+        if thread.options.locked:
+            raise ForbiddenException("Thread is locked")
+        if not permissions.has(thread.forum, Verbs.FORUM_WRITE):
+            raise ForbiddenException("You can't post in this forum")
 
     post_repository = PostRepository(db_session, principal=principal)
     post = await post_repository.create(
@@ -112,10 +126,10 @@ async def edit_post(
     post = await post_repository.get(post_id)
     if post is None:
         raise NotFoundException("Post not found")
-    if post.thread.options.locked:
-        raise ForbiddenException("Thread is locked")
-    if post.author_id != principal.id:
-        raise ForbiddenException("You are not the author of this post")
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, post.thread.forum, "Post not found"
+    )
+    check_post_change(permissions, post, principal, Verbs.FORUM_EDIT)
 
     await post_repository.update(post, post_data.title, post_data.body)
 
@@ -132,10 +146,18 @@ async def delete_post(
     post = await post_repository.get(post_id)
     if post is None:
         raise NotFoundException("Post not found")
-    if post.thread.options.locked:
-        raise ForbiddenException("Thread is locked")
-    if post.author_id != principal.id:
-        raise ForbiddenException("You are not the author of this post")
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, post.thread.forum, "Post not found"
+    )
+    # Deleting the first post deletes the whole thread.
+    check_post_change(
+        permissions,
+        post,
+        principal,
+        Verbs.FORUM_DELETE_THREAD
+        if post.id == post.thread.first_post_id
+        else Verbs.FORUM_DELETE,
+    )
 
     thread_repository = ThreadRepository(db_session, principal=principal)
     thread = post.thread

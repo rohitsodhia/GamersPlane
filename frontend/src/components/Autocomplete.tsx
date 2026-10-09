@@ -98,8 +98,11 @@ export function Autocomplete<T>({
 			className={clsx("autocomplete", className)}
 			style={
 				{
+					// Async items are search results, not the full option set, so sizing
+					// to them would leave the field tiny until results arrive and make it
+					// jump as they change. Those fall back to the standard field width.
 					"--autocomplete-measured-width":
-						measuredWidth == null ? undefined : `${measuredWidth}px`,
+						isAsync || measuredWidth == null ? undefined : `${measuredWidth}px`,
 				} as CSSProperties
 			}
 			onBlur={(e) => {

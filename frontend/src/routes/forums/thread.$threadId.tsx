@@ -27,6 +27,7 @@ import { createPost, deletePost, type Post, postsQueryOptions } from "#/queries/
 import { threadQueryOptions } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
 import { Breadcrumbs } from "./-breadcrumbs";
+import { canChangePost, canWrite } from "./-permissions";
 import styles from "./thread.$threadId.module.css";
 
 export const Route = createFileRoute("/forums/thread/$threadId")({
@@ -42,9 +43,11 @@ export const Route = createFileRoute("/forums/thread/$threadId")({
 	},
 	loaderDeps: ({ search }) => ({ page: search.page ?? 1 }),
 	loader: async ({ context, params, deps }) => {
-		const thread = await context.queryClient.ensureQueryData(
-			threadQueryOptions(params.threadId),
-		);
+		const thread = await context.queryClient
+			.ensureQueryData(threadQueryOptions(params.threadId))
+			.catch(() => {
+				throw notFound();
+			});
 
 		await Promise.all([
 			context.queryClient.ensureQueryData(
@@ -69,6 +72,9 @@ function PostItem({
 	threadId,
 	page,
 	isFirstPost,
+	canWrite,
+	canEdit,
+	canDelete,
 	onQuote,
 	onDelete,
 }: {
@@ -77,6 +83,10 @@ function PostItem({
 	threadId: number;
 	page: number;
 	isFirstPost: boolean;
+	// Quoting fills in the reply form, so it needs write.
+	canWrite: boolean;
+	canEdit: boolean;
+	canDelete: boolean;
 	onQuote: (post: Post) => void;
 	onDelete: (post: Post) => void;
 }) {
@@ -123,46 +133,58 @@ function PostItem({
 					<TiptapContent content={post.body} className="post-body" />
 				</div>
 				<div className={styles["post-actions"]}>
-					<button type="button" className="quote-post" onClick={() => onQuote(post)}>
-						Quote
-					</button>
-					<Link
-						to="/forums/edit-post/$postId"
-						params={{ postId: post.id }}
-						className="edit-post"
-						title="Coming soon"
-					>
-						Edit
-					</Link>
-					<button type="button" className="delete-post" popoverTarget={deleteConfirmId}>
-						Delete
-					</button>
+					{canWrite && (
+						<button type="button" className="quote-post" onClick={() => onQuote(post)}>
+							Quote
+						</button>
+					)}
+					{canEdit && (
+						<Link
+							to="/forums/edit-post/$postId"
+							params={{ postId: post.id }}
+							className="edit-post"
+							title="Coming soon"
+						>
+							Edit
+						</Link>
+					)}
+					{canDelete && (
+						<button
+							type="button"
+							className="delete-post"
+							popoverTarget={deleteConfirmId}
+						>
+							Delete
+						</button>
+					)}
 				</div>
 			</div>
-			{/* biome-ignore lint/a11y/useKeyWithClickEvents: delegated click handler catches bubbled clicks from interactive <button> children, which already fire click on keyboard activation */}
-			{/* biome-ignore lint/a11y/noStaticElementInteractions: delegated click handler catches bubbled clicks from interactive <button> children */}
-			<div
-				id={deleteConfirmId}
-				popover="auto"
-				className={styles["confirm-popover"]}
-				onClick={(e) => {
-					if (e.target instanceof HTMLElement) {
-						e.currentTarget.hidePopover();
-					}
-				}}
-			>
-				<p>
-					{isFirstPost
-						? "Are you sure you want to delete this thread? This will delete the entire thread and all of its posts."
-						: "Are you sure you want to delete this post?"}
-				</p>
-				<div className={styles["confirm-popover-actions"]}>
-					<button type="button" className="skew-btn" onClick={() => onDelete(post)}>
-						Yes
-					</button>
-					<button type="button">No</button>
+			{canDelete && (
+				// biome-ignore lint/a11y/useKeyWithClickEvents: delegated click handler catches bubbled clicks from interactive <button> children, which already fire click on keyboard activation
+				// biome-ignore lint/a11y/noStaticElementInteractions: delegated click handler catches bubbled clicks from interactive <button> children
+				<div
+					id={deleteConfirmId}
+					popover="auto"
+					className={styles["confirm-popover"]}
+					onClick={(e) => {
+						if (e.target instanceof HTMLElement) {
+							e.currentTarget.hidePopover();
+						}
+					}}
+				>
+					<p>
+						{isFirstPost
+							? "Are you sure you want to delete this thread? This will delete the entire thread and all of its posts."
+							: "Are you sure you want to delete this post?"}
+					</p>
+					<div className={styles["confirm-popover-actions"]}>
+						<button type="button" className="skew-btn" onClick={() => onDelete(post)}>
+							Yes
+						</button>
+						<button type="button">No</button>
+					</div>
 				</div>
-			</div>
+			)}
 		</div>
 	);
 }
@@ -196,6 +218,8 @@ function RouteComponent() {
 	const loggedIn = useAuthStore((state) => !!state.token);
 	const { data: me } = useQuery({ ...meFullQueryOptions, enabled: loggedIn });
 	const postSide: PostSide = me?.postSide ?? "r";
+
+	const userCanWrite = canWrite(thread);
 
 	const hbMarginedHeader = useHbMargined<HTMLHeadingElement>();
 	const hbMarginedReply = useHbMargined<HTMLHeadingElement>();
@@ -286,6 +310,16 @@ function RouteComponent() {
 							threadId={threadId}
 							page={page}
 							isFirstPost={post.id === thread.first_post_id}
+							canWrite={userCanWrite}
+							canEdit={canChangePost(thread, post.author.id, me?.id, "forum_edit")}
+							canDelete={canChangePost(
+								thread,
+								post.author.id,
+								me?.id,
+								post.id === thread.first_post_id
+									? "forum_delete_thread"
+									: "forum_delete",
+							)}
 							onQuote={handleQuote}
 							onDelete={(post) => deleteMutation.mutate(post.id)}
 						/>
@@ -297,60 +331,64 @@ function RouteComponent() {
 				</div>
 			</div>
 
-			<h2 className="headerbar hb-dark" ref={hbMarginedReply.ref}>
-				Quick Reply
-			</h2>
-			<form
-				className={styles["quick-reply-form"]}
-				ref={quickReplyRef}
-				style={{ marginInline: hbMarginedReply.margin }}
-				onSubmit={(e) => {
-					e.preventDefault();
-					replyForm.handleSubmit();
-				}}
-			>
-				{replyErrors.length > 0 && (
-					<div className="banner error-banner">
-						<ul>
-							{replyErrors.map((error) => (
-								<li key={error}>{error}</li>
-							))}
-						</ul>
-					</div>
-				)}
+			{userCanWrite && (
+				<>
+					<h2 className="headerbar hb-dark" ref={hbMarginedReply.ref}>
+						Quick Reply
+					</h2>
+					<form
+						className={styles["quick-reply-form"]}
+						ref={quickReplyRef}
+						style={{ marginInline: hbMarginedReply.margin }}
+						onSubmit={(e) => {
+							e.preventDefault();
+							replyForm.handleSubmit();
+						}}
+					>
+						{replyErrors.length > 0 && (
+							<div className="banner error-banner">
+								<ul>
+									{replyErrors.map((error) => (
+										<li key={error}>{error}</li>
+									))}
+								</ul>
+							</div>
+						)}
 
-				<replyForm.Field
-					name="body"
-					validators={{
-						onBlur: ({ value }) =>
-							isContentEmpty(value) ? "Message required!" : undefined,
-					}}
-				>
-					{(field) => (
-						<Editor
-							id={field.name}
-							value={field.state.value}
-							onBlur={field.handleBlur}
-							onChange={(value) => field.handleChange(value)}
-							className={field.state.meta.isValid ? "" : "field-invalid"}
-						/>
-					)}
-				</replyForm.Field>
+						<replyForm.Field
+							name="body"
+							validators={{
+								onBlur: ({ value }) =>
+									isContentEmpty(value) ? "Message required!" : undefined,
+							}}
+						>
+							{(field) => (
+								<Editor
+									id={field.name}
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(value) => field.handleChange(value)}
+									className={field.state.meta.isValid ? "" : "field-invalid"}
+								/>
+							)}
+						</replyForm.Field>
 
-				<replyForm.Subscribe selector={(state) => state.canSubmit}>
-					{(canSubmit) => (
-						<div className="align-center">
-							<button
-								type="submit"
-								disabled={!canSubmit || replyMutation.isPending}
-								className="skew-btn"
-							>
-								Post
-							</button>
-						</div>
-					)}
-				</replyForm.Subscribe>
-			</form>
+						<replyForm.Subscribe selector={(state) => state.canSubmit}>
+							{(canSubmit) => (
+								<div className="align-center">
+									<button
+										type="submit"
+										disabled={!canSubmit || replyMutation.isPending}
+										className="skew-btn"
+									>
+										Post
+									</button>
+								</div>
+							)}
+						</replyForm.Subscribe>
+					</form>
+				</>
+			)}
 		</div>
 	);
 }

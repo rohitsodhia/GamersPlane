@@ -34,6 +34,41 @@ export function requireAcpPermission(...verbs: string[]) {
 }
 
 /**
+ * Loader guard for the forum ACP: redirects home unless the current user
+ * moderates at least one forum. Which forums is up to the API.
+ */
+export async function requireForumModerator({
+	context,
+}: {
+	context: { queryClient: QueryClient };
+}) {
+	const me = await context.queryClient
+		.ensureQueryData(meQueryOptions)
+		.catch(() => null);
+	if (!me?.forumModerate) {
+		throw redirect({ to: "/" });
+	}
+}
+
+/**
+ * Loader guard for the Roles ACP pages: redirects home unless the current user
+ * can administer roles (admins, role owners, scoped `role_admin` holders). What
+ * they may do on each role is up to the API.
+ */
+export async function requireRoleAdmin({
+	context,
+}: {
+	context: { queryClient: QueryClient };
+}) {
+	const me = await context.queryClient
+		.ensureQueryData(meQueryOptions)
+		.catch(() => null);
+	if (!me?.roleAdmin) {
+		throw redirect({ to: "/" });
+	}
+}
+
+/**
  * Loader guard for data whose auth requirement isn't fixed by the route —
  * e.g. a resource that's sometimes public and sometimes only visible to its
  * owner. Wrap the loader's data-fetching promise in this: if it 403s AND we

@@ -1,10 +1,12 @@
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 
-from app.models import Forum, Role
+from app.models import Forum, Role, RolePermission, UserRole
 from app.models.game import PostFrequency
 from app.repositories import GameRepository
 from tests.factories import ActivatedUserFactory, ForumFactory, SystemFactory
+
+Verbs = RolePermission.ValidPermissions
 
 
 class TestGameRepository:
@@ -147,8 +149,9 @@ class TestGameRepository:
         root_forum = await db_session.get(Forum, game.root_forum_id)
         assert root_forum.title == "My Campaign"
         assert root_forum.parent_id == games_root_forum.id
+        assert root_forum.game_id == game.id
 
-    async def test_create_creates_player_role_named_after_game_id(
+    async def test_create_creates_game_roles_named_after_game_id(
         self, repository, gm, system, db_session
     ):
         game = await repository.create(
@@ -166,9 +169,84 @@ class TestGameRepository:
             None,
         )
 
-        role = await db_session.get(Role, game.role_id)
-        assert role.name == f"Game Id {game.id} Player"
-        assert role.owner_id == gm.id
+        gm_role = await db_session.get(Role, game.gm_role_id)
+        player_role = await db_session.get(Role, game.player_role_id)
+        assert gm_role.name == f"GM Role - Game #{game.id}"
+        assert player_role.name == f"Player Role - Game #{game.id}"
+        for role in (gm_role, player_role):
+            assert role.owner_id == gm.id
+            assert role.game_role == game.id
+
+    async def test_create_adds_gm_to_gm_role_only(
+        self, repository, gm, system, db_session
+    ):
+        game = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        role_ids = await db_session.scalars(
+            select(UserRole.role_id).where(UserRole.user_id == gm.id)
+        )
+        assert set(role_ids) == {game.gm_role_id}
+
+    async def test_create_grants_game_roles_on_root_forum(
+        self, repository, gm, system, db_session
+    ):
+        game = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        rows = await db_session.execute(
+            select(
+                RolePermission.role_id,
+                RolePermission.permission,
+                RolePermission.scope_type,
+                RolePermission.scope_id,
+                RolePermission.effect,
+            ).where(RolePermission.role_id.in_([game.gm_role_id, game.player_role_id]))
+        )
+        grants = {}
+        for role_id, permission, scope_type, scope_id, effect in rows:
+            assert (scope_type, scope_id) == (
+                RolePermission.ScopeTypes.FORUM,
+                game.root_forum_id,
+            )
+            assert effect == RolePermission.Effects.ALLOW
+            grants.setdefault(role_id, set()).add(permission)
+        assert grants == {
+            game.gm_role_id: {Verbs.FORUM_MODERATE},
+            game.player_role_id: {
+                Verbs.FORUM_READ,
+                Verbs.FORUM_WRITE,
+                Verbs.FORUM_EDIT,
+                Verbs.FORUM_CREATE_THREAD,
+                Verbs.FORUM_DELETE,
+                Verbs.FORUM_ADD_ROLLS,
+                Verbs.FORUM_ADD_DRAWS,
+            },
+        }
 
     async def test_get_returns_the_game(self, repository, gm, system):
         created = await repository.create(
@@ -347,3 +425,27 @@ class TestGameRepository:
 
         refetched = await repository.get(game.id)
         assert refetched.public is False
+
+    async def test_update_title_renames_root_forum(
+        self, repository, gm, system, db_session
+    ):
+        game = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        await repository.update(game, title="New Title")
+
+        root_forum = await db_session.get(Forum, game.root_forum_id)
+        await db_session.refresh(root_forum)
+        assert root_forum.title == "New Title"

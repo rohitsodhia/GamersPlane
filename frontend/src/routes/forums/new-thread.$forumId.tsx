@@ -47,6 +47,7 @@ function RouteComponent() {
 			pageId="new-thread-page"
 			headerTitle="New Thread"
 			forum={forum}
+			permissions={forum.permissions}
 			submitLabel="Create Thread"
 			apiErrors={apiErrors}
 			isSubmitting={mutation.isPending}

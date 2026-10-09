@@ -36,6 +36,15 @@ export type RoleDetail = {
 	owner: RoleUser;
 	users: RoleUser[];
 	grants: Grant[];
+	// Roles holding a role_admin grant on this role.
+	managers: { id: number; name: string }[];
+	// What the current user may do (the API enforces these too). Flags are named
+	// after the permission they check, except can_delete (admin or owner).
+	role_admin: boolean; // rename + add/remove members
+	can_delete: boolean;
+	admin: boolean; // manage grants + change owner
+	// Forum ids, among this role's forum-scoped grants, the user moderates.
+	moderated_forum_ids: number[];
 };
 
 export type Role = {
@@ -103,7 +112,7 @@ async function rbacMutate(path: string, method: string, body?: unknown) {
 
 export const createRole = async (body: {
 	name: string;
-	owner_id: number;
+	owner_id?: number;
 }): Promise<number> => {
 	const res = await apiFetch("/rbac/roles", {
 		method: "POST",

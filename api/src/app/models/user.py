@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING
+from collections.abc import Iterable
+from dataclasses import field
+from typing import TYPE_CHECKING, ClassVar
 
 import bcrypt
 import jwt
@@ -17,6 +19,26 @@ from app.schemas import ErrorItem
 
 if TYPE_CHECKING:
     from app.models import Role
+
+
+def global_permissions_of(roles: Iterable[Role]) -> set[str]:
+    """Permission verbs the roles grant at global scope (scope_type IS NULL).
+
+    A global ``deny`` for a verb overrides any global ``allow`` for it. Scoped
+    grants (forum/role) are ignored here — those resolve per-resource elsewhere.
+    """
+    allowed: set[str] = set()
+    denied: set[str] = set()
+    for role in roles:
+        for grant in role.grants:
+            if grant.scope_type is not None:
+                continue
+            verb = grant.permission.value
+            if grant.effect is RolePermission.Effects.DENY:
+                denied.add(verb)
+            else:
+                allowed.add(verb)
+    return allowed - denied
 
 
 class User(MappedAsDataclass, AsyncAttrs, Base):
@@ -45,8 +67,17 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
         secondary="user_roles", back_populates="users", default_factory=list
     )
     meta: Mapped[list[UserMeta]] = relationship(default_factory=list)
+    # The implicit system role (Registered) the auth middleware attaches for the
+    # request. Implicit membership has no user_roles row, so it isn't in ``roles``.
+    implicit_roles: tuple[Role, ...] = field(default=(), init=False)
+    # False when the request opted into player mode (no ``X-Moderator-Mode: 1``
+    # header): outside-the-game moderation and the admin bypass then don't apply
+    # inside game forums. Defaults to full moderation for non-request code.
+    moderator_mode: bool = field(default=True, init=False)
 
     MIN_PASSWORD_LENGTH: int = 8
+    # User 1 is the main admin account, the default owner for orphaned site roles.
+    FALLBACK_OWNER_ID: ClassVar[int] = 1
 
     # @property
     # def permissions(self) -> list[int]:
@@ -115,24 +146,15 @@ class User(MappedAsDataclass, AsyncAttrs, Base):
         )
 
     @property
-    def global_permissions(self) -> set[str]:
-        """Permission verbs granted to this user at global scope (scope_type IS NULL).
+    def effective_roles(self) -> list[Role]:
+        """Assigned roles plus the implicit ones attached for this request."""
+        return [*self.roles, *self.implicit_roles]
 
-        A global ``deny`` for a verb overrides any global ``allow`` for it. Scoped
-        grants (forum/role) are ignored here — those resolve per-resource elsewhere.
-        """
-        allowed: set[str] = set()
-        denied: set[str] = set()
-        for role in self.roles:
-            for grant in role.grants:
-                if grant.scope_type is not None:
-                    continue
-                verb = grant.permission.value
-                if grant.effect is RolePermission.Effects.DENY:
-                    denied.add(verb)
-                else:
-                    allowed.add(verb)
-        return allowed - denied
+    @property
+    def global_permissions(self) -> set[str]:
+        """Permission verbs granted to this user at global scope (scope_type IS NULL),
+        across ``effective_roles``."""
+        return global_permissions_of(self.effective_roles)
 
     def has_global_permission(self, *verbs: str) -> bool:
         """True if the user holds any of ``verbs`` at global scope.

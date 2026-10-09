@@ -18,6 +18,104 @@
 	}
 }
 
+.forum-tree {
+	ul {
+		list-style: none;
+		margin: 0;
+		padding-left: 1.25em;
+	}
+
+	& > ul {
+		padding-left: 0;
+	}
+
+	li {
+		margin: 0.35em 0;
+	}
+
+	summary {
+		cursor: pointer;
+	}
+
+	/* Line leaf forums up with the titles of their collapsible siblings. */
+	li:not(:has(> details)) {
+		padding-left: 1em;
+	}
+}
+
+.forum-acp-breadcrumbs {
+	margin-bottom: 0.75em;
+}
+
+.forum-acp-nav {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: center;
+	gap: 0.5em 1em;
+	margin-bottom: 1.5em;
+}
+
+.forum-acp-tabs {
+	display: flex;
+	gap: 1em;
+
+	a[data-status="active"] {
+		font-weight: bold;
+		text-decoration: underline;
+	}
+}
+
+.forum-details-form {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75em;
+	max-width: 40em;
+
+	label {
+		display: block;
+		font-size: 0.85em;
+	}
+
+	input,
+	textarea {
+		width: 100%;
+	}
+
+	textarea {
+		min-height: 6em;
+	}
+}
+
+.subforum-list {
+	list-style: none;
+	margin: 0 0 1em;
+	padding: 0;
+
+	li {
+		padding: 0.4em 0;
+	}
+}
+
+.subforum-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+
+	& > span {
+		flex: 1;
+		margin-left: 0.5em;
+	}
+}
+
+.delete-confirm {
+	margin: 0.5em 0 0.5em 4.5em;
+
+	p {
+		margin-bottom: 0.5em;
+	}
+}
+
 .roles-switch-btn {
 	margin-bottom: 1em;
 }
@@ -56,6 +154,47 @@
 	}
 }
 
+.role-heading {
+	display: flex;
+	align-items: baseline;
+	gap: 1em;
+}
+
+.role-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4em;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+/* Drawn rather than a ▸ glyph, which comes from a fallback font with its own
+   metrics; a shape centers on the text's capitals regardless. */
+.role-chevron {
+	width: 0.45em;
+	height: 0.55em;
+	flex-shrink: 0;
+	background-color: currentColor;
+	clip-path: polygon(0 0, 100% 50%, 0 100%);
+	transition: transform 0.15s;
+
+	[aria-expanded="true"] > & {
+		transform: rotate(90deg);
+	}
+}
+
+.role-unsaved {
+	color: var(--gp-red);
+	font-size: 0.85em;
+	font-weight: bold;
+}
+
 .entity-list {
 	list-style: none;
 	margin: 0 0 1em;
@@ -92,8 +231,75 @@
 	}
 }
 
+.member-list,
+.member-checklist {
+	list-style: none;
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+.member-checklist li {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+	padding: 0.25em 0;
+}
+
+.role-section h4 {
+	font-size: 1em;
+	margin: 1em 0 0.5em;
+}
+
+.role-delete {
+	margin-top: 1.5em;
+}
+
+.permission-note {
+	font-size: 0.85em;
+	color: #666;
+}
+
+.permission-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.25em 1.25em;
+	padding: 0.4em 0;
+
+	& > span {
+		min-width: 11em;
+	}
+
+	label {
+		display: inline-flex;
+		align-items: center;
+	}
+
+	input[type="radio"] {
+		padding: 0;
+	}
+
+	input:disabled {
+		opacity: 0.6;
+	}
+}
+
 .save-row {
 	display: flex;
 	align-items: center;
 	gap: 0.75em;
+}
+
+/* A save that covers the whole page, set apart from the last section's own
+   controls. */
+.page-save {
+	border-top: 1px solid #999;
+	margin-top: 2em;
+	padding-top: 1.5em;
+}
+
+.unsaved-note {
+	color: var(--gp-red);
+	font-weight: bold;
+	margin-bottom: 0.75em;
 }

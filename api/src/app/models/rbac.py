@@ -53,7 +53,34 @@ class ValidPermissions(LabelEnum):
     MANAGE_USERS = "manage_users", "Manage Users", frozenset({None}), True
     ROLE_ADMIN = "role_admin", "Manage Role", frozenset({ScopeTypes.ROLE}), True
     FORUM_READ = "forum_read", "View Forum", frozenset({ScopeTypes.FORUM}), True
-    FORUM_WRITE = "forum_write", "Write Forum", frozenset({ScopeTypes.FORUM}), True
+    FORUM_WRITE = "forum_write", "Write Posts", frozenset({ScopeTypes.FORUM}), True
+    FORUM_EDIT = "forum_edit", "Edit Posts", frozenset({ScopeTypes.FORUM}), True
+    FORUM_DELETE = "forum_delete", "Delete Posts", frozenset({ScopeTypes.FORUM}), True
+    FORUM_CREATE_THREAD = (
+        "forum_create_thread",
+        "Create Thread",
+        frozenset({ScopeTypes.FORUM}),
+        True,
+    )
+    FORUM_DELETE_THREAD = (
+        "forum_delete_thread",
+        "Delete Thread",
+        frozenset({ScopeTypes.FORUM}),
+        True,
+    )
+    FORUM_ADD_POLL = "forum_add_poll", "Add Poll", frozenset({ScopeTypes.FORUM}), True
+    FORUM_ADD_ROLLS = (
+        "forum_add_rolls",
+        "Add Rolls",
+        frozenset({ScopeTypes.FORUM}),
+        True,
+    )
+    FORUM_ADD_DRAWS = (
+        "forum_add_draws",
+        "Add Draws",
+        frozenset({ScopeTypes.FORUM}),
+        True,
+    )
     FORUM_MODERATE = (
         "forum_moderate",
         "Moderate Forum",
@@ -71,23 +98,45 @@ class ValidPermissions(LabelEnum):
 
 
 class Role(Base, TimestampMixin, SoftDeleteMixin):
+    # Fixed ids for the seeded system roles. Registered/Guest membership is
+    # implicit (every logged-in user holds Registered, every anonymous request
+    # holds Guest), so they never have user_roles rows.
+    ADMIN_ID = 1
+    REGISTERED_ID = 2
+    GUEST_ID = 3
+
     __tablename__ = "roles"
     __table_args__ = (
         # Names are unique among *live* roles only. A soft-deleted role must not
         # block reusing its name, and the IntegrityError in
         # RbacRepository.create_role/update_role should only fire on a real
-        # collision with an active role.
+        # collision with an active role. Site roles share one namespace; each
+        # game's roles get their own, so two games can both have a "Scout".
         Index(
             "uq_roles_name_active",
             "name",
             unique=True,
-            postgresql_where=text("deleted IS NULL"),
+            postgresql_where=text("deleted IS NULL AND game_role IS NULL"),
+        ),
+        Index(
+            "uq_roles_game_name_active",
+            "game_role",
+            "name",
+            unique=True,
+            postgresql_where=text("deleted IS NULL AND game_role IS NOT NULL"),
         ),
         Index(
             "uq_roles_plural_active",
             "plural",
             unique=True,
-            postgresql_where=text("deleted IS NULL"),
+            postgresql_where=text("deleted IS NULL AND game_role IS NULL"),
+        ),
+        Index(
+            "uq_roles_game_plural_active",
+            "game_role",
+            "plural",
+            unique=True,
+            postgresql_where=text("deleted IS NULL AND game_role IS NOT NULL"),
         ),
     )
 

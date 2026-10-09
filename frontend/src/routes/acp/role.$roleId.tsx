@@ -1,12 +1,12 @@
 import { useForm } from "@tanstack/react-form";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { FadeOut } from "#/components/FadeOut";
 import { Select } from "#/components/Select";
 import { UserAutocomplete, type UserRef } from "#/components/UserAutocomplete";
 import { ApiError } from "#/lib/api";
-import { requireAcpPermission } from "#/lib/auth-route";
+import { requireRoleAdmin } from "#/lib/auth-route";
 import { useFlash } from "#/lib/use-flash";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/acp/role/$roleId")({
 		stringify: ({ roleId }) => ({ roleId: String(roleId) }),
 	},
 	loader: async (opts) => {
-		await requireAcpPermission("admin")(opts);
+		await requireRoleAdmin(opts);
 		const { context, params } = opts;
 		await Promise.all([
 			context.queryClient.ensureQueryData(roleQueryOptions(params.roleId)),
@@ -61,6 +61,8 @@ function RouteComponent() {
 	// Role #1 is hard-locked on the API (see rbac_repository.py): no rename,
 	// re-owner, grant changes, or dropping its primary member. Mirror that here.
 	const isProtected = roleId === PROTECTED_ROLE_ID;
+	// Grants are admin-only on the API; everyone else sees them read-only.
+	const canEditGrants = role.admin && !isProtected;
 
 	const [detailsErrors, setDetailsErrors] = useState<string[]>([]);
 	const [detailsSaved, flashDetailsSaved] = useFlash();
@@ -74,14 +76,16 @@ function RouteComponent() {
 		},
 		onSubmit: async ({ value }) => {
 			setDetailsErrors([]);
-			if (!owner.id) {
+			if (role.admin && !owner.id) {
 				setDetailsErrors(["An owner is required."]);
 				return;
 			}
 			try {
+				// Only send what the API will accept from this user: owners and
+				// role admins can rename but not re-own.
 				await updateRole(roleId, {
-					name: value.name,
-					owner_id: owner.id,
+					...(role.role_admin && { name: value.name }),
+					...(role.admin && owner.id && { owner_id: owner.id }),
 				});
 				await refetch();
 				flashDetailsSaved();
@@ -214,14 +218,14 @@ function RouteComponent() {
 									type="text"
 									maxLength={48}
 									value={field.state.value}
-									disabled={isProtected}
+									disabled={isProtected || !role.role_admin}
 									onBlur={field.handleBlur}
 									onChange={(e) => field.handleChange(e.target.value)}
 								/>
 							</div>
 						)}
 					</detailsForm.Field>
-					{isProtected ? (
+					{isProtected || !role.admin ? (
 						<div>
 							<label htmlFor="role-owner">Owner</label>
 							<input id="role-owner" type="text" value={role.owner.username} disabled />
@@ -234,7 +238,10 @@ function RouteComponent() {
 							onChange={setOwner}
 						/>
 					)}
-					{!isProtected && (
+					{role.managers.length > 0 && (
+						<p>Managed by: {role.managers.map((manager) => manager.name).join(", ")}</p>
+					)}
+					{!isProtected && (role.role_admin || role.admin) && (
 						<div className={styles["save-row"]}>
 							<detailsForm.Subscribe selector={(state) => state.isSubmitting}>
 								{(isSubmitting) => (
@@ -266,8 +273,20 @@ function RouteComponent() {
 							{role.grants.map((grant) => (
 								<li key={grant.id}>
 									<span>{grant.description ?? grant.permission.label}</span>
-									{isProtected ? (
-										<span>{grant.effect}</span>
+									{!canEditGrants ? (
+										<>
+											<span>{grant.effect}</span>
+											{grant.scope_type === "forum" &&
+												grant.scope_id !== null &&
+												role.moderated_forum_ids.includes(grant.scope_id) && (
+													<Link
+														to="/acp/forums/$forumId/permissions"
+														params={{ forumId: grant.scope_id }}
+													>
+														Edit in forum permissions
+													</Link>
+												)}
+										</>
 									) : (
 										<>
 											<Select
@@ -290,7 +309,7 @@ function RouteComponent() {
 						</ul>
 					)}
 
-					{!isProtected && (
+					{canEditGrants && (
 						<>
 							{grantErrors.length > 0 && (
 								<div className="banner error-banner">
@@ -411,37 +430,40 @@ function RouteComponent() {
 							{role.users.map((member) => (
 								<li key={member.id}>
 									<span>{member.username}</span>
-									{!(isProtected && member.id === PROTECTED_ROLE_MEMBER_ID) && (
-										<button type="button" onClick={() => removeUser(member.id)}>
-											Remove
-										</button>
-									)}
+									{role.role_admin &&
+										!(isProtected && member.id === PROTECTED_ROLE_MEMBER_ID) && (
+											<button type="button" onClick={() => removeUser(member.id)}>
+												Remove
+											</button>
+										)}
 								</li>
 							))}
 						</ul>
 					)}
 
-					<form
-						className={styles["role-form"]}
-						onSubmit={(e) => {
-							e.preventDefault();
-							addUser();
-						}}
-					>
-						<UserAutocomplete
-							key={userFieldKey}
-							id="add-user-combo"
-							label="Add user"
-							onChange={setNewUser}
-							exclude={(user) => role.users.some((member) => member.id === user.id)}
-						/>
-						<button type="submit" className="skew-btn" disabled={!newUser.id}>
-							Add
-						</button>
-					</form>
+					{role.role_admin && (
+						<form
+							className={styles["role-form"]}
+							onSubmit={(e) => {
+								e.preventDefault();
+								addUser();
+							}}
+						>
+							<UserAutocomplete
+								key={userFieldKey}
+								id="add-user-combo"
+								label="Add user"
+								onChange={setNewUser}
+								exclude={(user) => role.users.some((member) => member.id === user.id)}
+							/>
+							<button type="submit" className="skew-btn" disabled={!newUser.id}>
+								Add
+							</button>
+						</form>
+					)}
 				</section>
 
-				{!isProtected && (
+				{role.can_delete && !isProtected && (
 					<section className={styles["role-section"]}>
 						<h3>Delete role</h3>
 						{deleteErrors.length > 0 && (

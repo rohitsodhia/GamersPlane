@@ -9,6 +9,18 @@ export type MeResponse = {
 	username: string;
 	avatar: string;
 	acp: boolean;
+	// Moderates at least one forum. Forum moderation is scoped, so it isn't in
+	// `permissions`.
+	forumModerate: boolean;
+	// An admin, or moderates at least one site (non-game) forum. Can create site
+	// roles.
+	siteModerate: boolean;
+	// An admin, or moderates the games forum or one of its ancestors. These users
+	// get the player/moderator mode switch.
+	gameModerate: boolean;
+	// Can reach the Roles page: a global admin, a site moderator, the owner of a
+	// site role, or holder of a scoped role_admin grant.
+	roleAdmin: boolean;
 	permissions: string[];
 };
 
@@ -124,6 +136,10 @@ export const refreshMe = async (queryClient: QueryClient) => {
 		username: full.username,
 		avatar: full.avatar,
 		acp: full.acp,
+		forumModerate: full.forumModerate,
+		siteModerate: full.siteModerate,
+		gameModerate: full.gameModerate,
+		roleAdmin: full.roleAdmin,
 		permissions: full.permissions,
 	});
 };

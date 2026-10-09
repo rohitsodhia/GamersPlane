@@ -1,10 +1,18 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	notFound,
+	redirect,
+	useNavigate,
+} from "@tanstack/react-router";
 import { useState } from "react";
 import { ApiError } from "#/lib/api";
 import { requireAuth } from "#/lib/auth-route";
 import { forumQueryOptions } from "#/queries/forums";
+import { meQueryOptions } from "#/queries/me";
 import { editPost, postQueryOptions } from "#/queries/posts";
+import { threadQueryOptions } from "#/queries/threads";
+import { canChangePost } from "./-permissions";
 import { PostForm } from "./-post-form";
 
 export const Route = createFileRoute("/forums/edit-post/$postId")({
@@ -18,13 +26,23 @@ export const Route = createFileRoute("/forums/edit-post/$postId")({
 		return requireAuth(ctx);
 	},
 	loader: async ({ context, params }) => {
-		try {
-			const post = await context.queryClient.ensureQueryData(
-				postQueryOptions(params.postId),
-			);
-			await context.queryClient.ensureQueryData(forumQueryOptions(post.forum_id));
-		} catch {
-			throw notFound();
+		const post = await context.queryClient
+			.ensureQueryData(postQueryOptions(params.postId))
+			.catch(() => {
+				throw notFound();
+			});
+		const [thread, me] = await Promise.all([
+			context.queryClient.ensureQueryData(threadQueryOptions(post.thread_id)),
+			context.queryClient.ensureQueryData(meQueryOptions),
+			context.queryClient.ensureQueryData(forumQueryOptions(post.forum_id)),
+		]);
+		if (!canChangePost(thread, post.author.id, me.id, "forum_edit")) {
+			throw redirect({
+				to: "/forums/thread/$threadId",
+				params: { threadId: post.thread_id },
+				search: { page: post.page },
+				hash: `post-${post.id}`,
+			});
 		}
 	},
 	component: RouteComponent,

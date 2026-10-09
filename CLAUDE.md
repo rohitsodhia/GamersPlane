@@ -43,17 +43,17 @@ uv run ruff check src/
 # Format
 uv run ruff format src/
 
-# Run all tests (via the dockerized API container)
-./docker/api_tests
+# Run all tests (via the dockerized API container; the script is at the repo root)
+../docker/api_tests
 
 # Run a single test file
-./docker/api_tests tests/referral_links/test_routes.py
+../docker/api_tests tests/referral_links/test_routes.py
 
 # Run a single test by name
-./docker/api_tests tests/referral_links/test_routes.py::TestGetReferralLinks::test_get_referral_links_is_public
+../docker/api_tests tests/referral_links/test_routes.py::TestGetReferralLinks::test_get_referral_links_is_public
 ```
 
-`docker/api_tests` runs `pytest` inside the `gamersplane-api` container (`docker exec -i -w /app/src gamersplane-api pytest $@`), so the stack must be up (`./compose.sh -e dev up`) before running tests. Tests use a real PostgreSQL database named `{DATABASE_DATABASE}_test` (drops/recreates tables on each test function). There is no mocking of the database layer.
+`docker/api_tests` (at the repo root, not under `api/`) runs `pytest` inside the `gamersplane-api` container (`docker exec -i -w /app/src gamersplane-api pytest $@`), so the stack must be up (`./compose.sh -e dev up`) before running tests. Tests use a real PostgreSQL database named `{DATABASE_DATABASE}_test` (drops/recreates tables on each test function). There is no mocking of the database layer.
 
 **Alembic migrations** live in `api/src/alembic/`. Run via `api/src/scripts/alembic.sh`.
 
@@ -98,6 +98,12 @@ Any time you need to interact with the running frontend dev server — via Claud
 ## Testing Workflow
 
 After writing or substantially changing a suite of tests (a new test file, or a batch of new tests added to an existing one), spawn a subagent to audit the suite before considering the work done. Run the audit agent after tests are written or updated, but before running the tests. Ask it to flag tests that are low-value: ones that just re-assert a stdlib/framework guarantee rather than our code's behavior, trivial wrappers that don't exercise any real logic or branching, and redundant tests that cover the exact same code path as another test with no meaningfully different input or assertion. It should distinguish that from tests that look similar but exercise genuinely distinct branches (e.g. keep-highest vs. keep-lowest, or three variants of a type flag) — those should be kept. Have it report a verdict (KEEP/CUT/MERGE) per test rather than editing anything itself, then apply the agreed-on edits and re-run the suite.
+
+## Implementation Workflow
+
+The main session stays on its current model (Opus) for discussion, planning and review; it doesn't write implementation code itself. Once a plan is agreed with the user, spawn a subagent on Sonnet (`model: "sonnet"`) to do the work. The subagent starts with no context, so brief it fully: the agreed decisions, the exact files involved, the project rules from this file that apply, and the testing workflow above (it spawns the test-audit agent itself, also on Sonnet). Tell it to read files with the Read tool (using offset/limit for partial reads), not `cat`/`sed -n`/`head`/`tail` in Bash, and to change files only with Edit/Write — Bash reads need manual approval. Split large work into phases, with a review between each. When the subagent reports back, review its diff (`git diff`, plus targeted reads only where something needs a closer look) before reporting to the user, and send fixes back to the subagent rather than making them in the main session.
+
+Small fixes (a few lines in one or two files, such as a review nit, a copy change or a one-line bug) are the exception: make them directly in the main session, since briefing a subagent would cost more than the change itself.
 
 ## API Architecture
 

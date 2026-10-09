@@ -6,6 +6,12 @@
     font-weight: normal;
     font-style: normal;
     font-display: swap;
+    /* The font's own metrics (ascent 75%, descent 17%, cap height 72%) leave
+       more room above the capitals than below, so text sits high in its line.
+       These keep the same total (92%) but split it so the capitals are centered:
+       ascent - descent = cap height. */
+    ascent-override: 82%;
+    descent-override: 10%;
 }
 
 @font-face {

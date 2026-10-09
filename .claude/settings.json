@@ -1,15 +1,45 @@
 {
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; if echo \"$f\" | grep -qE 'api/src/tests/.*\\.py$'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"REMINDER (CLAUDE.md Testing Workflow): this change touched a test file under api/src/tests/. Before considering this test-writing work done, spawn a subagent to audit the suite (KEEP/CUT/MERGE verdict per test), apply the agreed edits, and re-run the suite. Do this now if not already done for this batch of test changes.\"}}'; fi; }"
-          }
+    "permissions": {
+        "allow": [
+            "mcp__claude-in-chrome__tabs_context_mcp",
+            "mcp__claude-in-chrome__read_page",
+            "mcp__claude-in-chrome__find",
+            "mcp__claude-in-chrome__get_page_text",
+            "mcp__claude-in-chrome__read_console_messages",
+            "mcp__claude-in-chrome__read_network_requests",
+            "Bash(cd *)",
+            "Bash(git diff *)",
+            "Bash(npx biome *)",
+            "Bash(npx tsc *)",
+            "Bash(uv run ruff *)",
+            "Bash(npm run lint)",
+            "Bash(./docker/api_tests *)",
+            "Bash(../docker/api_tests *)",
+            "Bash(npm test *)",
+            "Bash(npx vitest *)",
+            "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+            "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/)",
+            "Bash(grep *)",
+            "Bash(/usr/bin/grep *)",
+            "Bash(sed -n *)",
+            "Bash(/usr/bin/sed -n *)",
+            "Bash(tail *)",
+            "Bash(/usr/bin/tail *)",
+            "Bash(head *)",
+            "Bash(/usr/bin/head *)"
         ]
-      }
-    ]
-  }
+    },
+    "hooks": {
+        "PostToolUse": [
+            {
+                "matcher": "Write|Edit",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "jq -r '.tool_input.file_path // empty' | { read -r f; if echo \"$f\" | grep -qE 'api/src/tests/.*\\.py$'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"REMINDER (CLAUDE.md Testing Workflow): this change touched a test file under api/src/tests/. Before considering this test-writing work done, spawn a subagent to audit the suite (KEEP/CUT/MERGE verdict per test), apply the agreed edits, and re-run the suite. Do this now if not already done for this batch of test changes.\"}}'; fi; }"
+                    }
+                ]
+            }
+        ]
+    }
 }

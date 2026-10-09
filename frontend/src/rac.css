@@ -108,9 +108,7 @@
 	   from a selected one, and would linger red until blur) — downgrade it to a
 	   neutral highlight, overriding the shared rule above. */
 	.react-aria-ListBoxItem {
-		/* Trim the font's uneven line-box space, then center the trimmed text in a
-		   fixed-height row. */
-		text-box: trim-both cap alphabetic;
+		/* Center the text in a fixed-height row. */
 		height: var(--rac-list-item-height);
 		padding-block: 0;
 		align-content: center;
@@ -300,14 +298,18 @@
 .autocomplete {
 	--autocomplete-width: var(
 		--rac-autocomplete-width,
-		var(--autocomplete-measured-width, min(100%, var(--rac-field-width)))
+		var(--autocomplete-measured-width, var(--rac-field-width))
 	);
 	display: inline-block;
 	position: relative;
 	max-width: 100%;
 
+	/* The fallback is a plain length, not min(100%, …): .autocomplete is
+	   shrink-to-fit, so a percentage here resolves against its own content and
+	   collapses the field (inside flex rows especially). max-width caps it. */
 	.react-aria-SearchField {
 		width: var(--autocomplete-width);
+		max-width: 100%;
 	}
 
 	/* The menu shares the field's width, overriding the generic
