@@ -79,6 +79,8 @@ class GetRoleResponse(SchemaBase):
     role_admin: bool = False  # rename + add/remove members
     can_delete: bool = False
     admin: bool = False  # manage grants + change owner
+    # Forum ids, among this role's forum-scoped grants, the principal moderates.
+    moderated_forum_ids: list[int] = []
 
 
 class UpdateRoleInput(SchemaBase):

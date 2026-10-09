@@ -550,6 +550,50 @@ class TestGetRole:
             f"Manage Role - Section Mods (#{target.id})"
         )
 
+    async def test_moderated_forum_ids_lists_only_forums_the_viewer_moderates(
+        self, authed_client, db_session, create
+    ):
+        client, user = authed_client
+        moderated = await create(ForumFactory)
+        other = await create(ForumFactory)
+        await give_permission(
+            db_session,
+            user,
+            Verbs.FORUM_MODERATE,
+            scope_type=Scopes.FORUM,
+            scope_id=moderated.id,
+        )
+        role = await make_role(
+            db_session,
+            owner=user,
+            grants=[
+                (Verbs.FORUM_READ, Scopes.FORUM, moderated.id),
+                (Verbs.FORUM_READ, Scopes.FORUM, other.id),
+            ],
+        )
+
+        body = (await client.get(f"/rbac/roles/{role.id}")).json()
+
+        assert body["moderated_forum_ids"] == [moderated.id]
+
+    async def test_moderated_forum_ids_ignores_non_forum_grants(
+        self, authed_client, db_session
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        target = await make_role(db_session)
+        role = await make_role(
+            db_session,
+            grants=[
+                (Verbs.ACP_ACCESS, None, None),
+                (Verbs.ROLE_ADMIN, Scopes.ROLE, target.id),
+            ],
+        )
+
+        body = (await client.get(f"/rbac/roles/{role.id}")).json()
+
+        assert body["moderated_forum_ids"] == []
+
 
 class TestUpdateRole:
     async def test_unrelated_user_gets_404(self, authed_client, db_session):
@@ -1616,6 +1660,24 @@ class TestReleaseOrphanedRoles:
         _owner, moderating, owned = await make_moderating_owner(db_session, create)
 
         response = await admin_client.delete(f"/rbac/roles/{moderating.id}")
+
+        assert response.status_code == 204
+        assert await self.owner_of(admin_client, owned) == fallback_owner.id
+
+    async def test_losing_admin_through_a_role_releases_member_roles(
+        self, admin_client, db_session, fallback_owner
+    ):
+        # Admin is the only thing making this member a site moderator, so
+        # leaving the role has to count as losing moderation.
+        owner = (await make_role(db_session)).owner
+        admin_role = await make_role(
+            db_session, members=[owner], grants=[(Verbs.ADMIN, None, None)]
+        )
+        owned = await make_role(db_session, owner=owner)
+
+        response = await admin_client.delete(
+            f"/rbac/roles/{admin_role.id}/users/{owner.id}"
+        )
 
         assert response.status_code == 204
         assert await self.owner_of(admin_client, owned) == fallback_owner.id

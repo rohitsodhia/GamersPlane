@@ -43,6 +43,8 @@ export type RoleDetail = {
 	role_admin: boolean; // rename + add/remove members
 	can_delete: boolean;
 	admin: boolean; // manage grants + change owner
+	// Forum ids, among this role's forum-scoped grants, the user moderates.
+	moderated_forum_ids: number[];
 };
 
 export type Role = {

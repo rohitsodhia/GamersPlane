@@ -276,14 +276,16 @@ function RouteComponent() {
 									{!canEditGrants ? (
 										<>
 											<span>{grant.effect}</span>
-											{grant.scope_type === "forum" && grant.scope_id !== null && (
-												<Link
-													to="/acp/forums/$forumId/permissions"
-													params={{ forumId: grant.scope_id }}
-												>
-													Edit in forum permissions
-												</Link>
-											)}
+											{grant.scope_type === "forum" &&
+												grant.scope_id !== null &&
+												role.moderated_forum_ids.includes(grant.scope_id) && (
+													<Link
+														to="/acp/forums/$forumId/permissions"
+														params={{ forumId: grant.scope_id }}
+													>
+														Edit in forum permissions
+													</Link>
+												)}
 										</>
 									) : (
 										<>

@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import select, text
 
-from app.models import Forum, Player, Role, RolePermission
+from app.models import Forum, Player, Role, RolePermission, UserRole
 from app.repositories import GameRepository, PlayerRepository
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 from tests.factories import (
@@ -448,6 +448,71 @@ class TestSetForumPermissions:
         assert response.status_code == 204
         await db_session.refresh(owned)
         assert owned.owner_id == (fallback_owner.id if released else owner.id)
+
+    async def test_clearing_moderate_on_one_save_releases_each_roles_members(
+        self, admin, db_session, board, fallback_owner, create
+    ):
+        lounge = board["lounge"]
+        user_a, user_b, user_c = [await create(ActivatedUserFactory) for _ in range(3)]
+        role_a = await make_role(
+            db_session,
+            grants=[(Verbs.FORUM_MODERATE, lounge.id, ALLOW)],
+            members=[user_a, user_c],
+        )
+        role_b = await make_role(
+            db_session,
+            grants=[(Verbs.FORUM_MODERATE, lounge.id, ALLOW)],
+            members=[user_b],
+        )
+        # C also moderates another site forum, so losing role_a isn't enough.
+        await make_role(
+            db_session,
+            grants=[(Verbs.FORUM_MODERATE, board["general"].id, ALLOW)],
+            members=[user_c],
+        )
+        owned = {}
+        for name, user in (("a", user_a), ("b", user_b), ("c", user_c)):
+            owned[name] = await make_role(db_session)
+            owned[name].owner = user
+        await db_session.flush()
+
+        response = await self.put(admin, lounge, (role_a, {}), (role_b, {}))
+
+        assert response.status_code == 204
+        for role in owned.values():
+            await db_session.refresh(role)
+        assert owned["a"].owner_id == fallback_owner.id
+        assert owned["b"].owner_id == fallback_owner.id
+        assert owned["c"].owner_id == user_c.id
+
+    async def test_clearing_moderate_on_an_implicit_role_releases_nobody(
+        self, admin, db_session, board, fallback_owner, create, site, monkeypatch
+    ):
+        _index, registered, guest = site
+        lounge = board["lounge"]
+        # The suite empties the implicit set; restore it for these two roles.
+        monkeypatch.setattr(
+            "app.repositories.rbac_repository.IMPLICIT_ROLE_IDS",
+            frozenset({registered.id, guest.id}),
+        )
+        registered.grant(
+            Verbs.FORUM_MODERATE, scope_type=FORUM_SCOPE, scope_id=lounge.id
+        )
+        # Registered membership is implicit, so real data has no such row. Planting
+        # one is the only way for the skip to matter: without it, this member
+        # would count as a moderator before the save and a lapsed one after.
+        owner = await create(ActivatedUserFactory)
+        db_session.add(UserRole(user_id=owner.id, role_id=registered.id))
+        owned = await make_role(db_session)
+        owned.owner = owner
+        await db_session.flush()
+
+        response = await self.put(admin, lounge, (registered, {}))
+
+        assert response.status_code == 204
+        assert await grants_on(db_session, lounge, registered) == {}
+        await db_session.refresh(owned)
+        assert owned.owner_id == owner.id
 
     async def test_non_forum_verb_is_rejected(self, moderator, db_session, board):
         role = await make_role(db_session)

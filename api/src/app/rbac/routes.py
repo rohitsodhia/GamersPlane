@@ -4,12 +4,12 @@ from fastapi import APIRouter, Query, status
 
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
-from app.forums.permissions import is_site_moderator
+from app.forums.permissions import ForumPermissions, Verbs, is_site_moderator
 from app.helpers.decorators import requires
 from app.middleware import Principal
-from app.models import Role
+from app.models import Role, RolePermission
 from app.rbac import schemas
-from app.repositories import RBACkRepository, UserRepository
+from app.repositories import ForumRepository, RBACkRepository, UserRepository
 
 rbac = APIRouter(prefix="/rbac")
 
@@ -98,6 +98,20 @@ async def get_role(
     scope_names = await rbac_repository.get_scope_names(role.grants)
     managers = await rbac_repository.get_managers(role.id)
     is_admin = rbac_repository.is_admin()
+
+    grant_forum_ids = list(
+        {
+            grant.scope_id
+            for grant in role.grants
+            if grant.scope_type is RolePermission.ScopeTypes.FORUM
+        }
+    )
+    forums = (
+        list(await ForumRepository(db_session, principal).get_multiple(grant_forum_ids))
+        if grant_forum_ids
+        else []
+    )
+    forum_permissions = await ForumPermissions.load(db_session, principal, forums)
     return schemas.GetRoleResponse(
         id=role.id,
         name=role.name,
@@ -106,6 +120,11 @@ async def get_role(
         role_admin=rbac_repository.can_edit_role(role),
         can_delete=rbac_repository.can_delete_role(role),
         admin=is_admin,
+        moderated_forum_ids=[
+            forum.id
+            for forum in forums
+            if forum_permissions.has(forum, Verbs.FORUM_MODERATE)
+        ],
         users=[
             schemas.UserData(id=user.id, username=user.username) for user in role.users
         ],
