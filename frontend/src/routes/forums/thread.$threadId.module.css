@@ -32,11 +32,14 @@
 	}
 
 	.post-content {
+		--bubble-border: var(--text);
+		--bubble-bg: oklch(from var(--bg) calc(l * 1.1) c h);
+
 		position: relative;
 		flex-grow: 1;
 	}
 
-	:global(.chat-point) {
+	.chat-point {
 		position: absolute;
 		top: 30px;
 		left: -14px;
@@ -45,7 +48,7 @@
 	.post-left {
 		flex-direction: row-reverse;
 
-		:global(.chat-point) {
+		.chat-point {
 			left: auto;
 			right: -14px;
 			transform: scaleX(-1);
@@ -53,8 +56,9 @@
 	}
 
 	.post-bubble {
-		border: 2px solid var(--text);
+		border: 2px solid var(--bubble-border);
 		border-radius: 0.5em;
+		background: var(--bubble-bg);
 		padding: 1em;
 	}
 

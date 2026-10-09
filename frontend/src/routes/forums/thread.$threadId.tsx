@@ -15,7 +15,6 @@ import {
 import type { JSONContent } from "@tiptap/core";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import ChatPoint from "#/components/ChatPoint";
 import Editor, {
 	emptyContent,
 	isContentEmpty,
@@ -38,6 +37,7 @@ import {
 } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
 import { Breadcrumbs } from "./-breadcrumbs";
+import ChatPoint from "./-chat-point";
 import { canChangePost, canWrite } from "./-permissions";
 import styles from "./thread.$threadId.module.css";
 
@@ -148,7 +148,7 @@ function PostItem({
 				</Link>
 			</div>
 			<div className={styles["post-content"]}>
-				<ChatPoint />
+				<ChatPoint className={styles["chat-point"]} />
 				<div className={styles["post-bubble"]}>
 					<div className={styles["post-header"]}>
 						<Link

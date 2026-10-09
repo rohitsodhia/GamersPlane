@@ -1,0 +1,8 @@
+/* Match the bubble the point is attached to; the parent sets these. */
+.outline {
+	fill: var(--bubble-border, var(--text));
+}
+
+.fill {
+	fill: var(--bubble-bg, var(--bg));
+}
