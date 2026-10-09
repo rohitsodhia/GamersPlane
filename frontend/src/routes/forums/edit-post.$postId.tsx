@@ -80,6 +80,7 @@ function RouteComponent() {
 			threadOptions={thread.options}
 			// Only the author can add rolls and draws, moderators included.
 			canAddAttachments={post.author.id === me.id}
+			existingRolls={post.rolls}
 			submitLabel="Save Changes"
 			apiErrors={apiErrors}
 			isSubmitting={mutation.isPending}
@@ -92,6 +93,7 @@ function RouteComponent() {
 						body: value.body,
 						rolls: value.rolls,
 						draws: value.draws,
+						roll_visibility: value.rollVisibility,
 					});
 					navigate({
 						to: "/forums/thread/$threadId",

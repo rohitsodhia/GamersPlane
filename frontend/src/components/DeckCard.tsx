@@ -22,6 +22,8 @@ export type JokerCardProps = { suit: "joker"; rank: JokerColor };
 
 export type DeckCardProps = (SuitCardProps | JokerCardProps) & {
 	mini?: boolean;
+	// "mid" is 60x75, between the default 100x125 and mini. Ignored when mini is set.
+	size?: "default" | "mid";
 	faceDown?: boolean;
 };
 
@@ -30,6 +32,7 @@ const CARD_HEIGHT = 125;
 const SHEET_COLS = 13;
 const SHEET_ROWS = 5;
 const MINI_SCALE = 0.48; // 100x125 -> 48x60
+const MID_SCALE = 0.6; // 100x125 -> 60x75
 
 // Row order in the sprite sheet: hearts, spades, diamonds, clubs, joker
 const SUIT_ROWS: Record<CardSuit | "joker", number> = {
@@ -94,8 +97,8 @@ function getLabel(props: SuitCardProps | JokerCardProps): string {
 }
 
 function DeckCard(props: DeckCardProps) {
-	const { mini = false, faceDown = false } = props;
-	const scale = mini ? MINI_SCALE : 1;
+	const { mini = false, size = "default", faceDown = false } = props;
+	const scale = mini ? MINI_SCALE : size === "mid" ? MID_SCALE : 1;
 	const width = CARD_WIDTH * scale;
 	const height = CARD_HEIGHT * scale;
 

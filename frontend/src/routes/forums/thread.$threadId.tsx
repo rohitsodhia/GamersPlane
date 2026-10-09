@@ -47,6 +47,8 @@ import { Breadcrumbs } from "./-breadcrumbs";
 import ChatPoint from "./-chat-point";
 import { canChangePost, canWrite } from "./-permissions";
 import { PostAttachmentsEditor } from "./-post-attachments";
+import { PostDrawList } from "./-post-draw-list";
+import { PostRollList } from "./-post-roll-list";
 import styles from "./thread.$threadId.module.css";
 
 export const Route = createFileRoute("/forums/thread/$threadId")({
@@ -114,6 +116,8 @@ function PostItem({
 	canWrite,
 	canEdit,
 	canDelete,
+	isAuthor,
+	canToggleDraws,
 	onQuote,
 	onDelete,
 	onMarkUnread,
@@ -127,6 +131,10 @@ function PostItem({
 	canWrite: boolean;
 	canEdit: boolean;
 	canDelete: boolean;
+	// The viewer wrote the post: they see every drawn card.
+	isAuthor: boolean;
+	// Revealing or hiding cards: not allowed in a locked thread without moderating.
+	canToggleDraws: boolean;
 	onQuote: (post: Post) => void;
 	onDelete: (post: Post) => void;
 	// Only passed for the thread's last post.
@@ -173,6 +181,14 @@ function PostItem({
 						</span>
 					</div>
 					<TiptapContent content={post.body} className="post-body" />
+					<PostRollList rolls={post.rolls} />
+					<PostDrawList
+						postId={post.id}
+						threadId={threadId}
+						draws={post.draws}
+						isAuthor={isAuthor}
+						canToggle={canToggleDraws}
+					/>
 				</div>
 				<div className={styles["post-actions"]}>
 					{onMarkUnread && (
@@ -320,6 +336,8 @@ function RouteComponent() {
 	const postSide: PostSide = me?.postSide ?? "r";
 
 	const userCanWrite = canWrite(thread);
+	const canToggleDraws =
+		!thread.options.locked || thread.permissions.includes("forum_moderate");
 
 	const hbMarginedHeader = useHbMargined<HTMLHeadingElement>();
 	const hbMarginedReply = useHbMargined<HTMLHeadingElement>();
@@ -447,6 +465,8 @@ function RouteComponent() {
 									? "forum_delete_thread"
 									: "forum_delete",
 							)}
+							isAuthor={me !== undefined && post.author.id === me.id}
+							canToggleDraws={canToggleDraws}
 							onQuote={handleQuote}
 							onDelete={(post) => deleteMutation.mutate(post.id)}
 							onMarkUnread={

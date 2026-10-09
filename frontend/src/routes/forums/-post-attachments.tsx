@@ -33,7 +33,7 @@ const FENGSHUI_ROLL_TYPES: { value: FengShuiRollType; label: string }[] = [
 	{ value: "closed", label: "Closed" },
 ];
 
-function LabelledCheckbox({
+export function LabelledCheckbox({
 	id,
 	label,
 	checked,

@@ -12,7 +12,12 @@ import {
 	type ForumPermission,
 	forumDecksQueryOptions,
 } from "#/queries/forums";
-import type { NewDrawInput, NewRollInput } from "#/queries/posts";
+import type {
+	NewDrawInput,
+	NewRollInput,
+	PostRoll,
+	RollVisibilityInput,
+} from "#/queries/posts";
 import type { ThreadOptions } from "#/queries/threads";
 import {
 	type AttachmentAccess,
@@ -25,6 +30,8 @@ import {
 import { Breadcrumbs } from "./-breadcrumbs";
 import { PostAttachmentsEditor } from "./-post-attachments";
 import styles from "./-post-form.module.css";
+import { changedRollVisibility, initialVisibility } from "./-post-rolls";
+import { RollVisibilityEditor } from "./-roll-visibility-editor";
 
 // Each option needs a forum permission to set; mirrors OPTION_VERBS in the API.
 const optionCheckboxes = [
@@ -72,6 +79,8 @@ type PostFormFields = {
 export type PostFormValues = PostFormFields & {
 	rolls: NewRollInput[];
 	draws: NewDrawInput[];
+	// Only the existing rolls whose visibility changed.
+	rollVisibility: RollVisibilityInput[];
 };
 
 export function PostForm({
@@ -84,6 +93,7 @@ export function PostForm({
 	permissions = [],
 	threadOptions,
 	canAddAttachments = true,
+	existingRolls = [],
 	submitLabel,
 	isSubmitting = false,
 	apiErrors,
@@ -102,6 +112,8 @@ export function PostForm({
 	threadOptions?: Pick<ThreadOptions, "allow_rolls" | "allow_draws">;
 	// False when the user can't add rolls or draws to this post (not its author).
 	canAddAttachments?: boolean;
+	// The rolls already on the post (editing); their visibility can be changed here.
+	existingRolls?: PostRoll[];
 	submitLabel: string;
 	isSubmitting?: boolean;
 	apiErrors: string[];
@@ -116,6 +128,10 @@ export function PostForm({
 
 	const [attachments, setAttachments] = useState<Attachments>(emptyAttachments);
 	const [showAttachmentErrors, setShowAttachmentErrors] = useState(false);
+	const [rollVisibility, setRollVisibility] = useState(() =>
+		initialVisibility(existingRolls),
+	);
+	const hbMarginedVisibility = useHbMargined<HTMLHeadingElement>();
 
 	const form = useForm({
 		defaultValues: {
@@ -139,6 +155,7 @@ export function PostForm({
 			await onSubmit({
 				...value,
 				...buildAttachmentPayload(attachments, attachmentAccessNow),
+				rollVisibility: changedRollVisibility(existingRolls, rollVisibility),
 			});
 		},
 	});
@@ -163,51 +180,47 @@ export function PostForm({
 	const hasAttachmentUI =
 		attachmentAccessNow.rolls || (attachmentAccessNow.draws && decks.length > 0);
 
-	function Options() {
-		return (
-			<div>
-				{optionCheckboxes
-					.filter(({ permission }) => canSet(permission))
-					.map(({ name, label }) => (
-						<form.Field key={name} name={name}>
-							{(field) => (
-								<div className={styles["option-checkbox"]}>
-									<Checkbox
-										id={field.name}
-										checked={field.state.value}
-										onChange={(checked) => field.handleChange(checked)}
-									/>
-									<label htmlFor={field.name}>{label}</label>
-								</div>
-							)}
-						</form.Field>
-					))}
-				{canSet("forum_moderate") && (
-					<>
-						<hr />
-						<form.Field name="options.discord_webhook">
-							{(field) => (
-								<>
-									<label htmlFor={field.name}>Discord Webhook</label>
-									<input
-										type="text"
-										id={field.name}
-										value={field.state.value ?? ""}
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-									/>
-								</>
-							)}
-						</form.Field>
-					</>
-				)}
-			</div>
-		);
-	}
-
-	function Poll() {
-		return <div>Poll</div>;
-	}
+	// Inline JSX rather than components: a component defined in this body would be
+	// a new type every render and remount (losing focus) on each keystroke.
+	const optionsPanel = (
+		<div>
+			{optionCheckboxes
+				.filter(({ permission }) => canSet(permission))
+				.map(({ name, label }) => (
+					<form.Field key={name} name={name}>
+						{(field) => (
+							<div className={styles["option-checkbox"]}>
+								<Checkbox
+									id={field.name}
+									checked={field.state.value}
+									onChange={(checked) => field.handleChange(checked)}
+								/>
+								<label htmlFor={field.name}>{label}</label>
+							</div>
+						)}
+					</form.Field>
+				))}
+			{canSet("forum_moderate") && (
+				<>
+					<hr />
+					<form.Field name="options.discord_webhook">
+						{(field) => (
+							<>
+								<label htmlFor={field.name}>Discord Webhook</label>
+								<input
+									type="text"
+									id={field.name}
+									value={field.state.value ?? ""}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+								/>
+							</>
+						)}
+					</form.Field>
+				</>
+			)}
+		</div>
+	);
 
 	// Why the Rolls and Decks tab is empty, when it is.
 	function attachmentsHint() {
@@ -358,8 +371,8 @@ export function PostForm({
 						{showThreadOptions ? "Thread Options" : "Rolls and Decks"}
 					</h2>
 					<div style={{ marginInline: `${hbMarginedOptions.margin}px` }}>
-						{optionsState === "options" && <Options />}
-						{optionsState === "poll" && <Poll />}
+						{optionsState === "options" && optionsPanel}
+						{optionsState === "poll" && <div>Poll</div>}
 						{optionsState === "dice_decks" &&
 							(hasAttachmentUI ? (
 								<PostAttachmentsEditor
@@ -372,6 +385,20 @@ export function PostForm({
 							) : (
 								<div>{attachmentsHint()}</div>
 							))}
+					</div>
+				</>
+			)}
+			{existingRolls.length > 0 && (
+				<>
+					<h2 className="headerbar hb-dark has-topper" ref={hbMarginedVisibility.ref}>
+						Roll Visibility
+					</h2>
+					<div style={{ marginInline: `${hbMarginedVisibility.margin}px` }}>
+						<RollVisibilityEditor
+							rolls={existingRolls}
+							value={rollVisibility}
+							onChange={setRollVisibility}
+						/>
 					</div>
 				</>
 			)}

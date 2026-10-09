@@ -9,6 +9,33 @@
 	}
 }
 
+.dice-row {
+	display: flex;
+	gap: 10px;
+	margin: 0.3em 0;
+}
+
+.roll.compact {
+	padding: 0;
+	font-size: inherit;
+	line-height: inherit;
+
+	p {
+		margin: 0;
+	}
+
+	.dice-row {
+		gap: 4px;
+		margin: 0.2em 0;
+		align-items: center;
+
+		/* Shrink the fate (40px) and ffg (50px tall) dice towards ~1.5em squares. */
+		> * {
+			zoom: 0.55;
+		}
+	}
+}
+
 .roll-string {
 	margin: 0;
 }
@@ -24,10 +51,4 @@
 
 .roll-total {
 	font-weight: bold;
-}
-
-.dice-row {
-	display: flex;
-	gap: 10px;
-	margin: 0.3em 0;
 }
