@@ -68,8 +68,13 @@ function RouteComponent() {
 			onSubmit={async (value) => {
 				setApiErrors([]);
 				try {
-					const { minorEdit: _minorEdit, ...fields } = value;
-					const thread = await mutation.mutateAsync({ forum_id: forumId, ...fields });
+					// A new thread has no poll to remove, so `poll` is never null here.
+					const { minorEdit: _minorEdit, poll, ...fields } = value;
+					const thread = await mutation.mutateAsync({
+						forum_id: forumId,
+						...fields,
+						poll: poll ?? undefined,
+					});
 					navigate({
 						to: "/forums/thread/$threadId",
 						params: { threadId: thread.id },

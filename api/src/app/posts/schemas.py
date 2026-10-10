@@ -7,6 +7,7 @@ from pydantic import Field
 
 from app.schema_base import SchemaBase, filtered_str, strip_whitespace
 from app.threads.option_schemas import ThreadOptionsUpdate
+from app.threads.poll_schemas import PollData, PollInput
 
 RollSystem = Literal["basic", "fate", "fengshui", "starwarsffg"]
 
@@ -71,6 +72,9 @@ class GetPostResponse(PostData):
     # The thread's Discord webhook; only sent to the author of the first post, who
     # can edit it. Null for everyone else.
     discord_webhook: str | None = None
+    # The thread's poll, with counts; only sent with the first post to someone who
+    # can edit it. Null for everyone else, and when the thread has no poll.
+    poll: PollData | None = None
     thread_id: int
     forum_id: int
     page: int
@@ -136,6 +140,9 @@ class EditPostInput(SchemaBase):
     roll_visibility: list[RollVisibilityInput] = []
     # Changes to the thread's options; only accepted when editing its first post.
     thread_options: ThreadOptionsUpdate | None = None
+    # Changes to the thread's poll; only accepted when editing its first post.
+    # Absent leaves it alone, null removes it, an object updates or adds it.
+    poll: PollInput | None = None
     # Not stored; a minor edit just skips the Discord ping.
     minor_edit: bool = False
 

@@ -45,12 +45,20 @@ function RouteComponent() {
 				<p>Congratulations! Your account has been activated. You can now log in.</p>
 				<p>
 					We recommend you check out the <Link to="/faqs/">FAQs</Link> and our{" "}
-					<Link to="/forums/thread/2461/">New Player Guide</Link> to get an idea of what
-					you can do to get started. You can also head straight to make a new{" "}
-					<Link to="/characters/my/">character</Link> or find a{" "}
-					<Link to="/games/list/">game</Link>, and be sure to stop by the{" "}
-					<Link to="/forums/">forums</Link> and{" "}
-					<Link to="/forums/14/">introduce yourself</Link>!
+					<Link to="/forums/thread/$threadId" params={{ threadId: 2461 }}>
+						New Player Guide
+					</Link>{" "}
+					to get an idea of what you can do to get started. You can also head straight
+					to make a new <Link to="/characters">character</Link> or find a{" "}
+					<Link to="/games/list">game</Link>, and be sure to stop by the{" "}
+					<Link to="/forums/{-$forumId}" params={{ forumId: 0 }}>
+						forums
+					</Link>{" "}
+					and{" "}
+					<Link to="/forums/{-$forumId}" params={{ forumId: 14 }}>
+						introduce yourself
+					</Link>
+					!
 				</p>
 			</div>
 		</div>

@@ -152,7 +152,7 @@ function RouteComponent() {
 				</dt>
 				{mods.map((mod) => (
 					<dt key={mod.id}>
-						<Link to="/user/$userId" params={{ userId: String(mod.id) }}>
+						<Link to="/user/$userId" params={{ userId: mod.id }}>
 							{mod.username}
 						</Link>
 					</dt>

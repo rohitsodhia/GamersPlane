@@ -53,6 +53,7 @@ import { canChangePost, canWrite } from "./-permissions";
 import { PostAttachmentsEditor } from "./-post-attachments";
 import { PostDrawList } from "./-post-draw-list";
 import { PostRollList } from "./-post-roll-list";
+import { ThreadPoll } from "./-thread-poll";
 import styles from "./thread.$threadId.module.css";
 
 export const Route = createFileRoute("/forums/thread/$threadId")({
@@ -150,7 +151,7 @@ function PostItem({
 			<div className={styles["post-author"]}>
 				<Link
 					to="/user/$userId"
-					params={{ userId: String(post.author.id) }}
+					params={{ userId: post.author.id }}
 					className="username"
 				>
 					<img
@@ -161,7 +162,7 @@ function PostItem({
 				</Link>
 				<Link
 					to="/user/$userId"
-					params={{ userId: String(post.author.id) }}
+					params={{ userId: post.author.id }}
 					className="username"
 				>
 					{post.author.username}
@@ -494,6 +495,15 @@ function RouteComponent() {
 					)}
 				</div>
 				{modError && <div className="error">{modError}</div>}
+
+				{thread.poll && (
+					<ThreadPoll
+						threadId={threadId}
+						poll={thread.poll}
+						locked={thread.options.locked}
+						loggedIn={loggedIn}
+					/>
+				)}
 
 				<div className="thread-pagination">
 					<Paginate numItems={count} current={page} onPageChange={setPage} />

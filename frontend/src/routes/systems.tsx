@@ -82,10 +82,12 @@ function RouteComponent() {
 									/>
 								</div>
 								<p>
-									<Link to="/games/list/?system={{system.id}}">Find games</Link>
+									<Link to="/games/list" search={{ systems: [system.id] }}>
+										Find games
+									</Link>
 								</p>
 								<p>
-									<Link to="/games/new/?system={{system.id}}">Start a game</Link>
+									<Link to="/games/new">Start a game</Link>
 								</p>
 							</div>
 							<div className="info">

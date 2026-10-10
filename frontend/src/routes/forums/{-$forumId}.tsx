@@ -30,6 +30,8 @@ import styles from "./{-$forumId}.module.css";
 export const Route = createFileRoute("/forums/{-$forumId}")({
 	params: {
 		parse: (params) => ({ forumId: Number(params.forumId ?? 0) }),
+		// Forum 0 is the forums index, at /forums.
+		stringify: ({ forumId }) => ({ forumId: forumId ? String(forumId) : undefined }),
 	},
 	validateSearch: z.object({
 		page: z.number().optional(),
@@ -144,7 +146,7 @@ function LastPostInfo({
 		<div className={styles["last-post-info"]}>
 			<Link
 				to="/user/$userId"
-				params={{ userId: String(lastPost.author.id) }}
+				params={{ userId: lastPost.author.id }}
 				className="username"
 			>
 				{lastPost.author.username}
@@ -198,7 +200,7 @@ function Thread({ thread }: { thread: ThreadType }) {
 					by{" "}
 					<Link
 						to="/user/$userId"
-						params={{ userId: String(thread.first_post.author.id) }}
+						params={{ userId: thread.first_post.author.id }}
 						className="username"
 					>
 						{thread.first_post.author.username}

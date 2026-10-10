@@ -95,6 +95,7 @@ function RouteComponent() {
 			// Only the author can add rolls and draws, moderators included.
 			canAddAttachments={post.author.id === me.id}
 			existingRolls={post.rolls}
+			existingPoll={post.poll}
 			showMinorEdit
 			submitLabel="Save Changes"
 			apiErrors={apiErrors}
@@ -113,6 +114,7 @@ function RouteComponent() {
 						thread_options: post.is_first_post
 							? changedThreadOptions(defaultOptions, value.options)
 							: undefined,
+						poll: value.poll,
 					});
 					navigate({
 						to: "/forums/thread/$threadId",

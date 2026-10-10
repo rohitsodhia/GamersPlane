@@ -1,0 +1,82 @@
+.poll-editor {
+	display: flex;
+	flex-direction: column;
+	gap: 1em;
+
+	input[type="text"] {
+		width: 100%;
+	}
+
+	:global(.field-invalid) {
+		border-color: var(--gp-red);
+	}
+
+	:global(.error) {
+		color: var(--gp-red);
+	}
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4em;
+}
+
+.options {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4em;
+}
+
+.option {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3em;
+	padding: 0.4em 0.6em;
+	border: 1px solid currentcolor;
+	border-radius: 4px;
+
+	&[data-dragging] {
+		opacity: 0.5;
+	}
+
+	&[data-focus-visible] {
+		outline: 2px solid currentcolor;
+	}
+
+	img {
+		height: 1.1em;
+	}
+}
+
+/* Where a dragged option will land. */
+.options :global(.react-aria-DropIndicator[data-drop-target]) {
+	outline: 2px solid currentcolor;
+}
+
+.option-main {
+	display: flex;
+	gap: 0.5em;
+	align-items: center;
+}
+
+.drag-handle {
+	cursor: grab;
+}
+
+.option-text {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.votes {
+	font-size: 0.85em;
+	opacity: 0.7;
+	white-space: nowrap;
+}
+
+.setting {
+	display: flex;
+	gap: 0.5em;
+	align-items: center;
+}

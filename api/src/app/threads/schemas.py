@@ -11,6 +11,7 @@ from app.posts.schemas import (
 )
 from app.schema_base import SchemaBase, filtered_str
 from app.threads.option_schemas import ThreadOptionsUpdate, clean_discord_webhook
+from app.threads.poll_schemas import PollData, PollInput
 
 
 class AuthorData(SchemaBase):
@@ -80,6 +81,7 @@ class GetThreadResponse(SchemaBase):
     first_unread_page: int | None
     # The principal's verbs on the thread's forum.
     permissions: list[str]
+    poll: PollData | None = None
 
 
 class MarkThreadViewedInput(SchemaBase):
@@ -94,6 +96,7 @@ class NewThreadInput(SchemaBase):
     options: ThreadOptionsInput = ThreadOptionsInput()
     rolls: list[NewRollInput] = Field(default=[], max_length=MAX_ROLLS_PER_REQUEST)
     draws: list[NewDrawInput] = Field(default=[], max_length=MAX_DRAWS_PER_REQUEST)
+    poll: PollInput | None = None
 
 
 class UpdateThreadInput(SchemaBase):

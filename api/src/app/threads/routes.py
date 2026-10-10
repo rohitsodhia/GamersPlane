@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, status
 
 from app.database import DBSessionDependency
-from app.exceptions import ForbiddenException, NotFoundException
+from app.exceptions import ForbiddenException, NotFoundException, ValidationError
 from app.forums.permissions import ForumPermissions, Verbs
 from app.helpers.decorators import public
 from app.middleware import Principal
@@ -10,6 +10,7 @@ from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import check_post_change
 from app.repositories import (
     ForumRepository,
+    PollRepository,
     PostRepository,
     ReadTrackingRepository,
     ThreadRepository,
@@ -21,6 +22,12 @@ from app.threads.functions import (
     check_thread_options,
     merge_thread_options,
 )
+from app.threads.poll_functions import (
+    build_poll_data,
+    check_poll_input,
+    require_add_poll,
+)
+from app.threads.poll_schemas import PollData, VoteInput
 
 threads = APIRouter(prefix="/threads")
 
@@ -99,6 +106,10 @@ async def get_thread(
         if first_unread_post:
             first_unread_page = await post_repository.get_page_number(first_unread_post)
 
+    poll = await build_poll_data(
+        PollRepository(db_session, principal=principal), thread, permissions, principal
+    )
+
     return schemas.GetThreadResponse(
         id=thread.id,
         forum_id=thread.forum_id,
@@ -108,6 +119,7 @@ async def get_thread(
         first_unread_post_id=first_unread_post.id if first_unread_post else None,
         first_unread_page=first_unread_page,
         permissions=sorted(verb.value for verb in permissions.allowed(thread.forum)),
+        poll=poll,
     )
 
 
@@ -128,6 +140,11 @@ async def create_thread(
     if not permissions.has(forum, Verbs.FORUM_CREATE_THREAD):
         raise ForbiddenException("You can't create threads in this forum")
     check_thread_options(permissions, forum, thread_data.options)
+    if thread_data.poll is not None:
+        require_add_poll(permissions, forum)
+        await check_poll_input(
+            PollRepository(db_session, principal=principal), None, thread_data.poll
+        )
     attachments = await plan_attachments(
         db_session,
         principal,
@@ -154,6 +171,10 @@ async def create_thread(
     )
     await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)
+    if thread_data.poll is not None:
+        await PollRepository(db_session, principal=principal).create(
+            thread.id, thread_data.poll
+        )
     assert post.published_at is not None
     await ReadTrackingRepository(db_session, principal=principal).mark_viewed(
         thread, post.published_at
@@ -248,3 +269,50 @@ async def mark_thread_unread(
     await ReadTrackingRepository(db_session, principal=principal).mark_thread_unread(
         thread
     )
+
+
+@threads.put("/{thread_id}/poll/vote", response_model=PollData)
+async def vote_in_poll(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    thread_id: int,
+    data: VoteInput,
+):
+    """Set the principal's votes in the thread's poll, replacing any they had.
+
+    Nobody votes in a locked thread, moderators included.
+    """
+    thread = await ThreadRepository(db_session, principal=principal).get(thread_id)
+    if thread is None:
+        raise NotFoundException("Thread not found")
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, thread.forum, "Thread not found"
+    )
+    poll_repository = PollRepository(db_session, principal=principal)
+    poll = await poll_repository.get(thread.id)
+    if poll is None:
+        raise NotFoundException("Poll not found")
+
+    if thread.options.locked:
+        raise ForbiddenException("Thread is locked")
+    if not permissions.has(thread.forum, Verbs.FORUM_WRITE):
+        raise ForbiddenException("You can't vote in this forum")
+    previous_votes = await poll_repository.user_votes(thread.id, principal.id)
+    if previous_votes and not poll.allow_revoting:
+        raise ForbiddenException("You have already voted in this poll")
+
+    option_ids = data.option_ids
+    if not option_ids:
+        raise ValidationError("Choose at least one option")
+    if len(option_ids) > poll.options_per_user:
+        raise ValidationError(f"You can choose at most {poll.options_per_user} options")
+    if len(set(option_ids)) != len(option_ids):
+        raise ValidationError("An option can only be chosen once")
+    valid_ids = {option.id for option in await poll_repository.get_options(thread.id)}
+    if not set(option_ids) <= valid_ids:
+        raise ValidationError("An option isn't part of this poll")
+
+    await poll_repository.replace_votes(thread.id, principal.id, option_ids)
+    poll_data = await build_poll_data(poll_repository, thread, permissions, principal)
+    assert poll_data is not None
+    return poll_data

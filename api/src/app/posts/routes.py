@@ -10,9 +10,19 @@ from app.posts import schemas
 from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import check_post_change, validate_roll_visibility
 from app.posts.visibility import redact_draw, redact_roll
-from app.repositories import PostRepository, ReadTrackingRepository, ThreadRepository
+from app.repositories import (
+    PollRepository,
+    PostRepository,
+    ReadTrackingRepository,
+    ThreadRepository,
+)
 from app.threads.discord import queue_post_webhook
 from app.threads.functions import merge_thread_options
+from app.threads.poll_functions import (
+    build_poll_data,
+    check_poll_input,
+    require_add_poll,
+)
 
 posts = APIRouter(prefix="/posts")
 
@@ -88,6 +98,23 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
     rolls = (await post_repository.get_rolls([post.id]))[post.id]
     draws = (await post_repository.get_draws([post.id]))[post.id]
     is_first_post = post.thread.first_post_id == post.id
+    # The edit form needs the counts (to warn before dropping voted options), so
+    # the poll goes to whoever may edit the first post, whatever they'd see on the
+    # thread page.
+    poll = None
+    if is_first_post:
+        try:
+            check_post_change(permissions, post, principal, Verbs.FORUM_EDIT)
+        except ForbiddenException:
+            pass
+        else:
+            poll = await build_poll_data(
+                PollRepository(db_session, principal=principal),
+                post.thread,
+                permissions,
+                principal,
+                force_results=True,
+            )
 
     return schemas.GetPostResponse(
         id=post.id,
@@ -108,6 +135,7 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
         discord_webhook=post.thread.options.discord_webhook
         if is_first_post and principal.id == post.author_id
         else None,
+        poll=poll,
         thread_id=post.thread_id,
         forum_id=post.thread.forum_id,
         page=await post_repository.get_page_number(post),
@@ -204,6 +232,18 @@ async def edit_post(
         options = merge_thread_options(
             permissions, post.thread.forum, options, post_data.thread_options
         )
+    # Absent leaves the poll alone; null removes it; an object sets it.
+    poll_sent = "poll" in post_data.model_fields_set
+    poll_repository = PollRepository(db_session, principal=principal)
+    poll = None
+    poll_options = []
+    if poll_sent:
+        if post.thread.first_post_id != post.id:
+            raise ValidationError("A poll can only be changed on the first post")
+        require_add_poll(permissions, post.thread.forum)
+        poll = await poll_repository.get(post.thread_id)
+        if post_data.poll is not None:
+            poll_options = await check_poll_input(poll_repository, poll, post_data.poll)
     attachments = await plan_attachments(
         db_session,
         principal,
@@ -214,6 +254,14 @@ async def edit_post(
         post_data.draws,
     )
 
+    if poll_sent:
+        if post_data.poll is None:
+            if poll is not None:
+                await poll_repository.delete(poll)
+        elif poll is None:
+            await poll_repository.create(post.thread_id, post_data.poll)
+        else:
+            await poll_repository.apply_edit(poll, poll_options, post_data.poll)
     if options is not post.thread.options:
         await ThreadRepository(db_session, principal=principal).update_options(
             post.thread, options

@@ -2,7 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { DiceSystem, FengShuiRollType, RollDiceResult } from "#/queries/dice";
-import type { ThreadOptionsUpdate } from "#/queries/threads";
+import type { PollData, PollInput, ThreadOptionsUpdate } from "#/queries/threads";
 
 type Author = {
 	id: number;
@@ -63,6 +63,8 @@ export type PostDetails = Post & {
 	thread_id: number;
 	forum_id: number;
 	page: number;
+	// Only on a first post, and only for someone who can edit it.
+	poll: PollData | null;
 };
 
 export type PostsResponse = {
@@ -164,6 +166,8 @@ export const editPost = async (
 		minor_edit?: boolean;
 		// Only for a thread's first post.
 		thread_options?: ThreadOptionsUpdate;
+		// Absent leaves the poll alone; null removes it (and its votes).
+		poll?: PollInput | null;
 	} & PostAttachmentsInput,
 ): Promise<{ id: number }> => {
 	const { post_id, ...body } = data;

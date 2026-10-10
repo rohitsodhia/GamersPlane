@@ -18,7 +18,7 @@ import type {
 	PostRoll,
 	RollVisibilityInput,
 } from "#/queries/posts";
-import type { ThreadOptions } from "#/queries/threads";
+import type { PollData, PollInput, ThreadOptions } from "#/queries/threads";
 import {
 	type AttachmentAccess,
 	type Attachments,
@@ -28,6 +28,8 @@ import {
 	emptyAttachments,
 } from "./-attachment-rows";
 import { Breadcrumbs } from "./-breadcrumbs";
+import { PollEditor, pollHasErrors } from "./-poll-editor";
+import { type PollState, pollPayload, pollStateFromData } from "./-poll-editor-state";
 import { PostAttachmentsEditor } from "./-post-attachments";
 import styles from "./-post-form.module.css";
 import { changedRollVisibility, initialVisibility } from "./-post-rolls";
@@ -86,6 +88,9 @@ export type PostFormValues = PostFormFields & {
 	draws: NewDrawInput[];
 	// Only the existing rolls whose visibility changed.
 	rollVisibility: RollVisibilityInput[];
+	// What the request's `poll` key holds; undefined when the poll is unchanged (or
+	// there is none) and the key should be left out.
+	poll: PollInput | null | undefined;
 };
 
 export function PostForm({
@@ -101,6 +106,7 @@ export function PostForm({
 	threadOptions,
 	canAddAttachments = true,
 	existingRolls = [],
+	existingPoll = null,
 	showMinorEdit = false,
 	submitLabel,
 	isSubmitting = false,
@@ -126,6 +132,8 @@ export function PostForm({
 	canAddAttachments?: boolean;
 	// The rolls already on the post (editing); their visibility can be changed here.
 	existingRolls?: PostRoll[];
+	// The thread's poll, when editing its first post.
+	existingPoll?: PollData | null;
 	// Shows the "minor edit" checkbox (editing only).
 	showMinorEdit?: boolean;
 	submitLabel: string;
@@ -147,6 +155,13 @@ export function PostForm({
 	);
 	const hbMarginedVisibility = useHbMargined<HTMLHeadingElement>();
 
+	// The poll as loaded, to tell whether it changed; `poll` is null for none.
+	const [initialPoll] = useState<PollState | null>(() =>
+		existingPoll ? pollStateFromData(existingPoll) : null,
+	);
+	const [poll, setPoll] = useState<PollState | null>(initialPoll);
+	const [showPollErrors, setShowPollErrors] = useState(false);
+
 	const form = useForm({
 		defaultValues: {
 			title: defaultTitle,
@@ -156,21 +171,28 @@ export function PostForm({
 			minorEdit: true as boolean,
 		} satisfies PostFormFields,
 		onSubmit: async ({ value }) => {
-			if (Object.keys(attachmentRowErrors).length > 0) {
-				setShowAttachmentErrors(true);
-				setOptionsState("dice_decks");
+			const pollProblems = canAddPoll && pollHasErrors(poll);
+			const attachmentProblems = Object.keys(attachmentRowErrors).length > 0;
+			if (pollProblems || attachmentProblems) {
+				setShowPollErrors(pollProblems);
+				setShowAttachmentErrors(attachmentProblems);
+				setOptionsState(pollProblems ? "poll" : "dice_decks");
 				return;
 			}
 			await onSubmit({
 				...value,
 				...buildAttachmentPayload(attachments, attachmentAccessNow),
 				rollVisibility: changedRollVisibility(existingRolls, rollVisibility),
+				poll: canAddPoll ? pollPayload(initialPoll, poll) : undefined,
 			});
 		},
 	});
 
 	const canSet = (permission: ForumPermission) =>
 		permissions.includes(permission) || permissions.includes("forum_moderate");
+	// The poll belongs to the thread, so it's set wherever the thread options are.
+	const canAddPoll = showThreadOptions && canSet("forum_add_poll");
+	const pollInvalid = canAddPoll && pollHasErrors(poll);
 
 	// A new thread's options are the form's own; an edit follows the thread's.
 	const formOptions = useStore(form.store, (state) => state.values.options);
@@ -259,9 +281,13 @@ export function PostForm({
 				</div>
 
 				{(apiErrors.length > 0 ||
+					(showPollErrors && pollInvalid) ||
 					(showAttachmentErrors && Object.keys(attachmentRowErrors).length > 0)) && (
 					<div className="banner error-banner">
 						<ul>
+							{showPollErrors && pollInvalid && (
+								<li>Fix the problems under Poll before posting.</li>
+							)}
 							{showAttachmentErrors && Object.keys(attachmentRowErrors).length > 0 && (
 								<li>Fix the problems under Rolls and Decks before posting.</li>
 							)}
@@ -371,13 +397,15 @@ export function PostForm({
 						>
 							Options
 						</button>
-						<button
-							type="button"
-							onClick={() => setOptionsState("poll")}
-							className={optionsState === "poll" ? "current" : ""}
-						>
-							Poll
-						</button>
+						{canAddPoll && (
+							<button
+								type="button"
+								onClick={() => setOptionsState("poll")}
+								className={optionsState === "poll" ? "current" : ""}
+							>
+								Poll
+							</button>
+						)}
 						<button
 							type="button"
 							onClick={() => setOptionsState("dice_decks")}
@@ -395,7 +423,9 @@ export function PostForm({
 					</h2>
 					<div style={{ marginInline: `${hbMarginedOptions.margin}px` }}>
 						{optionsState === "options" && optionsPanel}
-						{optionsState === "poll" && <div>Poll</div>}
+						{optionsState === "poll" && canAddPoll && (
+							<PollEditor value={poll} onChange={setPoll} showErrors={showPollErrors} />
+						)}
 						{optionsState === "dice_decks" &&
 							(hasAttachmentUI ? (
 								<PostAttachmentsEditor
@@ -411,7 +441,8 @@ export function PostForm({
 					</div>
 				</>
 			)}
-			{existingRolls.length > 0 && (
+			{/* Belongs with Rolls and Decks; that's always the tab on a reply. */}
+			{existingRolls.length > 0 && optionsState === "dice_decks" && (
 				<>
 					<h2 className="headerbar hb-dark has-topper" ref={hbMarginedVisibility.ref}>
 						Roll Visibility
