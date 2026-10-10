@@ -33,3 +33,9 @@
 .post-form-form-wrapper {
 	margin-bottom: 1em;
 }
+
+.option-checkbox {
+	display: flex;
+	gap: 0.4em;
+	align-items: center;
+}

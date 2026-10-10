@@ -16,8 +16,9 @@ function usePopoverAnchor(position: (rect: DOMRect) => PopoverPosition) {
 	const positionRef = useRef(position);
 	positionRef.current = position;
 
-	const popoverRef = useCallback((popover: HTMLUListElement | null) => {
-		if (!popover || !buttonRef.current) return;
+	const popoverRef = useCallback((node: HTMLUListElement | null) => {
+		if (!node || !buttonRef.current) return;
+		const popover = node;
 		const button = buttonRef.current;
 		function onToggle(e: ToggleEvent) {
 			if (e.newState === "open") {
@@ -118,7 +119,9 @@ function Header() {
 							<Link to="/games">Games</Link>
 						</li>
 						<li>
-							<Link to="/forums">Forums</Link>
+							<Link to="/forums/{-$forumId}" params={{ forumId: 0 }}>
+								Forums
+							</Link>
 						</li>
 						{me ? (
 							<li className={styles["header-avatar"]}>

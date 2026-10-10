@@ -120,6 +120,27 @@ export function forumQueryOptions(id: number) {
 	});
 }
 
+export type DrawableDeck = {
+	id: number;
+	label: string;
+	type: string;
+	remaining: number;
+};
+
+// The decks the user can draw from when posting in the forum (empty outside game
+// forums, or without forum_add_draws). Always refetched: draws change `remaining`.
+export function forumDecksQueryOptions(id: number) {
+	return queryOptions({
+		queryKey: ["forums", id, "decks"],
+		queryFn: async (): Promise<DrawableDeck[]> => {
+			const res = await apiFetch(`/forums/${id}/decks`);
+			if (!res.ok) throw new Error("Failed to fetch forum decks");
+			return (await res.json()).decks;
+		},
+		staleTime: 0,
+	});
+}
+
 export async function forumMutate(path: string, method: string, body?: unknown) {
 	const res = await apiFetch(path, {
 		method,

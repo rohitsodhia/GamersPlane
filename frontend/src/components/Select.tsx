@@ -19,6 +19,7 @@ export function Select<T>({
 	isDisabled,
 	className,
 	style,
+	ariaLabel,
 	ariaLabelledBy,
 }: {
 	id: string;
@@ -28,6 +29,8 @@ export function Select<T>({
 	selectedId: string;
 	onChange: (id: string) => void;
 	isDisabled?: boolean;
+	/** Forwarded to the trigger button's `aria-label`, for a select with no visible label. */
+	ariaLabel?: string;
 	/** Forwarded to the trigger button's `aria-labelledby`. */
 	ariaLabelledBy?: string;
 	/** Extra classes on the RAC Select wrapper (the RAC default class is kept). */
@@ -42,7 +45,7 @@ export function Select<T>({
 			isDisabled={isDisabled}
 			onSelectionChange={(key) => onChange(key as string)}
 		>
-			<Button id={id} aria-labelledby={ariaLabelledBy}>
+			<Button id={id} aria-label={ariaLabel} aria-labelledby={ariaLabelledBy}>
 				<SelectValue />
 				<span aria-hidden="true">▼</span>
 			</Button>

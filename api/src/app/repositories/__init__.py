@@ -8,6 +8,7 @@ from .game_repository import GameRepository
 from .genre_repository import GenreRepository
 from .player_repository import PlayerRepository
 from .pm_repository import PMRepository
+from .poll_repository import PollRepository
 from .post_repository import PostRepository
 from .publisher_repository import PublisherRepository
 from .rbac_repository import RBACkRepository

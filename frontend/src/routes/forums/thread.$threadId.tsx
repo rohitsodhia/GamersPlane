@@ -20,25 +20,40 @@ import Editor, {
 	isContentEmpty,
 	trimTrailingEmptyParagraph,
 } from "#/components/Editor";
+import LockIcon from "#/components/LockIcon";
 import Paginate from "#/components/Paginate";
+import PinIcon from "#/components/PinIcon";
 import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
 import { PAGINATE_PER_PAGE } from "#/lib/config";
 import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { useScrollToHash } from "#/lib/use-scroll-to-hash";
-import { forumBreadcrumbsQueryOptions } from "#/queries/forums";
+import { forumBreadcrumbsQueryOptions, forumDecksQueryOptions } from "#/queries/forums";
 import { meFullQueryOptions, type PostSide } from "#/queries/me";
 import { createPost, deletePost, type Post, postsQueryOptions } from "#/queries/posts";
 import {
 	markThreadUnread,
 	recordThreadRead,
+	type ThreadOptionsUpdate,
 	threadQueryOptions,
+	updateThread,
 } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
+import {
+	type Attachments,
+	attachmentAccess,
+	attachmentErrors,
+	buildAttachmentPayload,
+	emptyAttachments,
+} from "./-attachment-rows";
 import { Breadcrumbs } from "./-breadcrumbs";
 import ChatPoint from "./-chat-point";
 import { canChangePost, canWrite } from "./-permissions";
+import { PostAttachmentsEditor } from "./-post-attachments";
+import { PostDrawList } from "./-post-draw-list";
+import { PostRollList } from "./-post-roll-list";
+import { ThreadPoll } from "./-thread-poll";
 import styles from "./thread.$threadId.module.css";
 
 export const Route = createFileRoute("/forums/thread/$threadId")({
@@ -106,6 +121,8 @@ function PostItem({
 	canWrite,
 	canEdit,
 	canDelete,
+	isAuthor,
+	canToggleDraws,
 	onQuote,
 	onDelete,
 	onMarkUnread,
@@ -119,6 +136,10 @@ function PostItem({
 	canWrite: boolean;
 	canEdit: boolean;
 	canDelete: boolean;
+	// The viewer wrote the post: they see every drawn card.
+	isAuthor: boolean;
+	// Revealing or hiding cards: not allowed in a locked thread without moderating.
+	canToggleDraws: boolean;
 	onQuote: (post: Post) => void;
 	onDelete: (post: Post) => void;
 	// Only passed for the thread's last post.
@@ -130,7 +151,7 @@ function PostItem({
 			<div className={styles["post-author"]}>
 				<Link
 					to="/user/$userId"
-					params={{ userId: String(post.author.id) }}
+					params={{ userId: post.author.id }}
 					className="username"
 				>
 					<img
@@ -141,7 +162,7 @@ function PostItem({
 				</Link>
 				<Link
 					to="/user/$userId"
-					params={{ userId: String(post.author.id) }}
+					params={{ userId: post.author.id }}
 					className="username"
 				>
 					{post.author.username}
@@ -165,6 +186,14 @@ function PostItem({
 						</span>
 					</div>
 					<TiptapContent content={post.body} className="post-body" />
+					<PostRollList rolls={post.rolls} />
+					<PostDrawList
+						postId={post.id}
+						threadId={threadId}
+						draws={post.draws}
+						isAuthor={isAuthor}
+						canToggle={canToggleDraws}
+					/>
 				</div>
 				<div className={styles["post-actions"]}>
 					{onMarkUnread && (
@@ -311,7 +340,28 @@ function RouteComponent() {
 	const { data: me } = useQuery({ ...meFullQueryOptions, enabled: loggedIn });
 	const postSide: PostSide = me?.postSide ?? "r";
 
+	const isModerator = thread.permissions.includes("forum_moderate");
+	const [modError, setModError] = useState<string | null>(null);
+	const modMutation = useMutation({
+		mutationFn: (options: ThreadOptionsUpdate) => updateThread(threadId, options),
+		onMutate: () => setModError(null),
+		onSuccess: () =>
+			Promise.all([
+				// The thread details (locking gates replying and editing) and the lists.
+				queryClient.invalidateQueries({ queryKey: ["threads"] }),
+				queryClient.invalidateQueries({ queryKey: ["forums"] }),
+			]),
+		onError: (exception) =>
+			setModError(
+				exception instanceof ApiError
+					? exception.errors.map((e) => e.detail).join(" ")
+					: "Couldn't update the thread.",
+			),
+	});
+
 	const userCanWrite = canWrite(thread);
+	const canToggleDraws =
+		!thread.options.locked || thread.permissions.includes("forum_moderate");
 
 	const hbMarginedHeader = useHbMargined<HTMLHeadingElement>();
 	const hbMarginedReply = useHbMargined<HTMLHeadingElement>();
@@ -331,6 +381,19 @@ function RouteComponent() {
 
 	const quickReplyRef = useRef<HTMLFormElement>(null);
 
+	const [attachments, setAttachments] = useState<Attachments>(emptyAttachments);
+	const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+	const [showAttachmentErrors, setShowAttachmentErrors] = useState(false);
+	const access = attachmentAccess(thread.options, thread.permissions);
+	const { data: decksData } = useQuery({
+		...forumDecksQueryOptions(thread.forum_id),
+		enabled: userCanWrite && access.draws,
+	});
+	const decks = access.draws ? (decksData ?? []) : [];
+	const attachmentRowErrors = attachmentErrors(attachments, access, decks);
+	const hasAttachmentUI = access.rolls || (access.draws && decks.length > 0);
+	const attachmentCount = attachments.rolls.length + attachments.draws.length;
+
 	const replyTitle = thread.title.startsWith("Re: ")
 		? thread.title
 		: `Re: ${thread.title}`;
@@ -340,13 +403,23 @@ function RouteComponent() {
 		},
 		onSubmit: async ({ value, formApi }) => {
 			setReplyErrors([]);
+			if (Object.keys(attachmentRowErrors).length > 0) {
+				setShowAttachmentErrors(true);
+				setAttachmentsOpen(true);
+				setReplyErrors(["Fix the problems under Add rolls / draws before posting."]);
+				return;
+			}
 			try {
 				await replyMutation.mutateAsync({
 					thread_id: threadId,
 					title: replyTitle,
 					body: value.body,
+					...buildAttachmentPayload(attachments, access),
 				});
 				formApi.reset();
+				setAttachments(emptyAttachments);
+				setAttachmentsOpen(false);
+				setShowAttachmentErrors(false);
 			} catch (exception) {
 				if (exception instanceof ApiError) {
 					setReplyErrors(exception.errors.map((e) => e.detail));
@@ -387,11 +460,50 @@ function RouteComponent() {
 			</h1>
 
 			<div style={{ marginInline: hbMarginedHeader.margin }}>
-				<Breadcrumbs forum={breadcrumbs} />
-				<div>
-					Be sure to read and follow the{" "}
-					<Link to="/community_guidelines">community guidelines</Link>.
+				<div className={styles["thread-menu"]}>
+					<div>
+						<Breadcrumbs forum={breadcrumbs} />
+						<div>
+							Be sure to read and follow the{" "}
+							<Link to="/community-guidelines">community guidelines</Link>.
+						</div>
+					</div>
+
+					{isModerator && (
+						<div className={styles["mod-actions"]}>
+							<button
+								type="button"
+								aria-pressed={thread.options.sticky}
+								disabled={modMutation.isPending}
+								onClick={() => modMutation.mutate({ sticky: !thread.options.sticky })}
+							>
+								<PinIcon
+									title={thread.options.sticky ? "Unsticky thread" : "Sticky thread"}
+								/>
+							</button>
+							<button
+								type="button"
+								aria-pressed={thread.options.locked}
+								disabled={modMutation.isPending}
+								onClick={() => modMutation.mutate({ locked: !thread.options.locked })}
+							>
+								<LockIcon
+									title={thread.options.locked ? "Unlock thread" : "Lock thread"}
+								/>
+							</button>
+						</div>
+					)}
 				</div>
+				{modError && <div className="error">{modError}</div>}
+
+				{thread.poll && (
+					<ThreadPoll
+						threadId={threadId}
+						poll={thread.poll}
+						locked={thread.options.locked}
+						loggedIn={loggedIn}
+					/>
+				)}
 
 				<div className="thread-pagination">
 					<Paginate numItems={count} current={page} onPageChange={setPage} />
@@ -416,6 +528,8 @@ function RouteComponent() {
 									? "forum_delete_thread"
 									: "forum_delete",
 							)}
+							isAuthor={me !== undefined && post.author.id === me.id}
+							canToggleDraws={canToggleDraws}
 							onQuote={handleQuote}
 							onDelete={(post) => deleteMutation.mutate(post.id)}
 							onMarkUnread={
@@ -473,6 +587,28 @@ function RouteComponent() {
 								/>
 							)}
 						</replyForm.Field>
+
+						{hasAttachmentUI && (
+							<div className={styles["quick-reply-attachments"]}>
+								<button
+									type="button"
+									aria-expanded={attachmentsOpen}
+									onClick={() => setAttachmentsOpen((open) => !open)}
+								>
+									{attachmentsOpen ? "Hide rolls / draws" : "Add rolls / draws"}
+									{attachmentCount > 0 && ` (${attachmentCount})`}
+								</button>
+								{attachmentsOpen && (
+									<PostAttachmentsEditor
+										value={attachments}
+										onChange={setAttachments}
+										access={access}
+										decks={decks}
+										showErrors={showAttachmentErrors}
+									/>
+								)}
+							</div>
+						)}
 
 						<replyForm.Subscribe selector={(state) => state.canSubmit}>
 							{(canSubmit) => (

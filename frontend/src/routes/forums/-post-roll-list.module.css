@@ -1,0 +1,57 @@
+.rolls {
+	margin-top: 1.25em;
+
+	h4 {
+		display: inline-block;
+		margin: 0 0 0.4em;
+		padding-bottom: 0.1em;
+		font-size: 0.9em;
+		font-weight: bold;
+		/* Short underline that fades out to the right. */
+		border-bottom: 1px solid;
+		border-image: linear-gradient(to right, var(--gp-red) 0, transparent 100%) 1;
+		padding-right: 8em;
+	}
+
+	ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5em;
+	}
+}
+
+.roll {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.result {
+	margin-left: 1.25em;
+
+	p {
+		margin: 0;
+	}
+}
+
+.hidden-part,
+.hidden-tag,
+.system {
+	color: light-dark(#666, #999);
+}
+
+.hidden-tag {
+	font-size: 0.85em;
+}
+
+.system {
+	font-size: 0.9em;
+}
+
+.roll-fate {
+	.die {
+		background-color: #fff;
+	}
+}

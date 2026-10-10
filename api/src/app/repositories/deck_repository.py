@@ -5,7 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.exceptions import NotFoundException
+from app.exceptions import NotFoundException, ValidationError
 from app.models import Deck, DeckPermission, DeckType, User
 
 
@@ -75,6 +75,50 @@ class DeckRepository:
             .where(Deck.id == deck_id)
             .options(selectinload(Deck.permissions))
         )
+
+    async def get_for_update(self, deck_id: int) -> Deck | None:
+        """Fetch a deck with its row locked until the request's transaction ends.
+
+        Lock before reading ``position`` for a draw, so concurrent draws serialize
+        instead of taking the same cards. ``populate_existing`` makes sure an
+        already-loaded copy is refreshed to the locked row's values.
+        """
+        return await self.db_session.scalar(
+            select(Deck)
+            .where(Deck.id == deck_id)
+            # of=Deck: the deck type is outer-joined, and that side can't be locked.
+            .with_for_update(of=Deck)
+            .execution_options(populate_existing=True)
+        )
+
+    async def can_draw(self, deck_id: int, user_id: int) -> bool:
+        """Whether the user has been given draw access to the deck (GMs aside)."""
+        return (
+            await self.db_session.scalar(
+                select(DeckPermission.user_id).where(
+                    DeckPermission.deck_id == deck_id,
+                    DeckPermission.user_id == user_id,
+                )
+            )
+            is not None
+        )
+
+    async def draw(self, deck: Deck, count: int) -> list[int]:
+        """Take the next ``count`` cards off the deck and advance its position.
+
+        The deck must have been locked with ``get_for_update`` in this
+        transaction. Raises ``ValidationError`` if fewer than ``count`` cards remain.
+        """
+        remaining = len(deck.order) - deck.position
+        if count > remaining:
+            raise ValidationError(
+                f"Not enough cards left in {deck.label} "
+                f"({remaining} remaining, {count} requested)"
+            )
+        cards = deck.order[deck.position : deck.position + count]
+        deck.position += count
+        await self.db_session.flush()
+        return cards
 
     async def get_all_for_game(self, game_id: int):
         return await self.db_session.scalars(

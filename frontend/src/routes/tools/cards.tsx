@@ -4,6 +4,7 @@ import DeckCard, {
 	type JokerCardProps,
 	type SuitCardProps,
 } from "#/components/DeckCard";
+import { RANKS, SUITS } from "#/lib/deck-cards";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import styles from "./cards.module.css";
 
@@ -13,23 +14,6 @@ export const Route = createFileRoute("/tools/cards")({
 
 type DeckType = "pcwj" | "pcwoj";
 type Card = SuitCardProps | JokerCardProps;
-
-const SUITS = ["hearts", "spades", "diamonds", "clubs"] as const;
-const RANKS = [
-	"ace",
-	"2",
-	"3",
-	"4",
-	"5",
-	"6",
-	"7",
-	"8",
-	"9",
-	"10",
-	"jack",
-	"queen",
-	"king",
-] as const;
 
 function buildDeck(deckType: DeckType): Card[] {
 	const cards: Card[] = [];

@@ -15,6 +15,9 @@ from tests.factories import (
 Verbs = RolePermission.ValidPermissions
 
 
+WEBHOOK_URL = "https://discord.com/api/webhooks/123456789/abc-DEF_123"
+
+
 async def grant(db_session, user, forum, *verbs):
     """Give ``user`` a role holding ``verbs`` on ``forum``."""
     role = RoleFactory.build()
@@ -190,6 +193,51 @@ class TestGetPost:
         assert body["forum_id"] == thread.forum_id
         assert body["page"] == 1
         assert body["is_first_post"] is True
+
+    async def test_get_post_returns_discord_webhook_to_first_post_author(
+        self, authed_client, create
+    ):
+        client, user = authed_client
+        thread = await create(
+            ThreadFactory, options=Thread.Options(discord_webhook=WEBHOOK_URL)
+        )
+        post = await create(PostFactory, thread=thread, author=user)
+        thread.first_post_id = post.id
+
+        response = await client.get(f"/posts/{post.id}")
+
+        assert response.json()["discord_webhook"] == WEBHOOK_URL
+
+    async def test_get_post_hides_discord_webhook_on_non_first_post(
+        self, authed_client, create
+    ):
+        client, user = authed_client
+        thread = await create(
+            ThreadFactory, options=Thread.Options(discord_webhook=WEBHOOK_URL)
+        )
+        first_post = await create(PostFactory, thread=thread)
+        thread.first_post_id = first_post.id
+        reply = await create(PostFactory, thread=thread, author=user)
+
+        response = await client.get(f"/posts/{reply.id}")
+
+        assert response.json()["discord_webhook"] is None
+
+    async def test_get_post_hides_discord_webhook_from_moderator_who_is_not_author(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread = await create(
+            ThreadFactory, options=Thread.Options(discord_webhook=WEBHOOK_URL)
+        )
+        post = await create(PostFactory, thread=thread)
+        thread.first_post_id = post.id
+        await grant(db_session, user, thread.forum, Verbs.FORUM_MODERATE)
+
+        response = await client.get(f"/posts/{post.id}")
+
+        assert response.status_code == 200
+        assert response.json()["discord_webhook"] is None
 
     async def test_get_post_in_unreadable_forum_returns_404(
         self, authed_client, create
@@ -422,6 +470,231 @@ class TestEditPost:
         response = await client.patch(f"/posts/{post.id}", json=edit_post_payload())
 
         assert response.status_code == 200
+
+
+class TestEditPostThreadOptions:
+    async def thread_with_posts(self, create, db_session, user):
+        """A thread with a first post and a reply, both by ``user``."""
+        thread = await create(ThreadFactory)
+        first = await create(PostFactory, thread=thread, author=user)
+        reply = await create(PostFactory, thread=thread, author=user)
+        thread.first_post_id = first.id
+        await db_session.flush()
+        return thread, first, reply
+
+    async def test_thread_options_on_a_reply_returns_400(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread, _first, reply = await self.thread_with_posts(create, db_session, user)
+
+        response = await client.patch(
+            f"/posts/{reply.id}",
+            json=edit_post_payload(thread_options={"sticky": False}),
+        )
+
+        assert response.status_code == 400
+
+    async def test_first_post_edit_can_enable_rolls_and_add_one(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread, first, _reply = await self.thread_with_posts(create, db_session, user)
+        await grant(db_session, user, thread.forum, Verbs.FORUM_ADD_ROLLS)
+
+        response = await client.patch(
+            f"/posts/{first.id}",
+            json=edit_post_payload(
+                thread_options={"allow_rolls": True},
+                rolls=[{"type": "basic", "roll": "1d20", "reason": "Init"}],
+            ),
+        )
+
+        assert response.status_code == 200
+        await db_session.refresh(thread)
+        assert thread.options.allow_rolls is True
+        rolls = (
+            await PostRepository(db_session, principal=user).get_rolls([first.id])
+        )[first.id]
+        assert [roll.reason for roll in rolls] == ["Init"]
+
+    async def test_forbidden_option_change_returns_403_and_keeps_the_post(
+        self, authed_client, create, db_session
+    ):
+        client, user = authed_client
+        thread, first, _reply = await self.thread_with_posts(create, db_session, user)
+        original_title = first.title
+
+        response = await client.patch(
+            f"/posts/{first.id}",
+            json=edit_post_payload(thread_options={"locked": True}),
+        )
+
+        assert response.status_code == 403
+        await db_session.refresh(first)
+        await db_session.refresh(thread)
+        assert first.title == original_title
+        assert thread.options.locked is False
+
+
+INVALID_STORED_WEBHOOK = "https://relay.example.com/api/webhooks/123/abc"
+
+
+class TestDiscordWebhook:
+    async def webhook_thread(self, create, db_session, user, webhook=WEBHOOK_URL):
+        """A thread with a first post by ``user`` and the given stored webhook."""
+        thread = await create(
+            ThreadFactory, options=Thread.Options(discord_webhook=webhook)
+        )
+        first = await create(PostFactory, thread=thread, author=user)
+        thread.first_post_id = first.id
+        await db_session.flush()
+        return thread, first
+
+    async def test_new_reply_is_sent(
+        self, authed_client, create, db_session, sent_webhooks
+    ):
+        client, user = authed_client
+        thread, _first = await self.webhook_thread(create, db_session, user)
+
+        response = await client.post(
+            "/posts", json=new_post_payload(thread_id=thread.id, title="Re: Hello")
+        )
+
+        [(url, payload)] = sent_webhooks
+        assert url == WEBHOOK_URL
+        assert payload["username"] == user.username
+        embed = payload["embeds"][0]
+        assert embed["title"] == "Hello"
+        assert embed["description"] == "Hi there"
+        assert embed["url"].endswith(
+            f"/forums/thread/{thread.id}?page=1#post-{response.json()['id']}"
+        )
+        assert embed["footer"]["text"] == user.username
+
+    async def test_reply_without_a_webhook_sends_nothing(
+        self, authed_client, create, sent_webhooks
+    ):
+        client, _user = authed_client
+        thread = await create(ThreadFactory)
+
+        await client.post("/posts", json=new_post_payload(thread_id=thread.id))
+
+        assert sent_webhooks == []
+
+    async def test_reply_with_an_invalid_stored_webhook_sends_nothing(
+        self, authed_client, create, db_session, sent_webhooks
+    ):
+        client, user = authed_client
+        thread, _first = await self.webhook_thread(
+            create, db_session, user, INVALID_STORED_WEBHOOK
+        )
+
+        response = await client.post(
+            "/posts", json=new_post_payload(thread_id=thread.id)
+        )
+
+        assert response.status_code == 200
+        assert sent_webhooks == []
+
+    async def test_major_edit_is_sent_as_edited(
+        self, authed_client, create, db_session, sent_webhooks
+    ):
+        client, user = authed_client
+        _thread, first = await self.webhook_thread(create, db_session, user)
+
+        await client.patch(f"/posts/{first.id}", json=edit_post_payload())
+
+        [(url, payload)] = sent_webhooks
+        assert url == WEBHOOK_URL
+        embed = payload["embeds"][0]
+        assert embed["title"] == "Updated Title"
+        assert embed["footer"]["text"] == f"{user.username} ~ edited post"
+
+    async def test_minor_edit_sends_nothing_but_still_saves(
+        self, authed_client, create, db_session, sent_webhooks
+    ):
+        client, user = authed_client
+        _thread, first = await self.webhook_thread(create, db_session, user)
+
+        response = await client.patch(
+            f"/posts/{first.id}", json=edit_post_payload(minor_edit=True)
+        )
+
+        assert response.status_code == 200
+        assert sent_webhooks == []
+        await db_session.refresh(first)
+        assert first.title == "Updated Title"
+
+    async def test_edit_of_an_unpublished_post_sends_nothing(
+        self, authed_client, create, db_session, sent_webhooks
+    ):
+        client, user = authed_client
+        thread, _first = await self.webhook_thread(create, db_session, user)
+        draft = await create(
+            PostFactory, thread=thread, author=user, state=Post.States.DRAFT
+        )
+
+        response = await client.patch(f"/posts/{draft.id}", json=edit_post_payload())
+
+        assert response.status_code == 200
+        assert sent_webhooks == []
+
+    async def test_moderator_edit_is_attributed_to_the_post_author(
+        self, authed_client, create, db_session, sent_webhooks
+    ):
+        client, user = authed_client
+        author = await create(UserFactory)
+        thread, _first = await self.webhook_thread(create, db_session, author)
+        await grant(db_session, user, thread.forum, Verbs.FORUM_MODERATE)
+        reply = await create(PostFactory, thread=thread, author=author)
+
+        await client.patch(f"/posts/{reply.id}", json=edit_post_payload())
+
+        [(_url, payload)] = sent_webhooks
+        assert payload["username"] == author.username
+        assert payload["embeds"][0]["footer"]["text"].startswith(author.username)
+
+    async def test_edit_with_an_invalid_stored_webhook_sends_nothing(
+        self, authed_client, create, db_session, sent_webhooks
+    ):
+        client, user = authed_client
+        _thread, first = await self.webhook_thread(
+            create, db_session, user, INVALID_STORED_WEBHOOK
+        )
+
+        response = await client.patch(f"/posts/{first.id}", json=edit_post_payload())
+
+        assert response.status_code == 200
+        assert sent_webhooks == []
+
+    async def test_edit_that_sets_the_webhook_sends_to_the_new_one(
+        self, authed_client, create, db_session, sent_webhooks
+    ):
+        client, user = authed_client
+        thread, first = await self.webhook_thread(create, db_session, user, None)
+        await grant(db_session, user, thread.forum, Verbs.FORUM_MODERATE)
+
+        await client.patch(
+            f"/posts/{first.id}",
+            json=edit_post_payload(thread_options={"discord_webhook": WEBHOOK_URL}),
+        )
+
+        assert [url for url, _payload in sent_webhooks] == [WEBHOOK_URL]
+
+    async def test_edit_that_clears_the_webhook_sends_nothing(
+        self, authed_client, create, db_session, sent_webhooks
+    ):
+        client, user = authed_client
+        thread, first = await self.webhook_thread(create, db_session, user)
+        await grant(db_session, user, thread.forum, Verbs.FORUM_MODERATE)
+
+        await client.patch(
+            f"/posts/{first.id}",
+            json=edit_post_payload(thread_options={"discord_webhook": ""}),
+        )
+
+        assert sent_webhooks == []
 
 
 class TestDeletePost:

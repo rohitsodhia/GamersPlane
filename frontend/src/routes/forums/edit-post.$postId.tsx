@@ -14,6 +14,7 @@ import { editPost, postQueryOptions } from "#/queries/posts";
 import { threadQueryOptions } from "#/queries/threads";
 import { canChangePost } from "./-permissions";
 import { PostForm } from "./-post-form";
+import { changedThreadOptions, type ThreadOptionsValues } from "./-thread-options";
 
 export const Route = createFileRoute("/forums/edit-post/$postId")({
 	params: {
@@ -52,6 +53,8 @@ function RouteComponent() {
 	const { postId } = Route.useParams();
 	const { data: post } = useSuspenseQuery(postQueryOptions(postId));
 	const { data: forum } = useSuspenseQuery(forumQueryOptions(post.forum_id));
+	const { data: thread } = useSuspenseQuery(threadQueryOptions(post.thread_id));
+	const { data: me } = useSuspenseQuery(meQueryOptions);
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
@@ -61,8 +64,19 @@ function RouteComponent() {
 		mutationFn: editPost,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["posts", post.thread_id] });
+			// Draws change the decks' remaining cards.
+			queryClient.invalidateQueries({ queryKey: ["forums", post.forum_id, "decks"] });
+			// Thread options changed: the details and the forum's thread lists. The
+			// post's own details carry the webhook.
+			queryClient.invalidateQueries({ queryKey: ["threads"] });
+			queryClient.invalidateQueries({ queryKey: ["posts", postId, "details"] });
 		},
 	});
+
+	const defaultOptions: ThreadOptionsValues = {
+		...thread.options,
+		discord_webhook: post.discord_webhook ?? "",
+	};
 
 	return (
 		<PostForm
@@ -71,7 +85,18 @@ function RouteComponent() {
 			forum={forum}
 			defaultTitle={post.title}
 			defaultBody={post.body}
-			showThreadOptions={false}
+			showThreadOptions={post.is_first_post}
+			defaultOptions={defaultOptions}
+			// A moderator who isn't the author can't read the webhook, and a blank
+			// field would look like it was unset.
+			showWebhook={post.author.id === me.id}
+			permissions={thread.permissions}
+			threadOptions={thread.options}
+			// Only the author can add rolls and draws, moderators included.
+			canAddAttachments={post.author.id === me.id}
+			existingRolls={post.rolls}
+			existingPoll={post.poll}
+			showMinorEdit
 			submitLabel="Save Changes"
 			apiErrors={apiErrors}
 			isSubmitting={mutation.isPending}
@@ -82,6 +107,14 @@ function RouteComponent() {
 						post_id: postId,
 						title: value.title,
 						body: value.body,
+						rolls: value.rolls,
+						draws: value.draws,
+						roll_visibility: value.rollVisibility,
+						minor_edit: value.minorEdit,
+						thread_options: post.is_first_post
+							? changedThreadOptions(defaultOptions, value.options)
+							: undefined,
+						poll: value.poll,
 					});
 					navigate({
 						to: "/forums/thread/$threadId",

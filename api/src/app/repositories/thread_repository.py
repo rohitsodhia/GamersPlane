@@ -71,6 +71,12 @@ class ThreadRepository:
         await self._adjust_forum_counts(forum_id, thread_delta=1)
         return thread
 
+    async def update_options(self, thread: Thread, options: Thread.Options) -> Thread:
+        # Assign a new object: in-place changes to a JSON column aren't tracked.
+        thread.options = options
+        await self.db_session.flush()
+        return thread
+
     async def attach_new_post(self, thread: Thread, post: Post) -> Thread:
         assert post.state == Post.States.PUBLISHED
         if thread.first_post_id is None:

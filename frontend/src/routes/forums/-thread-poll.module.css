@@ -1,0 +1,138 @@
+.thread-poll {
+	--poll-bg: oklch(from var(--bg) calc(l * 1.1) c h);
+	--poll-bar-bg: oklch(from var(--bg) calc(l * 1.35) c h);
+
+	margin-top: 1em;
+	padding: 1em;
+	border: 2px solid var(--text);
+	border-radius: 0.5em;
+	background: var(--poll-bg);
+
+	:global(.error) {
+		color: var(--gp-red);
+		margin-top: 0.5em;
+	}
+}
+
+.poll-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 1em;
+	border-bottom: 1px solid var(--gp-red);
+	padding-bottom: 0.2em;
+	margin-bottom: 0.75em;
+
+	h2 {
+		font-size: 1.1em;
+		color: var(--gp-red);
+	}
+}
+
+.poll-closed {
+	font-size: var(--font-size-sm);
+	white-space: nowrap;
+	opacity: 0.7;
+}
+
+.poll-hint {
+	font-size: var(--font-size-sm);
+	opacity: 0.8;
+	margin: 0 0 0.5em;
+}
+
+.poll-choices {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4em;
+
+	:global(.react-aria-Radio) {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+		cursor: pointer;
+
+		&::before {
+			content: "";
+			box-sizing: border-box;
+			width: 1.1em;
+			height: 1.1em;
+			flex-shrink: 0;
+			border: 2px solid currentcolor;
+			border-radius: 50%;
+		}
+
+		&[data-selected]::before {
+			border-width: 0.3em;
+			border-color: var(--gp-red);
+		}
+
+		&[data-focus-visible]::before {
+			outline: 2px solid currentcolor;
+			outline-offset: 2px;
+		}
+	}
+}
+
+.poll-choice {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+}
+
+.poll-actions {
+	display: flex;
+	align-items: center;
+	gap: 1em;
+	margin-top: 0.75em;
+}
+
+.poll-results {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6em;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.poll-result-label {
+	display: flex;
+	justify-content: space-between;
+	gap: 1em;
+	margin-bottom: 0.2em;
+}
+
+.poll-count {
+	font-size: var(--font-size-sm);
+	white-space: nowrap;
+}
+
+.poll-mine {
+	font-size: var(--font-size-sm);
+	color: var(--gp-red);
+}
+
+.poll-bar {
+	height: 0.6em;
+	border-radius: 0.3em;
+	background: var(--poll-bar-bg);
+	overflow: hidden;
+}
+
+.poll-bar-fill {
+	height: 100%;
+	border-radius: 0.3em;
+	background: currentcolor;
+	opacity: 0.5;
+}
+
+.poll-result[data-mine] .poll-bar-fill {
+	background: var(--gp-red);
+	opacity: 1;
+}
+
+.poll-plain {
+	margin: 0 0 0.5em;
+	padding-left: 1.25em;
+}

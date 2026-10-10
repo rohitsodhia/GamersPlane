@@ -13,6 +13,12 @@ import type {
 } from "#/queries/dice";
 import styles from "./RollResultDisplay.module.css";
 
+// Compact drops the roll's own padding and size so it reads at the surrounding
+// text's size (e.g. under a forum post's roll line, which already shows the dice).
+function rollClass(compact: boolean) {
+	return clsx(styles["roll"], compact && styles["compact"]);
+}
+
 function BasicTermValues({ term }: { term: BasicDiceTerm }) {
 	const items = term.rolls.map((value, index) => {
 		const dropped = term.dropped.includes(index);
@@ -47,14 +53,22 @@ function BasicTermValues({ term }: { term: BasicDiceTerm }) {
 	}, []);
 }
 
-function BasicRollDisplay({ result }: { result: BasicRollResult }) {
+function BasicRollDisplay({
+	result,
+	compact,
+}: {
+	result: BasicRollResult;
+	compact: boolean;
+}) {
 	const multipleGroups = result.groups.length > 1;
 
 	return (
-		<div className={styles.roll}>
-			<p className={styles["roll-string"]}>
-				{result.groups.map((g) => g.expression).join(", ")}
-			</p>
+		<div className={rollClass(compact)}>
+			{!compact && (
+				<p className={styles["roll-string"]}>
+					{result.groups.map((g) => g.expression).join(", ")}
+				</p>
+			)}
 			{result.groups.map((group) => (
 				<p key={group.expression}>
 					{multipleGroups && `${group.expression}: `}
@@ -83,11 +97,17 @@ function BasicRollDisplay({ result }: { result: BasicRollResult }) {
 	);
 }
 
-function FateRollDisplay({ result }: { result: FateRollResult }) {
+function FateRollDisplay({
+	result,
+	compact,
+}: {
+	result: FateRollResult;
+	compact: boolean;
+}) {
 	const sum = result.total - result.modifier;
 
 	return (
-		<div className={styles.roll}>
+		<div className={rollClass(compact)}>
 			<div className={styles["dice-row"]}>
 				{result.rolls.map((value, index) => (
 					// biome-ignore lint/suspicious/noArrayIndexKey: rolls are positional, not unique
@@ -111,9 +131,15 @@ function FateRollDisplay({ result }: { result: FateRollResult }) {
 	);
 }
 
-function FengShuiRollDisplay({ result }: { result: FengShuiRollResult }) {
+function FengShuiRollDisplay({
+	result,
+	compact,
+}: {
+	result: FengShuiRollResult;
+	compact: boolean;
+}) {
 	return (
-		<div className={styles.roll}>
+		<div className={rollClass(compact)}>
 			<div>
 				{result.action_value}
 				{result.type !== "closed" ? (
@@ -135,7 +161,13 @@ function FengShuiRollDisplay({ result }: { result: FengShuiRollResult }) {
 	);
 }
 
-function StarWarsFFGRollDisplay({ result }: { result: StarWarsFFGRollResult }) {
+function StarWarsFFGRollDisplay({
+	result,
+	compact,
+}: {
+	result: StarWarsFFGRollResult;
+	compact: boolean;
+}) {
 	const { totals } = result;
 	const successTotal = totals.success + totals.triumph;
 	const failureTotal = totals.failure + totals.despair;
@@ -171,7 +203,7 @@ function StarWarsFFGRollDisplay({ result }: { result: StarWarsFFGRollResult }) {
 	if (totals.despair) netParts.push(`${totals.despair} Despair`);
 
 	return (
-		<div className={styles.roll}>
+		<div className={rollClass(compact)}>
 			<div className={styles["dice-row"]}>
 				{result.rolls.map((roll, index) => (
 					<StarWarsFFGDie
@@ -195,19 +227,28 @@ function StarWarsFFGRollDisplay({ result }: { result: StarWarsFFGRollResult }) {
 function RollResultDisplay({
 	system,
 	result,
+	compact = false,
 }: {
 	system: DiceSystem;
 	result: RollDiceResult;
+	compact?: boolean;
 }) {
 	switch (system) {
 		case "basic":
-			return <BasicRollDisplay result={result as BasicRollResult} />;
+			return <BasicRollDisplay result={result as BasicRollResult} compact={compact} />;
 		case "fate":
-			return <FateRollDisplay result={result as FateRollResult} />;
+			return <FateRollDisplay result={result as FateRollResult} compact={compact} />;
 		case "fengshui":
-			return <FengShuiRollDisplay result={result as FengShuiRollResult} />;
+			return (
+				<FengShuiRollDisplay result={result as FengShuiRollResult} compact={compact} />
+			);
 		case "starwarsffg":
-			return <StarWarsFFGRollDisplay result={result as StarWarsFFGRollResult} />;
+			return (
+				<StarWarsFFGRollDisplay
+					result={result as StarWarsFFGRollResult}
+					compact={compact}
+				/>
+			);
 	}
 }
 

@@ -4,13 +4,15 @@ export function Checkbox({
 	id,
 	checked,
 	onChange,
+	disabled,
 }: {
 	id: string;
 	checked: boolean;
 	onChange: (checked: boolean) => void;
+	disabled?: boolean;
 }) {
 	return (
-		<RACCheckbox id={id} isSelected={checked} onChange={onChange}>
+		<RACCheckbox id={id} isSelected={checked} onChange={onChange} isDisabled={disabled}>
 			<div className="checkbox-box">
 				<svg viewBox="0 0 18 18" aria-hidden="true">
 					<polyline points="1 9 7 14 15 4" />

@@ -48,7 +48,7 @@ function PMRow({
 					{isInbox ? "from" : "to"}{" "}
 					<Link
 						to="/user/$userId"
-						params={{ userId: String(displayedUser.id) }}
+						params={{ userId: displayedUser.id }}
 						className="username"
 					>
 						{displayedUser.username}
@@ -93,7 +93,7 @@ function RouteComponent() {
 				className="controls-container"
 				style={{ marginInlineStart: `${hbMargined.margin}px` }}
 			>
-				<Link to="/pms/send/" className="skew-btn">
+				<Link to="/pms/send" className="skew-btn">
 					New PM
 				</Link>
 				<div>

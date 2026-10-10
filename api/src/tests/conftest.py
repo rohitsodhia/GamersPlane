@@ -225,6 +225,21 @@ async def fallback_owner(create, monkeypatch):
 
 
 @pytest.fixture
+def sent_webhooks(monkeypatch):
+    """Replace the Discord sender with a recorder, so no test calls Discord.
+
+    The list fills with ``(url, payload)`` as each queued background task runs.
+    """
+    sent: list[tuple[str, dict]] = []
+
+    async def record(url, payload):
+        sent.append((url, payload))
+
+    monkeypatch.setattr("app.threads.discord.send_webhook", record)
+    return sent
+
+
+@pytest.fixture
 def open_forums(db_session, monkeypatch):
     """Give Registered users member access, and Guests read access, to forums.
 

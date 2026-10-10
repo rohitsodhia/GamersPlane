@@ -27,7 +27,9 @@ function Footer() {
 						<Link to="/games">Games</Link>
 					</li>
 					<li>
-						<Link to="/forums">Forums</Link>
+						<Link to="/forums/{-$forumId}" params={{ forumId: 0 }}>
+							Forums
+						</Link>
 					</li>
 					<li>
 						<Link to="/gamersList">The Gamers</Link>
@@ -47,7 +49,7 @@ function Footer() {
 						<Link to="/privacy-policy">Privacy Policy</Link>
 					</li>
 					<li>
-						<Link to="/community_guidelines">Community Guidelines</Link>
+						<Link to="/community-guidelines">Community Guidelines</Link>
 					</li>
 				</ul>
 				<ul>
@@ -69,13 +71,11 @@ function Footer() {
 							<input
 								type="image"
 								src="/images/support_us.png"
-								border="0"
 								name="submit"
 								alt="Gamers' Plane Donation Link"
 							/>
 							<img
 								alt=""
-								border="0"
 								src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif"
 								width="1"
 								height="1"

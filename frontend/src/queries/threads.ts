@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { ForumPermission } from "#/queries/forums";
+import type { PostAttachmentsInput } from "#/queries/posts";
 
 export type ThreadOptions = {
 	sticky: boolean;
@@ -9,7 +10,41 @@ export type ThreadOptions = {
 	allow_public_posting: boolean;
 	allow_rolls: boolean;
 	allow_draws: boolean;
-	discord_webhook: string | null;
+};
+
+// A poll as submitted (create and edit). Options are in display order; an edit
+// keeps an existing option (and its votes) by sending its id.
+export type PollOptionInput = {
+	id?: number;
+	text: string;
+};
+
+export type PollInput = {
+	question: string;
+	options_per_user: number;
+	allow_revoting: boolean;
+	options: PollOptionInput[];
+};
+
+export type PollOptionData = {
+	id: number;
+	text: string;
+	// Null while the viewer can't see results.
+	votes: number | null;
+};
+
+export type PollData = {
+	question: string;
+	options_per_user: number;
+	allow_revoting: boolean;
+	options: PollOptionData[];
+	// The option ids the viewer voted for.
+	my_votes: number[];
+	voted: boolean;
+	can_vote: boolean;
+	show_results: boolean;
+	// Null while results are hidden.
+	total_voters: number | null;
 };
 
 type Author = {
@@ -50,6 +85,7 @@ export type ThreadDetails = {
 	// Null for guests, or when the thread is fully read.
 	first_unread_post_id: number | null;
 	first_unread_page: number | null;
+	poll: PollData | null;
 };
 
 export function threadsQueryOptions(forumId: number, page = 1) {
@@ -93,12 +129,52 @@ export const recordThreadRead = (threadId: number, postId: number) =>
 export const markThreadUnread = (threadId: number) =>
 	threadAction(`/threads/${threadId}/mark-unread`);
 
-export const createThread = async (data: {
-	forum_id: number;
-	title: string;
-	body: JSONContent;
-	options?: Partial<ThreadOptions>;
-}): Promise<{ id: number }> => {
+// Only the fields present change. The webhook is write-only; "" or null clears it.
+export type ThreadOptionsUpdate = Partial<ThreadOptions> & {
+	discord_webhook?: string | null;
+};
+
+export const updateThread = async (
+	threadId: number,
+	options: ThreadOptionsUpdate,
+): Promise<ThreadOptions> => {
+	const res = await apiFetch(`/threads/${threadId}`, {
+		method: "PATCH",
+		body: JSON.stringify({ options }),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+// Casts or replaces the viewer's vote; returns the poll as the viewer now sees it.
+export const voteInPoll = async (
+	threadId: number,
+	optionIds: number[],
+): Promise<PollData> => {
+	const res = await apiFetch(`/threads/${threadId}/poll/vote`, {
+		method: "PUT",
+		body: JSON.stringify({ option_ids: optionIds }),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+export const createThread = async (
+	data: {
+		forum_id: number;
+		title: string;
+		body: JSONContent;
+		// The webhook is write-only here; thread reads never return it.
+		options?: Partial<ThreadOptions> & { discord_webhook?: string | null };
+		poll?: PollInput;
+	} & PostAttachmentsInput,
+): Promise<{ id: number }> => {
 	const res = await apiFetch("/threads", {
 		method: "POST",
 		body: JSON.stringify({ options: {}, ...data }),
