@@ -93,6 +93,7 @@ class NewThreadInput(SchemaBase):
     forum_id: int
     title: str = filtered_str()
     body: dict
+    posted_as_id: int | None = None
     options: ThreadOptionsInput = ThreadOptionsInput()
     rolls: list[NewRollInput] = Field(default=[], max_length=MAX_ROLLS_PER_REQUEST)
     draws: list[NewDrawInput] = Field(default=[], max_length=MAX_DRAWS_PER_REQUEST)

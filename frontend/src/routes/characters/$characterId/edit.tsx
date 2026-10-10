@@ -8,9 +8,11 @@ import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-ro
 import clsx from "clsx";
 import { useState } from "react";
 import { DismissibleBanner } from "#/components/DismissibleBanner";
+import { FadeOut } from "#/components/FadeOut";
 import { Select } from "#/components/Select";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
+import { useFlash } from "#/lib/use-flash";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	type CharacterType,
@@ -387,12 +389,14 @@ function CharacterSheetForm({
 	const store = useSheetStore();
 	const queryClient = useQueryClient();
 	const [apiErrors, setApiErrors] = useState<string[]>([]);
+	const [saved, flashSaved] = useFlash();
 
 	const mutation = useMutation({
 		mutationFn: (values: ReturnType<typeof store.snapshot>) =>
 			updateCharacter(characterId, { label, type, values }),
 		onSuccess: (character) => {
 			queryClient.setQueryData(characterQueryOptions(characterId).queryKey, character);
+			flashSaved();
 		},
 	});
 
@@ -438,8 +442,9 @@ function CharacterSheetForm({
 
 			<div className={styles["btn-wrapper"]}>
 				<button type="submit" className="skew-btn" disabled={mutation.isPending}>
-					Save
+					{mutation.isPending ? "Saving…" : "Save"}
 				</button>
+				<FadeOut active={saved}>Saved</FadeOut>
 			</div>
 		</form>
 	);

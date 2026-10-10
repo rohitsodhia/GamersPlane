@@ -4,7 +4,10 @@ from sqlalchemy import ScalarResult, and_, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
-from app.character_sheets.character_values import validate_character_values
+from app.character_sheets.character_values import (
+    character_name,
+    validate_character_values,
+)
 from app.configs import configs
 from app.models import (
     Character,
@@ -58,6 +61,9 @@ class CharacterRepository:
                 values, character.character_sheet_version.layout, character.values
             )
             character.values = values
+            character.name = character_name(
+                values, character.character_sheet_version.layout
+            )
         await self.db_session.flush()
 
         return character
@@ -73,6 +79,8 @@ class CharacterRepository:
         orphans."""
         character.character_sheet = char_sheet
         character.character_sheet_version = version
+        # Another sheet's `name` field has a different id.
+        character.name = character_name(character.values, version.layout)
         await self.db_session.flush()
 
         return character
@@ -124,6 +132,26 @@ class CharacterRepository:
             .order_by(Character.label.asc())
         )
         return list(await self.db_session.scalars(query))
+
+    async def get_approved_in_game(self, game_id: int) -> list[Character]:
+        """Every approved character in the game, with their owner and avatars.
+        Posting as one is narrowed further by the caller."""
+        query = (
+            select(Character)
+            .where(Character.game_id == game_id)
+            .where(Character.approved.is_(True))
+            .options(selectinload(Character.user), selectinload(Character.avatars))
+        )
+        return list(await self.db_session.scalars(query))
+
+    async def get_with_avatars(self, id: int) -> Character | None:
+        """A live character with its avatars loaded, wherever it sits."""
+        query = (
+            select(Character)
+            .where(Character.id == id)
+            .options(selectinload(Character.avatars))
+        )
+        return await self.db_session.scalar(query)
 
     async def toggle_library(self, character: Character) -> None:
         character.in_library = not character.in_library

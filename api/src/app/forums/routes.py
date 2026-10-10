@@ -14,11 +14,14 @@ from app.forums.permissions import ForumPermissions, Verbs, moderated_roots
 from app.helpers.decorators import public
 from app.middleware import Principal
 from app.models import Forum
+from app.posts.functions import can_post_as
 from app.repositories import (
+    CharacterRepository,
     DeckRepository,
     ForumRepository,
     GameRepository,
     PlayerRepository,
+    PostRepository,
     ReadTrackingRepository,
     ThreadRepository,
 )
@@ -143,6 +146,67 @@ async def get_forum_decks(
             for deck in decks
             if is_gm or any(p.user_id == principal.id for p in deck.permissions)
         ]
+    )
+
+
+@forums.get("/{forum_id}/characters", response_model=schemas.GetForumCharactersResponse)
+async def get_forum_characters(
+    forum_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    thread_id: int | None = None,
+):
+    """The characters the principal could post as in this forum: their own
+    approved, named ones in its game, plus everyone's for the game's GM. Empty
+    outside game forums or without the right to post.
+
+    ``default_id`` is the one they last used in ``thread_id``, if still on offer.
+    """
+    forum = await get_forum_or_404(
+        ForumRepository(db_session, principal=principal), forum_id
+    )
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, forum, "Forum not found"
+    )
+    if forum.game_id is None or not (
+        permissions.has(forum, Verbs.FORUM_MODERATE)
+        or permissions.has(forum, Verbs.FORUM_WRITE)
+    ):
+        return schemas.GetForumCharactersResponse(characters=[])
+
+    is_gm = await PlayerRepository(db_session, principal=principal).is_gm(
+        forum.game_id, principal.id
+    )
+    candidates = await CharacterRepository(
+        db_session, principal=principal
+    ).get_approved_in_game(forum.game_id)
+    options = sorted(
+        (c for c in candidates if can_post_as(c, forum, principal, is_gm)),
+        key=lambda c: (c.user_id != principal.id, c.name.strip().casefold(), c.id),
+    )
+
+    default_id = None
+    if thread_id is not None:
+        thread = await ThreadRepository(db_session, principal=principal).get(thread_id)
+        if thread is not None and thread.forum_id == forum.id:
+            last = await PostRepository(
+                db_session, principal=principal
+            ).get_latest_by_author(thread.id, principal.id)
+            if last is not None and last.posted_as_id in {c.id for c in options}:
+                default_id = last.posted_as_id
+
+    return schemas.GetForumCharactersResponse(
+        characters=[
+            schemas.PostAsCharacter(
+                id=character.id,
+                name=character.name.strip(),
+                owner=schemas.PostAsOwner(
+                    id=character.user.id, username=character.user.username
+                ),
+            )
+            for character in options
+        ],
+        default_id=default_id,
     )
 
 

@@ -5,19 +5,21 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
 from app.configs import configs
-from app.models import Deck, DeckPermission, FavoriteGame, Game, Player
+from app.models import Deck, DeckPermission, FavoriteGame, Forum, Game, Player
 from app.repositories import (
     CharacterRepository,
     CharacterSheetRepository,
     DeckRepository,
     GameRepository,
     PlayerRepository,
+    ReadTrackingRepository,
 )
 from tests.factories import (
     ActivatedUserFactory,
     DeckTypeFactory,
     ForumFactory,
     SystemFactory,
+    ThreadFactory,
 )
 
 SHEET_LAYOUT = {
@@ -1590,6 +1592,29 @@ class TestApprovePlayer:
             Player, {"game_id": game.id, "user_id": target.id}
         )
         assert player.state == Player.States.ACCEPTED
+
+    async def test_approve_player_starts_game_forums_read(
+        self, auth_as, client, db_session, game, gm, create
+    ):
+        root_forum = await db_session.get(Forum, game.root_forum_id)
+        thread = await create(
+            ThreadFactory,
+            forum=root_forum,
+            last_post_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+        target = await create(ActivatedUserFactory)
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, target.id, state=Player.States.APPLIED
+        )
+        read_tracking = ReadTrackingRepository(db_session, principal=target)
+        assert await read_tracking.is_thread_unread(thread)
+        client = auth_as(gm)
+
+        response = await client.post(f"/games/{game.id}/player/{target.id}/approve")
+
+        assert response.status_code == 204
+        assert not await read_tracking.is_thread_unread(thread)
 
 
 class TestAcceptInvite:

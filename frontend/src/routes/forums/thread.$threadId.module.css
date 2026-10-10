@@ -66,6 +66,43 @@
 			max-height: 100px;
 			border-radius: 6px;
 		}
+
+		/* The user's avatar, half outside the character's bottom-right corner. */
+		.avatar-stack {
+			position: relative;
+			/* Room for the half of the corner avatar that hangs below. */
+			margin-bottom: 12px;
+			max-width: 100%;
+			line-height: 0;
+		}
+
+		.avatar-corner {
+			position: absolute;
+			right: 0;
+			bottom: 0;
+			transform: translate(50%, 50%);
+			background-color: light-dark(#fff, #000);
+
+			img {
+				display: block;
+				max-width: 40px;
+				max-height: 40px;
+				border-radius: 6px;
+				border: 2px solid var(--bubble-border, var(--text));
+			}
+		}
+
+		.character-name {
+			font-weight: bold;
+			text-align: center;
+			overflow-wrap: anywhere;
+		}
+
+		.author-username {
+			font-size: 0.85em;
+			text-align: center;
+			overflow-wrap: anywhere;
+		}
 	}
 
 	.post-content {
@@ -168,6 +205,14 @@
 	:global(.align-center) {
 		margin-top: 0.5em;
 	}
+}
+
+.quick-reply-post-as {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5em 1em;
+	margin-bottom: 0.5em;
 }
 
 .quick-reply-attachments {

@@ -46,11 +46,21 @@ export type PostDraw = {
 	revealed: boolean[];
 };
 
+// The character a post was written as. `can_view` is whether the viewer may open
+// its sheet.
+export type PostedAs = {
+	id: number;
+	name: string;
+	avatar: string | null;
+	can_view: boolean;
+};
+
 export type Post = {
 	id: number;
 	title: string;
 	datestamp: string;
 	author: Author;
+	posted_as: PostedAs | null;
 	body: JSONContent;
 	rolls: PostRoll[];
 	draws: PostDraw[];
@@ -126,6 +136,8 @@ export const createPost = async (
 		thread_id: number;
 		title: string;
 		body: JSONContent;
+		// Null (or absent) posts as the user.
+		posted_as_id?: number | null;
 	} & PostAttachmentsInput,
 ): Promise<{ id: number }> => {
 	const res = await apiFetch("/posts", {
@@ -164,6 +176,8 @@ export const editPost = async (
 		roll_visibility?: RollVisibilityInput[];
 		// A minor edit doesn't ping the thread's Discord webhook.
 		minor_edit?: boolean;
+		// Absent leaves it alone; null posts as the user. Author only.
+		posted_as_id?: number | null;
 		// Only for a thread's first post.
 		thread_options?: ThreadOptionsUpdate;
 		// Absent leaves the poll alone; null removes it (and its votes).

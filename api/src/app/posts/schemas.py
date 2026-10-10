@@ -56,11 +56,24 @@ class PostDrawData(SchemaBase):
     revealed: list[bool]
 
 
+class PostedAsData(SchemaBase):
+    """The character a post was made as. ``can_view`` says whether this viewer
+    may open the character's sheet (its owner, the game's GM, or anyone if it's
+    in the library)."""
+
+    id: int
+    name: str
+    avatar: str | None
+    can_view: bool
+
+
 class PostData(SchemaBase):
     id: int
     title: str
     datestamp: datetime
     author: AuthorData
+    # Null for posts made as the author, and when the character is gone or unnamed.
+    posted_as: PostedAsData | None = None
     body: dict
     rolls: list[PostRollData] = []
     draws: list[PostDrawData] = []
@@ -122,6 +135,7 @@ class NewPostInput(SchemaBase):
     thread_id: int
     title: str = filtered_str()
     body: dict
+    posted_as_id: int | None = None
     rolls: list[NewRollInput] = Field(default=[], max_length=MAX_ROLLS_PER_REQUEST)
     draws: list[NewDrawInput] = Field(default=[], max_length=MAX_DRAWS_PER_REQUEST)
 
@@ -133,6 +147,8 @@ class NewPostResponse(SchemaBase):
 class EditPostInput(SchemaBase):
     title: str = filtered_str()
     body: dict
+    # The character to post as. Absent leaves it alone, null clears it.
+    posted_as_id: int | None = None
     # New rolls/draws to attach; existing ones are never touched by an edit.
     rolls: list[NewRollInput] = Field(default=[], max_length=MAX_ROLLS_PER_REQUEST)
     draws: list[NewDrawInput] = Field(default=[], max_length=MAX_DRAWS_PER_REQUEST)

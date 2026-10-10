@@ -3,6 +3,7 @@ import re
 import pytest
 
 from app.character_sheets.character_values import (
+    character_name,
     hidden_values,
     validate_character_values,
 )
@@ -45,6 +46,40 @@ LAYOUT = {
         },
     ],
 }
+
+
+class TestCharacterName:
+    LAYOUT = {
+        "elements": [
+            {
+                "type": "section",
+                "content": [{"type": "input", "name": "name", "id": "nm1"}],
+            },
+            {
+                "type": "repeater",
+                "name": "allies",
+                "id": "al1",
+                "content": [{"type": "input", "name": "name", "id": "nm2"}],
+            },
+        ]
+    }
+
+    def test_reads_the_root_name_field_by_its_id(self):
+        # A section is still the root scope; the repeater's `name` isn't.
+        values = {"nm1": "  Aria  ", "al1": [{"nm2": "Bran"}]}
+
+        assert character_name(values, self.LAYOUT) == "Aria"
+
+    @pytest.mark.parametrize(
+        "values", [None, {"nm1": "   "}, {"nm1": 5}, {"name": "Aria"}]
+    )
+    def test_is_none_without_a_usable_value(self, values):
+        assert character_name(values, self.LAYOUT) is None
+
+    def test_is_none_when_the_layout_has_no_name_field(self):
+        layout = {"elements": [{"type": "input", "name": "hp", "id": "hp1"}]}
+
+        assert character_name({"hp1": "Aria"}, layout) is None
 
 
 class TestValidateCharacterValues:

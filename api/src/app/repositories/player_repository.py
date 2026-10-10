@@ -6,7 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Game, Player, Role, User, UserRole
+from app.models import Forum, Game, Player, Role, User, UserRole
+from app.repositories.read_tracking_repository import ReadTrackingRepository
 
 
 class DuplicatePlayerError(Exception):
@@ -76,11 +77,11 @@ class PlayerRepository:
             player.is_gm = is_gm
 
         if newly_accepted or promoted or demoted:
-            gm_role_id, player_role_id = (
+            gm_role_id, player_role_id, root_forum_id = (
                 await self.db_session.execute(
-                    select(Game.gm_role_id, Game.player_role_id).where(
-                        Game.id == player.game_id
-                    )
+                    select(
+                        Game.gm_role_id, Game.player_role_id, Game.root_forum_id
+                    ).where(Game.id == player.game_id)
                 )
             ).one()
             if promoted:
@@ -96,6 +97,15 @@ class PlayerRepository:
                 await self._add_to_role(
                     player.user_id, gm_role_id if player.is_gm else player_role_id
                 )
+            if newly_accepted:
+                # Joining opens the game's forums; start them as if the player
+                # had marked them all read, rather than with the whole backlog.
+                root_forum = await self.db_session.get(Forum, root_forum_id)
+                user = await self.db_session.get(User, player.user_id)
+                assert root_forum is not None and user is not None
+                await ReadTrackingRepository(
+                    self.db_session, principal=user
+                ).mark_forum_read(root_forum)
         await self.db_session.flush()
 
     async def _add_to_role(self, user_id: int, role_id: int) -> None:

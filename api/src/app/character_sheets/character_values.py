@@ -41,6 +41,19 @@ def validate_character_values(values: dict, layout: dict, stored: dict | None) -
     )
 
 
+def character_name(values: dict | None, layout: dict) -> str | None:
+    """The value of the sheet's required root `name` field, or None if it's
+    blank. Copied onto `Character.name` whenever values or the pinned layout
+    change, so readers don't have to walk the layout."""
+    field = scope_for(layout.get("elements")).get("name")
+    if field is None or not values:
+        return None
+    value = values.get(field.id)
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.strip()
+
+
 def hidden_values(
     values: dict | None, current_layout: dict, target_layout: dict
 ) -> list[tuple[str, str]]:

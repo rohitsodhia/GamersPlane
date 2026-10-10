@@ -37,6 +37,12 @@ SHEET_LAYOUT = {
     ],
 }
 
+# A sheet with the required `name` field, which is copied onto the character.
+NAMED_SHEET_LAYOUT = {
+    "schema_version": 1,
+    "elements": [{"type": "input", "name": "name", "id": "nm1"}],
+}
+
 
 def _make_png_bytes(size=(10, 10)):
     buffer = io.BytesIO()
@@ -1194,6 +1200,28 @@ class TestUpdateCharacter:
         await db_session.refresh(character, ["type"])
         assert character.type == Character.Type.NPC
 
+    async def test_saving_values_copies_the_sheet_name_onto_the_character(
+        self, client, owner, system, sheet_creator, db_session, auth_as
+    ):
+        repository = CharacterSheetRepository(db_session, principal=sheet_creator)
+        sheet = await repository.create(
+            name="Named", system_id=system.id, layout=NAMED_SHEET_LAYOUT
+        )
+        await repository.publish(await repository.get_draft(sheet.id))
+        sheet.status = CharacterSheet.Status.PUBLIC
+        await db_session.flush()
+        character = await _create_character(db_session, owner, sheet, "Handle")
+        auth_as(owner)
+
+        response = await client.patch(
+            f"/characters/{character.id}", json={"values": {"nm1": "Aria"}}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "Aria"
+        await db_session.refresh(character, ["name"])
+        assert character.name == "Aria"
+
     async def test_partial_update_does_not_clear_other_fields(
         self, client, character, owner, db_session, auth_as
     ):
@@ -1975,6 +2003,28 @@ class TestCharacterSheetMoves:
         assert version.number == 2
         # The grid's values stay, though v2 dropped the grid.
         assert moved.values == {"str1": "16", "skl1": {"stl1": {"rnk1": "2"}}}
+
+    async def test_moving_rereads_the_name_from_the_new_layout(
+        self, client, character, owner, public_sheet, db_session, auth_as
+    ):
+        # A value stored under an id v2's `name` field doesn't have.
+        character.values = {"nm1": "Arya"}
+        character.name = "Arya"
+        await db_session.flush()
+        auth_as(owner)
+
+        response = await client.post(
+            "/characters/sheet_moves",
+            json={
+                "character_ids": [character.id],
+                "character_sheet_id": public_sheet.id,
+                "version": 2,
+            },
+        )
+
+        assert response.status_code == 204
+        moved = await self._pinned(db_session, character)
+        assert moved.name is None
 
     async def test_changes_to_a_copy(
         self, client, character, owner, copier, public_sheet, db_session, auth_as

@@ -13,6 +13,7 @@ import { meQueryOptions } from "#/queries/me";
 import { editPost, postQueryOptions } from "#/queries/posts";
 import { threadQueryOptions } from "#/queries/threads";
 import { canChangePost } from "./-permissions";
+import { changedPostedAs } from "./-post-as";
 import { PostForm } from "./-post-form";
 import { changedThreadOptions, type ThreadOptionsValues } from "./-thread-options";
 
@@ -97,6 +98,10 @@ function RouteComponent() {
 			existingRolls={post.rolls}
 			existingPoll={post.poll}
 			showMinorEdit
+			// Only the author can change who the post is as.
+			showPostAs={post.author.id === me.id}
+			postAsThreadId={post.thread_id}
+			defaultPostedAs={post.posted_as}
 			submitLabel="Save Changes"
 			apiErrors={apiErrors}
 			isSubmitting={mutation.isPending}
@@ -111,6 +116,9 @@ function RouteComponent() {
 						draws: value.draws,
 						roll_visibility: value.rollVisibility,
 						minor_edit: value.minorEdit,
+						// Left out unless the selection moved, so a hidden picker or a
+						// character no longer listed is never cleared by accident.
+						...changedPostedAs(post.posted_as?.id ?? null, value.postedAsId),
 						thread_options: post.is_first_post
 							? changedThreadOptions(defaultOptions, value.options)
 							: undefined,

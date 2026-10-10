@@ -8,7 +8,13 @@ from app.middleware import Principal
 from app.models import Post
 from app.posts import schemas
 from app.posts.attachments import plan_attachments, save_attachments
-from app.posts.functions import check_post_change, validate_roll_visibility
+from app.posts.functions import (
+    build_posted_as,
+    check_post_change,
+    validate_posted_as,
+    validate_roll_visibility,
+    viewer_gm_game_id,
+)
 from app.posts.visibility import redact_draw, redact_roll
 from app.repositories import (
     PollRepository,
@@ -50,6 +56,7 @@ async def get_posts(
     is_moderator = permissions.has(thread.forum, Verbs.FORUM_MODERATE)
     rolls = await post_repository.get_rolls([post.id for post in posts])
     draws = await post_repository.get_draws([post.id for post in posts])
+    gm_game_id = await viewer_gm_game_id(db_session, principal, thread.forum, posts)
 
     posts_data = []
     for post in posts:
@@ -65,6 +72,7 @@ async def get_posts(
                     username=post.author.username,
                     avatar=post.author.avatar_url,
                 ),
+                posted_as=build_posted_as(post, principal, gm_game_id),
                 body=post.body,
                 rolls=[
                     redact_roll(roll, full_view=is_author or is_moderator)
@@ -98,6 +106,9 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
     rolls = (await post_repository.get_rolls([post.id]))[post.id]
     draws = (await post_repository.get_draws([post.id]))[post.id]
     is_first_post = post.thread.first_post_id == post.id
+    gm_game_id = await viewer_gm_game_id(
+        db_session, principal, post.thread.forum, [post]
+    )
     # The edit form needs the counts (to warn before dropping voted options), so
     # the poll goes to whoever may edit the first post, whatever they'd see on the
     # thread page.
@@ -125,6 +136,7 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
             username=post.author.username,
             avatar=post.author.avatar_url,
         ),
+        posted_as=build_posted_as(post, principal, gm_game_id),
         body=post.body,
         rolls=[redact_roll(roll, full_view=full_view) for roll in rolls],
         draws=[
@@ -161,6 +173,10 @@ async def create_post(
             raise ForbiddenException("Thread is locked")
         if not permissions.has(thread.forum, Verbs.FORUM_WRITE):
             raise ForbiddenException("You can't post in this forum")
+    if post_data.posted_as_id is not None:
+        await validate_posted_as(
+            db_session, principal, thread.forum, post_data.posted_as_id
+        )
 
     attachments = await plan_attachments(
         db_session,
@@ -179,6 +195,7 @@ async def create_post(
         post_data.title,
         post_data.body,
         state=Post.States.PUBLISHED,
+        posted_as_id=post_data.posted_as_id,
     )
     await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)
@@ -218,6 +235,19 @@ async def edit_post(
     # post: a draw's cards are shown to the post's author, not to whoever drew.
     if (post_data.rolls or post_data.draws) and post.author_id != principal.id:
         raise ForbiddenException("Only the author can add rolls or draws to a post")
+    # Absent leaves the character alone; null clears it. An unchanged value isn't
+    # re-checked, so a post whose character has since left the game stays editable.
+    posted_as_changes = (
+        "posted_as_id" in post_data.model_fields_set
+        and post_data.posted_as_id != post.posted_as_id
+    )
+    if posted_as_changes:
+        if post.author_id != principal.id:
+            raise ForbiddenException("Only the author can change who a post is as")
+        if post_data.posted_as_id is not None:
+            await validate_posted_as(
+                db_session, principal, post.thread.forum, post_data.posted_as_id
+            )
     existing_rolls = (await post_repository.get_rolls([post.id]))[post.id]
     visibility_changes = validate_roll_visibility(
         existing_rolls, post_data.roll_visibility
@@ -267,6 +297,8 @@ async def edit_post(
             post.thread, options
         )
     await post_repository.update(post, post_data.title, post_data.body)
+    if posted_as_changes:
+        await post_repository.set_posted_as(post, post_data.posted_as_id)
     for roll, change in visibility_changes:
         await post_repository.set_roll_visibility(
             roll, change.hide_reason, change.hide_dice, change.hide_result

@@ -1,7 +1,10 @@
+from datetime import UTC, datetime
+
 import httpx
 import pytest
 
 from app.configs import configs
+from app.models import Character, CharacterAvatar
 from app.threads import discord
 from tests.factories import PostFactory, UserFactory, prose_doc
 
@@ -14,6 +17,49 @@ def build_payload(title="Hello", body=None, *, edited=False, username="alice"):
         id=77, title=title, body=body or prose_doc("Hi there"), author=author
     )
     return discord.build_post_payload(post, author, 5, 3, edited=edited)
+
+
+def build_payload_as(character, *, username="alice"):
+    author = UserFactory.build(username=username)
+    post = PostFactory.build(
+        id=77, body=prose_doc("Hi there"), author=author, posted_as=character
+    )
+    return discord.build_post_payload(post, author, 5, 3)
+
+
+def build_character(**fields):
+    fields.setdefault("name", "Aria")
+    avatars = fields.pop("avatars", [CharacterAvatar(id=9, ext="png", is_primary=True)])
+    return Character(id=4, avatars=avatars, **fields)
+
+
+class TestBuildPostPayloadAsCharacter:
+    def test_character_name_and_avatar_replace_the_authors(self):
+        payload = build_payload_as(build_character())
+
+        assert payload["username"] == "Aria"
+        assert payload["avatar_url"] == f"{configs.AVATARS_ROOT}/characters/9.png"
+        assert payload["embeds"][0]["footer"]["text"] == "alice"
+
+    def test_character_without_an_avatar_does_not_borrow_the_authors(self):
+        payload = build_payload_as(build_character(avatars=[]))
+
+        assert payload["username"] == "Aria"
+        assert "avatar_url" not in payload
+
+    def test_non_http_character_avatar_is_omitted(self, monkeypatch):
+        monkeypatch.setattr(configs, "AVATARS_ROOT", "/avatars")
+
+        assert "avatar_url" not in build_payload_as(build_character())
+
+    @pytest.mark.parametrize(
+        "fields", [{"name": "  "}, {"name": None}, {"deleted": datetime.now(UTC)}]
+    )
+    def test_blank_or_deleted_character_falls_back_to_the_author(self, fields):
+        payload = build_payload_as(build_character(**fields))
+
+        assert payload["username"] == "alice"
+        assert payload["avatar_url"].endswith("/avatars/users/avatar.png")
 
 
 class TestBuildPostPayload:
