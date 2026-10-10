@@ -4,22 +4,8 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
-from app.character_sheets.basic_npc import (
-    BASIC_NPC_NAME_FIELD_ID,
-    BASIC_NPC_SHEET_ID,
-    load_basic_npc_sheet,
-)
 from app.configs import configs
-from app.models import (
-    Character,
-    CharacterSheet,
-    Deck,
-    DeckPermission,
-    FavoriteGame,
-    Forum,
-    Game,
-    Player,
-)
+from app.models import Deck, DeckPermission, FavoriteGame, Forum, Game, Player
 from app.repositories import (
     CharacterRepository,
     CharacterSheetRepository,
@@ -376,7 +362,7 @@ class TestGetGame:
 
         players = response.json()["players"]
         assert players[0]["characters"] == [
-            {"id": character.id, "label": "Aragorn", "approved": True}
+            {"id": character.id, "label": "Aragorn", "type": "pc", "approved": True}
         ]
 
     @pytest.mark.parametrize("viewer", ["anonymous", "other_player"])
@@ -424,7 +410,7 @@ class TestGetGame:
 
         owner_data = next(p for p in response.json()["players"] if p["id"] == owner.id)
         assert owner_data["characters"] == [
-            {"id": pending.id, "label": "Pending", "approved": False}
+            {"id": pending.id, "label": "Pending", "type": "pc", "approved": False}
         ]
 
     async def test_get_game_favorited_true_when_favorited(self, authed_client, game):
@@ -3620,123 +3606,3 @@ class TestRemoveCharacter(_GameCharacterFixtures):
         assert response.status_code == 204
         await db_session.refresh(character)
         assert (character.game_id, character.approved) == (None, False)
-
-
-class TestCreateNpc(_GameCharacterFixtures):
-    @pytest.fixture
-    async def npc_sheet(self, create, db_session):
-        """The site-owned Basic NPC sheet at its reserved id, as the seed makes
-        it (migrations alone don't insert it)."""
-        await create(SystemFactory, id="custom")
-        owner = await create(ActivatedUserFactory)
-        data = load_basic_npc_sheet()
-        repository = CharacterSheetRepository(db_session, principal=owner)
-        sheet = await repository.create(
-            name=data["name"],
-            system_id=data["system_id"],
-            layout=data["layout"],
-            id=BASIC_NPC_SHEET_ID,
-        )
-        sheet.status = CharacterSheet.Status(data["status"])
-        version, _ = await repository.publish_draft(sheet)
-        return sheet, version
-
-    async def test_gm_creates_approved_npc_in_game(
-        self, auth_as, client, db_session, game, gm, npc_sheet
-    ):
-        sheet, version = npc_sheet
-        client = auth_as(gm)
-
-        # The game only allows dnd5e, not the Basic NPC sheet's `custom` system.
-        response = await client.post(f"/games/{game.id}/npcs", json={"name": "Bob"})
-
-        assert response.status_code == 201
-        body = response.json()
-        assert body == {
-            "id": body["id"],
-            "label": "Bob",
-            "name": "Bob",
-            "type": "npc",
-            "approved": True,
-            "user_id": gm.id,
-        }
-        character = await db_session.get(Character, body["id"])
-        assert character.user_id == gm.id
-        assert character.type is Character.Type.NPC
-        assert (character.game_id, character.approved) == (game.id, True)
-        assert character.label == "Bob"
-        assert character.name == "Bob"
-        assert character.character_sheet_id == sheet.id
-        assert character.character_sheet_version_id == version.id
-        assert character.values == {BASIC_NPC_NAME_FIELD_ID: "Bob"}
-
-    async def test_name_is_trimmed(self, auth_as, client, game, gm, npc_sheet):
-        client = auth_as(gm)
-
-        response = await client.post(f"/games/{game.id}/npcs", json={"name": "  Bob  "})
-
-        assert response.status_code == 201
-        assert response.json()["name"] == "Bob"
-
-    async def test_not_limited_by_chars_per_player(
-        self, auth_as, client, db_session, game, gm, npc_sheet
-    ):
-        existing = await _make_character(db_session, gm)
-        await _put_in_game(db_session, existing, game.id, approved=True)
-        assert game.chars_per_player == 1
-        client = auth_as(gm)
-
-        response = await client.post(f"/games/{game.id}/npcs", json={"name": "Bob"})
-
-        assert response.status_code == 201
-
-    async def test_game_not_found(self, auth_as, client, gm, npc_sheet):
-        client = auth_as(gm)
-
-        response = await client.post("/games/999999/npcs", json={"name": "Bob"})
-
-        assert response.status_code == 404
-
-    async def test_retired_game_forbidden(
-        self, auth_as, client, db_session, game, gm, npc_sheet
-    ):
-        await GameRepository(db_session, principal=gm).toggle_retire(game)
-        client = auth_as(gm)
-
-        response = await client.post(f"/games/{game.id}/npcs", json={"name": "Bob"})
-
-        assert response.status_code == 403
-
-    async def test_non_gm_forbidden(
-        self, auth_as, client, db_session, game, player, npc_sheet
-    ):
-        client = auth_as(player)
-
-        response = await client.post(f"/games/{game.id}/npcs", json={"name": "Bob"})
-
-        assert response.status_code == 403
-        in_game = await CharacterRepository(db_session, principal=player).get_in_game(
-            game.id
-        )
-        assert in_game == []
-
-    @pytest.mark.parametrize(
-        ("payload", "status_code"),
-        [({}, 422), ({"name": ""}, 422), ({"name": "   "}, 400)],
-        ids=["missing", "empty", "blank"],
-    )
-    async def test_name_required(
-        self, auth_as, client, game, gm, npc_sheet, payload, status_code
-    ):
-        client = auth_as(gm)
-
-        response = await client.post(f"/games/{game.id}/npcs", json=payload)
-
-        assert response.status_code == status_code
-
-    async def test_sheet_missing_conflict(self, auth_as, client, game, gm):
-        client = auth_as(gm)
-
-        response = await client.post(f"/games/{game.id}/npcs", json={"name": "Bob"})
-
-        assert response.status_code == 409

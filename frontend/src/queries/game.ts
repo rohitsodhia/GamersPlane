@@ -1,12 +1,14 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
+import type { CharacterType } from "#/queries/character";
 
 export type GamePlayerState = "invited" | "applied" | "accepted";
 
 export type GamePlayerCharacter = {
 	id: number;
 	label: string;
+	type: CharacterType;
 	approved: boolean;
 };
 
@@ -198,21 +200,6 @@ export const submitCharacter = async (
 		const { errors } = await res.json();
 		throw new ApiError(res.status, errors);
 	}
-};
-
-export const createQuickNpc = async (
-	gameId: number,
-	name: string,
-): Promise<{ id: number; label: string; approved: boolean }> => {
-	const res = await apiFetch(`/games/${gameId}/npcs`, {
-		method: "POST",
-		body: JSON.stringify({ name }),
-	});
-	if (!res.ok) {
-		const { errors } = await res.json();
-		throw new ApiError(res.status, errors);
-	}
-	return res.json();
 };
 
 export const approveCharacter = async (

@@ -46,9 +46,6 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    # Id 1 is reserved for the site-owned Basic NPC sheet (inserted by the seed
-    # / a data script, not here: users and systems don't exist yet).
-    op.execute("ALTER SEQUENCE character_sheets_id_seq RESTART WITH 2")
     op.create_index(
         op.f("ix_character_sheets_forked_from_id"),
         "character_sheets",

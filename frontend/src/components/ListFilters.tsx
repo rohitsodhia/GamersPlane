@@ -3,6 +3,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
 import { z } from "zod";
 import { Autocomplete } from "#/components/Autocomplete";
+import { Select } from "#/components/Select";
 import { DEBOUNCE_MS } from "#/lib/constants";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import styles from "./ListFilters.module.css";
@@ -23,10 +24,23 @@ export const singleSystemFilterSearchSchema = z.object({
 	system_id: z.string().optional(),
 });
 
-type FilterSearch = z.infer<typeof listFiltersSearchSchema> &
-	z.infer<typeof singleSystemFilterSearchSchema>;
+/** Search param for the "type" (PC / NPC) filter. Routes `.extend()` this with their own. */
+export const typeFilterSearchSchema = z.object({
+	type: z.enum(["pc", "npc"]).optional(),
+});
 
-export type ListFilter = "search" | "systems" | "system";
+type FilterSearch = z.infer<typeof listFiltersSearchSchema> &
+	z.infer<typeof singleSystemFilterSearchSchema> &
+	z.infer<typeof typeFilterSearchSchema>;
+
+export type ListFilter = "search" | "systems" | "system" | "type";
+
+const ALL_TYPES = "all";
+const TYPE_OPTIONS: { id: string; name: string }[] = [
+	{ id: ALL_TYPES, name: "All" },
+	{ id: "pc", name: "PC" },
+	{ id: "npc", name: "NPC" },
+];
 
 type Props = {
 	filters: ListFilter[];
@@ -48,6 +62,7 @@ export function ListFilters({ filters, idPrefix = "list", children }: Props) {
 			{filters.includes("search") && <SearchFilter />}
 			{filters.includes("systems") && <SystemsFilter idPrefix={idPrefix} />}
 			{filters.includes("system") && <SystemFilter idPrefix={idPrefix} />}
+			{filters.includes("type") && <TypeFilter idPrefix={idPrefix} />}
 			{children}
 		</div>
 	);
@@ -83,6 +98,24 @@ function SearchFilter() {
 			placeholder="Search..."
 			value={searchInput}
 			onChange={(e) => setSearchInput(e.target.value)}
+		/>
+	);
+}
+
+function TypeFilter({ idPrefix }: { idPrefix: string }) {
+	const { urlSearch, setFilters } = useFilterSearch();
+
+	return (
+		<Select
+			id={`${idPrefix}-type-filter`}
+			ariaLabel="Type"
+			items={TYPE_OPTIONS}
+			getId={(option) => option.id}
+			getLabel={(option) => option.name}
+			selectedId={urlSearch.type ?? ALL_TYPES}
+			onChange={(id) =>
+				setFilters({ type: id === ALL_TYPES ? undefined : (id as "pc" | "npc") })
+			}
 		/>
 	);
 }

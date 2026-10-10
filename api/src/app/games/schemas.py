@@ -46,21 +46,8 @@ PlayerState = Literal["invited", "applied", "accepted"]
 class PlayerCharacterData(SchemaBase):
     id: int
     label: str
-    approved: bool
-
-
-class CreateNpcInput(SchemaBase):
-    # `...` makes it required (filtered_str defaults to None otherwise).
-    name: str = filtered_str(default=..., min_length=1)
-
-
-class CreateNpcResponse(SchemaBase):
-    id: int
-    label: str
-    name: str
     type: Character.Type
     approved: bool
-    user_id: int
 
 
 class PlayerData(SchemaBase):

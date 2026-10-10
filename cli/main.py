@@ -8,7 +8,6 @@ import typer
 from mimesis import Text
 from sqlalchemy import text
 
-from app.character_sheets.basic_npc import BASIC_NPC_SHEET_ID, load_basic_npc_sheet
 from app.character_sheets.layout_validation import validate_sheet_layout
 from app.configs import configs
 from app.database import session_manager
@@ -207,20 +206,7 @@ async def seed():
             session.add(DeckType(**deck_type_data))
         typer.echo("Deck Types added")
 
-        # The site-owned Basic NPC sheet takes the reserved id 1 (the migration
-        # starts the id sequence at 2, so it doesn't disturb later sheets).
         character_sheet_repo = CharacterSheetRepository(session, primary_user)
-        npc_sheet_data = load_basic_npc_sheet()
-        npc_sheet = await character_sheet_repo.create(
-            name=npc_sheet_data["name"],
-            system_id=npc_sheet_data["system_id"],
-            layout=npc_sheet_data["layout"],
-            id=BASIC_NPC_SHEET_ID,
-        )
-        npc_sheet.status = CharacterSheet.Status(npc_sheet_data["status"])
-        await character_sheet_repo.publish_draft(npc_sheet)
-        typer.echo("Basic NPC sheet added")
-
         character_sheet = await character_sheet_repo.create(
             name="Test 1",
             system_id="dnd5",

@@ -2,10 +2,6 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, status
 
-from app.character_sheets.basic_npc import (
-    BASIC_NPC_NAME_FIELD_ID,
-    BASIC_NPC_SHEET_ID,
-)
 from app.database import DBSessionDependency
 from app.exceptions import (
     ConflictException,
@@ -26,7 +22,6 @@ from app.middleware import Principal
 from app.models import Character, Deck, Game, Player
 from app.repositories import (
     CharacterRepository,
-    CharacterSheetRepository,
     DeckRepository,
     FavoritesRepository,
     GameRepository,
@@ -222,7 +217,10 @@ async def get_game(game_id: int, db_session: DBSessionDependency, principal: Pri
             continue
         characters_by_user.setdefault(character.user_id, []).append(
             schemas.PlayerCharacterData(
-                id=character.id, label=character.label, approved=character.approved
+                id=character.id,
+                label=character.label,
+                type=character.type,
+                approved=character.approved,
             )
         )
 
@@ -533,65 +531,6 @@ async def submit_character(
         raise ForbiddenException("You cannot submit any more characters to this game")
 
     await character_repository.submit_to_game(character, game_id)
-
-
-@games.post(
-    "/{game_id}/npcs",
-    response_model=schemas.CreateNpcResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_npc(
-    game_id: int,
-    data: schemas.CreateNpcInput,
-    db_session: DBSessionDependency,
-    principal: Principal,
-):
-    """Quick-make an NPC for the GM on the site's Basic NPC sheet, already
-    approved in the game. Deliberately skips the allowed-systems check and the
-    per-player character limit that `submit_character` enforces."""
-    game_repository = GameRepository(db_session, principal=principal)
-    game = await get_game_or_404(game_repository, game_id)
-    if game.retired:
-        raise ForbiddenException("Game is retired")
-
-    player_repository = PlayerRepository(db_session, principal=principal)
-    await require_gm(
-        player_repository,
-        game_id,
-        principal.id,
-        "Only game masters can create NPCs",
-    )
-
-    if not data.name:
-        raise ValidationError("An NPC needs a name")
-
-    sheet_repository = CharacterSheetRepository(db_session, principal=principal)
-    version = await sheet_repository.get_latest_published(BASIC_NPC_SHEET_ID)
-    if version is None:
-        raise ConflictException("The Basic NPC sheet is unavailable")
-
-    character_repository = CharacterRepository(db_session, principal=principal)
-    character = await character_repository.create(
-        character_sheet_id=BASIC_NPC_SHEET_ID,
-        character_sheet_version_id=version.id,
-        label=data.name,
-        type=Character.Type.NPC,
-    )
-    # `update` reads the pinned layout, which a fresh character hasn't loaded.
-    character.character_sheet_version = version
-    character = await character_repository.update(
-        character, values={BASIC_NPC_NAME_FIELD_ID: data.name}
-    )
-    await character_repository.add_to_game(character, game_id)
-
-    return schemas.CreateNpcResponse(
-        id=character.id,
-        label=character.label,
-        name=character.name or data.name,
-        type=character.type,
-        approved=character.approved,
-        user_id=character.user_id,
-    )
 
 
 @games.post(

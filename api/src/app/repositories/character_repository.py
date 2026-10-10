@@ -91,15 +91,6 @@ class CharacterRepository:
         character.approved = False
         await self.db_session.flush()
 
-    async def add_to_game(
-        self, character: Character, game_id: int, approved: bool = True
-    ) -> None:
-        """Attach the character to the game directly, skipping the submission
-        checks (e.g. a GM's quick-made NPC)."""
-        character.game_id = game_id
-        character.approved = approved
-        await self.db_session.flush()
-
     async def approve(self, character: Character) -> None:
         character.approved = True
         await self.db_session.flush()

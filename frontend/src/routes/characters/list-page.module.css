@@ -42,10 +42,6 @@
 		margin-bottom: 1em;
 	}
 
-	.type-filter {
-		--rac-autocomplete-width: 80px;
-	}
-
 	.results {
 		margin-bottom: 2em;
 	}
