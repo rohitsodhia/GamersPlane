@@ -11,6 +11,7 @@ from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import check_post_change, validate_roll_visibility
 from app.posts.visibility import redact_draw, redact_roll
 from app.repositories import PostRepository, ReadTrackingRepository, ThreadRepository
+from app.threads.functions import merge_thread_options
 
 posts = APIRouter(prefix="/posts")
 
@@ -85,6 +86,7 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
     )
     rolls = (await post_repository.get_rolls([post.id]))[post.id]
     draws = (await post_repository.get_draws([post.id]))[post.id]
+    is_first_post = post.thread.first_post_id == post.id
 
     return schemas.GetPostResponse(
         id=post.id,
@@ -101,7 +103,10 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
             redact_draw(draw, is_author=principal.id == post.author_id)
             for draw in draws
         ],
-        is_first_post=post.thread.first_post_id == post.id,
+        is_first_post=is_first_post,
+        discord_webhook=post.thread.options.discord_webhook
+        if is_first_post and principal.id == post.author_id
+        else None,
         thread_id=post.thread_id,
         forum_id=post.thread.forum_id,
         page=await post_repository.get_page_number(post),
@@ -179,16 +184,30 @@ async def edit_post(
     visibility_changes = validate_roll_visibility(
         existing_rolls, post_data.roll_visibility
     )
+    # Merged first so the same request can enable rolls/draws and use them.
+    options = post.thread.options
+    if post_data.thread_options is not None:
+        if post.thread.first_post_id != post.id:
+            raise ValidationError(
+                "Thread options can only be changed on the first post"
+            )
+        options = merge_thread_options(
+            permissions, post.thread.forum, options, post_data.thread_options
+        )
     attachments = await plan_attachments(
         db_session,
         principal,
         post.thread.forum,
         permissions,
-        post.thread.options,
+        options,
         post_data.rolls,
         post_data.draws,
     )
 
+    if options is not post.thread.options:
+        await ThreadRepository(db_session, principal=principal).update_options(
+            post.thread, options
+        )
     await post_repository.update(post, post_data.title, post_data.body)
     for roll, change in visibility_changes:
         await post_repository.set_roll_visibility(

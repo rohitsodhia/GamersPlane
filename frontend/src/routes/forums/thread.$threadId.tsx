@@ -20,7 +20,9 @@ import Editor, {
 	isContentEmpty,
 	trimTrailingEmptyParagraph,
 } from "#/components/Editor";
+import LockIcon from "#/components/LockIcon";
 import Paginate from "#/components/Paginate";
+import PinIcon from "#/components/PinIcon";
 import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
 import { PAGINATE_PER_PAGE } from "#/lib/config";
@@ -33,7 +35,9 @@ import { createPost, deletePost, type Post, postsQueryOptions } from "#/queries/
 import {
 	markThreadUnread,
 	recordThreadRead,
+	type ThreadOptionsUpdate,
 	threadQueryOptions,
+	updateThread,
 } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
 import {
@@ -335,6 +339,25 @@ function RouteComponent() {
 	const { data: me } = useQuery({ ...meFullQueryOptions, enabled: loggedIn });
 	const postSide: PostSide = me?.postSide ?? "r";
 
+	const isModerator = thread.permissions.includes("forum_moderate");
+	const [modError, setModError] = useState<string | null>(null);
+	const modMutation = useMutation({
+		mutationFn: (options: ThreadOptionsUpdate) => updateThread(threadId, options),
+		onMutate: () => setModError(null),
+		onSuccess: () =>
+			Promise.all([
+				// The thread details (locking gates replying and editing) and the lists.
+				queryClient.invalidateQueries({ queryKey: ["threads"] }),
+				queryClient.invalidateQueries({ queryKey: ["forums"] }),
+			]),
+		onError: (exception) =>
+			setModError(
+				exception instanceof ApiError
+					? exception.errors.map((e) => e.detail).join(" ")
+					: "Couldn't update the thread.",
+			),
+	});
+
 	const userCanWrite = canWrite(thread);
 	const canToggleDraws =
 		!thread.options.locked || thread.permissions.includes("forum_moderate");
@@ -436,11 +459,41 @@ function RouteComponent() {
 			</h1>
 
 			<div style={{ marginInline: hbMarginedHeader.margin }}>
-				<Breadcrumbs forum={breadcrumbs} />
-				<div>
-					Be sure to read and follow the{" "}
-					<Link to="/community-guidelines">community guidelines</Link>.
+				<div className={styles["thread-menu"]}>
+					<div>
+						<Breadcrumbs forum={breadcrumbs} />
+						<div>
+							Be sure to read and follow the{" "}
+							<Link to="/community-guidelines">community guidelines</Link>.
+						</div>
+					</div>
+
+					{isModerator && (
+						<div className={styles["mod-actions"]}>
+							<button
+								type="button"
+								aria-pressed={thread.options.sticky}
+								disabled={modMutation.isPending}
+								onClick={() => modMutation.mutate({ sticky: !thread.options.sticky })}
+							>
+								<PinIcon
+									title={thread.options.sticky ? "Unsticky thread" : "Sticky thread"}
+								/>
+							</button>
+							<button
+								type="button"
+								aria-pressed={thread.options.locked}
+								disabled={modMutation.isPending}
+								onClick={() => modMutation.mutate({ locked: !thread.options.locked })}
+							>
+								<LockIcon
+									title={thread.options.locked ? "Unlock thread" : "Lock thread"}
+								/>
+							</button>
+						</div>
+					)}
 				</div>
+				{modError && <div className="error">{modError}</div>}
 
 				<div className="thread-pagination">
 					<Paginate numItems={count} current={page} onPageChange={setPage} />

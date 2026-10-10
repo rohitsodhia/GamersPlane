@@ -32,6 +32,7 @@ import { PostAttachmentsEditor } from "./-post-attachments";
 import styles from "./-post-form.module.css";
 import { changedRollVisibility, initialVisibility } from "./-post-rolls";
 import { RollVisibilityEditor } from "./-roll-visibility-editor";
+import type { ThreadOptionsValues } from "./-thread-options";
 
 // Each option needs a forum permission to set; mirrors OPTION_VERBS in the API.
 const optionCheckboxes = [
@@ -66,14 +67,16 @@ function FieldError({ message }: { message: string | undefined }) {
 type PostFormFields = {
 	title: string;
 	body: JSONContent;
-	options: {
-		sticky: boolean;
-		locked: boolean;
-		allow_public_posting: boolean;
-		allow_rolls: boolean;
-		allow_draws: boolean;
-		discord_webhook: string;
-	};
+	options: ThreadOptionsValues;
+};
+
+export const noOptions: ThreadOptionsValues = {
+	sticky: false,
+	locked: false,
+	allow_public_posting: false,
+	allow_rolls: false,
+	allow_draws: false,
+	discord_webhook: "",
 };
 
 export type PostFormValues = PostFormFields & {
@@ -90,6 +93,8 @@ export function PostForm({
 	defaultTitle = "",
 	defaultBody = emptyContent,
 	showThreadOptions = true,
+	defaultOptions = noOptions,
+	showWebhook = true,
 	permissions = [],
 	threadOptions,
 	canAddAttachments = true,
@@ -105,6 +110,10 @@ export function PostForm({
 	defaultTitle?: string;
 	defaultBody?: JSONContent;
 	showThreadOptions?: boolean;
+	// What the options start as (editing a thread's first post).
+	defaultOptions?: ThreadOptionsValues;
+	// Hides the webhook field even for moderators; only its author can read it.
+	showWebhook?: boolean;
 	// The user's permissions on the forum; decides which thread options show, and
 	// whether rolls and draws can be added.
 	permissions?: ForumPermission[];
@@ -137,14 +146,7 @@ export function PostForm({
 		defaultValues: {
 			title: defaultTitle,
 			body: defaultBody,
-			options: {
-				sticky: false,
-				locked: false,
-				allow_public_posting: false,
-				allow_rolls: false,
-				allow_draws: false,
-				discord_webhook: "",
-			},
+			options: defaultOptions,
 		} satisfies PostFormFields,
 		onSubmit: async ({ value }) => {
 			if (Object.keys(attachmentRowErrors).length > 0) {
@@ -200,7 +202,7 @@ export function PostForm({
 						)}
 					</form.Field>
 				))}
-			{canSet("forum_moderate") && (
+			{showWebhook && canSet("forum_moderate") && (
 				<>
 					<hr />
 					<form.Field name="options.discord_webhook">

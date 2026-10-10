@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import Field
 
 from app.schema_base import SchemaBase, filtered_str, strip_whitespace
+from app.threads.option_schemas import ThreadOptionsUpdate
 
 RollSystem = Literal["basic", "fate", "fengshui", "starwarsffg"]
 
@@ -67,6 +68,9 @@ class PostData(SchemaBase):
 class GetPostResponse(PostData):
     datestamp: datetime | None
     is_first_post: bool = False
+    # The thread's Discord webhook; only sent to the author of the first post, who
+    # can edit it. Null for everyone else.
+    discord_webhook: str | None = None
     thread_id: int
     forum_id: int
     page: int
@@ -130,6 +134,8 @@ class EditPostInput(SchemaBase):
     draws: list[NewDrawInput] = Field(default=[], max_length=MAX_DRAWS_PER_REQUEST)
     # Visibility changes for rolls already on the post.
     roll_visibility: list[RollVisibilityInput] = []
+    # Changes to the thread's options; only accepted when editing its first post.
+    thread_options: ThreadOptionsUpdate | None = None
 
 
 class EditPostResponse(SchemaBase):

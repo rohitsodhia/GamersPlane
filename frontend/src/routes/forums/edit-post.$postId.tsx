@@ -14,6 +14,7 @@ import { editPost, postQueryOptions } from "#/queries/posts";
 import { threadQueryOptions } from "#/queries/threads";
 import { canChangePost } from "./-permissions";
 import { PostForm } from "./-post-form";
+import { changedThreadOptions, type ThreadOptionsValues } from "./-thread-options";
 
 export const Route = createFileRoute("/forums/edit-post/$postId")({
 	params: {
@@ -65,8 +66,17 @@ function RouteComponent() {
 			queryClient.invalidateQueries({ queryKey: ["posts", post.thread_id] });
 			// Draws change the decks' remaining cards.
 			queryClient.invalidateQueries({ queryKey: ["forums", post.forum_id, "decks"] });
+			// Thread options changed: the details and the forum's thread lists. The
+			// post's own details carry the webhook.
+			queryClient.invalidateQueries({ queryKey: ["threads"] });
+			queryClient.invalidateQueries({ queryKey: ["posts", postId, "details"] });
 		},
 	});
+
+	const defaultOptions: ThreadOptionsValues = {
+		...thread.options,
+		discord_webhook: post.discord_webhook ?? "",
+	};
 
 	return (
 		<PostForm
@@ -75,7 +85,11 @@ function RouteComponent() {
 			forum={forum}
 			defaultTitle={post.title}
 			defaultBody={post.body}
-			showThreadOptions={false}
+			showThreadOptions={post.is_first_post}
+			defaultOptions={defaultOptions}
+			// A moderator who isn't the author can't read the webhook, and a blank
+			// field would look like it was unset.
+			showWebhook={post.author.id === me.id}
 			permissions={thread.permissions}
 			threadOptions={thread.options}
 			// Only the author can add rolls and draws, moderators included.
@@ -94,6 +108,9 @@ function RouteComponent() {
 						rolls: value.rolls,
 						draws: value.draws,
 						roll_visibility: value.rollVisibility,
+						thread_options: post.is_first_post
+							? changedThreadOptions(defaultOptions, value.options)
+							: undefined,
 					});
 					navigate({
 						to: "/forums/thread/$threadId",

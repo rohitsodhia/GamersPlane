@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { DiceSystem, FengShuiRollType, RollDiceResult } from "#/queries/dice";
+import type { ThreadOptionsUpdate } from "#/queries/threads";
 
 type Author = {
 	id: number;
@@ -57,6 +58,8 @@ export type Post = {
 
 export type PostDetails = Post & {
 	is_first_post: boolean;
+	// Only set for the author of the thread's first post.
+	discord_webhook: string | null;
 	thread_id: number;
 	forum_id: number;
 	page: number;
@@ -157,6 +160,8 @@ export const editPost = async (
 		title: string;
 		body: JSONContent;
 		roll_visibility?: RollVisibilityInput[];
+		// Only for a thread's first post.
+		thread_options?: ThreadOptionsUpdate;
 	} & PostAttachmentsInput,
 ): Promise<{ id: number }> => {
 	const { post_id, ...body } = data;

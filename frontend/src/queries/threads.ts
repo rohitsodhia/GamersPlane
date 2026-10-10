@@ -10,7 +10,6 @@ export type ThreadOptions = {
 	allow_public_posting: boolean;
 	allow_rolls: boolean;
 	allow_draws: boolean;
-	discord_webhook: string | null;
 };
 
 type Author = {
@@ -94,12 +93,33 @@ export const recordThreadRead = (threadId: number, postId: number) =>
 export const markThreadUnread = (threadId: number) =>
 	threadAction(`/threads/${threadId}/mark-unread`);
 
+// Only the fields present change. The webhook is write-only; "" or null clears it.
+export type ThreadOptionsUpdate = Partial<ThreadOptions> & {
+	discord_webhook?: string | null;
+};
+
+export const updateThread = async (
+	threadId: number,
+	options: ThreadOptionsUpdate,
+): Promise<ThreadOptions> => {
+	const res = await apiFetch(`/threads/${threadId}`, {
+		method: "PATCH",
+		body: JSON.stringify({ options }),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
 export const createThread = async (
 	data: {
 		forum_id: number;
 		title: string;
 		body: JSONContent;
-		options?: Partial<ThreadOptions>;
+		// The webhook is write-only here; thread reads never return it.
+		options?: Partial<ThreadOptions> & { discord_webhook?: string | null };
 	} & PostAttachmentsInput,
 ): Promise<{ id: number }> => {
 	const res = await apiFetch("/threads", {

@@ -4,6 +4,43 @@
 	}
 }
 
+.thread-menu {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-end;
+	gap: 1em;
+}
+
+.mod-actions {
+	display: flex;
+	gap: 0.25em;
+	white-space: nowrap;
+
+	svg {
+		width: auto;
+		height: 20px;
+		color: inherit;
+	}
+
+	button {
+		display: flex;
+		padding: 0;
+		color: #ccc;
+
+		&[aria-pressed="true"] {
+			color: var(--gp-red);
+		}
+
+		&:hover:not(:disabled) svg {
+			filter: drop-shadow(0 0 5px rgb(255 0 0));
+		}
+
+		&:disabled {
+			opacity: 0.5;
+		}
+	}
+}
+
 .thread-posts {
 	margin-top: 1em;
 

@@ -7,6 +7,7 @@ from app.helpers.decorators import public
 from app.middleware import Principal
 from app.models import Post, Thread, User
 from app.posts.attachments import plan_attachments, save_attachments
+from app.posts.functions import check_post_change
 from app.repositories import (
     ForumRepository,
     PostRepository,
@@ -14,7 +15,11 @@ from app.repositories import (
     ThreadRepository,
 )
 from app.threads import schemas
-from app.threads.functions import build_post_data, check_thread_options
+from app.threads.functions import (
+    build_post_data,
+    check_thread_options,
+    merge_thread_options,
+)
 
 threads = APIRouter(prefix="/threads")
 
@@ -53,7 +58,7 @@ async def get_threads(
                 id=thread.id,
                 first_post=build_post_data(thread.first_post),
                 last_post=build_post_data(thread.last_post),
-                options=thread.options,
+                options=schemas.ThreadOptionsData.model_validate(thread.options),
                 post_count=thread.post_count,
                 has_unread=thread.id in unread_ids,
             )
@@ -97,7 +102,7 @@ async def get_thread(
         id=thread.id,
         forum_id=thread.forum_id,
         title=thread.first_post.title,
-        options=thread.options,
+        options=schemas.ThreadOptionsData.model_validate(thread.options),
         first_post_id=thread.first_post.id,
         first_unread_post_id=first_unread_post.id if first_unread_post else None,
         first_unread_page=first_unread_page,
@@ -153,6 +158,32 @@ async def create_thread(
     )
 
     return schemas.NewThreadResponse(id=thread.id)
+
+
+@threads.patch("/{thread_id}", response_model=schemas.ThreadOptionsData)
+async def update_thread(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    thread_id: int,
+    data: schemas.UpdateThreadInput,
+):
+    """Change a thread's options. Only the thread's author (while it is unlocked)
+    or a moderator may, and each option needs its own verb."""
+    thread_repository = ThreadRepository(db_session, principal=principal)
+    thread = await thread_repository.get(thread_id)
+    if thread is None:
+        raise NotFoundException("Thread not found")
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, thread.forum, "Thread not found"
+    )
+    assert thread.first_post is not None
+    check_post_change(permissions, thread.first_post, principal, Verbs.FORUM_EDIT)
+
+    options = merge_thread_options(
+        permissions, thread.forum, thread.options, data.options
+    )
+    await thread_repository.update_options(thread, options)
+    return schemas.ThreadOptionsData.model_validate(options)
 
 
 async def get_readable_thread(
