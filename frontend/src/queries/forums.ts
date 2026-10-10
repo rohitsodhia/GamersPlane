@@ -141,6 +141,32 @@ export function forumDecksQueryOptions(id: number) {
 	});
 }
 
+export type PostableCharacter = {
+	id: number;
+	name: string;
+	owner: { id: number; username: string };
+};
+
+export type PostableCharacters = {
+	characters: PostableCharacter[];
+	// What the user last posted as in the thread, if still valid.
+	default_id: number | null;
+};
+
+// The characters the user can post as in the forum (empty outside game forums, or
+// without write permission). Own characters come first.
+export function forumCharactersQueryOptions(forumId: number, threadId?: number) {
+	return queryOptions({
+		queryKey: ["forums", forumId, "characters", threadId ?? null],
+		queryFn: async (): Promise<PostableCharacters> => {
+			const query = threadId === undefined ? "" : `?thread_id=${threadId}`;
+			const res = await apiFetch(`/forums/${forumId}/characters${query}`);
+			if (!res.ok) throw new Error("Failed to fetch forum characters");
+			return res.json();
+		},
+	});
+}
+
 export async function forumMutate(path: string, method: string, body?: unknown) {
 	const res = await apiFetch(path, {
 		method,

@@ -8,6 +8,7 @@ from fastapi import BackgroundTasks
 from app.configs import configs
 from app.helpers.prose import prose_snippet
 from app.models import Post, User
+from app.posts.functions import displayable_posted_as, primary_avatar_url
 from app.repositories import PostRepository
 from app.threads.option_schemas import DISCORD_WEBHOOK_PATTERN
 
@@ -23,12 +24,18 @@ def build_post_payload(
 ) -> dict:
     """The webhook body for a post, as plain data so it outlives the DB session."""
     title = post.title.removeprefix("Re: ")
-    # Where a character's name and avatar would replace the author's, once
-    # ``Post.posted_as`` is actually set by something.
-    payload: dict = {"username": author.username}
+    # A post made as a character goes out under its name and avatar; the footer
+    # still names the author.
+    character = displayable_posted_as(post)
+    username = author.username
+    avatar_url: str | None = author.avatar_url
+    if character is not None:
+        username = (character.name or "").strip()
+        avatar_url = primary_avatar_url(character)
+    payload: dict = {"username": username}
     # The avatar is a URL built from config; skip it rather than send a broken one.
-    if author.avatar_url.startswith(("http://", "https://")):
-        payload["avatar_url"] = author.avatar_url
+    if avatar_url and avatar_url.startswith(("http://", "https://")):
+        payload["avatar_url"] = avatar_url
     payload["embeds"] = [
         {
             "title": title,

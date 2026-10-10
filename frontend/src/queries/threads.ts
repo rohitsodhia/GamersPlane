@@ -173,6 +173,8 @@ export const createThread = async (
 		// The webhook is write-only here; thread reads never return it.
 		options?: Partial<ThreadOptions> & { discord_webhook?: string | null };
 		poll?: PollInput;
+		// Null (or absent) posts as the user.
+		posted_as_id?: number | null;
 	} & PostAttachmentsInput,
 ): Promise<{ id: number }> => {
 	const res = await apiFetch("/threads", {

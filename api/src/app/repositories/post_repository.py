@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.configs import configs
-from app.models import Deck, Forum, Post, PostDraw, PostRoll, Thread, User
+from app.models import Character, Deck, Forum, Post, PostDraw, PostRoll, Thread, User
+from app.repositories.character_repository import CharacterRepository
 
 
 class PostRepository:
@@ -47,9 +48,26 @@ class PostRepository:
 
     async def get(self, post_id: int) -> Post | None:
         post = await self.db_session.scalar(
-            select(Post).where(Post.id == post_id, Post.deleted.is_(None)).limit(1)
+            select(Post)
+            .where(Post.id == post_id, Post.deleted.is_(None))
+            .options(selectinload(Post.posted_as).selectinload(Character.avatars))
+            .limit(1)
         )
         return post
+
+    async def get_latest_by_author(self, thread_id: int, author_id: int) -> Post | None:
+        """The author's most recent published post in the thread."""
+        return await self.db_session.scalar(
+            select(Post)
+            .where(
+                Post.thread_id == thread_id,
+                Post.author_id == author_id,
+                Post.state == Post.States.PUBLISHED,
+                Post.deleted.is_(None),
+            )
+            .order_by(Post.published_at.desc(), Post.id.desc())
+            .limit(1)
+        )
 
     async def get_page_number(
         self, post: Post, limit: int = configs.PAGINATE_PER_PAGE
@@ -95,7 +113,10 @@ class PostRepository:
                 Post.state == Post.States.PUBLISHED,
                 Post.deleted.is_(None),
             )
-            .options(selectinload(Post.author).selectinload(User.meta))
+            .options(
+                selectinload(Post.author).selectinload(User.meta),
+                selectinload(Post.posted_as).selectinload(Character.avatars),
+            )
             .order_by(Post.published_at)
             .limit(limit)
             .offset((page - 1) * limit)
@@ -108,6 +129,7 @@ class PostRepository:
         title: str,
         body: dict,
         state: Post.States = Post.States.DRAFT,
+        posted_as_id: int | None = None,
     ) -> Post:
         post = Post(
             thread_id=thread_id,
@@ -115,8 +137,25 @@ class PostRepository:
             title=title,
             body=body,
             state=state,
+            posted_as_id=posted_as_id,
         )
         self.db_session.add(post)
+        await self.db_session.flush()
+        # Loaded now (avatars too), as a new post can't lazy-load it later.
+        await self.set_posted_as(post, posted_as_id)
+        return post
+
+    async def set_posted_as(self, post: Post, character_id: int | None) -> Post:
+        """Post as the character (``None`` for as the author). Not validated."""
+        character = (
+            await CharacterRepository(
+                self.db_session, principal=self.principal
+            ).get_with_avatars(character_id)
+            if character_id is not None
+            else None
+        )
+        post.posted_as = character
+        post.posted_as_id = character_id
         await self.db_session.flush()
         return post
 

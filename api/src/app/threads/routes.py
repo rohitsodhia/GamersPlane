@@ -7,7 +7,7 @@ from app.helpers.decorators import public
 from app.middleware import Principal
 from app.models import Post, Thread, User
 from app.posts.attachments import plan_attachments, save_attachments
-from app.posts.functions import check_post_change
+from app.posts.functions import check_post_change, validate_posted_as
 from app.repositories import (
     ForumRepository,
     PollRepository,
@@ -145,6 +145,8 @@ async def create_thread(
         await check_poll_input(
             PollRepository(db_session, principal=principal), None, thread_data.poll
         )
+    if thread_data.posted_as_id is not None:
+        await validate_posted_as(db_session, principal, forum, thread_data.posted_as_id)
     attachments = await plan_attachments(
         db_session,
         principal,
@@ -168,6 +170,7 @@ async def create_thread(
         thread_data.title,
         thread_data.body,
         state=Post.States.PUBLISHED,
+        posted_as_id=thread_data.posted_as_id,
     )
     await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)

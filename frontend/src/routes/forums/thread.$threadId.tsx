@@ -13,6 +13,7 @@ import {
 	useNavigate,
 } from "@tanstack/react-router";
 import type { JSONContent } from "@tiptap/core";
+import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import Editor, {
@@ -29,7 +30,11 @@ import { PAGINATE_PER_PAGE } from "#/lib/config";
 import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { useScrollToHash } from "#/lib/use-scroll-to-hash";
-import { forumBreadcrumbsQueryOptions, forumDecksQueryOptions } from "#/queries/forums";
+import {
+	forumBreadcrumbsQueryOptions,
+	forumCharactersQueryOptions,
+	forumDecksQueryOptions,
+} from "#/queries/forums";
 import { meFullQueryOptions, type PostSide } from "#/queries/me";
 import { createPost, deletePost, type Post, postsQueryOptions } from "#/queries/posts";
 import {
@@ -50,6 +55,7 @@ import {
 import { Breadcrumbs } from "./-breadcrumbs";
 import ChatPoint from "./-chat-point";
 import { canChangePost, canWrite } from "./-permissions";
+import { PostAsPicker } from "./-post-as-picker";
 import { PostAttachmentsEditor } from "./-post-attachments";
 import { PostDrawList } from "./-post-draw-list";
 import { PostRollList } from "./-post-roll-list";
@@ -146,24 +152,64 @@ function PostItem({
 	onMarkUnread?: () => void;
 }) {
 	const deleteConfirmId = `delete-post-confirm-${post.id}`;
+	const postedAs = post.posted_as;
 	return (
 		<div id={`post-${post.id}`} className={`${styles.post} ${styles[sideClass] ?? ""}`}>
 			<div className={styles["post-author"]}>
+				{postedAs?.avatar ? (
+					// The character takes the avatar slot; the user's sits on its corner.
+					<div className={styles["avatar-stack"]}>
+						{postedAs.can_view ? (
+							<Link to="/characters/$characterId" params={{ characterId: postedAs.id }}>
+								<img
+									src={postedAs.avatar}
+									alt={postedAs.name}
+									className={styles["user-avatar"]}
+								/>
+							</Link>
+						) : (
+							<img
+								src={postedAs.avatar}
+								alt={postedAs.name}
+								className={styles["user-avatar"]}
+							/>
+						)}
+						<Link
+							to="/user/$userId"
+							params={{ userId: post.author.id }}
+							className={styles["avatar-corner"]}
+						>
+							<img src={post.author.avatar} alt={post.author.username} />
+						</Link>
+					</div>
+				) : (
+					<Link
+						to="/user/$userId"
+						params={{ userId: post.author.id }}
+						className="username"
+					>
+						<img
+							src={post.author.avatar}
+							alt={post.author.username}
+							className={styles["user-avatar"]}
+						/>
+					</Link>
+				)}
+				{postedAs && (
+					<div className={styles["character-name"]}>
+						{postedAs.can_view ? (
+							<Link to="/characters/$characterId" params={{ characterId: postedAs.id }}>
+								{postedAs.name}
+							</Link>
+						) : (
+							postedAs.name
+						)}
+					</div>
+				)}
 				<Link
 					to="/user/$userId"
 					params={{ userId: post.author.id }}
-					className="username"
-				>
-					<img
-						src={post.author.avatar}
-						alt={post.author.username}
-						className={styles["user-avatar"]}
-					/>
-				</Link>
-				<Link
-					to="/user/$userId"
-					params={{ userId: post.author.id }}
-					className="username"
+					className={clsx("username", postedAs && styles["author-username"])}
 				>
 					{post.author.username}
 				</Link>
@@ -394,6 +440,18 @@ function RouteComponent() {
 	const hasAttachmentUI = access.rolls || (access.draws && decks.length > 0);
 	const attachmentCount = attachments.rolls.length + attachments.draws.length;
 
+	// Undefined until the user picks, so the thread's default applies until then.
+	// Kept after a post (the form's reset doesn't touch it).
+	const { data: charactersData } = useQuery({
+		...forumCharactersQueryOptions(thread.forum_id, threadId),
+		enabled: userCanWrite,
+	});
+	const [pickedPostAs, setPickedPostAs] = useState<number | null | undefined>(
+		undefined,
+	);
+	const postAs =
+		pickedPostAs === undefined ? (charactersData?.default_id ?? null) : pickedPostAs;
+
 	const replyTitle = thread.title.startsWith("Re: ")
 		? thread.title
 		: `Re: ${thread.title}`;
@@ -414,6 +472,7 @@ function RouteComponent() {
 					thread_id: threadId,
 					title: replyTitle,
 					body: value.body,
+					posted_as_id: postAs,
 					...buildAttachmentPayload(attachments, access),
 				});
 				formApi.reset();
@@ -567,6 +626,19 @@ function RouteComponent() {
 										<li key={error}>{error}</li>
 									))}
 								</ul>
+							</div>
+						)}
+
+						{charactersData && charactersData.characters.length > 0 && (
+							<div className={styles["quick-reply-post-as"]}>
+								<label htmlFor="quick-reply-post-as">Post as:</label>
+								<PostAsPicker
+									id="quick-reply-post-as"
+									characters={charactersData.characters}
+									viewerId={me?.id}
+									value={postAs}
+									onChange={setPickedPostAs}
+								/>
 							</div>
 						)}
 

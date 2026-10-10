@@ -4,8 +4,23 @@ from dataclasses import dataclass
 
 from sqlalchemy import text
 
-from app.models import Deck, DeckPermission, Forum, Game, Player, RolePermission, User
-from app.repositories import DeckRepository, GameRepository, PlayerRepository
+from app.models import (
+    Deck,
+    DeckPermission,
+    Forum,
+    Game,
+    Player,
+    RolePermission,
+    System,
+    User,
+)
+from app.repositories import (
+    CharacterRepository,
+    CharacterSheetRepository,
+    DeckRepository,
+    GameRepository,
+    PlayerRepository,
+)
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 from tests.factories import (
     ActivatedUserFactory,
@@ -55,6 +70,46 @@ async def make_user_with(create, db_session, forum, *verbs):
     user = await create(ActivatedUserFactory)
     await grant(db_session, user, forum, *verbs)
     return user
+
+
+async def make_character(db_session, owner, game=None, *, name="Aria", **fields):
+    """A character owned by ``owner`` on a fresh sheet. With a ``game`` it is
+    approved in that game; ``fields`` override any column (``approved=False``,
+    ``deleted=...``, ``in_library=True``)."""
+    if await db_session.get(System, "dnd5e") is None:
+        db_session.add(SystemFactory.build(id="dnd5e"))
+        await db_session.flush()
+    sheets = CharacterSheetRepository(db_session, principal=owner)
+    sheet = await sheets.create(
+        name="Fighter",
+        system_id="dnd5e",
+        layout={"schema_version": 1, "elements": [{"type": "header", "text": "Hi"}]},
+    )
+    await sheets.publish(await sheets.get_draft(sheet.id))
+    version = await sheets.get_latest_published(sheet.id)
+    character = await CharacterRepository(db_session, principal=owner).create(
+        character_sheet_id=sheet.id,
+        character_sheet_version_id=version.id,
+        label=name or "Unnamed",
+    )
+    character.name = name
+    if game is not None:
+        character.game_id = game.id
+        character.approved = True
+    for field, value in fields.items():
+        setattr(character, field, value)
+    await db_session.flush()
+    return character
+
+
+async def add_avatar(db_session, character, ext="png"):
+    await db_session.refresh(character, ["avatars"])
+    # Adding an avatar never reads the principal.
+    avatar = await CharacterRepository(db_session, principal=None).add_avatar(
+        character, ext
+    )
+    # The id, as the avatar itself is expired once the request commits.
+    return avatar.id
 
 
 async def make_game_forum(create, db_session) -> GameForum:

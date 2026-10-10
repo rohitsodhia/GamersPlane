@@ -10,8 +10,10 @@ import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	type ForumBreadcrumbs,
 	type ForumPermission,
+	forumCharactersQueryOptions,
 	forumDecksQueryOptions,
 } from "#/queries/forums";
+import { meQueryOptions } from "#/queries/me";
 import type {
 	NewDrawInput,
 	NewRollInput,
@@ -30,6 +32,7 @@ import {
 import { Breadcrumbs } from "./-breadcrumbs";
 import { PollEditor, pollHasErrors } from "./-poll-editor";
 import { type PollState, pollPayload, pollStateFromData } from "./-poll-editor-state";
+import { PostAsPicker } from "./-post-as-picker";
 import { PostAttachmentsEditor } from "./-post-attachments";
 import styles from "./-post-form.module.css";
 import { changedRollVisibility, initialVisibility } from "./-post-rolls";
@@ -72,6 +75,8 @@ type PostFormFields = {
 	options: ThreadOptionsValues;
 	// Only meaningful when editing; a minor edit skips the Discord ping.
 	minorEdit: boolean;
+	// The character to post as; null is the user.
+	postedAsId: number | null;
 };
 
 export const noOptions: ThreadOptionsValues = {
@@ -108,6 +113,9 @@ export function PostForm({
 	existingRolls = [],
 	existingPoll = null,
 	showMinorEdit = false,
+	showPostAs = true,
+	postAsThreadId,
+	defaultPostedAs = null,
 	submitLabel,
 	isSubmitting = false,
 	apiErrors,
@@ -136,6 +144,12 @@ export function PostForm({
 	existingPoll?: PollData | null;
 	// Shows the "minor edit" checkbox (editing only).
 	showMinorEdit?: boolean;
+	// False hides the "Post as" picker (editing someone else's post).
+	showPostAs?: boolean;
+	// Scopes the character list to a thread; unset for a new thread.
+	postAsThreadId?: number;
+	// The character the post is written as (editing); null is the user.
+	defaultPostedAs?: { id: number; name: string } | null;
 	submitLabel: string;
 	isSubmitting?: boolean;
 	apiErrors: string[];
@@ -169,6 +183,7 @@ export function PostForm({
 			options: defaultOptions,
 			// An edit is assumed minor unless the author unticks it.
 			minorEdit: true as boolean,
+			postedAsId: (defaultPostedAs?.id ?? null) as number | null,
 		} satisfies PostFormFields,
 		onSubmit: async ({ value }) => {
 			const pollProblems = canAddPoll && pollHasErrors(poll);
@@ -187,6 +202,13 @@ export function PostForm({
 			});
 		},
 	});
+
+	const { data: charactersData } = useQuery({
+		...forumCharactersQueryOptions(forum.id, postAsThreadId),
+		enabled: showPostAs,
+	});
+	const { data: me } = useQuery({ ...meQueryOptions, enabled: showPostAs });
+	const postableCharacters = showPostAs ? (charactersData?.characters ?? []) : [];
 
 	const canSet = (permission: ForumPermission) =>
 		permissions.includes(permission) || permissions.includes("forum_moderate");
@@ -337,6 +359,24 @@ export function PostForm({
 							</>
 						)}
 					</form.Field>
+
+					{showPostAs && (postableCharacters.length > 0 || defaultPostedAs) && (
+						<form.Field name="postedAsId">
+							{(field) => (
+								<>
+									<label htmlFor="posted-as">Post as:</label>
+									<PostAsPicker
+										id="posted-as"
+										characters={postableCharacters}
+										viewerId={me?.id}
+										value={field.state.value}
+										onChange={(value) => field.handleChange(value)}
+										current={defaultPostedAs}
+									/>
+								</>
+							)}
+						</form.Field>
+					)}
 
 					<form.Field
 						name="body"

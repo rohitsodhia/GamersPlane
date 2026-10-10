@@ -110,6 +110,24 @@ class GetForumDecksResponse(SchemaBase):
     decks: list[DrawableDeck]
 
 
+class PostAsOwner(SchemaBase):
+    id: int
+    username: str
+
+
+class PostAsCharacter(SchemaBase):
+    id: int
+    name: str
+    owner: PostAsOwner
+
+
+class GetForumCharactersResponse(SchemaBase):
+    characters: list[PostAsCharacter]
+    # The character the principal last posted as in the requested thread, when
+    # they can still post as it.
+    default_id: int | None = None
+
+
 class ForumIdResponse(SchemaBase):
     id: int
 
