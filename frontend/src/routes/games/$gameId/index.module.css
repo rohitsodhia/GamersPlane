@@ -257,7 +257,8 @@
 	}
 }
 
-#submit-character {
+#submit-character,
+#quick-npc {
 	form {
 		margin-top: 0.5em;
 	}

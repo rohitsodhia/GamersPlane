@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 from annotated_types import Len
 
+from app.models import Character
 from app.schema_base import SchemaBase, filtered_str
 
 # A game must allow at least one character sheet.
@@ -46,6 +47,20 @@ class PlayerCharacterData(SchemaBase):
     id: int
     label: str
     approved: bool
+
+
+class CreateNpcInput(SchemaBase):
+    # `...` makes it required (filtered_str defaults to None otherwise).
+    name: str = filtered_str(default=..., min_length=1)
+
+
+class CreateNpcResponse(SchemaBase):
+    id: int
+    label: str
+    name: str
+    type: Character.Type
+    approved: bool
+    user_id: int
 
 
 class PlayerData(SchemaBase):

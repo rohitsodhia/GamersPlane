@@ -200,6 +200,21 @@ export const submitCharacter = async (
 	}
 };
 
+export const createQuickNpc = async (
+	gameId: number,
+	name: string,
+): Promise<{ id: number; label: string; approved: boolean }> => {
+	const res = await apiFetch(`/games/${gameId}/npcs`, {
+		method: "POST",
+		body: JSON.stringify({ name }),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
 export const approveCharacter = async (
 	gameId: number,
 	characterId: number,

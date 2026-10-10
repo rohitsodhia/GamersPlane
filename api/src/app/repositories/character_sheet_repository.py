@@ -35,11 +35,17 @@ class CharacterSheetRepository:
         self.principal = principal
 
     async def create(
-        self, name: str, system_id: str, layout: dict | None = None
+        self,
+        name: str,
+        system_id: str,
+        layout: dict | None = None,
+        id: int | None = None,
     ) -> CharacterSheet:
         """Create a sheet with its initial draft version, minting field ids on
-        `layout` (or the default layout when none is given)."""
+        `layout` (or the default layout when none is given). `id` forces an
+        explicit sheet id, for the reserved site-owned sheets."""
         char_sheet = CharacterSheet(
+            id=id,
             creator_id=self.principal.id,
             name=name,
             system_id=system_id,

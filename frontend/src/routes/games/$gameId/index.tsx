@@ -20,6 +20,7 @@ import {
 	applyToGame,
 	approveCharacter,
 	approvePlayer,
+	createQuickNpc,
 	decksQueryOptions,
 	deleteDeck,
 	deletePlayer,
@@ -367,6 +368,47 @@ function RouteComponent() {
 			label: character.label,
 			approved: false,
 		});
+	};
+
+	// The quick NPC panel sits below the submit-character panel for GMs; it isn't
+	// part of the exclusive RightPanel choice since the GM also sees that one.
+	const showQuickNpc = isGM && !retired;
+	const [npcName, setNpcName] = useState("");
+	const [quickNpcError, setQuickNpcError] = useState<string | null>(null);
+	const [createdNpc, setCreatedNpc] = useState<GamePlayerCharacter | null>(null);
+	const quickNpcMutation = useMutation({
+		mutationFn: (name: string) => createQuickNpc(gameId, name),
+		onSuccess: (npc) => {
+			const character: GamePlayerCharacter = {
+				id: npc.id,
+				label: npc.label,
+				approved: npc.approved,
+			};
+			if (me) {
+				updatePlayerCharacters(me.id, (characters) =>
+					[...characters, character].sort((a, b) => a.label.localeCompare(b.label)),
+				);
+			}
+			setCreatedNpc(character);
+			setNpcName("");
+			refreshCharacterLists();
+		},
+		onError: (error: unknown) => {
+			setCreatedNpc(null);
+			if (error instanceof ApiError && error.errors[0]?.detail) {
+				setQuickNpcError(error.errors[0].detail);
+			} else {
+				setQuickNpcError("Failed to create NPC");
+			}
+		},
+	});
+	const submitQuickNpc = (e: React.FormEvent) => {
+		e.preventDefault();
+		const name = npcName.trim();
+		if (!name) return;
+		setQuickNpcError(null);
+		setCreatedNpc(null);
+		quickNpcMutation.mutate(name);
 	};
 
 	const [characterActionError, setCharacterActionError] = useState<string | null>(null);
@@ -1184,6 +1226,49 @@ function RouteComponent() {
 									{submitCharacterError && (
 										<div className="error">{submitCharacterError}</div>
 									)}
+								</div>
+							</div>
+						)}
+						{showQuickNpc && (
+							<div id={styles["quick-npc"]}>
+								<h2 className="headerbar hb-dark">
+									<i className="ra ra-player-teleport" /> Quick NPC
+								</h2>
+								<div style={{ marginInline: hbMarginedH2.margin }}>
+									<form
+										className={styles["submit-character-form"]}
+										onSubmit={submitQuickNpc}
+									>
+										<input
+											id="quick-npc-name"
+											type="text"
+											aria-label="NPC name"
+											value={npcName}
+											onChange={(e) => setNpcName(e.target.value)}
+											placeholder="NPC name"
+											required
+											disabled={quickNpcMutation.isPending}
+										/>
+										<button
+											type="submit"
+											className="skew-btn"
+											disabled={!npcName.trim() || quickNpcMutation.isPending}
+										>
+											Create NPC
+										</button>
+									</form>
+									{createdNpc && (
+										<p className={styles["notice"]}>
+											Created {createdNpc.label}.{" "}
+											<Link
+												to="/characters/$characterId/edit"
+												params={{ characterId: createdNpc.id }}
+											>
+												Edit sheet
+											</Link>
+										</p>
+									)}
+									{quickNpcError && <div className="error">{quickNpcError}</div>}
 								</div>
 							</div>
 						)}
