@@ -160,6 +160,8 @@ export const editPost = async (
 		title: string;
 		body: JSONContent;
 		roll_visibility?: RollVisibilityInput[];
+		// A minor edit doesn't ping the thread's Discord webhook.
+		minor_edit?: boolean;
 		// Only for a thread's first post.
 		thread_options?: ThreadOptionsUpdate;
 	} & PostAttachmentsInput,

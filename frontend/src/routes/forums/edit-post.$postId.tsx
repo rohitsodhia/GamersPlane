@@ -95,6 +95,7 @@ function RouteComponent() {
 			// Only the author can add rolls and draws, moderators included.
 			canAddAttachments={post.author.id === me.id}
 			existingRolls={post.rolls}
+			showMinorEdit
 			submitLabel="Save Changes"
 			apiErrors={apiErrors}
 			isSubmitting={mutation.isPending}
@@ -108,6 +109,7 @@ function RouteComponent() {
 						rolls: value.rolls,
 						draws: value.draws,
 						roll_visibility: value.rollVisibility,
+						minor_edit: value.minorEdit,
 						thread_options: post.is_first_post
 							? changedThreadOptions(defaultOptions, value.options)
 							: undefined,

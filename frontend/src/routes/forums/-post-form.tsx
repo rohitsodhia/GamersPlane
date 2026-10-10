@@ -68,6 +68,8 @@ type PostFormFields = {
 	title: string;
 	body: JSONContent;
 	options: ThreadOptionsValues;
+	// Only meaningful when editing; a minor edit skips the Discord ping.
+	minorEdit: boolean;
 };
 
 export const noOptions: ThreadOptionsValues = {
@@ -99,6 +101,7 @@ export function PostForm({
 	threadOptions,
 	canAddAttachments = true,
 	existingRolls = [],
+	showMinorEdit = false,
 	submitLabel,
 	isSubmitting = false,
 	apiErrors,
@@ -123,6 +126,8 @@ export function PostForm({
 	canAddAttachments?: boolean;
 	// The rolls already on the post (editing); their visibility can be changed here.
 	existingRolls?: PostRoll[];
+	// Shows the "minor edit" checkbox (editing only).
+	showMinorEdit?: boolean;
 	submitLabel: string;
 	isSubmitting?: boolean;
 	apiErrors: string[];
@@ -147,6 +152,8 @@ export function PostForm({
 			title: defaultTitle,
 			body: defaultBody,
 			options: defaultOptions,
+			// An edit is assumed minor unless the author unticks it.
+			minorEdit: true as boolean,
 		} satisfies PostFormFields,
 		onSubmit: async ({ value }) => {
 			if (Object.keys(attachmentRowErrors).length > 0) {
@@ -326,6 +333,20 @@ export function PostForm({
 					<form.Subscribe selector={(state) => state.canSubmit}>
 						{(canSubmit) => (
 							<div>
+								{showMinorEdit && (
+									<form.Field name="minorEdit">
+										{(field) => (
+											<div className={styles["option-checkbox"]}>
+												<Checkbox
+													id={field.name}
+													checked={field.state.value}
+													onChange={(checked) => field.handleChange(checked)}
+												/>
+												<label htmlFor={field.name}>This is a minor edit</label>
+											</div>
+										)}
+									</form.Field>
+								)}
 								<button
 									type="submit"
 									name="submit"

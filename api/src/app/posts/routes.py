@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, BackgroundTasks, status
 
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException, ValidationError
@@ -11,6 +11,7 @@ from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import check_post_change, validate_roll_visibility
 from app.posts.visibility import redact_draw, redact_roll
 from app.repositories import PostRepository, ReadTrackingRepository, ThreadRepository
+from app.threads.discord import queue_post_webhook
 from app.threads.functions import merge_thread_options
 
 posts = APIRouter(prefix="/posts")
@@ -115,6 +116,7 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
 
 @posts.post("", response_model=schemas.NewPostResponse)
 async def create_post(
+    background_tasks: BackgroundTasks,
     db_session: DBSessionDependency,
     principal: Principal,
     post_data: schemas.NewPostInput,
@@ -156,12 +158,20 @@ async def create_post(
     await ReadTrackingRepository(db_session, principal=principal).mark_viewed(
         thread, post.published_at
     )
+    await queue_post_webhook(
+        background_tasks,
+        post_repository,
+        thread.options.discord_webhook,
+        post,
+        principal,
+    )
 
     return schemas.NewPostResponse(id=post.id)
 
 
 @posts.patch("/{post_id}", response_model=schemas.EditPostResponse)
 async def edit_post(
+    background_tasks: BackgroundTasks,
     db_session: DBSessionDependency,
     principal: Principal,
     post_id: int,
@@ -214,6 +224,15 @@ async def edit_post(
             roll, change.hide_reason, change.hide_dice, change.hide_result
         )
     await save_attachments(db_session, principal, post, attachments)
+    if not post_data.minor_edit:
+        await queue_post_webhook(
+            background_tasks,
+            post_repository,
+            options.discord_webhook,
+            post,
+            post.author,
+            edited=True,
+        )
 
     return schemas.EditPostResponse(id=post.id)
 

@@ -136,6 +136,8 @@ class EditPostInput(SchemaBase):
     roll_visibility: list[RollVisibilityInput] = []
     # Changes to the thread's options; only accepted when editing its first post.
     thread_options: ThreadOptionsUpdate | None = None
+    # Not stored; a minor edit just skips the Discord ping.
+    minor_edit: bool = False
 
 
 class EditPostResponse(SchemaBase):

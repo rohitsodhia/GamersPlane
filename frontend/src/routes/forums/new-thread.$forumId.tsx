@@ -68,7 +68,8 @@ function RouteComponent() {
 			onSubmit={async (value) => {
 				setApiErrors([]);
 				try {
-					const thread = await mutation.mutateAsync({ forum_id: forumId, ...value });
+					const { minorEdit: _minorEdit, ...fields } = value;
+					const thread = await mutation.mutateAsync({ forum_id: forumId, ...fields });
 					navigate({
 						to: "/forums/thread/$threadId",
 						params: { threadId: thread.id },

@@ -265,6 +265,39 @@ class TestCreateThread:
         assert response.status_code == 200
         assert "id" in response.json()
 
+    async def test_create_thread_with_a_webhook_sends_the_first_post(
+        self, authed_client, create, db_session, sent_webhooks
+    ):
+        client, user = authed_client
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+        await make_moderator(db_session, user, forum)
+        webhook = "https://discord.com/api/webhooks/123456789/abc-DEF_123"
+
+        response = await client.post(
+            "/threads",
+            json=new_thread_payload(
+                forum_id=forum.id, options={"discord_webhook": webhook}
+            ),
+        )
+
+        [(url, payload)] = sent_webhooks
+        assert url == webhook
+        assert payload["username"] == user.username
+        embed = payload["embeds"][0]
+        assert embed["title"] == "Hello"
+        assert f"/forums/thread/{response.json()['id']}?page=1#post-" in embed["url"]
+        assert embed["footer"]["text"] == user.username
+
+    async def test_create_thread_without_a_webhook_sends_nothing(
+        self, authed_client, create, sent_webhooks
+    ):
+        client, _user = authed_client
+        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
+
+        await client.post("/threads", json=new_thread_payload(forum_id=forum.id))
+
+        assert sent_webhooks == []
+
     async def test_create_thread_unknown_forum_returns_404(self, authed_client):
         client, _user = authed_client
 

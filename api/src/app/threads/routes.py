@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, BackgroundTasks, status
 
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
@@ -15,6 +15,7 @@ from app.repositories import (
     ThreadRepository,
 )
 from app.threads import schemas
+from app.threads.discord import queue_post_webhook
 from app.threads.functions import (
     build_post_data,
     check_thread_options,
@@ -112,6 +113,7 @@ async def get_thread(
 
 @threads.post("", response_model=schemas.NewThreadResponse)
 async def create_thread(
+    background_tasks: BackgroundTasks,
     db_session: DBSessionDependency,
     principal: Principal,
     thread_data: schemas.NewThreadInput,
@@ -155,6 +157,13 @@ async def create_thread(
     assert post.published_at is not None
     await ReadTrackingRepository(db_session, principal=principal).mark_viewed(
         thread, post.published_at
+    )
+    await queue_post_webhook(
+        background_tasks,
+        post_repository,
+        thread.options.discord_webhook,
+        post,
+        principal,
     )
 
     return schemas.NewThreadResponse(id=thread.id)
