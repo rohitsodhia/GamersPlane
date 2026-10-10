@@ -8,7 +8,7 @@ from fastapi import BackgroundTasks
 from app.configs import configs
 from app.helpers.prose import prose_snippet
 from app.models import Post, User
-from app.posts.functions import displayable_posted_as, primary_avatar_url
+from app.posts.functions import displayable_posted_as, posted_avatar_url
 from app.repositories import PostRepository
 from app.threads.option_schemas import DISCORD_WEBHOOK_PATTERN
 
@@ -31,7 +31,7 @@ def build_post_payload(
     avatar_url: str | None = author.avatar_url
     if character is not None:
         username = (character.name or "").strip()
-        avatar_url = primary_avatar_url(character)
+        avatar_url = posted_avatar_url(character, post.posted_avatar_id)
     payload: dict = {"username": username}
     # The avatar is a URL built from config; skip it rather than send a broken one.
     if avatar_url and avatar_url.startswith(("http://", "https://")):

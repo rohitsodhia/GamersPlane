@@ -69,11 +69,12 @@ function RouteComponent() {
 				setApiErrors([]);
 				try {
 					// A new thread has no poll to remove, so `poll` is never null here.
-					const { minorEdit: _minorEdit, poll, postedAsId, ...fields } = value;
+					const { minorEdit: _minorEdit, poll, postedAs, ...fields } = value;
 					const thread = await mutation.mutateAsync({
 						forum_id: forumId,
 						...fields,
-						posted_as_id: postedAsId,
+						posted_as_id: postedAs.characterId,
+						posted_avatar_id: postedAs.avatarId,
 						poll: poll ?? undefined,
 					});
 					navigate({

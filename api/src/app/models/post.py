@@ -49,6 +49,15 @@ class Post(Base, SoftDeleteMixin, TimestampMixin):
         ForeignKey("characters.id"), nullable=True
     )
     posted_as: Mapped[Character | None] = relationship(lazy="joined")
+    # Which of the character's avatars to show; null means its primary.
+    posted_avatar_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "character_avatars.id",
+            ondelete="SET NULL",
+            name="posts_posted_avatar_id_fkey",
+        ),
+        nullable=True,
+    )
 
     @validates("state")
     def _validate_state(self, key: str, state: States) -> States:

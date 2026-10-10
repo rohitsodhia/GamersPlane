@@ -14,7 +14,7 @@ from app.forums.permissions import ForumPermissions, Verbs, moderated_roots
 from app.helpers.decorators import public
 from app.middleware import Principal
 from app.models import Forum
-from app.posts.functions import can_post_as
+from app.posts.functions import avatar_url, can_post_as
 from app.repositories import (
     CharacterRepository,
     DeckRepository,
@@ -185,28 +185,54 @@ async def get_forum_characters(
         key=lambda c: (c.user_id != principal.id, c.name.strip().casefold(), c.id),
     )
 
+    post_repository = PostRepository(db_session, principal=principal)
+    last_posts = await post_repository.get_last_posts_as(
+        forum.game_id, principal.id, [c.id for c in options]
+    )
+
     default_id = None
+    default_avatar_id = None
     if thread_id is not None:
         thread = await ThreadRepository(db_session, principal=principal).get(thread_id)
         if thread is not None and thread.forum_id == forum.id:
-            last = await PostRepository(
-                db_session, principal=principal
-            ).get_latest_by_author(thread.id, principal.id)
-            if last is not None and last.posted_as_id in {c.id for c in options}:
-                default_id = last.posted_as_id
+            last = await post_repository.get_latest_by_author(thread.id, principal.id)
+            chosen = (
+                next((c for c in options if c.id == last.posted_as_id), None)
+                if last
+                else None
+            )
+            if last is not None and chosen is not None:
+                default_id = chosen.id
+                if any(a.id == last.posted_avatar_id for a in chosen.avatars):
+                    default_avatar_id = last.posted_avatar_id
 
     return schemas.GetForumCharactersResponse(
         characters=[
             schemas.PostAsCharacter(
                 id=character.id,
                 name=character.name.strip(),
+                type=character.type,
                 owner=schemas.PostAsOwner(
                     id=character.user.id, username=character.user.username
                 ),
+                avatars=[
+                    schemas.PostAsAvatar(
+                        id=avatar.id,
+                        url=avatar_url(avatar),
+                        is_primary=avatar.is_primary,
+                    )
+                    for avatar in sorted(
+                        character.avatars, key=lambda a: (not a.is_primary, a.id)
+                    )
+                ],
+                last_used_at=last_posts[character.id].published_at
+                if character.id in last_posts
+                else None,
             )
             for character in options
         ],
         default_id=default_id,
+        default_avatar_id=default_avatar_id,
     )
 
 

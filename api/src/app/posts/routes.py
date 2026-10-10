@@ -12,6 +12,7 @@ from app.posts.functions import (
     build_posted_as,
     check_post_change,
     validate_posted_as,
+    validate_posted_avatar,
     validate_roll_visibility,
     viewer_gm_game_id,
 )
@@ -173,10 +174,12 @@ async def create_post(
             raise ForbiddenException("Thread is locked")
         if not permissions.has(thread.forum, Verbs.FORUM_WRITE):
             raise ForbiddenException("You can't post in this forum")
+    character = None
     if post_data.posted_as_id is not None:
-        await validate_posted_as(
+        character = await validate_posted_as(
             db_session, principal, thread.forum, post_data.posted_as_id
         )
+    validate_posted_avatar(character, post_data.posted_avatar_id)
 
     attachments = await plan_attachments(
         db_session,
@@ -196,6 +199,7 @@ async def create_post(
         post_data.body,
         state=Post.States.PUBLISHED,
         posted_as_id=post_data.posted_as_id,
+        posted_avatar_id=post_data.posted_avatar_id,
     )
     await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)
@@ -241,13 +245,29 @@ async def edit_post(
         "posted_as_id" in post_data.model_fields_set
         and post_data.posted_as_id != post.posted_as_id
     )
+    # Changing the character resets the avatar unless one is sent with it; null
+    # always resets it. An unchanged avatar isn't re-checked.
+    character = post.posted_as
+    posted_as_id = post.posted_as_id
     if posted_as_changes:
+        posted_as_id = post_data.posted_as_id
+        character = (
+            await validate_posted_as(
+                db_session, principal, post.thread.forum, posted_as_id
+            )
+            if posted_as_id is not None
+            else None
+        )
+    posted_avatar_id = post.posted_avatar_id
+    if "posted_avatar_id" in post_data.model_fields_set:
+        posted_avatar_id = post_data.posted_avatar_id
+    elif posted_as_changes:
+        posted_avatar_id = None
+    avatar_changes = posted_avatar_id != post.posted_avatar_id
+    if posted_as_changes or avatar_changes:
         if post.author_id != principal.id:
             raise ForbiddenException("Only the author can change who a post is as")
-        if post_data.posted_as_id is not None:
-            await validate_posted_as(
-                db_session, principal, post.thread.forum, post_data.posted_as_id
-            )
+        validate_posted_avatar(character, posted_avatar_id)
     existing_rolls = (await post_repository.get_rolls([post.id]))[post.id]
     visibility_changes = validate_roll_visibility(
         existing_rolls, post_data.roll_visibility
@@ -297,8 +317,8 @@ async def edit_post(
             post.thread, options
         )
     await post_repository.update(post, post_data.title, post_data.body)
-    if posted_as_changes:
-        await post_repository.set_posted_as(post, post_data.posted_as_id)
+    if posted_as_changes or avatar_changes:
+        await post_repository.set_posted_as(post, posted_as_id, posted_avatar_id)
     for roll, change in visibility_changes:
         await post_repository.set_roll_visibility(
             roll, change.hide_reason, change.hide_dice, change.hide_result

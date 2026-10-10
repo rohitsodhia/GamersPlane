@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.configs import configs
 from app.exceptions import ForbiddenException, ValidationError
 from app.forums.permissions import ForumPermissions, Verbs
-from app.models import Character, Forum, Post, PostRoll, User
+from app.models import Character, CharacterAvatar, Forum, Post, PostRoll, User
 from app.posts.schemas import PostedAsData, RollVisibilityInput
 from app.repositories import CharacterRepository, PlayerRepository
 
@@ -47,11 +47,41 @@ async def validate_posted_as(
     return character
 
 
-def primary_avatar_url(character: Character) -> str | None:
-    avatar = next((avatar for avatar in character.avatars if avatar.is_primary), None)
-    if avatar is None:
-        return None
+def validate_posted_avatar(character: Character | None, avatar_id: int | None) -> None:
+    """Raise ``ValidationError`` if ``avatar_id`` isn't one of ``character``'s
+    avatars (``character`` is the post's resulting one, ``None`` for as the
+    author). ``None`` always passes, meaning the primary avatar."""
+    if avatar_id is None:
+        return
+    if character is None:
+        raise ValidationError(
+            "An avatar can only be chosen when posting as a character"
+        )
+    if not any(avatar.id == avatar_id for avatar in character.avatars):
+        raise ValidationError("That avatar isn't one of the character's")
+
+
+def avatar_url(avatar: CharacterAvatar) -> str:
     return f"{configs.AVATARS_ROOT}/characters/{avatar.id}.{avatar.ext}"
+
+
+def posted_avatar(
+    character: Character, avatar_id: int | None = None
+) -> CharacterAvatar | None:
+    """The avatar to show for ``character``: ``avatar_id`` if it's still one of
+    theirs, else the primary (``None`` if they have no primary)."""
+    chosen = next(
+        (avatar for avatar in character.avatars if avatar.id == avatar_id), None
+    )
+    if chosen is None:
+        chosen = next((a for a in character.avatars if a.is_primary), None)
+    return chosen
+
+
+def posted_avatar_url(character: Character, avatar_id: int | None = None) -> str | None:
+    """The URL of ``posted_avatar``, if there is one."""
+    chosen = posted_avatar(character, avatar_id)
+    return avatar_url(chosen) if chosen is not None else None
 
 
 def displayable_posted_as(post: Post) -> Character | None:
@@ -97,10 +127,12 @@ def build_posted_as(
             or (gm_game_id is not None and character.game_id == gm_game_id)
         )
     )
+    avatar = posted_avatar(character, post.posted_avatar_id)
     return PostedAsData(
         id=character.id,
         name=(character.name or "").strip(),
-        avatar=primary_avatar_url(character),
+        avatar_id=avatar.id if avatar is not None else None,
+        avatar=avatar_url(avatar) if avatar is not None else None,
         can_view=can_view,
     )
 

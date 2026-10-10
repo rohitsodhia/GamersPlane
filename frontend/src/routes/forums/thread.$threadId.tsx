@@ -55,6 +55,7 @@ import {
 import { Breadcrumbs } from "./-breadcrumbs";
 import ChatPoint from "./-chat-point";
 import { canChangePost, canWrite } from "./-permissions";
+import { defaultPostAs, PLAYER, type PostAsValue } from "./-post-as";
 import { PostAsPicker } from "./-post-as-picker";
 import { PostAttachmentsEditor } from "./-post-attachments";
 import { PostDrawList } from "./-post-draw-list";
@@ -446,11 +447,9 @@ function RouteComponent() {
 		...forumCharactersQueryOptions(thread.forum_id, threadId),
 		enabled: userCanWrite,
 	});
-	const [pickedPostAs, setPickedPostAs] = useState<number | null | undefined>(
-		undefined,
-	);
+	const [pickedPostAs, setPickedPostAs] = useState<PostAsValue | undefined>(undefined);
 	const postAs =
-		pickedPostAs === undefined ? (charactersData?.default_id ?? null) : pickedPostAs;
+		pickedPostAs ?? (charactersData ? defaultPostAs(charactersData) : PLAYER);
 
 	const replyTitle = thread.title.startsWith("Re: ")
 		? thread.title
@@ -472,7 +471,8 @@ function RouteComponent() {
 					thread_id: threadId,
 					title: replyTitle,
 					body: value.body,
-					posted_as_id: postAs,
+					posted_as_id: postAs.characterId,
+					posted_avatar_id: postAs.avatarId,
 					...buildAttachmentPayload(attachments, access),
 				});
 				formApi.reset();
@@ -631,11 +631,11 @@ function RouteComponent() {
 
 						{charactersData && charactersData.characters.length > 0 && (
 							<div className={styles["quick-reply-post-as"]}>
-								<label htmlFor="quick-reply-post-as">Post as:</label>
+								<span id="quick-reply-post-as-label">Post as:</span>
 								<PostAsPicker
-									id="quick-reply-post-as"
+									labelId="quick-reply-post-as-label"
 									characters={charactersData.characters}
-									viewerId={me?.id}
+									viewer={me}
 									value={postAs}
 									onChange={setPickedPostAs}
 								/>

@@ -1,6 +1,154 @@
 .post-as {
+	/* How many rows the open list shows before it scrolls, and how tall each is. */
+	--post-as-rows: 2;
+	--post-as-row-height: 2.6em;
+	--post-as-thumb-size: 1.8em;
+
+	display: flex;
+	flex-direction: column;
+	gap: 0.4em;
+	align-items: flex-start;
+}
+
+.bar {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 0.5em 1em;
+}
+
+.bar-avatar {
+	width: var(--post-as-thumb-size);
+	height: var(--post-as-thumb-size);
+	margin-right: -0.5em;
+	object-fit: cover;
+	border-radius: var(--rac-radius);
+}
+
+.modes {
+	display: flex;
+	gap: 0.3em;
+}
+
+.mode {
+	padding: 0.2em 0.8em;
+	border: 1px solid var(--rac-border-color);
+	border-radius: var(--rac-radius);
+	background-color: var(--rac-bg);
+	color: var(--text);
+	cursor: pointer;
+
+	&[data-selected] {
+		background-color: var(--gp-red);
+		border-color: var(--gp-red);
+		color: #fff;
+	}
+
+	&[data-focus-visible] {
+		outline: 2px solid var(--gp-red);
+		outline-offset: 2px;
+	}
+}
+
+.list-area {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3em;
+	width: min(100%, 28em);
+}
+
+.filter input {
+	width: 100%;
+}
+
+.list {
+	max-height: calc(var(--post-as-rows) * var(--post-as-row-height));
+	overflow-y: auto;
+	border: 1px solid var(--rac-border-color);
+	border-radius: var(--rac-radius);
+	background-color: var(--rac-bg);
+	color: var(--text);
+	outline: none;
+}
+
+.empty {
+	padding: var(--rac-item-padding-block) var(--rac-item-padding-inline);
+}
+
+.row {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.6em;
+	height: var(--post-as-row-height);
+	padding: 0 var(--rac-item-padding-inline);
+	cursor: pointer;
+	outline: none;
+
+	&[data-hovered],
+	&[data-focus-visible] {
+		background-color: light-dark(#dcdcdc, #555);
+	}
+
+	&[data-selected] {
+		background-color: var(--gp-red);
+		color: #fff;
+	}
+
+	&[data-focus-visible] {
+		outline: 2px solid var(--gp-red);
+		outline-offset: -2px;
+	}
+}
+
+.after-divider {
+	border-top: 1px solid var(--rac-border-color);
+}
+
+.name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.owner {
+	font-size: var(--font-size-sm);
+	opacity: 0.8;
+}
+
+.thumbs {
+	display: flex;
+	flex-shrink: 0;
+	gap: 0.3em;
+}
+
+.thumb {
+	padding: 0;
+	border: 2px solid transparent;
+	border-radius: var(--rac-radius);
+	background: none;
+	cursor: pointer;
+	line-height: 0;
+
+	img {
+		width: var(--post-as-thumb-size);
+		height: var(--post-as-thumb-size);
+		object-fit: cover;
+		border-radius: calc(var(--rac-radius) - 2px);
+	}
+
+	&[data-selected] {
+		border-color: var(--gp-red);
+	}
+
+	/* On a selected (red) row the red ring would vanish. */
+	.row[data-selected] &[data-selected] {
+		border-color: #fff;
+	}
+
+	&[data-focus-visible] {
+		outline: 2px solid var(--gp-red);
+		outline-offset: 1px;
+	}
 }

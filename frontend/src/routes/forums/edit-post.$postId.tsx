@@ -1,4 +1,9 @@
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+	useMutation,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import {
 	createFileRoute,
 	notFound,
@@ -8,12 +13,12 @@ import {
 import { useState } from "react";
 import { ApiError } from "#/lib/api";
 import { requireAuth } from "#/lib/auth-route";
-import { forumQueryOptions } from "#/queries/forums";
+import { forumCharactersQueryOptions, forumQueryOptions } from "#/queries/forums";
 import { meQueryOptions } from "#/queries/me";
 import { editPost, postQueryOptions } from "#/queries/posts";
 import { threadQueryOptions } from "#/queries/threads";
 import { canChangePost } from "./-permissions";
-import { changedPostedAs } from "./-post-as";
+import { changedPostedAs, PLAYER } from "./-post-as";
 import { PostForm } from "./-post-form";
 import { changedThreadOptions, type ThreadOptionsValues } from "./-thread-options";
 
@@ -56,6 +61,11 @@ function RouteComponent() {
 	const { data: forum } = useSuspenseQuery(forumQueryOptions(post.forum_id));
 	const { data: thread } = useSuspenseQuery(threadQueryOptions(post.thread_id));
 	const { data: me } = useSuspenseQuery(meQueryOptions);
+	// The same query the form's picker runs, for telling whether the avatar moved.
+	const { data: charactersData } = useQuery({
+		...forumCharactersQueryOptions(forum.id, post.thread_id),
+		enabled: post.author.id === me.id,
+	});
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
@@ -118,7 +128,13 @@ function RouteComponent() {
 						minor_edit: value.minorEdit,
 						// Left out unless the selection moved, so a hidden picker or a
 						// character no longer listed is never cleared by accident.
-						...changedPostedAs(post.posted_as?.id ?? null, value.postedAsId),
+						...changedPostedAs(
+							post.posted_as
+								? { characterId: post.posted_as.id, avatarId: post.posted_as.avatar_id }
+								: PLAYER,
+							value.postedAs,
+							charactersData?.characters ?? [],
+						),
 						thread_options: post.is_first_post
 							? changedThreadOptions(defaultOptions, value.options)
 							: undefined,

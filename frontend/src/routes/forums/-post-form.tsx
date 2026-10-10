@@ -17,6 +17,7 @@ import { meQueryOptions } from "#/queries/me";
 import type {
 	NewDrawInput,
 	NewRollInput,
+	PostedAs,
 	PostRoll,
 	RollVisibilityInput,
 } from "#/queries/posts";
@@ -32,6 +33,7 @@ import {
 import { Breadcrumbs } from "./-breadcrumbs";
 import { PollEditor, pollHasErrors } from "./-poll-editor";
 import { type PollState, pollPayload, pollStateFromData } from "./-poll-editor-state";
+import { PLAYER, type PostAsValue } from "./-post-as";
 import { PostAsPicker } from "./-post-as-picker";
 import { PostAttachmentsEditor } from "./-post-attachments";
 import styles from "./-post-form.module.css";
@@ -75,8 +77,8 @@ type PostFormFields = {
 	options: ThreadOptionsValues;
 	// Only meaningful when editing; a minor edit skips the Discord ping.
 	minorEdit: boolean;
-	// The character to post as; null is the user.
-	postedAsId: number | null;
+	// The character (and avatar) to post as; no character is the user.
+	postedAs: PostAsValue;
 };
 
 export const noOptions: ThreadOptionsValues = {
@@ -149,7 +151,7 @@ export function PostForm({
 	// Scopes the character list to a thread; unset for a new thread.
 	postAsThreadId?: number;
 	// The character the post is written as (editing); null is the user.
-	defaultPostedAs?: { id: number; name: string } | null;
+	defaultPostedAs?: Pick<PostedAs, "id" | "name" | "avatar" | "avatar_id"> | null;
 	submitLabel: string;
 	isSubmitting?: boolean;
 	apiErrors: string[];
@@ -183,7 +185,9 @@ export function PostForm({
 			options: defaultOptions,
 			// An edit is assumed minor unless the author unticks it.
 			minorEdit: true as boolean,
-			postedAsId: (defaultPostedAs?.id ?? null) as number | null,
+			postedAs: (defaultPostedAs
+				? { characterId: defaultPostedAs.id, avatarId: defaultPostedAs.avatar_id }
+				: PLAYER) as PostAsValue,
 		} satisfies PostFormFields,
 		onSubmit: async ({ value }) => {
 			const pollProblems = canAddPoll && pollHasErrors(poll);
@@ -361,14 +365,14 @@ export function PostForm({
 					</form.Field>
 
 					{showPostAs && (postableCharacters.length > 0 || defaultPostedAs) && (
-						<form.Field name="postedAsId">
+						<form.Field name="postedAs">
 							{(field) => (
 								<>
-									<label htmlFor="posted-as">Post as:</label>
+									<span id="posted-as-label">Post as:</span>
 									<PostAsPicker
-										id="posted-as"
+										labelId="posted-as-label"
 										characters={postableCharacters}
-										viewerId={me?.id}
+										viewer={me}
 										value={field.state.value}
 										onChange={(value) => field.handleChange(value)}
 										current={defaultPostedAs}

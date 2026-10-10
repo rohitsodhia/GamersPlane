@@ -163,6 +163,8 @@ def upgrade() -> None:
         sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("revision_of_id", sa.Integer(), nullable=True),
         sa.Column("posted_as_id", sa.Integer(), nullable=True),
+        # Its foreign key is added with character_avatars (created later).
+        sa.Column("posted_avatar_id", sa.Integer(), nullable=True),
         sa.Column("deleted", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),

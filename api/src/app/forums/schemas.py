@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import StringConstraints
 
+from app.models import Character
 from app.models.forum import Forum
 from app.schema_base import SchemaBase
 
@@ -115,10 +117,21 @@ class PostAsOwner(SchemaBase):
     username: str
 
 
+class PostAsAvatar(SchemaBase):
+    id: int
+    url: str
+    is_primary: bool
+
+
 class PostAsCharacter(SchemaBase):
     id: int
     name: str
+    type: Character.Type
     owner: PostAsOwner
+    # Primary first, then by id.
+    avatars: list[PostAsAvatar] = []
+    # When the principal last posted as this character in the game's forums.
+    last_used_at: datetime | None = None
 
 
 class GetForumCharactersResponse(SchemaBase):
@@ -126,6 +139,8 @@ class GetForumCharactersResponse(SchemaBase):
     # The character the principal last posted as in the requested thread, when
     # they can still post as it.
     default_id: int | None = None
+    # The avatar of that same post, when it's still one of the character's.
+    default_avatar_id: int | None = None
 
 
 class ForumIdResponse(SchemaBase):

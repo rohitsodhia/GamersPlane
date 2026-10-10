@@ -130,6 +130,7 @@ class PostRepository:
         body: dict,
         state: Post.States = Post.States.DRAFT,
         posted_as_id: int | None = None,
+        posted_avatar_id: int | None = None,
     ) -> Post:
         post = Post(
             thread_id=thread_id,
@@ -138,15 +139,19 @@ class PostRepository:
             body=body,
             state=state,
             posted_as_id=posted_as_id,
+            posted_avatar_id=posted_avatar_id,
         )
         self.db_session.add(post)
         await self.db_session.flush()
         # Loaded now (avatars too), as a new post can't lazy-load it later.
-        await self.set_posted_as(post, posted_as_id)
+        await self.set_posted_as(post, posted_as_id, posted_avatar_id)
         return post
 
-    async def set_posted_as(self, post: Post, character_id: int | None) -> Post:
-        """Post as the character (``None`` for as the author). Not validated."""
+    async def set_posted_as(
+        self, post: Post, character_id: int | None, avatar_id: int | None = None
+    ) -> Post:
+        """Post as the character (``None`` for as the author), showing the avatar
+        (``None`` for its primary). Not validated."""
         character = (
             await CharacterRepository(
                 self.db_session, principal=self.principal
@@ -156,8 +161,43 @@ class PostRepository:
         )
         post.posted_as = character
         post.posted_as_id = character_id
+        post.posted_avatar_id = avatar_id
         await self.db_session.flush()
         return post
+
+    async def get_last_posts_as(
+        self, game_id: int, author_id: int, character_ids: Collection[int]
+    ) -> dict[int, Post]:
+        """The author's most recent published post as each of the characters in
+        any thread of the game's forums, in one query. Characters never posted
+        as are left out."""
+        if not character_ids:
+            return {}
+        latest = (
+            select(
+                Post.id,
+                func.row_number()
+                .over(
+                    partition_by=Post.posted_as_id,
+                    order_by=(Post.published_at.desc(), Post.id.desc()),
+                )
+                .label("rank"),
+            )
+            .join(Thread, Post.thread_id == Thread.id)
+            .join(Forum, Thread.forum_id == Forum.id)
+            .where(
+                Forum.game_id == game_id,
+                Post.author_id == author_id,
+                Post.posted_as_id.in_(character_ids),
+                Post.state == Post.States.PUBLISHED,
+                Post.deleted.is_(None),
+            )
+            .subquery()
+        )
+        posts = await self.db_session.scalars(
+            select(Post).join(latest, Post.id == latest.c.id).where(latest.c.rank == 1)
+        )
+        return {post.posted_as_id: post for post in posts if post.posted_as_id}
 
     async def update(self, post: Post, title: str, body: dict) -> Post:
         post.title = title

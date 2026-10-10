@@ -210,7 +210,7 @@
 .quick-reply-post-as {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: center;
+	align-items: flex-start;
 	gap: 0.5em 1em;
 	margin-bottom: 0.5em;
 }

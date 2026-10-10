@@ -51,6 +51,8 @@ export type PostDraw = {
 export type PostedAs = {
 	id: number;
 	name: string;
+	// The avatar shown (the chosen one, else the primary), and its URL.
+	avatar_id: number | null;
 	avatar: string | null;
 	can_view: boolean;
 };
@@ -138,6 +140,8 @@ export const createPost = async (
 		body: JSONContent;
 		// Null (or absent) posts as the user.
 		posted_as_id?: number | null;
+		// Null (or absent) is the character's primary avatar.
+		posted_avatar_id?: number | null;
 	} & PostAttachmentsInput,
 ): Promise<{ id: number }> => {
 	const res = await apiFetch("/posts", {
@@ -178,6 +182,9 @@ export const editPost = async (
 		minor_edit?: boolean;
 		// Absent leaves it alone; null posts as the user. Author only.
 		posted_as_id?: number | null;
+		// Absent keeps the avatar (or resets it when the character changes); null is
+		// the character's primary.
+		posted_avatar_id?: number | null;
 		// Only for a thread's first post.
 		thread_options?: ThreadOptionsUpdate;
 		// Absent leaves the poll alone; null removes it (and its votes).

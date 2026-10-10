@@ -175,6 +175,8 @@ export const createThread = async (
 		poll?: PollInput;
 		// Null (or absent) posts as the user.
 		posted_as_id?: number | null;
+		// Null (or absent) is the character's primary avatar.
+		posted_avatar_id?: number | null;
 	} & PostAttachmentsInput,
 ): Promise<{ id: number }> => {
 	const res = await apiFetch("/threads", {

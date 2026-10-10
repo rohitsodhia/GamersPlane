@@ -141,16 +141,29 @@ export function forumDecksQueryOptions(id: number) {
 	});
 }
 
+export type PostableAvatar = {
+	id: number;
+	url: string;
+	is_primary: boolean;
+};
+
 export type PostableCharacter = {
 	id: number;
 	name: string;
 	owner: { id: number; username: string };
+	type: "pc" | "npc";
+	// Primary first.
+	avatars: PostableAvatar[];
+	// When the viewer last posted as it in this game.
+	last_used_at: string | null;
 };
 
 export type PostableCharacters = {
 	characters: PostableCharacter[];
-	// What the user last posted as in the thread, if still valid.
+	// What the user last posted as in the thread, if still valid, and the avatar
+	// they used.
 	default_id: number | null;
+	default_avatar_id: number | null;
 };
 
 // The characters the user can post as in the forum (empty outside game forums, or
