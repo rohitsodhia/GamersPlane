@@ -1,0 +1,126 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+KEYS_DIR="$SCRIPT_DIR/../opendkim/keys"
+
+usage() {
+	echo "Usage: $0 <domain> <selector> [server_ip]"
+	echo "  Checks the DNS an outbound-mail domain needs: DKIM, DMARC, SPF and (with server_ip) A + reverse DNS."
+	echo "  domain     the From domain, i.e. POSTFIX_MYHOSTNAME (e.g. beta.gamersplane.com)"
+	echo "  selector   the DKIM selector (OPENDKIM_SELECTOR)"
+	echo "  server_ip  public IP of the sending server"
+	exit 1
+}
+
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+	usage
+fi
+
+domain=${1%.}
+selector=$2
+server_ip=${3:-}
+
+for tool in dig openssl; do
+	if ! command -v "$tool" >/dev/null; then
+		echo "$tool is required but not installed"
+		exit 1
+	fi
+done
+
+failed=0
+pass() { echo "PASS  $1: $2"; }
+warn() { echo "WARN  $1: $2"; }
+fail() {
+	echo "FAIL  $1: $2"
+	failed=1
+}
+
+# TXT records come back as one or more quoted chunks per record; join the chunks
+# of each record and print one record per line.
+txt() {
+	dig +short TXT "$1" | sed -E 's/" "//g; s/^"//; s/"$//'
+}
+
+# Organizational domain = last two labels (good enough for .com-style domains)
+org_domain=$(awk -F. '{ if (NF > 2) print $(NF-1) "." $NF; else print $0 }' <<<"$domain")
+
+# --- DKIM ---------------------------------------------------------------
+dkim_name="${selector}._domainkey.${domain}"
+dkim_record=$(txt "$dkim_name" | grep 'v=DKIM1' || true)
+if [[ -z $dkim_record ]]; then
+	fail DKIM "no DKIM TXT record at $dkim_name"
+else
+	dns_p=$(grep -oE 'p=[^;]*' <<<"$dkim_record" | head -n1 | cut -c3- | tr -d ' ')
+	private_key="$KEYS_DIR/$domain/$selector.private"
+	if [[ -z $dns_p ]]; then
+		fail DKIM "$dkim_name has no p= value (key revoked?)"
+	elif [[ ! -f $private_key ]]; then
+		warn DKIM "record exists at $dkim_name but local key $private_key not found; skipped key comparison"
+	else
+		local_p=$(openssl rsa -in "$private_key" -pubout 2>/dev/null | grep -v -- '-----' | tr -d '\n' || true)
+		if [[ -z $local_p ]]; then
+			fail DKIM "could not derive a public key from $private_key"
+		elif [[ $local_p == "$dns_p" ]]; then
+			pass DKIM "$dkim_name matches the local private key"
+		else
+			fail DKIM "$dkim_name does not match the local private key (stale record or wrong selector?)"
+		fi
+	fi
+fi
+
+# --- DMARC --------------------------------------------------------------
+dmarc=$(txt "_dmarc.${domain}" | grep 'v=DMARC1' || true)
+if [[ -n $dmarc ]]; then
+	pass DMARC "_dmarc.${domain}: $dmarc"
+else
+	org_dmarc=$(txt "_dmarc.${org_domain}" | grep 'v=DMARC1' || true)
+	if [[ -n $org_dmarc ]]; then
+		pass DMARC "none on ${domain}; inheriting organizational domain _dmarc.${org_domain}: $org_dmarc"
+	else
+		fail DMARC "no DMARC record at _dmarc.${domain} or _dmarc.${org_domain}"
+	fi
+fi
+
+# --- SPF ----------------------------------------------------------------
+spf=$(txt "$domain" | grep '^v=spf1' || true)
+if [[ -z $spf ]]; then
+	fail SPF "no SPF TXT record on $domain. SPF is evaluated on the From/envelope domain itself; a subdomain does not inherit the organizational domain's SPF, so $domain needs its own record (e.g. \"v=spf1 ip4:<server_ip> -all\")"
+elif [[ -z $server_ip ]]; then
+	pass SPF "$domain: $spf (pass server_ip to check it is authorized)"
+elif grep -qE "(^|[ ])ip4:${server_ip//./\\.}(/32)?([ ]|$)" <<<"$spf"; then
+	pass SPF "$server_ip is listed directly in $domain's SPF"
+else
+	warn SPF "$server_ip not listed as ip4: in $domain's SPF ($spf); includes/mx were not expanded, verify manually"
+fi
+
+# --- Server IP: A + forward-confirmed reverse DNS -----------------------
+if [[ -n $server_ip ]]; then
+	a_records=$(dig +short A "$domain" | grep -E '^[0-9.]+$' || true)
+	if [[ -z $a_records ]]; then
+		warn A "$domain has no A record (fine if web hosting is elsewhere)"
+	elif grep -qx "$server_ip" <<<"$a_records"; then
+		pass A "$domain -> $server_ip"
+	else
+		warn A "$domain resolves to $(tr '\n' ' ' <<<"$a_records")not $server_ip (fine if the sending host differs from the web host)"
+	fi
+
+	ptr=$(dig +short -x "$server_ip" | sed 's/\.$//' || true)
+	if [[ -z $ptr ]]; then
+		fail PTR "$server_ip has no reverse DNS record (on DigitalOcean it is set from the droplet name)"
+	elif ! grep -qix "$domain" <<<"$ptr"; then
+		fail PTR "$server_ip reverse-resolves to $(tr '\n' ' ' <<<"$ptr")not $domain"
+	elif dig +short A "$domain" | grep -qx "$server_ip"; then
+		pass PTR "$server_ip <-> $domain (forward-confirmed)"
+	else
+		fail PTR "$server_ip -> $domain, but $domain does not resolve back to $server_ip"
+	fi
+fi
+
+if [[ $failed -ne 0 ]]; then
+	echo
+	echo "One or more checks FAILED"
+	exit 1
+fi
+echo
+echo "All checks passed (WARNs, if any, need a manual look)"

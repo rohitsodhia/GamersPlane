@@ -1,47 +1,59 @@
-import smtplib
+import logging
 from email.headerregistry import Address
 from email.message import EmailMessage
+from email.utils import formatdate, make_msgid
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
+import aiosmtplib
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.configs import configs
 
-# uri = configs.EMAIL_URI
-# port = configs.EMAIL_PORT
-# login = configs.EMAIL_LOGIN
-# password = configs.EMAIL_PASSWORD
-
-# context = ssl.create_default_context()
+logger = logging.getLogger(__name__)
 
 _APP_DIR = Path(__file__).parent.parent
 
+_env = Environment(
+    loader=FileSystemLoader(searchpath=str(_APP_DIR)),
+    autoescape=select_autoescape(["html"]),
+)
+
 
 def get_template(template_path: str, **kwargs) -> str:
-    file_loader = FileSystemLoader(searchpath=str(_APP_DIR))
-    env = Environment(loader=file_loader)
-
-    template = env.get_template(template_path)
+    template = _env.get_template(template_path)
 
     output = template.render(site_domain=configs.HOST_NAME, **kwargs)
     return output
 
 
-def send_email(to: str, subject: str, content: str) -> None:
-    if configs.ENVIRONMENT == "dev":
+async def send_email(
+    to: str, subject: str, content: str, *, reply_to: str | None = None
+) -> None:
+    """Send an HTML email. Failures are logged and swallowed, never raised.
+
+    `reply_to` is a ready-made header value (e.g. from `email.utils.formataddr`)."""
+    if not configs.EMAIL_ENABLED:
+        logger.info("Email disabled; not sending to %s: %s\n%s", to, subject, content)
         return
 
     email = EmailMessage()
     email["From"] = Address(
         display_name="No Reply (Gamers' Plane)",
         username="no-reply",
-        domain="gamersplane.com",
+        domain=configs.EMAIL_DOMAIN,
     )
     email["To"] = to
     email["Subject"] = subject
+    if reply_to:
+        email["Reply-To"] = reply_to
+    # Postfix doesn't add these for mail from non-local clients
+    email["Date"] = formatdate(localtime=False)
+    email["Message-ID"] = make_msgid(domain=configs.EMAIL_DOMAIN)
     email.set_content(content, subtype="html")
 
-    # with smtplib.SMTP_SSL(uri, port, context=context) as server:
-    #     server.login(login, password)
-    with smtplib.SMTP("localhost") as server:
-        server.send_message(email)
+    try:
+        await aiosmtplib.send(
+            email, hostname=configs.EMAIL_HOST, port=configs.EMAIL_PORT
+        )
+    except (aiosmtplib.SMTPException, OSError):
+        logger.exception("Failed to send email to %s: %s", to, subject)

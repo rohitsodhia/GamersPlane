@@ -16,7 +16,7 @@
             {% block content %}{% endblock %}
 		</td></tr>
 		<tr><td style="padding:10px;background:#444;border:1px solid #444;color:#FFF">
-            <p>Do not respond to this email; this account is not monitored.</p>
+            <p>{% block footer_note %}Do not respond to this email; this account is not monitored.{% endblock %}</p>
 			&copy; Gamers' Plane
 		</td></tr>
 	</table>

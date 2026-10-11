@@ -1,0 +1,114 @@
+#!/bin/bash
+set -euo pipefail
+
+API_CONTAINER=gamersplane-api
+POSTFIX_CONTAINER=gamersplane-postfix
+OPENDKIM_CONTAINER=gamersplane-opendkim
+# How long to wait for postfix to log a delivery result. A blocked port 25 takes ~60s to time out.
+WAIT_SECONDS=15
+
+usage() {
+	echo "Usage: $0 <to>"
+	echo "  Sends a test email through the real stack (API -> postfix -> opendkim) and shows the queue-id log lines."
+	echo "  The stack must be up with the mail overlay: ./compose.sh -e <env> --email up -d"
+	echo
+	echo "  Good recipients:"
+	echo "    - a one-time mail-tester.com address (the site shows it; afterwards open the score page)"
+	echo "    - a Gmail account: open the message, More > Show original, look for"
+	echo "      spf=pass dkim=pass dmarc=pass"
+	exit 1
+}
+
+if [[ $# -ne 1 || $1 == -* || $1 != *@* ]]; then
+	usage
+fi
+
+to=$1
+
+for container in "$API_CONTAINER" "$POSTFIX_CONTAINER" "$OPENDKIM_CONTAINER"; do
+	if ! docker ps --format '{{.Names}}' | grep -qx "$container"; then
+		echo "$container is not running. Start the stack with the mail overlay: ./compose.sh -e <env> --email up -d"
+		exit 1
+	fi
+done
+
+postfix_log() {
+	# The host copy of the log is root-owned, so read it through the container
+	docker exec "$POSTFIX_CONTAINER" cat /var/log/postfix.log 2>/dev/null || true
+}
+
+subject="GamersPlane test $(date -u +%Y-%m-%dT%H:%M:%SZ) from $(hostname)"
+
+# Anything logged after this line count belongs to this send (log timestamps have no year or zone).
+lines_before=$(postfix_log | wc -l)
+
+echo "Sending to $to"
+echo "Subject: $subject"
+
+docker exec -i -w /app/src -e "TEST_TO=$to" -e "TEST_SUBJECT=$subject" "$API_CONTAINER" python - <<'EOF'
+import asyncio
+import os
+
+from app.configs import configs
+from app.helpers.email import send_email
+
+# Force real sending regardless of ENVIRONMENT / EMAIL_ENABLED in .env
+configs.EMAIL_ENABLED = True
+
+body = f"""
+<p>This is a test email from the GamersPlane email setup scripts.</p>
+<p>Sent from: {configs.EMAIL_DOMAIN} via {configs.EMAIL_HOST}:{configs.EMAIL_PORT}</p>
+<p>If you received it, check the headers for <code>spf=pass dkim=pass dmarc=pass</code>.
+No action is needed.</p>
+"""
+
+asyncio.run(send_email(os.environ["TEST_TO"], os.environ["TEST_SUBJECT"], body))
+print(f"send_email returned (From domain: {configs.EMAIL_DOMAIN})")
+EOF
+
+# Postfix logs "<queue id>: client=..." when it accepts the message from the API, then
+# "<queue id>: to=<addr>, ... status=..." once a delivery attempt finishes.
+queue_id=""
+status_line=""
+new_log=""
+for ((i = 0; i < WAIT_SECONDS; i++)); do
+	new_log=$(postfix_log | tail -n +"$((lines_before + 1))")
+	if [[ -z $queue_id ]]; then
+		queue_id=$(grep -E '[0-9A-F]{8,}: client=' <<<"$new_log" | head -n1 | grep -oE '[0-9A-F]{8,}(: client=)' | grep -oE '^[0-9A-F]+' || true)
+	fi
+	if [[ -n $queue_id ]]; then
+		status_line=$(grep -E "$queue_id: to=<[^>]*>.*status=" <<<"$new_log" | tail -n1 || true)
+		[[ -n $status_line ]] && break
+	fi
+	sleep 1
+done
+
+if [[ -z $queue_id ]]; then
+	echo
+	echo "Postfix did not log the message being accepted. send_email logs and swallows SMTP errors; check:"
+	echo "  docker logs gamersplane-api --tail 30"
+	exit 1
+fi
+
+echo
+echo "=== opendkim ($queue_id) ==="
+dkim_lines=$(docker exec "$OPENDKIM_CONTAINER" cat /var/log/mail.info 2>/dev/null | grep -F "$queue_id" || true)
+if [[ -n $dkim_lines ]]; then
+	echo "$dkim_lines"
+else
+	echo "No opendkim line for $queue_id: the message was NOT signed."
+	echo "Check that POSTFIX_MYHOSTNAME equals the From domain and that the key matches OPENDKIM_SELECTOR."
+fi
+
+echo
+echo "=== postfix ($queue_id) ==="
+grep -F "$queue_id" <<<"$new_log"
+
+echo
+status=$(grep -oE 'status=[a-z]+' <<<"$status_line" || true)
+case $status in
+status=sent) echo "Delivered to the remote server. Check the recipient's headers for spf/dkim/dmarc results." ;;
+status=deferred) echo "Deferred: postfix could not deliver yet (reason above). Port 25 blocked? Run docker/email/check_port25." ;;
+status=bounced) echo "Bounced: the remote server rejected the message (reason above)." ;;
+*) echo "No delivery result after ${WAIT_SECONDS}s (a blocked port takes ~60s to time out). Re-check: docker exec $POSTFIX_CONTAINER grep $queue_id /var/log/postfix.log" ;;
+esac

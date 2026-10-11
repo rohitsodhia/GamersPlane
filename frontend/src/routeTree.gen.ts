@@ -14,6 +14,7 @@ import { Route as R403RouteImport } from './routes/403'
 import { Route as AcpRouteRouteImport } from './routes/acp/route'
 import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as CommunityGuidelinesRouteImport } from './routes/community-guidelines'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as GamersRouteImport } from './routes/gamers'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
@@ -84,6 +85,11 @@ const ActivateRoute = ActivateRouteImport.update({
 const CommunityGuidelinesRoute = CommunityGuidelinesRouteImport.update({
   id: '/community-guidelines',
   path: '/community-guidelines',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GamersRoute = GamersRouteImport.update({
@@ -332,6 +338,7 @@ export interface FileRoutesByFullPath {
   '/403': typeof R403Route
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
+  '/contact': typeof ContactRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -384,6 +391,7 @@ export interface FileRoutesByTo {
   '/403': typeof R403Route
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
+  '/contact': typeof ContactRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -436,6 +444,7 @@ export interface FileRoutesById {
   '/403': typeof R403Route
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
+  '/contact': typeof ContactRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -491,6 +500,7 @@ export interface FileRouteTypes {
     | '/403'
     | '/activate'
     | '/community-guidelines'
+    | '/contact'
     | '/gamers'
     | '/login'
     | '/privacy-policy'
@@ -543,6 +553,7 @@ export interface FileRouteTypes {
     | '/403'
     | '/activate'
     | '/community-guidelines'
+    | '/contact'
     | '/gamers'
     | '/login'
     | '/privacy-policy'
@@ -594,6 +605,7 @@ export interface FileRouteTypes {
     | '/403'
     | '/activate'
     | '/community-guidelines'
+    | '/contact'
     | '/gamers'
     | '/login'
     | '/privacy-policy'
@@ -648,6 +660,7 @@ export interface RootRouteChildren {
   R403Route: typeof R403Route
   ActivateRoute: typeof ActivateRoute
   CommunityGuidelinesRoute: typeof CommunityGuidelinesRoute
+  ContactRoute: typeof ContactRoute
   GamersRoute: typeof GamersRoute
   LoginRoute: typeof LoginRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
@@ -719,6 +732,13 @@ declare module '@tanstack/react-router' {
       path: '/community-guidelines'
       fullPath: '/community-guidelines'
       preLoaderRoute: typeof CommunityGuidelinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gamers': {
@@ -1105,6 +1125,7 @@ const rootRouteChildren: RootRouteChildren = {
   R403Route: R403Route,
   ActivateRoute: ActivateRoute,
   CommunityGuidelinesRoute: CommunityGuidelinesRoute,
+  ContactRoute: ContactRoute,
   GamersRoute: GamersRoute,
   LoginRoute: LoginRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,

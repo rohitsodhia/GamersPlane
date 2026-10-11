@@ -1,19 +1,37 @@
+networks:
+  mail:
+    ipam:
+      config:
+        # This subnet is duplicated in docker/postfix/main.cf (mynetworks)
+        # and docker/opendkim/opendkim.conf (InternalHosts). Keep all three in sync.
+        - subnet: 172.30.25.0/24
+
 services:
+  api:
+    networks:
+      - default
+      - mail
+
   postfix:
     build:
       context: ./docker/postfix
+    container_name: gamersplane-postfix
     environment:
       - POSTFIX_MYHOSTNAME
     volumes:
       - ./logs/postfix:/var/log
+    networks:
+      - mail
 
   opendkim:
     build:
       context: ./docker/opendkim
-      args:
-        - OPENDKIM_KEY
+    container_name: gamersplane-opendkim
     environment:
       - OPENDKIM_SELECTOR
       - POSTFIX_MYHOSTNAME
     volumes:
       - ./logs/opendkim:/var/log
+      - ${OPENDKIM_KEY}:/run/opendkim-key/key.private:ro
+    networks:
+      - mail

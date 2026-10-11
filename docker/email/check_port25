@@ -1,0 +1,66 @@
+#!/bin/bash
+set -euo pipefail
+
+usage() {
+	echo "Usage: $0"
+	echo "  Tests outbound TCP 25 to public mail servers, from this host and (if running) the postfix container."
+	exit 1
+}
+
+if [[ $# -ne 0 ]]; then
+	usage
+fi
+
+TARGETS=(gmail-smtp-in.l.google.com mx1.dreamhost.com)
+TIMEOUT=5
+POSTFIX_CONTAINER=gamersplane-postfix
+
+failed=0
+
+# Prints the banner line when the connection works, so a PASS is more than a SYN-ACK.
+probe_host() {
+	timeout "$TIMEOUT" bash -c 'exec 3<>/dev/tcp/$0/25 && read -r -t '"$TIMEOUT"' banner <&3 && echo "$banner"' "$1" 2>/dev/null
+}
+
+probe_container() {
+	# busybox nc: -w is the connect/idle timeout
+	docker exec "$POSTFIX_CONTAINER" nc -w "$TIMEOUT" "$1" 25 </dev/null 2>/dev/null | head -n1
+}
+
+report() {
+	local where=$1 target=$2 banner=$3
+	if [[ -n $banner ]]; then
+		echo "PASS  $where -> $target:25  (${banner%$'\r'})"
+	else
+		echo "FAIL  $where -> $target:25  no connection within ${TIMEOUT}s"
+		failed=1
+	fi
+}
+
+for target in "${TARGETS[@]}"; do
+	banner=$(probe_host "$target" || true)
+	report host "$target" "$banner"
+done
+
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$POSTFIX_CONTAINER"; then
+	for target in "${TARGETS[@]}"; do
+		banner=$(probe_container "$target" || true)
+		report "$POSTFIX_CONTAINER" "$target" "$banner"
+	done
+else
+	echo "SKIP  $POSTFIX_CONTAINER is not running; container check skipped"
+fi
+
+if [[ $failed -ne 0 ]]; then
+	cat <<'EOF'
+
+Outbound port 25 is blocked or unreachable. If this is a DigitalOcean droplet, DO blocks
+outbound SMTP (25/465/587) on accounts created after June 2022 and on some flagged accounts;
+contact DO support to ask for it to be lifted, or use a relay: set postfix `relayhost`
+(docker/postfix/main.cf) to an SMTP service such as SES or Brevo, on port 587 with SASL auth.
+Home/office ISPs commonly block port 25 too, so a FAIL on a dev machine is expected.
+EOF
+	exit 1
+fi
+echo
+echo "Outbound port 25 is open"

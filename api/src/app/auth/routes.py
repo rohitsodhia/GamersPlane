@@ -143,11 +143,14 @@ async def generate_password_reset(
     if not password_reset_token:
         password_reset_token = PasswordResetToken(user=user)
         db_session.add(password_reset_token)
+        # Flush so the column-default token is populated before building the link
+        await db_session.flush()
     email_content = get_template(
         "auth/templates/reset_password.html",
-        reset_link=f"{configs.HOST_NAME}/activate/{password_reset_token.token}",
+        # TODO: the frontend reset-password page doesn't exist yet
+        reset_link=f"{configs.HOST_NAME}/reset-password?token={password_reset_token.token}",
     )
-    send_email(email, "Password reset for Gamers' Plane", email_content)
+    await send_email(email, "Password reset for Gamers' Plane", email_content)
 
     return {"success": True}
 

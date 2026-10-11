@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from random import seed
@@ -12,6 +13,7 @@ from app.auth.routes import auth
 from app.character_sheets.routes import character_sheets
 from app.characters.routes import characters
 from app.configs import configs
+from app.contact.routes import contact
 from app.database import (
     get_db_session,
     get_legacy_db_session,
@@ -70,6 +72,17 @@ def _request_validation_error_item(error: dict) -> ErrorItem:
 
 
 def create_app(init_db=True) -> FastAPI:
+    # Nothing configures the root logger, which stays at WARNING; give our own
+    # loggers a handler so INFO records (e.g. dev email dumps) are visible
+    app_logger = logging.getLogger("app")
+    if not app_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(levelname)s:     %(name)s - %(message)s")
+        )
+        app_logger.addHandler(handler)
+        app_logger.setLevel(logging.INFO)
+
     if init_db:
         ssh_config = {}
         if (
@@ -207,5 +220,6 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(rbac)
     app.include_router(character_sheets)
     app.include_router(characters)
+    app.include_router(contact)
 
     return app

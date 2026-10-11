@@ -25,6 +25,20 @@ class ConfigStore:
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
         self.PVAR = os.getenv("PVAR", "")
 
+        self.EMAIL_HOST = os.getenv("EMAIL_HOST", "postfix")
+        self.EMAIL_PORT = int(os.getenv("EMAIL_PORT", 25))
+        # Read from POSTFIX_MYHOSTNAME so the From domain can't drift from the DKIM signing domain
+        self.EMAIL_DOMAIN = os.getenv("POSTFIX_MYHOSTNAME", "gamersplane.com")
+        email_enabled = os.getenv("EMAIL_ENABLED")
+        self.EMAIL_ENABLED = (
+            self.ENVIRONMENT != "dev"
+            if not email_enabled
+            else email_enabled.strip().lower() in ("1", "true", "yes", "on")
+        )
+
+        # Where the Contact Us form delivers
+        self.CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "contact@gamersplane.com")
+
         self.PAGINATE_PER_PAGE = int(os.getenv("PAGINATE_PER_PAGE", 20))
 
         dialect = os.getenv("DATABASE_DIALECT", "postgresql")

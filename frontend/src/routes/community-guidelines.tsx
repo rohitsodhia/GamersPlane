@@ -7,7 +7,7 @@ export const Route = createFileRoute("/community-guidelines")({
 });
 
 function RouteComponent() {
-	const [mods, setMods] = useState<{ id: number; username: string }[]>([]);
+	const [mods] = useState<{ id: number; username: string }[]>([]);
 
 	const hbMarginedHeader = useHbMargined<HTMLHeadingElement>();
 	const hbMarginedMods = useHbMargined<HTMLHeadingElement>();

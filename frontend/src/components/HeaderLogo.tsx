@@ -1,4 +1,4 @@
-import React, { PureComponent } from "react";
+import { PureComponent } from "react";
 
 export class HeaderLogo extends PureComponent {
 	render() {
@@ -8,14 +8,13 @@ export class HeaderLogo extends PureComponent {
 				baseProfile="tiny"
 				id="header_logo"
 				xmlns="http://www.w3.org/2000/svg"
-				xmlns:xlink="http://www.w3.org/1999/xlink"
 				x="0px"
 				y="0px"
 				width="154.058px"
 				height="75.981px"
 				viewBox="0 0 154.058 75.981"
-				xml:space="preserve"
-				alt="Gamers' Plane Logo"
+				role="img"
+				aria-label="Gamers' Plane Logo"
 			>
 				<path
 					fill="#BD2427"
@@ -28,7 +27,7 @@ export class HeaderLogo extends PureComponent {
 							opacity="0.35"
 							width="241"
 							height="278"
-							xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPYAAAEbCAYAAADpv3kgAAAACXBIWXMAAC4jAAAuIwF4pT92AAAA
+							href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPYAAAEbCAYAAADpv3kgAAAACXBIWXMAAC4jAAAuIwF4pT92AAAA
 GXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAARyhJREFUeNrsvUuPZdl1HrjXPo/7
 iFdGZWZlVYkiRZYAD4yGbEAz90ADDQx3Ax40DDfQhj0y5H+gIckB4R/gRg8005jgwIDaaHc3TPZQ
 aFDdaEM0xRZRRVFUPbIqMzLivs85e3mttfc+Z58bNyJuREZExmOtwqn7jBs3b9zvfOv5LWPU1NTU

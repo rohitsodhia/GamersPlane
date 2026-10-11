@@ -81,6 +81,7 @@ async def get_current_user(
     }
     if full:
         output["joinDate"] = current_user.join_date
+        output["email"] = current_user.email
         meta_by_key = {meta.key: meta.value for meta in current_user.meta}
         for field, key in _PROFILE_META_KEYS.items():
             value = meta_by_key.get(key.value)

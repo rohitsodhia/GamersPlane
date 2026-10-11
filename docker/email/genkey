@@ -1,0 +1,81 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+KEYS_DIR=$(cd -- "$SCRIPT_DIR/../opendkim/keys" &>/dev/null && pwd)
+# Keep in sync with docker/opendkim/Dockerfile
+ALPINE_IMAGE="alpine:3.24"
+
+usage() {
+	echo "Usage: $0 <domain> [selector]"
+	echo "  Generates a 2048-bit DKIM key at docker/opendkim/keys/<domain>/<selector>.{private,txt}"
+	echo "  domain    sending domain, i.e. the POSTFIX_MYHOSTNAME value (e.g. beta.gamersplane.com)"
+	echo "  selector  defaults to today's date, YYYYMMDD"
+	exit 1
+}
+
+if [[ $# -lt 1 || $# -gt 2 || $1 == -* ]]; then
+	usage
+fi
+
+domain=$1
+selector=${2:-$(date +%Y%m%d)}
+
+if [[ ! $domain =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]]; then
+	echo "Invalid domain: $domain"
+	exit 1
+fi
+if [[ ! $selector =~ ^[A-Za-z0-9_-]+$ ]]; then
+	echo "Invalid selector: $selector"
+	exit 1
+fi
+
+key_dir="$KEYS_DIR/$domain"
+private_key="$key_dir/$selector.private"
+txt_file="$key_dir/$selector.txt"
+
+if [[ -e $private_key || -e $txt_file ]]; then
+	echo "Refusing to overwrite existing key: $private_key"
+	exit 1
+fi
+
+mkdir -p "$key_dir"
+
+# Runs as root inside the container (apk needs it), then hands the files to the invoking user.
+docker run --rm \
+	-v "$key_dir:/out" \
+	-e "DOMAIN=$domain" \
+	-e "SELECTOR=$selector" \
+	-e "OWNER=$(id -u):$(id -g)" \
+	"$ALPINE_IMAGE" sh -c '
+		set -eu
+		apk add --no-cache opendkim-utils >/dev/null
+		opendkim-genkey --bits=2048 --domain="$DOMAIN" --selector="$SELECTOR" --directory=/out
+		chown "$OWNER" "/out/$SELECTOR.private" "/out/$SELECTOR.txt"
+		chmod 600 "/out/$SELECTOR.private"
+		chmod 644 "/out/$SELECTOR.txt"
+	'
+
+# The .txt is a BIND zone snippet with the value split into quoted chunks; join them.
+value=$(grep -o '"[^"]*"' "$txt_file" | tr -d '"\n')
+
+# Path as it should appear in .env (relative to the repo root)
+env_key_path="./docker/opendkim/keys/$domain/$selector.private"
+
+cat <<EOF
+
+Key written (private key was NOT printed):
+  $private_key
+  $txt_file
+
+DNS TXT record to create:
+  Name:  ${selector}._domainkey.${domain}
+  Value: $value
+
+.env lines:
+  OPENDKIM_KEY=$env_key_path
+  OPENDKIM_SELECTOR=$selector
+  POSTFIX_MYHOSTNAME=$domain
+
+The keys directory is gitignored. Copy the .private file to the server with scp, never git.
+EOF
