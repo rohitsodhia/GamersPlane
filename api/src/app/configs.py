@@ -36,6 +36,9 @@ class ConfigStore:
             else email_enabled.strip().lower() in ("1", "true", "yes", "on")
         )
 
+        # Where the Contact Us form delivers
+        self.CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "contact@gamersplane.com")
+
         self.PAGINATE_PER_PAGE = int(os.getenv("PAGINATE_PER_PAGE", 20))
 
         dialect = os.getenv("DATABASE_DIALECT", "postgresql")

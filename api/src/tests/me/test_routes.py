@@ -128,6 +128,7 @@ class TestGetCurrentUser:
         assert body["username"] == user.username
         assert "joinDate" not in body
         assert "pronouns" not in body
+        assert "email" not in body
 
     async def test_get_current_user_permissions_empty_without_grants(
         self, authed_client
@@ -258,7 +259,7 @@ class TestGetCurrentUser:
         assert body["acp"] is False
 
     async def test_get_current_user_full_includes_profile_fields(self, authed_client):
-        client, _user = authed_client
+        client, user = authed_client
         await client.post("/me", json={"pronouns": "they/them"})
 
         response = await client.get("/me?full=true")
@@ -266,6 +267,7 @@ class TestGetCurrentUser:
         assert response.status_code == 200
         body = response.json()
         assert "joinDate" in body
+        assert body["email"] == user.email
         assert body["pronouns"] == "they/them"
 
     async def test_get_current_user_full_defaults_post_side_when_unset(

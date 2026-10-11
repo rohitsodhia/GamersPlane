@@ -1,0 +1,18 @@
+{% extends 'helpers/templates/base_template.html' %}
+
+{% block title %}Gamers' Plane Contact{% endblock %}
+
+{% block footer_note %}Sent from the Contact Us form. Replying goes to the sender.{% endblock %}
+
+{% block content %}
+<p><strong>Name:</strong> {{ name }}</p>
+<p><strong>Email:</strong> {{ email }}</p>
+{% if user_id %}
+<p><strong>User:</strong> {{ username }} (id {{ user_id }})</p>
+{% elif username %}
+<p><strong>Username (unverified):</strong> {{ username }}</p>
+{% endif %}
+<p><strong>Subject:</strong> {{ subject }}</p>
+<p><strong>Message:</strong></p>
+<p>{% for line in message.splitlines() %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+{% endblock %}

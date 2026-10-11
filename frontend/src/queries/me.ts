@@ -41,6 +41,7 @@ export const hasPermission = (
 };
 
 type MeFullApiResponse = MeResponse & {
+	email: string;
 	joinDate: string;
 	pronouns: string | null;
 	birthday: string | null;

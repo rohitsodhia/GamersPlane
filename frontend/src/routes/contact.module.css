@@ -1,0 +1,60 @@
+.contact-page {
+	width: min(600px, 100%);
+	margin-inline: auto;
+}
+
+.contact-form {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5em;
+	margin-top: 0.5em;
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25em;
+
+	label {
+		font-size: 0.85em;
+	}
+
+	input,
+	textarea {
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	textarea {
+		min-height: 10em;
+		resize: vertical;
+		font: inherit;
+	}
+}
+
+.actions {
+	text-align: center;
+}
+
+.field-error {
+	margin: 0;
+	font-size: 0.85em;
+	color: var(--gp-red);
+}
+
+.field-invalid {
+	border-color: var(--gp-red);
+}
+
+/* Off-screen and out of flow, so it never affects layout */
+.honeypot {
+	position: absolute;
+	left: -10000px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
+.thanks {
+	margin-top: 1em;
+}

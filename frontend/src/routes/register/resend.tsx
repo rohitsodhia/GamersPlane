@@ -45,7 +45,7 @@ function RouteComponent() {
 					</p>
 				)}
 				<p>
-					Please make sure <strong>contact@gamersplane.com</strong> is whitelisted on
+					Please make sure <strong>no-reply@gamersplane.com</strong> is whitelisted on
 					your email account. If you do not recieve an email in your inbox, please check
 					your spam folder.
 				</p>

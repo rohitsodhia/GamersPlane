@@ -57,6 +57,22 @@ class TestSendEmail:
         assert message["Date"]
         assert message["Message-ID"].endswith("@example.test>")
         assert message.get_content_type() == "text/html"
+        assert message["Reply-To"] is None
+
+    async def test_reply_to_sets_header(self, monkeypatch, smtp_calls):
+        monkeypatch.setattr(configs, "EMAIL_ENABLED", True)
+
+        await send_email(
+            "a@example.com",
+            "Hello subj",
+            "<p>body</p>",
+            reply_to='"Visitor, Jr." <visitor@example.org>',
+        )
+
+        message, _ = smtp_calls[0]
+        reply_to = message["Reply-To"].addresses[0]
+        assert reply_to.addr_spec == "visitor@example.org"
+        assert reply_to.display_name == "Visitor, Jr."
 
     @pytest.mark.parametrize(
         "error",

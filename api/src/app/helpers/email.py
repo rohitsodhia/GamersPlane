@@ -26,8 +26,12 @@ def get_template(template_path: str, **kwargs) -> str:
     return output
 
 
-async def send_email(to: str, subject: str, content: str) -> None:
-    """Send an HTML email. Failures are logged and swallowed, never raised."""
+async def send_email(
+    to: str, subject: str, content: str, *, reply_to: str | None = None
+) -> None:
+    """Send an HTML email. Failures are logged and swallowed, never raised.
+
+    `reply_to` is a ready-made header value (e.g. from `email.utils.formataddr`)."""
     if not configs.EMAIL_ENABLED:
         logger.info("Email disabled; not sending to %s: %s\n%s", to, subject, content)
         return
@@ -40,6 +44,8 @@ async def send_email(to: str, subject: str, content: str) -> None:
     )
     email["To"] = to
     email["Subject"] = subject
+    if reply_to:
+        email["Reply-To"] = reply_to
     # Postfix doesn't add these for mail from non-local clients
     email["Date"] = formatdate(localtime=False)
     email["Message-ID"] = make_msgid(domain=configs.EMAIL_DOMAIN)

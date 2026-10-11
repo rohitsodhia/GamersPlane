@@ -21,6 +21,7 @@ class UserOutput(SchemaBase):
     gameModerate: bool = False
     roleAdmin: bool = False
     permissions: list[str] = []
+    email: str | None = None
     joinDate: datetime.datetime | None = None
     pronouns: str | None = filtered_str(pipelines=[strip_whitespace])
     birthday: datetime.date | None = None
