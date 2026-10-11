@@ -230,25 +230,6 @@ export function resolveNpc(npc: QuickNpcValue, npcs: GameNpc[]): QuickNpcValue {
 		: npc;
 }
 
-// Giving a quick NPC another image makes it a different pair: it keeps its name
-// and drops its id, unless an existing pair already has that name and image.
-// The existing pair isn't edited.
-export function withNpcImage(
-	npc: QuickNpcValue,
-	imageId: number | null,
-	npcs: GameNpc[],
-): PostAsValue {
-	if (imageId === npc.imageId) return { characterId: null, avatarId: null, npc };
-	const existing = npcs.find(
-		(n) => n.name === npc.name && (n.image?.id ?? null) === imageId,
-	);
-	return {
-		characterId: null,
-		avatarId: null,
-		npc: { id: existing?.id ?? null, name: npc.name, imageId },
-	};
-}
-
 // The URL of a quick NPC's image, found in the library, the NPC list or the
 // post's own NPC.
 export function npcImageUrl(

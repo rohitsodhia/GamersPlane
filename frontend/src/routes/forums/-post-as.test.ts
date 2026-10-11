@@ -20,7 +20,6 @@ import {
 	selectOnOpen,
 	showsFilter,
 	visibleTypes,
-	withNpcImage,
 } from "./-post-as";
 
 function character(
@@ -273,31 +272,6 @@ describe("resolveNpc", () => {
 	it("leaves an unlisted pair alone", () => {
 		const unlisted = { id: 8, name: "Gone", imageId: null };
 		expect(resolveNpc(unlisted, npcs)).toEqual(unlisted);
-	});
-});
-
-describe("withNpcImage", () => {
-	const npcs = [
-		npc(1, { name: "Guard" }),
-		npc(2, { name: "Guard", image: { id: 9, url: "/g" } }),
-	];
-
-	it("makes a different pair of the same name for another image", () => {
-		expect(withNpcImage({ id: 1, name: "Guard", imageId: null }, 4, npcs)).toEqual(
-			npcOf(null, "Guard", 4),
-		);
-	});
-
-	it("reuses an existing pair that has that name and image", () => {
-		expect(withNpcImage({ id: 1, name: "Guard", imageId: null }, 9, npcs)).toEqual(
-			npcOf(2, "Guard", 9),
-		);
-	});
-
-	it("keeps the pair when the image is the same", () => {
-		expect(withNpcImage({ id: 1, name: "Guard", imageId: null }, null, npcs)).toEqual(
-			npcOf(1, "Guard", null),
-		);
 	});
 });
 

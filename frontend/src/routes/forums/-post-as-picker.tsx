@@ -34,7 +34,6 @@ import {
 	selectOnOpen,
 	showsFilter,
 	visibleTypes,
-	withNpcImage,
 } from "./-post-as";
 import styles from "./-post-as-picker.module.css";
 
@@ -252,7 +251,9 @@ export function PostAsPicker({
 					<NpcImageChooser
 						gameId={npcGameId}
 						value={npc.imageId}
-						onChange={(imageId) => onChange(withNpcImage(npc, imageId, npcs))}
+						onChange={(imageId) =>
+							onChange({ characterId: null, avatarId: null, npc: { ...npc, imageId } })
+						}
 					/>
 				</div>
 			)}
