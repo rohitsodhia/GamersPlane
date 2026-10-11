@@ -1,8 +1,9 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { z } from "zod";
 import { ListFilters, listFiltersSearchSchema } from "#/components/ListFilters";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { systemsQueryOptions } from "#/queries/systems";
+import styles from "./list.module.css";
 
 export const Route = createFileRoute("/games/list")({
 	validateSearch: listFiltersSearchSchema.extend({
@@ -24,6 +25,11 @@ function RouteComponent() {
 			</h1>
 
 			<div style={{ marginInline: hbMargined.margin }}>
+				<p className={styles["notify-link"]}>
+					<Link to="/profile" hash="new-game-notifications">
+						Get notified of new games
+					</Link>
+				</p>
 				<ListFilters filters={["search", "systems"]} idPrefix="games" />
 
 				<Outlet />

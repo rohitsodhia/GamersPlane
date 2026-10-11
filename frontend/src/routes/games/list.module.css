@@ -1,3 +1,8 @@
+.notify-link {
+	margin-block: 0 0.5em;
+	text-align: right;
+}
+
 .game-tags {
 	display: flex;
 	gap: 0.4em;

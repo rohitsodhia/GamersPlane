@@ -5,6 +5,8 @@ import {
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { InactiveMarker } from "#/components/InactiveMarker";
+import RAIcon from "#/components/RAIcon";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { lastActivityText } from "#/lib/users";
@@ -56,7 +58,7 @@ function RouteComponent() {
 	return (
 		<div>
 			<h1 className="headerbar" ref={hbMaginedMain.ref}>
-				{user.username}
+				{user.username} <InactiveMarker lastActivity={user.lastActivity} />
 			</h1>
 			<div
 				className={styles["user-profile-struct"]}
@@ -121,8 +123,20 @@ function RouteComponent() {
 						)}
 					</div>
 
-					<h2 className="headerbar hb-dark">My game interests</h2>
-					<div style={{ marginInline: `${hbMaginedSub.margin}px` }}></div>
+					{(user.lookingForAGame || user.gameInterests) && (
+						<div id="gameInterests" className="userInfoBox">
+							<h2 className="headerbar hb-dark">
+								<RAIcon className="ra-health" />{" "}
+								{user.lookingForAGame ? "I'm looking for a game" : "My game interests"}
+							</h2>
+							<div
+								className={styles["game-interests"]}
+								style={{ marginInline: `${hbMaginedSub.margin}px` }}
+							>
+								{user.gameInterests}
+							</div>
+						</div>
+					)}
 
 					<h2 className="headerbar hb-dark">Forum Stats</h2>
 					<div

@@ -8,6 +8,7 @@ type Author = {
 	id: number;
 	username: string;
 	avatar: string;
+	last_activity: string | null;
 };
 
 // What a viewer without the dice may see of a roll's outcome.

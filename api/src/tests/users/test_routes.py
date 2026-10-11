@@ -175,6 +175,33 @@ class TestGetUser:
         assert body["showAge"] is True
         assert body["age"] is not None
 
+    async def test_get_user_exposes_lfg_and_game_interests(
+        self, client, create, db_session
+    ):
+        user = await create(ActivatedUserFactory)
+        await UserRepository(db_session).update_user_meta(
+            user,
+            {
+                UserMeta.MetaKeys.LOOKING_FOR_A_GAME: True,
+                UserMeta.MetaKeys.GAME_INTERESTS: "Old school dungeon crawls",
+            },
+        )
+
+        response = await client.get(f"/users/{user.id}")
+
+        body = response.json()["user"]
+        assert body["lookingForAGame"] is True
+        assert body["gameInterests"] == "Old school dungeon crawls"
+
+    async def test_get_user_lfg_defaults_off_without_meta(self, client, create):
+        user = await create(ActivatedUserFactory)
+
+        response = await client.get(f"/users/{user.id}")
+
+        body = response.json()["user"]
+        assert body["lookingForAGame"] is False
+        assert body["gameInterests"] is None
+
     async def test_get_user_age_hidden_when_show_age_false(
         self, client, create, db_session
     ):

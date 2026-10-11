@@ -1,12 +1,18 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime, timedelta, timezone
+from typing import Literal
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.configs import configs
-from app.models import Role, User, UserMeta
+from app.models import Role, System, User, UserLFGSystem, UserMeta
+
+GamerSort = Literal["name", "newest", "oldest"]
+GAMERS_PER_PAGE = 25
+# No activity for this long and a gamer counts as inactive.
+GAMER_INACTIVE_AFTER = timedelta(days=14)
 
 
 class UserRepository:
@@ -106,6 +112,118 @@ class UserRepository:
                 .where(*self._list_users_filters(prefix, banned))
             )
         ) or 0
+
+    @staticmethod
+    def _gamer_filters(
+        *, search: str | None, lfg: bool, include_inactive: bool, now: datetime
+    ):
+        filters = [
+            User.activated_on.is_not(None),
+            User.banned.is_(None),
+            or_(User.suspended_until.is_(None), User.suspended_until <= now),
+        ]
+        if search:
+            escaped = (
+                search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            )
+            filters.append(User.username.ilike(f"%{escaped}%", escape="\\"))
+        if lfg:
+            filters.append(
+                exists().where(
+                    UserMeta.user_id == User.id,
+                    UserMeta.key == UserMeta.MetaKeys.LOOKING_FOR_A_GAME.value,
+                    UserMeta._value == "1",
+                )
+            )
+        if not include_inactive:
+            # A null last_activity compares as NULL (falsey), so it's excluded too.
+            filters.append(User.last_activity >= now - GAMER_INACTIVE_AFTER)
+        return filters
+
+    async def get_gamers(
+        self,
+        *,
+        search: str | None = None,
+        lfg: bool = False,
+        include_inactive: bool = False,
+        sort: GamerSort = "name",
+        page: int = 1,
+        limit: int = GAMERS_PER_PAGE,
+    ) -> Sequence[User]:
+        filters = self._gamer_filters(
+            search=search,
+            lfg=lfg,
+            include_inactive=include_inactive,
+            now=datetime.now(timezone.utc),
+        )
+        order_by = {
+            "name": (func.lower(User.username), User.id),
+            "newest": (User.join_date.desc(), User.id.desc()),
+            "oldest": (User.join_date, User.id),
+        }[sort]
+        statement = (
+            select(User)
+            .where(*filters)
+            .order_by(*order_by)
+            .limit(limit)
+            .offset((page - 1) * limit)
+            .options(selectinload(User.meta))
+        )
+        return (await self.db_session.scalars(statement)).all()
+
+    async def count_gamers(
+        self,
+        *,
+        search: str | None = None,
+        lfg: bool = False,
+        include_inactive: bool = False,
+    ) -> int:
+        filters = self._gamer_filters(
+            search=search,
+            lfg=lfg,
+            include_inactive=include_inactive,
+            now=datetime.now(timezone.utc),
+        )
+        return (
+            await self.db_session.scalar(
+                select(func.count()).select_from(User).where(*filters)
+            )
+        ) or 0
+
+    async def get_lfg_systems(self, user_id: int) -> Sequence[System]:
+        return (
+            await self.db_session.scalars(
+                select(System)
+                .join(UserLFGSystem, UserLFGSystem.system_id == System.id)
+                .where(UserLFGSystem.user_id == user_id)
+                .order_by(System.sort_name, System.id)
+            )
+        ).all()
+
+    async def set_lfg_systems(self, user_id: int, system_ids: Iterable[str]) -> None:
+        """Replace the user's LFG systems with exactly ``system_ids``."""
+        wanted = set(system_ids)
+        current = set(
+            (
+                await self.db_session.scalars(
+                    select(UserLFGSystem.system_id).where(
+                        UserLFGSystem.user_id == user_id
+                    )
+                )
+            ).all()
+        )
+        if current - wanted:
+            await self.db_session.execute(
+                delete(UserLFGSystem).where(
+                    UserLFGSystem.user_id == user_id,
+                    UserLFGSystem.system_id.in_(current - wanted),
+                )
+            )
+        self.db_session.add_all(
+            UserLFGSystem(user_id=user_id, system_id=system_id)
+            for system_id in wanted - current
+        )
+        await self.db_session.flush()
 
     async def get_user_by_identifier(self, identifier: str) -> User | None:
         return await self.db_session.scalar(

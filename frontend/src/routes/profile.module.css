@@ -20,10 +20,17 @@
 			}
 		}
 	}
+
+	:global(.filterable-listbox) {
+		--rac-field-width: 400px;
+	}
 }
 
 .save-indicator {
+	align-self: center;
 	margin-left: 0.75em;
+	color: var(--gp-success-green);
+	font-weight: bold;
 }
 
 .edit-settings_avatar {
@@ -34,4 +41,15 @@
 		font-size: var(--font-size-sm);
 		margin-bottom: 0;
 	}
+}
+
+/* Clear the fixed header when the Browse Games link jumps here. */
+:global(#new-game-notifications) {
+	scroll-margin-top: calc(70px + 1em);
+}
+
+.lfg-count {
+	margin-top: 0.75em;
+	font-size: var(--font-size-sm);
+	color: light-dark(#666, #999);
 }

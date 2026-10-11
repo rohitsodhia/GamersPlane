@@ -28,4 +28,5 @@ from .thread import Thread
 from .thread_read import ThreadRead
 from .token import AccountActivationToken, PasswordResetToken, Token
 from .user import User
+from .user_lfg_system import UserLFGSystem
 from .user_meta import UserMeta

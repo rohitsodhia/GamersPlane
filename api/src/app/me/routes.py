@@ -14,6 +14,7 @@ from app.models import Forum, RolePermission, UserMeta
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 from app.repositories.pm_repository import PMRepository
 from app.repositories.rbac_repository import RBACkRepository
+from app.repositories.system_repository import SystemRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas import ErrorItem
 
@@ -29,7 +30,7 @@ _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
     "gmMail": UserMeta.MetaKeys.GM_MAIL,
     "postSide": UserMeta.MetaKeys.POST_SIDE,
     "lookingForAGame": UserMeta.MetaKeys.LOOKING_FOR_A_GAME,
-    "games": UserMeta.MetaKeys.GAMES,
+    "gameInterests": UserMeta.MetaKeys.GAME_INTERESTS,
 }
 
 
@@ -114,6 +115,45 @@ async def update_current_user(
     await user_repo.update_user_meta(current_user, updates)
 
     return {"success": True, "updated": updated_fields}
+
+
+@me.get("/lfg-systems", response_model=schemas.LFGSystemsResponse)
+async def get_lfg_systems(current_user: Principal, db_session: DBSessionDependency):
+    systems = await UserRepository(db_session).get_lfg_systems(current_user.id)
+    return {"systems": systems}
+
+
+@me.post("/lfg-systems", response_model=schemas.LFGSystemsResponse)
+async def update_lfg_systems(
+    data: schemas.UpdateLFGSystemsInput,
+    current_user: Principal,
+    db_session: DBSessionDependency,
+):
+    system_ids = list(dict.fromkeys(data.systems))
+    found = {
+        system.id: system
+        for system in await SystemRepository(db_session).get_by_ids(system_ids)
+    }
+    invalid = [
+        system_id
+        for system_id in system_ids
+        if system_id not in found or not found[system_id].enabled
+    ]
+    if invalid:
+        return error_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            errors=[
+                ErrorItem(
+                    field="systems",
+                    code="invalid_system",
+                    detail=f"Unknown or disabled system: {', '.join(invalid)}",
+                )
+            ],
+        )
+
+    user_repo = UserRepository(db_session)
+    await user_repo.set_lfg_systems(current_user.id, system_ids)
+    return {"systems": await user_repo.get_lfg_systems(current_user.id)}
 
 
 @me.get("/header", response_model=schemas.GetHeaderResponse)

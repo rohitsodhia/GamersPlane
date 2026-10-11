@@ -20,6 +20,7 @@ class AuthorData(SchemaBase):
     id: int
     username: str
     avatar: str
+    last_activity: datetime | None
 
 
 class PostRollData(SchemaBase):

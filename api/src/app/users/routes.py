@@ -208,6 +208,10 @@ async def get_user(id: int, db_session: DBSessionDependency, principal: Principa
             "showAge": show_age,
             "age": age,
             "location": meta_by_key.get(UserMeta.MetaKeys.LOCATION.value),
+            "lookingForAGame": bool(
+                meta_by_key.get(UserMeta.MetaKeys.LOOKING_FOR_A_GAME.value)
+            ),
+            "gameInterests": meta_by_key.get(UserMeta.MetaKeys.GAME_INTERESTS.value),
             "postCount": game_post_count + community_post_count,
             "communityPostCount": community_post_count,
             "gamePostCount": game_post_count,

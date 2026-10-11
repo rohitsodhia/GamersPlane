@@ -40,6 +40,8 @@ export type UserProfile = {
 	showAge: boolean;
 	age: string | null;
 	location: string | null;
+	lookingForAGame: boolean;
+	gameInterests: string | null;
 	postCount: number;
 	communityPostCount: number;
 	gamePostCount: number;

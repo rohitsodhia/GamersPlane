@@ -41,6 +41,8 @@ class UserDict(SchemaBase):
     showAge: bool = False
     age: str | None = None
     location: str | None = None
+    lookingForAGame: bool | None = None
+    gameInterests: str | None = None
     postCount: int | None = None
     communityPostCount: int | None = None
     gamePostCount: int | None = None

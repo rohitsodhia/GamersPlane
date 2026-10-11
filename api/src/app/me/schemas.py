@@ -31,7 +31,7 @@ class UserOutput(SchemaBase):
     gmMail: bool | None = None
     postSide: PostSide = "r"
     lookingForAGame: bool | None = None
-    games: str | None = filtered_str(pipelines=[strip_whitespace])
+    gameInterests: str | None = filtered_str(pipelines=[strip_whitespace])
 
 
 class UpdateProfileInput(SchemaBase):
@@ -44,7 +44,7 @@ class UpdateProfileInput(SchemaBase):
     gmMail: bool | None = None
     postSide: PostSide = "r"
     lookingForAGame: bool | None = None
-    games: str | None = filtered_str(pipelines=[strip_whitespace])
+    gameInterests: str | None = filtered_str(pipelines=[strip_whitespace])
 
     @field_validator("birthday")
     @classmethod
@@ -64,7 +64,7 @@ class UpdatedProfileFields(SchemaBase):
     gmMail: bool | None = None
     postSide: PostSide | None = None
     lookingForAGame: bool | None = None
-    games: str | None = None
+    gameInterests: str | None = None
 
 
 class UpdateProfileResponse(SchemaBase):
@@ -79,6 +79,19 @@ class UpdateAvatarResponse(SchemaBase):
 
 class DeleteAvatarResponse(SchemaBase):
     success: bool = True
+
+
+class LFGSystem(SchemaBase):
+    id: str
+    name: str
+
+
+class LFGSystemsResponse(SchemaBase):
+    systems: list[LFGSystem]
+
+
+class UpdateLFGSystemsInput(SchemaBase):
+    systems: list[str]
 
 
 class UpdatePasswordInput(SchemaBase):

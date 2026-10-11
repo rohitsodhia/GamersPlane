@@ -5,7 +5,15 @@ from PIL import Image
 
 from app.configs import configs
 from app.models import RolePermission
-from tests.factories import ForumFactory, PMFactory, RoleFactory, UserFactory
+from app.repositories.user_repository import UserRepository
+from tests.factories import (
+    ActivatedUserFactory,
+    ForumFactory,
+    PMFactory,
+    RoleFactory,
+    SystemFactory,
+    UserFactory,
+)
 from tests.rbac.test_routes import (
     make_game_backed_by,
     make_game_role,
@@ -287,6 +295,16 @@ class TestUpdateCurrentUser:
         assert body["success"] is True
         assert body["updated"] == {"pronouns": "they/them"}
 
+    async def test_game_interests_round_trips(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.post("/me", json={"gameInterests": "  Cozy one-shots "})
+
+        assert response.status_code == 200
+        assert response.json()["updated"] == {"gameInterests": "Cozy one-shots"}
+        full = (await client.get("/me?full=true")).json()
+        assert full["gameInterests"] == "Cozy one-shots"
+
     async def test_update_current_user_rejects_future_birthday(self, authed_client):
         client, _user = authed_client
 
@@ -438,6 +456,117 @@ class TestUpdateCurrentUserPassword:
 
         assert response.status_code == 400
         assert response.json()["errors"][0]["code"] == "password_mismatch"
+
+
+class TestLFGSystems:
+    async def test_get_requires_auth(self, client):
+        response = await client.get("/me/lfg-systems")
+
+        assert response.status_code == 403
+
+    async def test_update_requires_auth(self, client):
+        response = await client.post("/me/lfg-systems", json={"systems": []})
+
+        assert response.status_code == 403
+
+    async def test_get_is_empty_by_default(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.get("/me/lfg-systems")
+
+        assert response.status_code == 200
+        assert response.json() == {"systems": []}
+
+    async def test_update_replaces_set_and_get_sorts_by_sort_name(
+        self, authed_client, create
+    ):
+        client, _user = authed_client
+        zed = await create(SystemFactory, name="Zed", sort_name="aaa")
+        apple = await create(SystemFactory, name="Apple", sort_name="zzz")
+        other = await create(SystemFactory)
+
+        response = await client.post(
+            "/me/lfg-systems", json={"systems": [apple.id, zed.id]}
+        )
+
+        assert response.status_code == 200
+        expected = [
+            {"id": zed.id, "name": "Zed"},
+            {"id": apple.id, "name": "Apple"},
+        ]
+        assert response.json() == {"systems": expected}
+        assert (await client.get("/me/lfg-systems")).json() == {"systems": expected}
+
+        response = await client.post(
+            "/me/lfg-systems", json={"systems": [other.id, zed.id]}
+        )
+
+        assert [s["id"] for s in response.json()["systems"]] == [zed.id, other.id]
+        got = (await client.get("/me/lfg-systems")).json()["systems"]
+        assert {s["id"] for s in got} == {zed.id, other.id}
+
+    async def test_update_with_empty_list_clears_set(self, authed_client, create):
+        client, _user = authed_client
+        system = await create(SystemFactory)
+        await client.post("/me/lfg-systems", json={"systems": [system.id]})
+
+        response = await client.post("/me/lfg-systems", json={"systems": []})
+
+        assert response.status_code == 200
+        assert response.json() == {"systems": []}
+        assert (await client.get("/me/lfg-systems")).json() == {"systems": []}
+
+    async def test_update_dedupes_ids(self, authed_client, create):
+        client, _user = authed_client
+        system = await create(SystemFactory)
+
+        response = await client.post(
+            "/me/lfg-systems", json={"systems": [system.id, system.id]}
+        )
+
+        assert response.status_code == 200
+        assert [s["id"] for s in response.json()["systems"]] == [system.id]
+
+    async def test_update_rejects_unknown_system_and_keeps_existing_set(
+        self, authed_client, create
+    ):
+        client, _user = authed_client
+        system = await create(SystemFactory)
+        await client.post("/me/lfg-systems", json={"systems": [system.id]})
+
+        response = await client.post(
+            "/me/lfg-systems", json={"systems": [system.id, "nope"]}
+        )
+
+        assert response.status_code == 400
+        error = response.json()["errors"][0]
+        assert error["code"] == "invalid_system"
+        assert "nope" in error["detail"]
+        got = (await client.get("/me/lfg-systems")).json()["systems"]
+        assert [s["id"] for s in got] == [system.id]
+
+    async def test_update_rejects_disabled_system(self, authed_client, create):
+        client, _user = authed_client
+        disabled = await create(SystemFactory, enabled=False)
+
+        response = await client.post("/me/lfg-systems", json={"systems": [disabled.id]})
+
+        assert response.status_code == 400
+        assert response.json()["errors"][0]["code"] == "invalid_system"
+
+    async def test_replacing_leaves_other_users_sets_alone(
+        self, authed_client, create, db_session
+    ):
+        client, _user = authed_client
+        system = await create(SystemFactory)
+        other = await create(ActivatedUserFactory)
+        repo = UserRepository(db_session)
+        await repo.set_lfg_systems(other.id, [system.id])
+
+        assert (await client.get("/me/lfg-systems")).json() == {"systems": []}
+        await client.post("/me/lfg-systems", json={"systems": []})
+
+        assert [s.id for s in await repo.get_lfg_systems(other.id)] == [system.id]
 
 
 class TestGetHeader:
