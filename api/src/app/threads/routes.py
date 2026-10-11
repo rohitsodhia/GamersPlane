@@ -7,9 +7,16 @@ from app.helpers.decorators import public
 from app.middleware import Principal
 from app.models import Post, Thread, User
 from app.posts.attachments import plan_attachments, save_attachments
-from app.posts.functions import check_post_change, validate_posted_as
+from app.posts.functions import (
+    check_post_change,
+    require_one_poster,
+    resolve_posted_npc,
+    validate_posted_as,
+    validate_posted_avatar,
+)
 from app.repositories import (
     ForumRepository,
+    GameNPCRepository,
     PollRepository,
     PostRepository,
     ReadTrackingRepository,
@@ -145,8 +152,18 @@ async def create_thread(
         await check_poll_input(
             PollRepository(db_session, principal=principal), None, thread_data.poll
         )
+    require_one_poster(thread_data.posted_as_id, thread_data.posted_npc)
+    character = None
     if thread_data.posted_as_id is not None:
-        await validate_posted_as(db_session, principal, forum, thread_data.posted_as_id)
+        character = await validate_posted_as(
+            db_session, principal, forum, thread_data.posted_as_id
+        )
+    validate_posted_avatar(character, thread_data.posted_avatar_id)
+    npc = None
+    if thread_data.posted_npc is not None:
+        npc = await resolve_posted_npc(
+            db_session, principal, forum, thread_data.posted_npc
+        )
     attachments = await plan_attachments(
         db_session,
         principal,
@@ -171,7 +188,11 @@ async def create_thread(
         thread_data.body,
         state=Post.States.PUBLISHED,
         posted_as_id=thread_data.posted_as_id,
+        posted_avatar_id=thread_data.posted_avatar_id,
+        posted_npc=npc,
     )
+    if npc is not None:
+        await GameNPCRepository(db_session, principal=principal).mark_used(npc)
     await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)
     if thread_data.poll is not None:

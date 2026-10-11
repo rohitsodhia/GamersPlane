@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
-import { ListFilters, listFiltersSearchSchema } from "#/components/ListFilters";
+import {
+	ListFilters,
+	listFiltersSearchSchema,
+	typeFilterSearchSchema,
+} from "#/components/ListFilters";
 import LoadingSpinner from "#/components/LoadingSpinner";
 import Paginate from "#/components/Paginate";
 import { requireAuth } from "#/lib/auth-route";
@@ -16,7 +20,7 @@ import styles from "./library.module.css";
 
 export const Route = createFileRoute("/characters/library")({
 	beforeLoad: requireAuth,
-	validateSearch: listFiltersSearchSchema.extend({
+	validateSearch: listFiltersSearchSchema.extend(typeFilterSearchSchema.shape).extend({
 		page: z.number().optional(),
 	}),
 	// Only the systems list is loaded here (no loaderDeps on the filters) so
@@ -36,7 +40,7 @@ function RouteComponent() {
 				Character Library
 			</h1>
 			<div style={{ marginInline: `${hbMargined.margin}px` }}>
-				<ListFilters filters={["search", "systems"]} idPrefix="characters" />
+				<ListFilters filters={["search", "systems", "type"]} idPrefix="characters" />
 				<LibraryResults />
 			</div>
 		</div>
@@ -44,11 +48,11 @@ function RouteComponent() {
 }
 
 function LibraryResults() {
-	const { page: urlPage, search, systems } = Route.useSearch();
+	const { page: urlPage, search, systems, type } = Route.useSearch();
 	const page = urlPage ?? 1;
 
 	const { data, isFetching, isError } = useQuery(
-		libraryQueryOptions({ search, systems, page }),
+		libraryQueryOptions({ search, type, systems, page }),
 	);
 	const characters = data?.characters ?? [];
 

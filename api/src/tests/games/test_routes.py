@@ -362,7 +362,7 @@ class TestGetGame:
 
         players = response.json()["players"]
         assert players[0]["characters"] == [
-            {"id": character.id, "label": "Aragorn", "approved": True}
+            {"id": character.id, "label": "Aragorn", "type": "pc", "approved": True}
         ]
 
     @pytest.mark.parametrize("viewer", ["anonymous", "other_player"])
@@ -410,7 +410,7 @@ class TestGetGame:
 
         owner_data = next(p for p in response.json()["players"] if p["id"] == owner.id)
         assert owner_data["characters"] == [
-            {"id": pending.id, "label": "Pending", "approved": False}
+            {"id": pending.id, "label": "Pending", "type": "pc", "approved": False}
         ]
 
     async def test_get_game_favorited_true_when_favorited(self, authed_client, game):

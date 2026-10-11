@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Autocomplete } from "#/components/Autocomplete";
 import { FadeOut } from "#/components/FadeOut";
 import { DEBOUNCE_MS } from "#/lib/constants";
+import { notFoundOnMissing } from "#/lib/not-found-route";
 import { useFlash } from "#/lib/use-flash";
 import {
 	forumPermissionsQueryOptions,
@@ -20,7 +21,9 @@ import { ErrorBanner, errorList } from "./-acp-shared";
 export const Route = createFileRoute("/acp/forums/$forumId/permissions")({
 	loader: async ({ context, params }) => {
 		await Promise.all([
-			context.queryClient.ensureQueryData(forumQueryOptions(params.forumId)),
+			notFoundOnMissing(
+				context.queryClient.ensureQueryData(forumQueryOptions(params.forumId)),
+			),
 			context.queryClient.ensureQueryData(forumPermissionsQueryOptions(params.forumId)),
 		]);
 	},

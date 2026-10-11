@@ -8,10 +8,13 @@ import {
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
-import { Autocomplete } from "#/components/Autocomplete";
 import { ConfirmDeleteButton } from "#/components/ConfirmDeleteButton";
 import { FilterableListBox } from "#/components/FilterableListBox";
-import { ListFilters, singleSystemFilterSearchSchema } from "#/components/ListFilters";
+import {
+	ListFilters,
+	singleSystemFilterSearchSchema,
+	typeFilterSearchSchema,
+} from "#/components/ListFilters";
 import { ListResults } from "#/components/ListResults";
 import { RowList, RowListItem, rowLinksClassName } from "#/components/RowList";
 import { Select } from "#/components/Select";
@@ -38,10 +41,11 @@ import styles from "./list-page.module.css";
 
 export const Route = createFileRoute("/characters/")({
 	beforeLoad: requireAuth,
-	validateSearch: singleSystemFilterSearchSchema.extend({
-		page: z.number().optional(),
-		type: z.enum(["pc", "npc"]).optional(),
-	}),
+	validateSearch: singleSystemFilterSearchSchema
+		.extend(typeFilterSearchSchema.shape)
+		.extend({
+			page: z.number().optional(),
+		}),
 	// No loaderDeps, and the character list is deliberately not fetched here at
 	// all: with defaultPendingMs: 0, ANY loader invocation for this route (even
 	// one that resolves from cache) crosses an async boundary and paints the
@@ -299,7 +303,6 @@ function RouteComponent() {
 }
 
 function CharacterList() {
-	const navigate = useNavigate({ from: Route.fullPath });
 	const {
 		page: urlPage,
 		search: urlSearch,
@@ -375,30 +378,7 @@ function CharacterList() {
 
 	return (
 		<div className={styles["results"]}>
-			<ListFilters filters={["search", "system"]} idPrefix="characters">
-				<Autocomplete
-					id="character-type-filter"
-					className={styles["type-filter"]}
-					items={TYPE_OPTIONS}
-					getId={(option) => option.id}
-					getLabel={(option) => option.name}
-					placeholder="Type"
-					onAction={(id) => {
-						navigate({
-							search: (prev) => ({
-								...prev,
-								type: id as CharacterType,
-								page: undefined,
-							}),
-						});
-					}}
-					onClear={() => {
-						navigate({
-							search: (prev) => ({ ...prev, type: undefined, page: undefined }),
-						});
-					}}
-				/>
-			</ListFilters>
+			<ListFilters filters={["search", "system", "type"]} idPrefix="characters" />
 
 			<ListResults
 				isFetching={isFetching}

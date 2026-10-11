@@ -3,9 +3,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.configs import configs
 from app.exceptions import ForbiddenException, ValidationError
 from app.forums.permissions import ForumPermissions, Verbs
-from app.models import Character, Forum, Post, PostRoll, User
-from app.posts.schemas import PostedAsData, RollVisibilityInput
-from app.repositories import CharacterRepository, PlayerRepository
+from app.games.functions import require_game_image
+from app.games.npc_schemas import PostedNPCInput
+from app.games.npcs import game_image_url
+from app.models import (
+    Character,
+    CharacterAvatar,
+    Forum,
+    GameNPC,
+    Post,
+    PostRoll,
+    User,
+)
+from app.posts.schemas import PostedAsData, PostedNPCData, RollVisibilityInput
+from app.repositories import CharacterRepository, GameNPCRepository, PlayerRepository
 
 
 def can_post_as(
@@ -47,11 +58,91 @@ async def validate_posted_as(
     return character
 
 
-def primary_avatar_url(character: Character) -> str | None:
-    avatar = next((avatar for avatar in character.avatars if avatar.is_primary), None)
-    if avatar is None:
+def require_one_poster(
+    posted_as_id: int | None, posted_npc: PostedNPCInput | None
+) -> None:
+    """A post is as a character or as a quick NPC, never both."""
+    if posted_as_id is not None and posted_npc is not None:
+        raise ValidationError("Choose either a character or a quick NPC, not both")
+
+
+async def resolve_posted_npc(
+    db_session: AsyncSession,
+    principal: User,
+    forum: Forum,
+    posted_npc: PostedNPCInput,
+) -> GameNPC:
+    """The game's live NPC for the name + image, made if need be. Only a GM of the
+    forum's game may post as one, and the image must be from that game's library."""
+    if forum.game_id is None:
+        raise ValidationError("Quick NPCs can only post in game forums")
+    if not await PlayerRepository(db_session, principal=principal).is_gm(
+        forum.game_id, principal.id
+    ):
+        raise ValidationError("Only the game's GMs can post as a quick NPC")
+    npc_repository = GameNPCRepository(db_session, principal=principal)
+    image = (
+        await require_game_image(npc_repository, forum.game_id, posted_npc.image_id)
+        if posted_npc.image_id is not None
+        else None
+    )
+    return await npc_repository.get_or_create(forum.game_id, posted_npc.name, image)
+
+
+def is_same_npc(npc: GameNPC | None, posted_npc: PostedNPCInput | None) -> bool:
+    """Whether ``posted_npc`` (as sent) is the NPC a post already has."""
+    if npc is None or posted_npc is None:
+        return npc is None and posted_npc is None
+    return npc.name == posted_npc.name and npc.image_id == posted_npc.image_id
+
+
+def build_posted_npc(post: Post) -> PostedNPCData | None:
+    """The quick NPC ``post`` was made as, even if it has since been deleted."""
+    npc = post.posted_npc
+    if npc is None:
         return None
+    return PostedNPCData(
+        id=npc.id,
+        name=npc.name,
+        image=game_image_url(npc.image) if npc.image is not None else None,
+    )
+
+
+def validate_posted_avatar(character: Character | None, avatar_id: int | None) -> None:
+    """Raise ``ValidationError`` if ``avatar_id`` isn't one of ``character``'s
+    avatars (``character`` is the post's resulting one, ``None`` for as the
+    author). ``None`` always passes, meaning the primary avatar."""
+    if avatar_id is None:
+        return
+    if character is None:
+        raise ValidationError(
+            "An avatar can only be chosen when posting as a character"
+        )
+    if not any(avatar.id == avatar_id for avatar in character.avatars):
+        raise ValidationError("That avatar isn't one of the character's")
+
+
+def avatar_url(avatar: CharacterAvatar) -> str:
     return f"{configs.AVATARS_ROOT}/characters/{avatar.id}.{avatar.ext}"
+
+
+def posted_avatar(
+    character: Character, avatar_id: int | None = None
+) -> CharacterAvatar | None:
+    """The avatar to show for ``character``: ``avatar_id`` if it's still one of
+    theirs, else the primary (``None`` if they have no primary)."""
+    chosen = next(
+        (avatar for avatar in character.avatars if avatar.id == avatar_id), None
+    )
+    if chosen is None:
+        chosen = next((a for a in character.avatars if a.is_primary), None)
+    return chosen
+
+
+def posted_avatar_url(character: Character, avatar_id: int | None = None) -> str | None:
+    """The URL of ``posted_avatar``, if there is one."""
+    chosen = posted_avatar(character, avatar_id)
+    return avatar_url(chosen) if chosen is not None else None
 
 
 def displayable_posted_as(post: Post) -> Character | None:
@@ -97,10 +188,12 @@ def build_posted_as(
             or (gm_game_id is not None and character.game_id == gm_game_id)
         )
     )
+    avatar = posted_avatar(character, post.posted_avatar_id)
     return PostedAsData(
         id=character.id,
         name=(character.name or "").strip(),
-        avatar=primary_avatar_url(character),
+        avatar_id=avatar.id if avatar is not None else None,
+        avatar=avatar_url(avatar) if avatar is not None else None,
         can_view=can_view,
     )
 

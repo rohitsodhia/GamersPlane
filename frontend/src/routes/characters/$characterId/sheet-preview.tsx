@@ -6,6 +6,7 @@ import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import { formatDate } from "#/lib/format-date";
+import { notFoundOnMissing, requirePositiveId } from "#/lib/not-found-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	characterQueryOptions,
@@ -33,10 +34,13 @@ export const Route = createFileRoute("/characters/$characterId/sheet-preview")({
 		from: z.enum(["edit", "change-sheet"]).optional(),
 	}),
 	loaderDeps: ({ search }) => ({ sheet: search.sheet, version: search.version }),
+	beforeLoad: ({ params }) => requirePositiveId(params.characterId),
 	loader: async ({ context, params, deps, location }) => {
-		const character = await redirectToLoginOnAuthFailure(
-			context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
-			location,
+		const character = await notFoundOnMissing(
+			redirectToLoginOnAuthFailure(
+				context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
+				location,
+			),
 		);
 		const me = await context.queryClient.ensureQueryData(meQueryOptions);
 		if (character.user_id !== me.id) {

@@ -12,6 +12,7 @@ import { FadeOut } from "#/components/FadeOut";
 import { Select } from "#/components/Select";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
+import { notFoundOnMissing, requirePositiveId } from "#/lib/not-found-route";
 import { useFlash } from "#/lib/use-flash";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
@@ -38,10 +39,13 @@ export const Route = createFileRoute("/characters/$characterId/edit")({
 	params: {
 		parse: (params) => ({ characterId: Number(params.characterId) }),
 	},
+	beforeLoad: ({ params }) => requirePositiveId(params.characterId),
 	loader: async ({ context, params, location }) => {
-		const character = await redirectToLoginOnAuthFailure(
-			context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
-			location,
+		const character = await notFoundOnMissing(
+			redirectToLoginOnAuthFailure(
+				context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
+				location,
+			),
 		);
 		const me = await context.queryClient.ensureQueryData(meQueryOptions);
 		if (character.user_id !== me.id) {

@@ -51,8 +51,24 @@ export type PostDraw = {
 export type PostedAs = {
 	id: number;
 	name: string;
+	// The avatar shown (the chosen one, else the primary), and its URL.
+	avatar_id: number | null;
 	avatar: string | null;
 	can_view: boolean;
+};
+
+// The quick NPC a post was written as (a name and optional image; no sheet). Still
+// sent after the NPC has been deleted.
+export type PostedNpc = {
+	id: number;
+	name: string;
+	image: string | null;
+};
+
+// A quick NPC to post as; the matching name and image pair is found or made.
+export type PostedNpcInput = {
+	name: string;
+	image_id: number | null;
 };
 
 export type Post = {
@@ -61,6 +77,8 @@ export type Post = {
 	datestamp: string;
 	author: Author;
 	posted_as: PostedAs | null;
+	// Set instead of posted_as.
+	posted_npc: PostedNpc | null;
 	body: JSONContent;
 	rolls: PostRoll[];
 	draws: PostDraw[];
@@ -138,6 +156,10 @@ export const createPost = async (
 		body: JSONContent;
 		// Null (or absent) posts as the user.
 		posted_as_id?: number | null;
+		// Null (or absent) is the character's primary avatar.
+		posted_avatar_id?: number | null;
+		// A quick NPC instead of a character; sending both is a 400.
+		posted_npc?: PostedNpcInput | null;
 	} & PostAttachmentsInput,
 ): Promise<{ id: number }> => {
 	const res = await apiFetch("/posts", {
@@ -178,6 +200,11 @@ export const editPost = async (
 		minor_edit?: boolean;
 		// Absent leaves it alone; null posts as the user. Author only.
 		posted_as_id?: number | null;
+		// Absent keeps the avatar (or resets it when the character changes); null is
+		// the character's primary.
+		posted_avatar_id?: number | null;
+		// Absent leaves the quick NPC alone; null clears it. Author only.
+		posted_npc?: PostedNpcInput | null;
 		// Only for a thread's first post.
 		thread_options?: ThreadOptionsUpdate;
 		// Absent leaves the poll alone; null removes it (and its votes).

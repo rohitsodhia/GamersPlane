@@ -49,6 +49,43 @@ class TestCreateThreadAs:
         post = await db_session.get(Post, thread.first_post_id)
         assert post.posted_as_id == character.id
 
+    async def test_chosen_avatar_is_stored_on_the_first_post(
+        self, auth_as, db_session, world, player
+    ):
+        character = await make_character(db_session, player, world.game)
+        await add_avatar(db_session, character)
+        second_id = await add_avatar(db_session, character, "jpg")
+        client = auth_as(player)
+
+        response = await client.post(
+            "/threads",
+            json=new_thread(
+                world.forum, posted_as_id=character.id, posted_avatar_id=second_id
+            ),
+        )
+
+        assert response.status_code == 200
+        thread = await db_session.get(Thread, response.json()["id"])
+        post = await db_session.get(Post, thread.first_post_id)
+        assert post.posted_avatar_id == second_id
+
+    async def test_another_characters_avatar_is_rejected(
+        self, auth_as, db_session, world, player
+    ):
+        character = await make_character(db_session, player, world.game, name="Aria")
+        other = await make_character(db_session, player, world.game, name="Bree")
+        other_avatar_id = await add_avatar(db_session, other)
+        client = auth_as(player)
+
+        response = await client.post(
+            "/threads",
+            json=new_thread(
+                world.forum, posted_as_id=character.id, posted_avatar_id=other_avatar_id
+            ),
+        )
+
+        assert response.status_code == 400
+
     async def test_another_players_character_is_rejected(
         self, auth_as, create, db_session, world, player
     ):

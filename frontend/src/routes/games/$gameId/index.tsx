@@ -40,6 +40,7 @@ import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { searchUserByUsername } from "#/queries/users";
 import { useAuthStore } from "#/stores/auth";
 import DeckFormPopover from "./-deck-form-popover";
+import { QuickNpcs } from "./-quick-npcs";
 import styles from "./index.module.css";
 
 export const Route = createFileRoute("/games/$gameId/")({
@@ -365,6 +366,7 @@ function RouteComponent() {
 		submitCharacterMutation.mutate({
 			id: character.id,
 			label: character.label,
+			type: character.type,
 			approved: false,
 		});
 	};
@@ -693,6 +695,7 @@ function RouteComponent() {
 																) : (
 																	<span>{character.label}</span>
 																)}
+																{character.type === "npc" && " (NPC)"}
 																{!character.approved && (
 																	<span className={styles["pending-badge"]}>
 																		Pending
@@ -955,6 +958,9 @@ function RouteComponent() {
 								{deleteDeckError && <div className="error">{deleteDeckError}</div>}
 							</div>
 						</div>
+						{!retired && isGM && (
+							<QuickNpcs gameId={game.id} margin={hbMarginedH2.margin} />
+						)}
 						{isGM && (
 							<DeckFormPopover
 								id="new-deck-popover"

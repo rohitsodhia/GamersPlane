@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { ApiError, apiFetch } from "#/lib/api";
+import type { GameNpc } from "#/queries/game";
 
 export type ForumType = "f" | "c";
 
@@ -141,16 +142,38 @@ export function forumDecksQueryOptions(id: number) {
 	});
 }
 
+export type PostableAvatar = {
+	id: number;
+	url: string;
+	is_primary: boolean;
+};
+
 export type PostableCharacter = {
 	id: number;
 	name: string;
 	owner: { id: number; username: string };
+	type: "pc" | "npc";
+	// Primary first.
+	avatars: PostableAvatar[];
+	// When the viewer last posted as it in this game.
+	last_used_at: string | null;
 };
 
 export type PostableCharacters = {
 	characters: PostableCharacter[];
-	// What the user last posted as in the thread, if still valid.
+	// What the user last posted as in the thread, if still valid, and the avatar
+	// they used.
 	default_id: number | null;
+	default_avatar_id: number | null;
+	// The game's quick NPCs; empty unless the user is one of its GMs.
+	npcs: GameNpc[];
+	// The quick NPC the user last posted as in the thread, if still valid.
+	default_npc_id: number | null;
+	// The forum's game, if it has one.
+	game_id: number | null;
+	// Whether the user can make and manage quick NPCs there: a GM of the game, which
+	// isn't retired.
+	can_manage_npcs: boolean;
 };
 
 // The characters the user can post as in the forum (empty outside game forums, or

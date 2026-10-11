@@ -5,6 +5,7 @@ import { ApiError } from "#/lib/api";
 import { requireAuth } from "#/lib/auth-route";
 import { type ForumPermission, forumQueryOptions } from "#/queries/forums";
 import { createThread } from "#/queries/threads";
+import { postAsPayload } from "./-post-as";
 import { noOptions, PostForm } from "./-post-form";
 
 export const Route = createFileRoute("/forums/new-thread/$forumId")({
@@ -69,11 +70,11 @@ function RouteComponent() {
 				setApiErrors([]);
 				try {
 					// A new thread has no poll to remove, so `poll` is never null here.
-					const { minorEdit: _minorEdit, poll, postedAsId, ...fields } = value;
+					const { minorEdit: _minorEdit, poll, postedAs, ...fields } = value;
 					const thread = await mutation.mutateAsync({
 						forum_id: forumId,
 						...fields,
-						posted_as_id: postedAsId,
+						...postAsPayload(postedAs),
 						poll: poll ?? undefined,
 					});
 					navigate({

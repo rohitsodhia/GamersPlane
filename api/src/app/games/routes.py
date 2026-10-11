@@ -1,7 +1,9 @@
+from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, File, Query, UploadFile, status
 
+from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import (
     ConflictException,
@@ -9,21 +11,28 @@ from app.exceptions import (
     NotFoundException,
     ValidationError,
 )
-from app.games import schemas
+from app.games import npc_schemas, schemas
 from app.games.functions import (
     get_deck_or_404,
     get_game_or_404,
+    get_npc_or_404,
     get_player_or_404,
     require_game_exists,
+    require_game_image,
     require_gm,
+    require_not_retired,
 )
+from app.games.npcs import build_image_data, build_npc_data
+from app.helpers.avatars import process_avatar_upload, save_avatar
 from app.helpers.decorators import public
+from app.helpers.remote_image import fetch_remote_image
 from app.middleware import Principal
 from app.models import Character, Deck, Game, Player
 from app.repositories import (
     CharacterRepository,
     DeckRepository,
     FavoritesRepository,
+    GameNPCRepository,
     GameRepository,
     PlayerRepository,
     SystemRepository,
@@ -217,7 +226,10 @@ async def get_game(game_id: int, db_session: DBSessionDependency, principal: Pri
             continue
         characters_by_user.setdefault(character.user_id, []).append(
             schemas.PlayerCharacterData(
-                id=character.id, label=character.label, approved=character.approved
+                id=character.id,
+                label=character.label,
+                type=character.type,
+                approved=character.approved,
             )
         )
 
@@ -739,6 +751,157 @@ async def delete_deck(
     await get_deck_or_404(deck_repository, game_id, deck_id)
 
     await deck_repository.delete(deck_id)
+
+
+async def _require_gm_game(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    game_id: int,
+    message: str,
+    *,
+    write: bool = False,
+) -> None:
+    """404 for a missing game, 403 unless the principal is one of its GMs and,
+    for writes, unless the game is still active."""
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+    await require_gm(
+        PlayerRepository(db_session, principal=principal),
+        game_id,
+        principal.id,
+        message,
+    )
+    if write:
+        require_not_retired(game)
+
+
+@games.get("/{game_id}/images", response_model=list[npc_schemas.GameImageData])
+async def get_game_images(
+    game_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    await _require_gm_game(
+        db_session, principal, game_id, "Only game masters can see the image library"
+    )
+    npc_repository = GameNPCRepository(db_session, principal=principal)
+    return [
+        build_image_data(image) for image in await npc_repository.get_images(game_id)
+    ]
+
+
+async def _store_game_image(
+    npc_repository: GameNPCRepository, game_id: int, contents: bytes
+) -> npc_schemas.GameImageData:
+    image, ext = process_avatar_upload(contents)
+    game_image = await npc_repository.create_image(game_id, ext)
+    save_avatar(image, Path(configs.AVATARS_DIR + "/npcs") / f"{game_image.id}.{ext}")
+    return build_image_data(game_image)
+
+
+@games.post("/{game_id}/images", response_model=npc_schemas.GameImageData)
+async def upload_game_image(
+    game_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    image: UploadFile = File(...),
+):
+    await _require_gm_game(
+        db_session,
+        principal,
+        game_id,
+        "Only game masters can add images",
+        write=True,
+    )
+    return await _store_game_image(
+        GameNPCRepository(db_session, principal=principal),
+        game_id,
+        await image.read(),
+    )
+
+
+@games.post("/{game_id}/images/link", response_model=npc_schemas.GameImageData)
+async def link_game_image(
+    game_id: int,
+    data: npc_schemas.LinkImageInput,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    """Download the image at a URL once and keep our own copy of it."""
+    await _require_gm_game(
+        db_session,
+        principal,
+        game_id,
+        "Only game masters can add images",
+        write=True,
+    )
+    contents = await fetch_remote_image(data.url)
+    return await _store_game_image(
+        GameNPCRepository(db_session, principal=principal), game_id, contents
+    )
+
+
+@games.get("/{game_id}/npcs", response_model=list[npc_schemas.NPCData])
+async def get_game_npcs(
+    game_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    await _require_gm_game(
+        db_session, principal, game_id, "Only game masters can see NPCs"
+    )
+    npc_repository = GameNPCRepository(db_session, principal=principal)
+    return [build_npc_data(npc) for npc in await npc_repository.get_npcs(game_id)]
+
+
+@games.patch("/{game_id}/npcs/{npc_id}", response_model=npc_schemas.NPCData)
+async def update_game_npc(
+    game_id: int,
+    npc_id: int,
+    data: npc_schemas.UpdateNPCInput,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    """Rename an NPC and/or change its image. Every post that used it changes too."""
+    await _require_gm_game(
+        db_session,
+        principal,
+        game_id,
+        "Only game masters can edit NPCs",
+        write=True,
+    )
+    npc_repository = GameNPCRepository(db_session, principal=principal)
+    npc = await get_npc_or_404(npc_repository, game_id, npc_id)
+
+    if "name" in data.model_fields_set and data.name is None:
+        raise ValidationError("An NPC needs a name")
+    name = data.name if data.name is not None else npc.name
+    image = npc.image
+    if "image_id" in data.model_fields_set:
+        image = (
+            await require_game_image(npc_repository, game_id, data.image_id)
+            if data.image_id is not None
+            else None
+        )
+
+    npc = await npc_repository.update(npc, name, image)
+    return build_npc_data(npc)
+
+
+@games.delete("/{game_id}/npcs/{npc_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_game_npc(
+    game_id: int,
+    npc_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    """Retire an NPC. Posts that used it keep showing it."""
+    await _require_gm_game(
+        db_session,
+        principal,
+        game_id,
+        "Only game masters can delete NPCs",
+        write=True,
+    )
+    npc_repository = GameNPCRepository(db_session, principal=principal)
+    npc = await get_npc_or_404(npc_repository, game_id, npc_id)
+    await npc_repository.delete(npc)
 
 
 @games.patch("/{game_id}/retire", status_code=status.HTTP_204_NO_CONTENT)

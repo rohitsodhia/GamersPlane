@@ -2,7 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { ForumPermission } from "#/queries/forums";
-import type { PostAttachmentsInput } from "#/queries/posts";
+import type { PostAttachmentsInput, PostedNpcInput } from "#/queries/posts";
 
 export type ThreadOptions = {
 	sticky: boolean;
@@ -175,6 +175,10 @@ export const createThread = async (
 		poll?: PollInput;
 		// Null (or absent) posts as the user.
 		posted_as_id?: number | null;
+		// Null (or absent) is the character's primary avatar.
+		posted_avatar_id?: number | null;
+		// A quick NPC instead of a character; sending both is a 400.
+		posted_npc?: PostedNpcInput | null;
 	} & PostAttachmentsInput,
 ): Promise<{ id: number }> => {
 	const res = await apiFetch("/threads", {

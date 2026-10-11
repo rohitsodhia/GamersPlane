@@ -4,6 +4,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { FadeOut } from "#/components/FadeOut";
 import { ApiError } from "#/lib/api";
+import { notFoundOnMissing } from "#/lib/not-found-route";
 import { useFlash } from "#/lib/use-flash";
 import {
 	forumQueryOptions,
@@ -15,8 +16,8 @@ import styles from "../acp.module.css";
 
 export const Route = createFileRoute("/acp/forums/$forumId/details")({
 	loader: async ({ context, params }) => {
-		const forum = await context.queryClient.ensureQueryData(
-			forumQueryOptions(params.forumId),
+		const forum = await notFoundOnMissing(
+			context.queryClient.ensureQueryData(forumQueryOptions(params.forumId)),
 		);
 		if (!hasEditableDetails(forum)) {
 			throw redirect({ to: "/acp/forums/$forumId/subforums", params });

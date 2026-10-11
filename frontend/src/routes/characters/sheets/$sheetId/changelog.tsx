@@ -4,6 +4,7 @@ import { isContentEmpty } from "#/components/Editor";
 import { TiptapContent } from "#/components/TiptapContent";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import { formatDate } from "#/lib/format-date";
+import { notFoundOnMissing, requirePositiveId } from "#/lib/not-found-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	characterSheetQueryOptions,
@@ -15,15 +16,20 @@ export const Route = createFileRoute("/characters/sheets/$sheetId/changelog")({
 	params: {
 		parse: (params) => ({ sheetId: Number(params.sheetId) }),
 	},
+	beforeLoad: ({ params }) => requirePositiveId(params.sheetId),
 	loader: ({ context, params, location }) =>
-		redirectToLoginOnAuthFailure(
-			Promise.all([
-				context.queryClient.ensureQueryData(characterSheetQueryOptions(params.sheetId)),
-				context.queryClient.ensureQueryData(
-					characterSheetVersionsQueryOptions(params.sheetId),
-				),
-			]),
-			location,
+		notFoundOnMissing(
+			redirectToLoginOnAuthFailure(
+				Promise.all([
+					context.queryClient.ensureQueryData(
+						characterSheetQueryOptions(params.sheetId),
+					),
+					context.queryClient.ensureQueryData(
+						characterSheetVersionsQueryOptions(params.sheetId),
+					),
+				]),
+				location,
+			),
 		),
 	component: RouteComponent,
 });

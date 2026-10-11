@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import StringConstraints
 
+from app.games.npc_schemas import NPCData
+from app.models import Character
 from app.models.forum import Forum
 from app.schema_base import SchemaBase
 
@@ -115,10 +118,21 @@ class PostAsOwner(SchemaBase):
     username: str
 
 
+class PostAsAvatar(SchemaBase):
+    id: int
+    url: str
+    is_primary: bool
+
+
 class PostAsCharacter(SchemaBase):
     id: int
     name: str
+    type: Character.Type
     owner: PostAsOwner
+    # Primary first, then by id.
+    avatars: list[PostAsAvatar] = []
+    # When the principal last posted as this character in the game's forums.
+    last_used_at: datetime | None = None
 
 
 class GetForumCharactersResponse(SchemaBase):
@@ -126,6 +140,18 @@ class GetForumCharactersResponse(SchemaBase):
     # The character the principal last posted as in the requested thread, when
     # they can still post as it.
     default_id: int | None = None
+    # The avatar of that same post, when it's still one of the character's.
+    default_avatar_id: int | None = None
+    # The game's quick NPCs (most recently used first); only for its GMs.
+    npcs: list[NPCData] = []
+    # The quick NPC the principal last posted as in the requested thread, when
+    # they can still post as it.
+    default_npc_id: int | None = None
+    # The forum's game, if it has one.
+    game_id: int | None = None
+    # Whether the principal can make and manage quick NPCs there: a GM of the
+    # game, which isn't retired.
+    can_manage_npcs: bool = False
 
 
 class ForumIdResponse(SchemaBase):

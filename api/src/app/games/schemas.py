@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 from annotated_types import Len
 
+from app.models import Character
 from app.schema_base import SchemaBase, filtered_str
 
 # A game must allow at least one character sheet.
@@ -45,6 +46,7 @@ PlayerState = Literal["invited", "applied", "accepted"]
 class PlayerCharacterData(SchemaBase):
     id: int
     label: str
+    type: Character.Type
     approved: bool
 
 

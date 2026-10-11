@@ -1,10 +1,11 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { notFoundOnMissing } from "#/lib/not-found-route";
 import { forumQueryOptions, hasEditableDetails } from "#/queries/forums";
 
 export const Route = createFileRoute("/acp/forums/$forumId/")({
 	loader: async ({ context, params }) => {
-		const forum = await context.queryClient.ensureQueryData(
-			forumQueryOptions(params.forumId),
+		const forum = await notFoundOnMissing(
+			context.queryClient.ensureQueryData(forumQueryOptions(params.forumId)),
 		);
 		throw redirect({
 			to: hasEditableDetails(forum)

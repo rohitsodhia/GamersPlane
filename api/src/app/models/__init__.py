@@ -10,6 +10,8 @@ from .forum import Forum
 from .forum_read import ForumRead
 from .game import Game
 from .game_allowed_char_sheets import GameAllowedSystem
+from .game_image import GameImage
+from .game_npc import GameNPC
 from .genre import Genre
 from .player import Player
 from .pm import PM
