@@ -98,6 +98,14 @@
 			overflow-wrap: anywhere;
 		}
 
+		.author-name {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 0.25em;
+			max-width: 100%;
+		}
+
 		.author-username {
 			font-size: 0.85em;
 			text-align: center;

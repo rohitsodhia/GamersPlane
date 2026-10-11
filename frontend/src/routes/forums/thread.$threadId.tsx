@@ -21,6 +21,7 @@ import Editor, {
 	isContentEmpty,
 	trimTrailingEmptyParagraph,
 } from "#/components/Editor";
+import { InactiveMarker } from "#/components/InactiveMarker";
 import LockIcon from "#/components/LockIcon";
 import Paginate from "#/components/Paginate";
 import PinIcon from "#/components/PinIcon";
@@ -203,13 +204,16 @@ function PostItem({
 						)}
 					</div>
 				)}
-				<Link
-					to="/user/$userId"
-					params={{ userId: post.author.id }}
-					className={clsx("username", asName && styles["author-username"])}
-				>
-					{post.author.username}
-				</Link>
+				<div className={styles["author-name"]}>
+					<Link
+						to="/user/$userId"
+						params={{ userId: post.author.id }}
+						className={clsx("username", asName && styles["author-username"])}
+					>
+						{post.author.username}
+					</Link>
+					<InactiveMarker lastActivity={post.author.last_activity} />
+				</div>
 			</div>
 			<div className={styles["post-content"]}>
 				<ChatPoint className={styles["chat-point"]} />
