@@ -5,6 +5,7 @@ import { ApiError } from "#/lib/api";
 import { requireAuth } from "#/lib/auth-route";
 import { type ForumPermission, forumQueryOptions } from "#/queries/forums";
 import { createThread } from "#/queries/threads";
+import { postAsPayload } from "./-post-as";
 import { noOptions, PostForm } from "./-post-form";
 
 export const Route = createFileRoute("/forums/new-thread/$forumId")({
@@ -73,8 +74,7 @@ function RouteComponent() {
 					const thread = await mutation.mutateAsync({
 						forum_id: forumId,
 						...fields,
-						posted_as_id: postedAs.characterId,
-						posted_avatar_id: postedAs.avatarId,
+						...postAsPayload(postedAs),
 						poll: poll ?? undefined,
 					});
 					navigate({

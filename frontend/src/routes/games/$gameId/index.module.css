@@ -124,6 +124,13 @@
    font-dependent gap above the header below it. */
 .deck-controls {
 	display: flex;
+
+	/* Extend the button's skewed background 1px past its bottom, like the
+	   .trapezoid fix in styles.css: on fractional-pixel positions the
+	   transformed layer can round short and leave a hairline above the bar. */
+	:global(.skew-btn)::before {
+		inset: 0 0 -1px;
+	}
 }
 
 .row-list {

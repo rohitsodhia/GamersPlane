@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-ro
 import { useState } from "react";
 import { Select } from "#/components/Select";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
+import { notFoundOnMissing, requirePositiveId } from "#/lib/not-found-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	type CharacterSheetMoves,
@@ -18,10 +19,13 @@ export const Route = createFileRoute("/characters/$characterId/change-sheet")({
 	params: {
 		parse: (params) => ({ characterId: Number(params.characterId) }),
 	},
+	beforeLoad: ({ params }) => requirePositiveId(params.characterId),
 	loader: async ({ context, params, location }) => {
-		const character = await redirectToLoginOnAuthFailure(
-			context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
-			location,
+		const character = await notFoundOnMissing(
+			redirectToLoginOnAuthFailure(
+				context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
+				location,
+			),
 		);
 		const me = await context.queryClient.ensureQueryData(meQueryOptions);
 		if (character.user_id !== me.id) {

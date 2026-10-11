@@ -362,3 +362,97 @@ export const deleteDeck = async (gameId: number, deckId: number): Promise<void> 
 		throw new ApiError(res.status, errors);
 	}
 };
+
+// A picture in a game's library; one image can serve many quick NPCs.
+export type GameImage = {
+	id: number;
+	url: string;
+};
+
+// A quick NPC: a name with an optional image, per game. GM-only.
+export type GameNpc = {
+	id: number;
+	name: string;
+	image: GameImage | null;
+	// When the viewer last posted as it.
+	last_used_at: string | null;
+};
+
+// The game's image library (GMs only).
+export const gameImagesQueryOptions = (gameId: number) =>
+	queryOptions({
+		queryKey: ["game", gameId, "images"],
+		queryFn: async (): Promise<GameImage[]> => {
+			const res = await apiFetch(`/games/${gameId}/images`);
+			if (!res.ok) throw new Error("Failed to fetch game images");
+			return res.json();
+		},
+		staleTime: 1000 * 60 * 5,
+	});
+
+// The game's quick NPCs (GMs only).
+export const gameNpcsQueryOptions = (gameId: number) =>
+	queryOptions({
+		queryKey: ["game", gameId, "npcs"],
+		queryFn: async (): Promise<GameNpc[]> => {
+			const res = await apiFetch(`/games/${gameId}/npcs`);
+			if (!res.ok) throw new Error("Failed to fetch quick NPCs");
+			return res.json();
+		},
+	});
+
+export const uploadGameImage = async (
+	gameId: number,
+	file: File,
+): Promise<GameImage> => {
+	const body = new FormData();
+	body.append("image", file);
+	const res = await apiFetch(`/games/${gameId}/images`, { method: "POST", body });
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+// The server downloads the image and keeps its own copy.
+export const linkGameImage = async (
+	gameId: number,
+	url: string,
+): Promise<GameImage> => {
+	const res = await apiFetch(`/games/${gameId}/images/link`, {
+		method: "POST",
+		body: JSON.stringify({ url }),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+// Absent fields are left alone; a null image_id drops the image. Every post that
+// used the NPC changes with it.
+export const updateGameNpc = async (
+	gameId: number,
+	npcId: number,
+	data: { name?: string; image_id?: number | null },
+): Promise<GameNpc> => {
+	const res = await apiFetch(`/games/${gameId}/npcs/${npcId}`, {
+		method: "PATCH",
+		body: JSON.stringify(data),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+export const deleteGameNpc = async (gameId: number, npcId: number): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/npcs/${npcId}`, { method: "DELETE" });
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+};

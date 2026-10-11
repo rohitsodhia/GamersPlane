@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import Field, field_validator
 
+from app.games.npc_schemas import PostedNPCInput
 from app.models import Thread
 from app.posts.schemas import (
     MAX_DRAWS_PER_REQUEST,
@@ -95,6 +96,8 @@ class NewThreadInput(SchemaBase):
     body: dict
     posted_as_id: int | None = None
     posted_avatar_id: int | None = None
+    # A quick NPC (GMs only); can't be combined with posted_as_id.
+    posted_npc: PostedNPCInput | None = None
     options: ThreadOptionsInput = ThreadOptionsInput()
     rolls: list[NewRollInput] = Field(default=[], max_length=MAX_ROLLS_PER_REQUEST)
     draws: list[NewDrawInput] = Field(default=[], max_length=MAX_DRAWS_PER_REQUEST)

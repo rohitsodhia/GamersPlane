@@ -3,9 +3,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.configs import configs
 from app.exceptions import ForbiddenException, ValidationError
 from app.forums.permissions import ForumPermissions, Verbs
-from app.models import Character, CharacterAvatar, Forum, Post, PostRoll, User
-from app.posts.schemas import PostedAsData, RollVisibilityInput
-from app.repositories import CharacterRepository, PlayerRepository
+from app.games.functions import require_game_image
+from app.games.npc_schemas import PostedNPCInput
+from app.games.npcs import game_image_url
+from app.models import (
+    Character,
+    CharacterAvatar,
+    Forum,
+    GameNPC,
+    Post,
+    PostRoll,
+    User,
+)
+from app.posts.schemas import PostedAsData, PostedNPCData, RollVisibilityInput
+from app.repositories import CharacterRepository, GameNPCRepository, PlayerRepository
 
 
 def can_post_as(
@@ -45,6 +56,56 @@ async def validate_posted_as(
     if character is None or not can_post_as(character, forum, principal, is_gm):
         raise ValidationError("You can't post as that character here")
     return character
+
+
+def require_one_poster(
+    posted_as_id: int | None, posted_npc: PostedNPCInput | None
+) -> None:
+    """A post is as a character or as a quick NPC, never both."""
+    if posted_as_id is not None and posted_npc is not None:
+        raise ValidationError("Choose either a character or a quick NPC, not both")
+
+
+async def resolve_posted_npc(
+    db_session: AsyncSession,
+    principal: User,
+    forum: Forum,
+    posted_npc: PostedNPCInput,
+) -> GameNPC:
+    """The game's live NPC for the name + image, made if need be. Only a GM of the
+    forum's game may post as one, and the image must be from that game's library."""
+    if forum.game_id is None:
+        raise ValidationError("Quick NPCs can only post in game forums")
+    if not await PlayerRepository(db_session, principal=principal).is_gm(
+        forum.game_id, principal.id
+    ):
+        raise ValidationError("Only the game's GMs can post as a quick NPC")
+    npc_repository = GameNPCRepository(db_session, principal=principal)
+    image = (
+        await require_game_image(npc_repository, forum.game_id, posted_npc.image_id)
+        if posted_npc.image_id is not None
+        else None
+    )
+    return await npc_repository.get_or_create(forum.game_id, posted_npc.name, image)
+
+
+def is_same_npc(npc: GameNPC | None, posted_npc: PostedNPCInput | None) -> bool:
+    """Whether ``posted_npc`` (as sent) is the NPC a post already has."""
+    if npc is None or posted_npc is None:
+        return npc is None and posted_npc is None
+    return npc.name == posted_npc.name and npc.image_id == posted_npc.image_id
+
+
+def build_posted_npc(post: Post) -> PostedNPCData | None:
+    """The quick NPC ``post`` was made as, even if it has since been deleted."""
+    npc = post.posted_npc
+    if npc is None:
+        return None
+    return PostedNPCData(
+        id=npc.id,
+        name=npc.name,
+        image=game_image_url(npc.image) if npc.image is not None else None,
+    )
 
 
 def validate_posted_avatar(character: Character | None, avatar_id: int | None) -> None:

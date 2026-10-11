@@ -6,7 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.configs import configs
-from app.models import Character, Deck, Forum, Post, PostDraw, PostRoll, Thread, User
+from app.models import (
+    Character,
+    Deck,
+    Forum,
+    GameNPC,
+    Post,
+    PostDraw,
+    PostRoll,
+    Thread,
+    User,
+)
 from app.repositories.character_repository import CharacterRepository
 
 
@@ -131,6 +141,7 @@ class PostRepository:
         state: Post.States = Post.States.DRAFT,
         posted_as_id: int | None = None,
         posted_avatar_id: int | None = None,
+        posted_npc: GameNPC | None = None,
     ) -> Post:
         post = Post(
             thread_id=thread_id,
@@ -140,6 +151,8 @@ class PostRepository:
             state=state,
             posted_as_id=posted_as_id,
             posted_avatar_id=posted_avatar_id,
+            # Assigned as an object so it's loaded, as a new post can't lazy-load it.
+            posted_npc=posted_npc,
         )
         self.db_session.add(post)
         await self.db_session.flush()
@@ -162,6 +175,18 @@ class PostRepository:
         post.posted_as = character
         post.posted_as_id = character_id
         post.posted_avatar_id = avatar_id
+        if character is not None:
+            post.posted_npc = None
+        await self.db_session.flush()
+        return post
+
+    async def set_posted_npc(self, post: Post, npc: GameNPC | None) -> Post:
+        """Post as the quick NPC (``None`` clears it). Posting as an NPC also clears
+        the character and its avatar. Not validated."""
+        post.posted_npc = npc
+        if npc is not None:
+            post.posted_as = None
+            post.posted_avatar_id = None
         await self.db_session.flush()
         return post
 

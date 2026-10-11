@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import Field
 
+from app.games.npc_schemas import PostedNPCInput
 from app.schema_base import SchemaBase, filtered_str, strip_whitespace
 from app.threads.option_schemas import ThreadOptionsUpdate
 from app.threads.poll_schemas import PollData, PollInput
@@ -69,6 +70,14 @@ class PostedAsData(SchemaBase):
     can_view: bool
 
 
+class PostedNPCData(SchemaBase):
+    """The quick NPC a post was made as. Still sent after the NPC is deleted."""
+
+    id: int
+    name: str
+    image: str | None
+
+
 class PostData(SchemaBase):
     id: int
     title: str
@@ -76,6 +85,8 @@ class PostData(SchemaBase):
     author: AuthorData
     # Null for posts made as the author, and when the character is gone or unnamed.
     posted_as: PostedAsData | None = None
+    # Set instead of posted_as when the post is as a quick NPC.
+    posted_npc: PostedNPCData | None = None
     body: dict
     rolls: list[PostRollData] = []
     draws: list[PostDrawData] = []
@@ -140,6 +151,8 @@ class NewPostInput(SchemaBase):
     posted_as_id: int | None = None
     # One of the character's avatars; null is its primary. Needs posted_as_id.
     posted_avatar_id: int | None = None
+    # A quick NPC (GMs only); can't be combined with posted_as_id.
+    posted_npc: PostedNPCInput | None = None
     rolls: list[NewRollInput] = Field(default=[], max_length=MAX_ROLLS_PER_REQUEST)
     draws: list[NewDrawInput] = Field(default=[], max_length=MAX_DRAWS_PER_REQUEST)
 
@@ -156,6 +169,9 @@ class EditPostInput(SchemaBase):
     # One of the character's avatars. Absent keeps it, unless the character changes
     # (then it resets); null resets it to the character's primary.
     posted_avatar_id: int | None = None
+    # A quick NPC to post as (GMs only). Absent keeps it, null clears it. Can't be
+    # combined with a posted_as_id.
+    posted_npc: PostedNPCInput | None = None
     # New rolls/draws to attach; existing ones are never touched by an edit.
     rolls: list[NewRollInput] = Field(default=[], max_length=MAX_ROLLS_PER_REQUEST)
     draws: list[NewDrawInput] = Field(default=[], max_length=MAX_DRAWS_PER_REQUEST)

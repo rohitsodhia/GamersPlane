@@ -10,7 +10,11 @@ from app.posts import schemas
 from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import (
     build_posted_as,
+    build_posted_npc,
     check_post_change,
+    is_same_npc,
+    require_one_poster,
+    resolve_posted_npc,
     validate_posted_as,
     validate_posted_avatar,
     validate_roll_visibility,
@@ -18,6 +22,7 @@ from app.posts.functions import (
 )
 from app.posts.visibility import redact_draw, redact_roll
 from app.repositories import (
+    GameNPCRepository,
     PollRepository,
     PostRepository,
     ReadTrackingRepository,
@@ -74,6 +79,7 @@ async def get_posts(
                     avatar=post.author.avatar_url,
                 ),
                 posted_as=build_posted_as(post, principal, gm_game_id),
+                posted_npc=build_posted_npc(post),
                 body=post.body,
                 rolls=[
                     redact_roll(roll, full_view=is_author or is_moderator)
@@ -138,6 +144,7 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
             avatar=post.author.avatar_url,
         ),
         posted_as=build_posted_as(post, principal, gm_game_id),
+        posted_npc=build_posted_npc(post),
         body=post.body,
         rolls=[redact_roll(roll, full_view=full_view) for roll in rolls],
         draws=[
@@ -174,12 +181,18 @@ async def create_post(
             raise ForbiddenException("Thread is locked")
         if not permissions.has(thread.forum, Verbs.FORUM_WRITE):
             raise ForbiddenException("You can't post in this forum")
+    require_one_poster(post_data.posted_as_id, post_data.posted_npc)
     character = None
     if post_data.posted_as_id is not None:
         character = await validate_posted_as(
             db_session, principal, thread.forum, post_data.posted_as_id
         )
     validate_posted_avatar(character, post_data.posted_avatar_id)
+    npc = None
+    if post_data.posted_npc is not None:
+        npc = await resolve_posted_npc(
+            db_session, principal, thread.forum, post_data.posted_npc
+        )
 
     attachments = await plan_attachments(
         db_session,
@@ -200,7 +213,10 @@ async def create_post(
         state=Post.States.PUBLISHED,
         posted_as_id=post_data.posted_as_id,
         posted_avatar_id=post_data.posted_avatar_id,
+        posted_npc=npc,
     )
+    if npc is not None:
+        await GameNPCRepository(db_session, principal=principal).mark_used(npc)
     await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)
     assert post.published_at is not None
@@ -239,6 +255,24 @@ async def edit_post(
     # post: a draw's cards are shown to the post's author, not to whoever drew.
     if (post_data.rolls or post_data.draws) and post.author_id != principal.id:
         raise ForbiddenException("Only the author can add rolls or draws to a post")
+    require_one_poster(post_data.posted_as_id, post_data.posted_npc)
+    # Same for the quick NPC: absent keeps it, null clears it, and one that's
+    # unchanged isn't re-checked, so a post keeps its NPC if its author stops
+    # being a GM.
+    npc_changes = "posted_npc" in post_data.model_fields_set and not is_same_npc(
+        post.posted_npc, post_data.posted_npc
+    )
+    if npc_changes and post.author_id != principal.id:
+        raise ForbiddenException("Only the author can change who a post is as")
+    npc = post.posted_npc
+    if npc_changes:
+        npc = (
+            await resolve_posted_npc(
+                db_session, principal, post.thread.forum, post_data.posted_npc
+            )
+            if post_data.posted_npc is not None
+            else None
+        )
     # Absent leaves the character alone; null clears it. An unchanged value isn't
     # re-checked, so a post whose character has since left the game stays editable.
     posted_as_changes = (
@@ -258,6 +292,11 @@ async def edit_post(
             if posted_as_id is not None
             else None
         )
+    if npc_changes and npc is not None:
+        # An NPC replaces the character, so no avatar can be chosen alongside it.
+        character = None
+        posted_as_id = None
+        posted_as_changes = post.posted_as_id is not None
     posted_avatar_id = post.posted_avatar_id
     if "posted_avatar_id" in post_data.model_fields_set:
         posted_avatar_id = post_data.posted_avatar_id
@@ -319,6 +358,10 @@ async def edit_post(
     await post_repository.update(post, post_data.title, post_data.body)
     if posted_as_changes or avatar_changes:
         await post_repository.set_posted_as(post, posted_as_id, posted_avatar_id)
+    if npc_changes:
+        await post_repository.set_posted_npc(post, npc)
+        if npc is not None:
+            await GameNPCRepository(db_session, principal=principal).mark_used(npc)
     for roll, change in visibility_changes:
         await post_repository.set_roll_visibility(
             roll, change.hide_reason, change.hide_dice, change.hide_result

@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import clsx from "clsx";
 import { DismissibleBanner } from "#/components/DismissibleBanner";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
+import { notFoundOnMissing, requirePositiveId } from "#/lib/not-found-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	characterQueryOptions,
@@ -17,10 +18,13 @@ export const Route = createFileRoute("/characters/$characterId/")({
 	params: {
 		parse: (params) => ({ characterId: Number(params.characterId) }),
 	},
+	beforeLoad: ({ params }) => requirePositiveId(params.characterId),
 	loader: async ({ context, params, location }) => {
-		const character = await redirectToLoginOnAuthFailure(
-			context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
-			location,
+		const character = await notFoundOnMissing(
+			redirectToLoginOnAuthFailure(
+				context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
+				location,
+			),
 		);
 		const me = await context.queryClient.ensureQueryData(meQueryOptions);
 		// Non-library characters are visible only to their owner.

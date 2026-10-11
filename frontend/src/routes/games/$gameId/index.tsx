@@ -40,6 +40,7 @@ import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { searchUserByUsername } from "#/queries/users";
 import { useAuthStore } from "#/stores/auth";
 import DeckFormPopover from "./-deck-form-popover";
+import { QuickNpcs } from "./-quick-npcs";
 import styles from "./index.module.css";
 
 export const Route = createFileRoute("/games/$gameId/")({
@@ -957,6 +958,9 @@ function RouteComponent() {
 								{deleteDeckError && <div className="error">{deleteDeckError}</div>}
 							</div>
 						</div>
+						{!retired && isGM && (
+							<QuickNpcs gameId={game.id} margin={hbMarginedH2.margin} />
+						)}
 						{isGM && (
 							<DeckFormPopover
 								id="new-deck-popover"

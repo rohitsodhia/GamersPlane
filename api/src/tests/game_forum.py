@@ -9,6 +9,8 @@ from app.models import (
     DeckPermission,
     Forum,
     Game,
+    GameImage,
+    GameNPC,
     Player,
     RolePermission,
     System,
@@ -18,6 +20,7 @@ from app.repositories import (
     CharacterRepository,
     CharacterSheetRepository,
     DeckRepository,
+    GameNPCRepository,
     GameRepository,
     PlayerRepository,
 )
@@ -110,6 +113,22 @@ async def add_avatar(db_session, character, ext="png"):
     )
     # The id, as the avatar itself is expired once the request commits.
     return avatar.id
+
+
+async def make_game_image(db_session, game, uploader, ext="png") -> GameImage:
+    """An image in ``game``'s quick NPC library."""
+    return await GameNPCRepository(db_session, principal=uploader).create_image(
+        game.id, ext
+    )
+
+
+async def make_npc(
+    db_session, game, creator, name="Henchman", image: GameImage | None = None
+) -> GameNPC:
+    """A live quick NPC of ``game`` with the given name and image."""
+    return await GameNPCRepository(db_session, principal=creator).get_or_create(
+        game.id, name, image
+    )
 
 
 async def make_game_forum(create, db_session) -> GameForum:

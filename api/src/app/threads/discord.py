@@ -6,6 +6,7 @@ import httpx
 from fastapi import BackgroundTasks
 
 from app.configs import configs
+from app.games.npcs import game_image_url
 from app.helpers.prose import prose_snippet
 from app.models import Post, User
 from app.posts.functions import displayable_posted_as, posted_avatar_url
@@ -32,6 +33,13 @@ def build_post_payload(
     if character is not None:
         username = (character.name or "").strip()
         avatar_url = posted_avatar_url(character, post.posted_avatar_id)
+    elif post.posted_npc is not None:
+        username = post.posted_npc.name
+        avatar_url = (
+            game_image_url(post.posted_npc.image)
+            if post.posted_npc.image is not None
+            else None
+        )
     payload: dict = {"username": username}
     # The avatar is a URL built from config; skip it rather than send a broken one.
     if avatar_url and avatar_url.startswith(("http://", "https://")):

@@ -4,13 +4,15 @@ import pytest
 
 from app.configs import configs
 from app.models import Character, RolePermission
-from app.repositories import CharacterRepository
+from app.repositories import CharacterRepository, GameRepository
 from tests.factories import ForumFactory, PostFactory, ThreadFactory
 from tests.game_forum import (
     PLAYER_VERBS,
     add_avatar,
     make_character,
     make_game_forum,
+    make_game_image,
+    make_npc,
     make_user_with,
 )
 
@@ -45,6 +47,10 @@ class TestGetForumCharacters:
             "characters": [],
             "default_id": None,
             "default_avatar_id": None,
+            "npcs": [],
+            "default_npc_id": None,
+            "game_id": None,
+            "can_manage_npcs": False,
         }
 
     async def test_player_sees_only_own_approved_named_characters_in_the_game(
@@ -336,3 +342,110 @@ class TestDefaultCharacter:
         )
 
         assert response.json()["default_id"] is None
+
+
+class TestQuickNPCOptions:
+    async def test_gm_gets_the_games_live_npcs(self, auth_as, db_session, world):
+        other = await world.make_game("Other Campaign")
+        image = await make_game_image(db_session, world.game, world.gm)
+        guard = await make_npc(db_session, world.game, world.gm, "Guard", image)
+        gone = await make_npc(db_session, world.game, world.gm, "Gone")
+        gone.deleted = datetime.now(UTC)
+        await make_npc(db_session, other.game, other.gm, "Elsewhere")
+        await db_session.flush()
+        client = auth_as(world.gm)
+
+        response = await client.get(f"/forums/{world.forum.id}/characters")
+
+        assert response.json()["npcs"] == [
+            {
+                "id": guard.id,
+                "name": "Guard",
+                "image": {
+                    "id": image.id,
+                    "url": f"{configs.AVATARS_ROOT}/npcs/{image.id}.png",
+                },
+                "last_used_at": None,
+            }
+        ]
+
+    async def test_a_player_who_is_not_gm_gets_none(
+        self, auth_as, db_session, world, player
+    ):
+        await make_npc(db_session, world.game, world.gm, "Guard")
+        client = auth_as(player)
+
+        response = await client.get(f"/forums/{world.forum.id}/characters")
+
+        assert response.json()["npcs"] == []
+
+    async def test_gm_can_manage_npcs_and_gets_the_game_id(self, auth_as, world):
+        client = auth_as(world.gm)
+
+        response = await client.get(f"/forums/{world.forum.id}/characters")
+
+        assert response.json()["game_id"] == world.game.id
+        assert response.json()["can_manage_npcs"] is True
+
+    async def test_a_player_who_is_not_gm_cannot_manage_npcs(
+        self, auth_as, world, player
+    ):
+        client = auth_as(player)
+
+        response = await client.get(f"/forums/{world.forum.id}/characters")
+
+        assert response.json()["game_id"] == world.game.id
+        assert response.json()["can_manage_npcs"] is False
+
+    async def test_nobody_can_manage_npcs_in_a_retired_game(
+        self, auth_as, db_session, world
+    ):
+        await GameRepository(db_session, principal=world.gm).toggle_retire(world.game)
+        client = auth_as(world.gm)
+
+        response = await client.get(f"/forums/{world.forum.id}/characters")
+
+        assert response.json()["can_manage_npcs"] is False
+
+    async def test_default_is_the_npc_the_user_last_posted_as_in_the_thread(
+        self, auth_as, create, db_session, world
+    ):
+        npc = await make_npc(db_session, world.game, world.gm, "Guard")
+        thread = await create(ThreadFactory, forum=world.forum)
+        await create(
+            PostFactory,
+            thread=thread,
+            author=world.gm,
+            posted_npc=npc,
+            posted_npc_id=npc.id,
+        )
+        client = auth_as(world.gm)
+
+        response = await client.get(
+            f"/forums/{world.forum.id}/characters", params={"thread_id": thread.id}
+        )
+
+        assert response.json()["default_npc_id"] == npc.id
+        assert response.json()["default_id"] is None
+
+    async def test_no_default_once_the_npc_is_deleted(
+        self, auth_as, create, db_session, world
+    ):
+        npc = await make_npc(db_session, world.game, world.gm, "Guard")
+        thread = await create(ThreadFactory, forum=world.forum)
+        await create(
+            PostFactory,
+            thread=thread,
+            author=world.gm,
+            posted_npc=npc,
+            posted_npc_id=npc.id,
+        )
+        npc.deleted = datetime.now(UTC)
+        await db_session.flush()
+        client = auth_as(world.gm)
+
+        response = await client.get(
+            f"/forums/{world.forum.id}/characters", params={"thread_id": thread.id}
+        )
+
+        assert response.json()["default_npc_id"] is None

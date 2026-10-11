@@ -15,6 +15,7 @@ import LoadingSpinner from "#/components/LoadingSpinner";
 import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
+import { notFoundOnMissing, requirePositiveId } from "#/lib/not-found-route";
 import { useFlash } from "#/lib/use-flash";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { createCharacter } from "#/queries/character";
@@ -48,10 +49,13 @@ export const Route = createFileRoute("/characters/sheets/$sheetId/")({
 	validateSearch: z.object({
 		from: z.enum(["library"]).optional(),
 	}),
+	beforeLoad: ({ params }) => requirePositiveId(params.sheetId),
 	loader: ({ context, params, location }) =>
-		redirectToLoginOnAuthFailure(
-			context.queryClient.ensureQueryData(characterSheetQueryOptions(params.sheetId)),
-			location,
+		notFoundOnMissing(
+			redirectToLoginOnAuthFailure(
+				context.queryClient.ensureQueryData(characterSheetQueryOptions(params.sheetId)),
+				location,
+			),
 		),
 	component: RouteComponent,
 });

@@ -4,10 +4,15 @@
 	--post-as-row-height: 2.6em;
 	--post-as-thumb-size: 1.8em;
 
-	display: flex;
-	flex-direction: column;
-	gap: 0.4em;
-	align-items: flex-start;
+	/* The parent is a two-column grid with the "Post as:" label in column 1: the
+	   bar lands beside the label (sharing its row, so they line up) and the list
+	   and image chooser go below it in column 2. */
+	display: contents;
+}
+
+.list-area,
+.npc-image {
+	grid-column: 2;
 }
 
 .bar {
@@ -54,20 +59,42 @@
 	display: flex;
 	flex-direction: column;
 	gap: 0.3em;
-	width: min(100%, 28em);
-}
-
-.filter input {
 	width: 100%;
 }
 
+.filter {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2em;
+	width: 100%;
+	max-width: 20em;
+
+	input {
+		width: 100%;
+	}
+}
+
+.filter-help {
+	font-size: var(--font-size-sm);
+	opacity: 0.8;
+}
+
+/* Entries are tiles sized to their content (name, then thumbnails), wrapping
+   onto as many lines as fit; the list scrolls past --post-as-rows lines. */
 .list {
-	max-height: calc(var(--post-as-rows) * var(--post-as-row-height));
+	--post-as-tile-gap: 0.6em;
+
+	box-sizing: border-box;
+	display: flex;
+	flex-wrap: wrap;
+	align-content: flex-start;
+	gap: var(--post-as-tile-gap);
+	max-height: calc(
+		var(--post-as-rows) *
+		(var(--post-as-row-height) + var(--post-as-tile-gap)) +
+		var(--post-as-tile-gap)
+	);
 	overflow-y: auto;
-	border: 1px solid var(--rac-border-color);
-	border-radius: var(--rac-radius);
-	background-color: var(--rac-bg);
-	color: var(--text);
 	outline: none;
 }
 
@@ -76,13 +103,16 @@
 }
 
 .row {
+	position: relative;
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	gap: 0.6em;
+	max-width: 100%;
 	height: var(--post-as-row-height);
 	padding: 0 var(--rac-item-padding-inline);
+	border: 1px solid var(--rac-border-color);
+	border-radius: var(--rac-radius);
 	cursor: pointer;
 	outline: none;
 
@@ -93,17 +123,27 @@
 
 	&[data-selected] {
 		background-color: var(--gp-red);
+		border-color: var(--gp-red);
 		color: #fff;
 	}
 
 	&[data-focus-visible] {
 		outline: 2px solid var(--gp-red);
-		outline-offset: -2px;
+		outline-offset: 1px;
 	}
 }
 
+/* The first tile after the recently used ones: a vertical rule before it. */
 .after-divider {
-	border-top: 1px solid var(--rac-border-color);
+	margin-inline-start: calc(var(--post-as-tile-gap) + 1px);
+
+	&::before {
+		content: "";
+		position: absolute;
+		inset-block: 15%;
+		inset-inline-start: calc(var(--post-as-tile-gap) * -1 - 1px);
+		border-inline-start: 1px solid var(--rac-border-color);
+	}
 }
 
 .name {
@@ -121,6 +161,28 @@
 	display: flex;
 	flex-shrink: 0;
 	gap: 0.3em;
+
+	img {
+		border: 1px solid
+			light-dark(
+				oklch(from var(--bg) calc(l * 0.8) c h),
+				oklch(from var(--bg) calc(l * 1.1) c h)
+			);
+	}
+}
+
+.npc-thumb {
+	width: var(--post-as-thumb-size);
+	height: var(--post-as-thumb-size);
+	object-fit: cover;
+	border-radius: var(--rac-radius);
+}
+
+.npc-image {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3em;
+	width: min(100%, 28em);
 }
 
 .thumb {

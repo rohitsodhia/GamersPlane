@@ -1,19 +1,34 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	isNotFound,
+	Link,
+	redirect,
+	useNavigate,
+} from "@tanstack/react-router";
 import { TiptapContent } from "#/components/TiptapContent";
 import { requireAuth } from "#/lib/auth-route";
 import { formatDateTime } from "#/lib/format-date";
+import { notFoundOnMissing, requirePositiveId } from "#/lib/not-found-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { deletePM, pmQueryOptions } from "#/queries/pms";
 import { PmHistory } from "#/routes/pms/-history-pm";
 import styles from "./$pmId.module.css";
 
 export const Route = createFileRoute("/pms/$pmId")({
-	beforeLoad: requireAuth,
+	beforeLoad: (ctx) => {
+		requirePositiveId(Number(ctx.params.pmId));
+		return requireAuth(ctx);
+	},
 	loader: async ({ context, params }) => {
 		try {
-			await context.queryClient.ensureQueryData(pmQueryOptions(Number(params.pmId)));
-		} catch {
+			// A missing PM is a 404; anything else (e.g. someone else's PM) goes
+			// back to the inbox as before.
+			await notFoundOnMissing(
+				context.queryClient.ensureQueryData(pmQueryOptions(Number(params.pmId))),
+			);
+		} catch (error) {
+			if (isNotFound(error)) throw error;
 			throw redirect({ to: "/pms" });
 		}
 	},

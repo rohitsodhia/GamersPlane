@@ -4,6 +4,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { Checkbox } from "#/components/Checkbox";
 import { FadeOut } from "#/components/FadeOut";
+import { notFoundOnMissing } from "#/lib/not-found-route";
 import { useFlash } from "#/lib/use-flash";
 import {
 	createGameRole,
@@ -20,8 +21,8 @@ import { ErrorBanner, errorList } from "./-acp-shared";
 
 export const Route = createFileRoute("/acp/forums/$forumId/roles")({
 	loader: async ({ context, params }) => {
-		const forum = await context.queryClient.ensureQueryData(
-			forumQueryOptions(params.forumId),
+		const forum = await notFoundOnMissing(
+			context.queryClient.ensureQueryData(forumQueryOptions(params.forumId)),
 		);
 		if (!isGameRootForum(forum)) {
 			throw redirect({ to: "/acp/forums/$forumId", params });

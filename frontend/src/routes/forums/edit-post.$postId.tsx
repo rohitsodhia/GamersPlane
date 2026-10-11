@@ -18,7 +18,7 @@ import { meQueryOptions } from "#/queries/me";
 import { editPost, postQueryOptions } from "#/queries/posts";
 import { threadQueryOptions } from "#/queries/threads";
 import { canChangePost } from "./-permissions";
-import { changedPostedAs, PLAYER } from "./-post-as";
+import { changedPostedAs, postAsOfPost } from "./-post-as";
 import { PostForm } from "./-post-form";
 import { changedThreadOptions, type ThreadOptionsValues } from "./-thread-options";
 
@@ -112,6 +112,7 @@ function RouteComponent() {
 			showPostAs={post.author.id === me.id}
 			postAsThreadId={post.thread_id}
 			defaultPostedAs={post.posted_as}
+			defaultPostedNpc={post.posted_npc}
 			submitLabel="Save Changes"
 			apiErrors={apiErrors}
 			isSubmitting={mutation.isPending}
@@ -129,9 +130,7 @@ function RouteComponent() {
 						// Left out unless the selection moved, so a hidden picker or a
 						// character no longer listed is never cleared by accident.
 						...changedPostedAs(
-							post.posted_as
-								? { characterId: post.posted_as.id, avatarId: post.posted_as.avatar_id }
-								: PLAYER,
+							postAsOfPost(post),
 							value.postedAs,
 							charactersData?.characters ?? [],
 						),

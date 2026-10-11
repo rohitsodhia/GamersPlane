@@ -18,6 +18,7 @@ import type {
 	NewDrawInput,
 	NewRollInput,
 	PostedAs,
+	PostedNpc,
 	PostRoll,
 	RollVisibilityInput,
 } from "#/queries/posts";
@@ -118,6 +119,7 @@ export function PostForm({
 	showPostAs = true,
 	postAsThreadId,
 	defaultPostedAs = null,
+	defaultPostedNpc = null,
 	submitLabel,
 	isSubmitting = false,
 	apiErrors,
@@ -152,6 +154,8 @@ export function PostForm({
 	postAsThreadId?: number;
 	// The character the post is written as (editing); null is the user.
 	defaultPostedAs?: Pick<PostedAs, "id" | "name" | "avatar" | "avatar_id"> | null;
+	// The quick NPC the post is written as (editing).
+	defaultPostedNpc?: PostedNpc | null;
 	submitLabel: string;
 	isSubmitting?: boolean;
 	apiErrors: string[];
@@ -185,9 +189,19 @@ export function PostForm({
 			options: defaultOptions,
 			// An edit is assumed minor unless the author unticks it.
 			minorEdit: true as boolean,
-			postedAs: (defaultPostedAs
-				? { characterId: defaultPostedAs.id, avatarId: defaultPostedAs.avatar_id }
-				: PLAYER) as PostAsValue,
+			postedAs: (defaultPostedNpc
+				? {
+						characterId: null,
+						avatarId: null,
+						npc: {
+							id: defaultPostedNpc.id,
+							name: defaultPostedNpc.name,
+							imageId: null,
+						},
+					}
+				: defaultPostedAs
+					? { characterId: defaultPostedAs.id, avatarId: defaultPostedAs.avatar_id }
+					: PLAYER) as PostAsValue,
 		} satisfies PostFormFields,
 		onSubmit: async ({ value }) => {
 			const pollProblems = canAddPoll && pollHasErrors(poll);
@@ -213,6 +227,9 @@ export function PostForm({
 	});
 	const { data: me } = useQuery({ ...meQueryOptions, enabled: showPostAs });
 	const postableCharacters = showPostAs ? (charactersData?.characters ?? []) : [];
+	const postableNpcs = showPostAs ? (charactersData?.npcs ?? []) : [];
+	const npcGameId =
+		showPostAs && charactersData?.can_manage_npcs ? charactersData.game_id : null;
 
 	const canSet = (permission: ForumPermission) =>
 		permissions.includes(permission) || permissions.includes("forum_moderate");
@@ -364,23 +381,31 @@ export function PostForm({
 						)}
 					</form.Field>
 
-					{showPostAs && (postableCharacters.length > 0 || defaultPostedAs) && (
-						<form.Field name="postedAs">
-							{(field) => (
-								<>
-									<span id="posted-as-label">Post as:</span>
-									<PostAsPicker
-										labelId="posted-as-label"
-										characters={postableCharacters}
-										viewer={me}
-										value={field.state.value}
-										onChange={(value) => field.handleChange(value)}
-										current={defaultPostedAs}
-									/>
-								</>
-							)}
-						</form.Field>
-					)}
+					{showPostAs &&
+						(postableCharacters.length > 0 ||
+							postableNpcs.length > 0 ||
+							npcGameId !== null ||
+							defaultPostedAs ||
+							defaultPostedNpc) && (
+							<form.Field name="postedAs">
+								{(field) => (
+									<>
+										<span id="posted-as-label">Post as:</span>
+										<PostAsPicker
+											labelId="posted-as-label"
+											characters={postableCharacters}
+											npcs={postableNpcs}
+											npcGameId={npcGameId}
+											viewer={me}
+											value={field.state.value}
+											onChange={(value) => field.handleChange(value)}
+											current={defaultPostedAs}
+											currentNpc={defaultPostedNpc}
+										/>
+									</>
+								)}
+							</form.Field>
+						)}
 
 					<form.Field
 						name="body"

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String
+from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, String
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
@@ -15,7 +15,7 @@ from app.helpers.enums import LabelEnum, LabelEnumType
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
-    from app.models import Character, Thread, User
+    from app.models import Character, GameNPC, Thread, User
 
 
 class Post(Base, SoftDeleteMixin, TimestampMixin):
@@ -25,6 +25,12 @@ class Post(Base, SoftDeleteMixin, TimestampMixin):
         REVISED = "r", "Revised"
 
     __tablename__ = "posts"
+    __table_args__ = (
+        CheckConstraint(
+            "posted_as_id IS NULL OR posted_npc_id IS NULL",
+            name="ck_posts_posted_as_xor_npc",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     thread_id: Mapped[int] = mapped_column(ForeignKey("threads.id"), index=True)
@@ -58,6 +64,14 @@ class Post(Base, SoftDeleteMixin, TimestampMixin):
         ),
         nullable=True,
     )
+    # Posted as a quick NPC instead of a character; never alongside posted_as_id.
+    posted_npc_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "game_npcs.id", ondelete="SET NULL", name="posts_posted_npc_id_fkey"
+        ),
+        nullable=True,
+    )
+    posted_npc: Mapped[GameNPC | None] = relationship(lazy="joined")
 
     @validates("state")
     def _validate_state(self, key: str, state: States) -> States:

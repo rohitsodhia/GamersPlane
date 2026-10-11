@@ -55,7 +55,7 @@ import {
 import { Breadcrumbs } from "./-breadcrumbs";
 import ChatPoint from "./-chat-point";
 import { canChangePost, canWrite } from "./-permissions";
-import { defaultPostAs, PLAYER, type PostAsValue } from "./-post-as";
+import { defaultPostAs, PLAYER, type PostAsValue, postAsPayload } from "./-post-as";
 import { PostAsPicker } from "./-post-as-picker";
 import { PostAttachmentsEditor } from "./-post-attachments";
 import { PostDrawList } from "./-post-draw-list";
@@ -154,26 +154,22 @@ function PostItem({
 }) {
 	const deleteConfirmId = `delete-post-confirm-${post.id}`;
 	const postedAs = post.posted_as;
+	// A quick NPC takes the same slots as a character, with no sheet to link to.
+	const postedNpc = post.posted_npc;
+	const asName = postedAs?.name ?? postedNpc?.name;
+	const asAvatar = postedAs?.avatar ?? postedNpc?.image ?? null;
 	return (
 		<div id={`post-${post.id}`} className={`${styles.post} ${styles[sideClass] ?? ""}`}>
 			<div className={styles["post-author"]}>
-				{postedAs?.avatar ? (
+				{asAvatar ? (
 					// The character takes the avatar slot; the user's sits on its corner.
 					<div className={styles["avatar-stack"]}>
-						{postedAs.can_view ? (
+						{postedAs?.can_view ? (
 							<Link to="/characters/$characterId" params={{ characterId: postedAs.id }}>
-								<img
-									src={postedAs.avatar}
-									alt={postedAs.name}
-									className={styles["user-avatar"]}
-								/>
+								<img src={asAvatar} alt={asName} className={styles["user-avatar"]} />
 							</Link>
 						) : (
-							<img
-								src={postedAs.avatar}
-								alt={postedAs.name}
-								className={styles["user-avatar"]}
-							/>
+							<img src={asAvatar} alt={asName} className={styles["user-avatar"]} />
 						)}
 						<Link
 							to="/user/$userId"
@@ -196,21 +192,21 @@ function PostItem({
 						/>
 					</Link>
 				)}
-				{postedAs && (
+				{asName && (
 					<div className={styles["character-name"]}>
-						{postedAs.can_view ? (
+						{postedAs?.can_view ? (
 							<Link to="/characters/$characterId" params={{ characterId: postedAs.id }}>
 								{postedAs.name}
 							</Link>
 						) : (
-							postedAs.name
+							asName
 						)}
 					</div>
 				)}
 				<Link
 					to="/user/$userId"
 					params={{ userId: post.author.id }}
-					className={clsx("username", postedAs && styles["author-username"])}
+					className={clsx("username", asName && styles["author-username"])}
 				>
 					{post.author.username}
 				</Link>
@@ -450,6 +446,9 @@ function RouteComponent() {
 	const [pickedPostAs, setPickedPostAs] = useState<PostAsValue | undefined>(undefined);
 	const postAs =
 		pickedPostAs ?? (charactersData ? defaultPostAs(charactersData) : PLAYER);
+	const npcGameId = charactersData?.can_manage_npcs ? charactersData.game_id : null;
+	// Bumped after each reply to remount the picker, clearing its filter text.
+	const [postAsPickerKey, setPostAsPickerKey] = useState(0);
 
 	const replyTitle = thread.title.startsWith("Re: ")
 		? thread.title
@@ -471,14 +470,14 @@ function RouteComponent() {
 					thread_id: threadId,
 					title: replyTitle,
 					body: value.body,
-					posted_as_id: postAs.characterId,
-					posted_avatar_id: postAs.avatarId,
+					...postAsPayload(postAs),
 					...buildAttachmentPayload(attachments, access),
 				});
 				formApi.reset();
 				setAttachments(emptyAttachments);
 				setAttachmentsOpen(false);
 				setShowAttachmentErrors(false);
+				setPostAsPickerKey((key) => key + 1);
 			} catch (exception) {
 				if (exception instanceof ApiError) {
 					setReplyErrors(exception.errors.map((e) => e.detail));
@@ -629,18 +628,24 @@ function RouteComponent() {
 							</div>
 						)}
 
-						{charactersData && charactersData.characters.length > 0 && (
-							<div className={styles["quick-reply-post-as"]}>
-								<span id="quick-reply-post-as-label">Post as:</span>
-								<PostAsPicker
-									labelId="quick-reply-post-as-label"
-									characters={charactersData.characters}
-									viewer={me}
-									value={postAs}
-									onChange={setPickedPostAs}
-								/>
-							</div>
-						)}
+						{charactersData &&
+							(charactersData.characters.length > 0 ||
+								charactersData.npcs.length > 0 ||
+								npcGameId !== null) && (
+								<div className={styles["quick-reply-post-as"]}>
+									<span id="quick-reply-post-as-label">Post as:</span>
+									<PostAsPicker
+										key={postAsPickerKey}
+										labelId="quick-reply-post-as-label"
+										characters={charactersData.characters}
+										npcs={charactersData.npcs}
+										npcGameId={npcGameId}
+										viewer={me}
+										value={postAs}
+										onChange={setPickedPostAs}
+									/>
+								</div>
+							)}
 
 						<replyForm.Field
 							name="body"

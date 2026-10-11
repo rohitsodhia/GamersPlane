@@ -207,10 +207,11 @@
 	}
 }
 
+/* Label | picker bar, with the picker's list below the bar (see .post-as). */
 .quick-reply-post-as {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-start;
+	display: grid;
+	grid-template-columns: auto 1fr;
+	align-items: center;
 	gap: 0.5em 1em;
 	margin-bottom: 0.5em;
 }
