@@ -29,6 +29,8 @@ import {
 type CommonProps<T> = {
 	id?: string;
 	label: string;
+	// Keep the label for screen readers but don't show it, where context makes it obvious.
+	hideLabel?: boolean;
 	placeholder?: string;
 	items: T[];
 	getId: (item: T) => string;
@@ -70,6 +72,7 @@ export function FilterableListBox<T>(props: FilterableListBoxProps<T>) {
 	const {
 		id,
 		label,
+		hideLabel,
 		placeholder,
 		items,
 		getId,
@@ -121,7 +124,7 @@ export function FilterableListBox<T>(props: FilterableListBoxProps<T>) {
 						if (event.key === "Enter") event.preventDefault();
 					}}
 				>
-					<Label>{label}</Label>
+					<Label className={hideLabel ? "visually-hidden" : undefined}>{label}</Label>
 					<Input placeholder={placeholder} />
 				</SearchField>
 				<ListBox

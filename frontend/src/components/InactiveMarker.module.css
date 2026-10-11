@@ -1,10 +1,9 @@
 .marker {
 	display: inline-flex;
 	vertical-align: middle;
-	cursor: help;
 
 	img {
-		height: 1.2em;
+		height: 1em;
 		width: auto;
 	}
 

@@ -62,6 +62,20 @@ const DEFAULT_AVATAR_FILE = "avatar.png";
 function GamerCard({ gamer }: { gamer: Gamer }) {
 	return (
 		<li className={styles["card"]}>
+			{gamer.lfg && (
+				<RAIcon
+					className={`ra-health ${styles["lfg-icon"]}`}
+					title="Looking for a game"
+				/>
+			)}
+			{gamer.online && (
+				<span
+					className={styles["online-dot"]}
+					role="img"
+					aria-label="Online now"
+					title="Online now"
+				/>
+			)}
 			<Link to="/user/$userId" params={{ userId: gamer.id }}>
 				<img
 					className="avatar"
@@ -80,23 +94,7 @@ function GamerCard({ gamer }: { gamer: Gamer }) {
 				<Link to="/user/$userId" params={{ userId: gamer.id }}>
 					{gamer.username}
 				</Link>
-				<div className={styles["badges"]}>
-					{gamer.online && (
-						<span
-							className={styles["online-dot"]}
-							role="img"
-							aria-label="Online now"
-							title="Online now"
-						/>
-					)}
-					{gamer.lfg && (
-						<RAIcon
-							className={`ra-health ${styles["lfg-icon"]}`}
-							title="Looking for a game"
-						/>
-					)}
-					<InactiveMarker lastActivity={gamer.lastActivity} />
-				</div>
+				<InactiveMarker lastActivity={gamer.lastActivity} />
 			</div>
 		</li>
 	);

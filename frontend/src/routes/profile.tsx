@@ -2,26 +2,33 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { FadeOut } from "#/components/FadeOut";
-import { LfgSystemsPicker } from "#/components/LfgSystemsPicker";
+import { FilterableListBox } from "#/components/FilterableListBox";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
 import { useFlash } from "#/lib/use-flash";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	deleteUserAvatar,
+	lfgSystemsQueryOptions,
 	meFullQueryOptions,
 	refreshMe,
+	updateLfgSystems,
 	updateUserAvatar,
 	updateUserPassword,
 	updateUserSettings,
 } from "#/queries/me";
+import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import styles from "./profile.module.css";
 
 export const Route = createFileRoute("/profile")({
 	beforeLoad: requireAuth,
 	loader: ({ context, location }) =>
 		redirectToLoginOnAuthFailure(
-			context.queryClient.ensureQueryData(meFullQueryOptions),
+			Promise.all([
+				context.queryClient.ensureQueryData(meFullQueryOptions),
+				context.queryClient.ensureQueryData(lfgSystemsQueryOptions),
+				context.queryClient.ensureQueryData(systemsQueryOptions({ basic: true })),
+			]),
 			location,
 		),
 	component: RouteComponent,
@@ -29,6 +36,8 @@ export const Route = createFileRoute("/profile")({
 
 function RouteComponent() {
 	const { data: me } = useSuspenseQuery(meFullQueryOptions);
+	const { data: lfg } = useSuspenseQuery(lfgSystemsQueryOptions);
+	const { data: systems } = useSuspenseQuery(systemsQueryOptions({ basic: true }));
 	const queryClient = useQueryClient();
 	const [profileSaved, flashProfileSaved] = useFlash();
 	const [securitySaved, flashSecuritySaved] = useFlash();
@@ -37,6 +46,21 @@ function RouteComponent() {
 	const updateAvatarMutation = useMutation({ mutationFn: updateUserAvatar });
 	const deleteAvatarMutation = useMutation({ mutationFn: deleteUserAvatar });
 	const updatePasswordMutation = useMutation({ mutationFn: updateUserPassword });
+
+	// A system disabled since it was picked would fail the API's validation, so
+	// leave it out of the editable set.
+	const enabledSystemIds = new Set(systems.map((system) => system.id));
+	const savedLfgIds = lfg.systems
+		.map((system) => system.id)
+		.filter((id) => enabledSystemIds.has(id));
+	// Saved systems first, then the rest, each in the list's existing order.
+	// Derived from the saved selection only (not the form's value), so rows don't
+	// jump while clicking; it refreshes when the cache updates after Save.
+	const savedLfgIdSet = new Set(savedLfgIds);
+	const lfgItems: BasicSystem[] = [
+		...systems.filter((system) => savedLfgIdSet.has(system.id)),
+		...systems.filter((system) => !savedLfgIdSet.has(system.id)),
+	];
 
 	const profileSettingsForm = useForm({
 		defaultValues: {
@@ -50,16 +74,16 @@ function RouteComponent() {
 			newGameMail: me.newGameMail ?? undefined,
 			gmMail: me.gmMail ?? undefined,
 			postSide: me.postSide,
-			lookingForAGame: me.lookingForAGame ? "1" : "0",
+			lookingForAGame: me.lookingForAGame ?? false,
 			gameInterests: me.gameInterests ?? "",
+			lfgSystems: savedLfgIds,
 		},
 		onSubmit: async ({ value }) => {
-			const { avatarFile, deleteAvatar, lookingForAGame, ...profile } = value;
+			const { avatarFile, deleteAvatar, lfgSystems, ...profile } = value;
 
-			await updateSettingsMutation.mutateAsync({
-				...profile,
-				lookingForAGame: lookingForAGame === "1",
-			});
+			await updateSettingsMutation.mutateAsync(profile);
+			const savedLfg = await updateLfgSystems(lfgSystems);
+			queryClient.setQueryData(lfgSystemsQueryOptions.queryKey, savedLfg);
 			if (avatarFile) {
 				await updateAvatarMutation.mutateAsync(avatarFile);
 			} else if (deleteAvatar) {
@@ -257,32 +281,6 @@ function RouteComponent() {
 					)}
 				</profileSettingsForm.Field>
 
-				<profileSettingsForm.Field name="newGameMail">
-					{(field) => (
-						<div>
-							<div>Receive new game emails?</div>
-							<div>
-								<input
-									id="edit-settings_new-game-mail-yes"
-									type="radio"
-									name={field.name}
-									checked={field.state.value === true}
-									onChange={() => field.handleChange(true)}
-								/>
-								<label htmlFor="edit-settings_new-game-mail-yes">Yes</label>
-								<input
-									id="edit-settings_new-game-mail-no"
-									type="radio"
-									name={field.name}
-									checked={field.state.value === false}
-									onChange={() => field.handleChange(false)}
-								/>
-								<label htmlFor="edit-settings_new-game-mail-no">No</label>
-							</div>
-						</div>
-					)}
-				</profileSettingsForm.Field>
-
 				<profileSettingsForm.Field name="gmMail">
 					{(field) => (
 						<div>
@@ -351,19 +349,24 @@ function RouteComponent() {
 				<profileSettingsForm.Field name="lookingForAGame">
 					{(field) => (
 						<div>
-							<label htmlFor="lookingForAGame" className="center-vertically">
-								Looking for a game?
-							</label>
+							<div>Currently looking for a game?</div>
 							<div>
-								<select
-									id={field.name}
+								<input
+									id="edit-settings_lfg-yes"
+									type="radio"
 									name={field.name}
-									value={field.state.value}
-									onChange={(e) => field.handleChange(e.target.value)}
-								>
-									<option value="0">My game interests</option>
-									<option value="1">I'm looking for a game</option>
-								</select>
+									checked={field.state.value === true}
+									onChange={() => field.handleChange(true)}
+								/>
+								<label htmlFor="edit-settings_lfg-yes">Yes</label>
+								<input
+									id="edit-settings_lfg-no"
+									type="radio"
+									name={field.name}
+									checked={field.state.value === false}
+									onChange={() => field.handleChange(false)}
+								/>
+								<label htmlFor="edit-settings_lfg-no">No</label>
 							</div>
 						</div>
 					)}
@@ -386,14 +389,58 @@ function RouteComponent() {
 					)}
 				</profileSettingsForm.Field>
 
-				{/* Saves on its own (not with the form's Save); the email toggle is the
-					    "Receive new game emails?" field above. */}
-				<div>
-					<div>Notify me about games in</div>
-					<div>
-						<LfgSystemsPicker idPrefix="profile" showMailToggle={false} />
-					</div>
-				</div>
+				{/* The form rows are display: contents, so the anchor sits on the label. */}
+				<profileSettingsForm.Field name="lfgSystems">
+					{(field) => (
+						<div>
+							<div id="new-game-notifications">Notify me about games in</div>
+							<div>
+								<FilterableListBox
+									selectionMode="multiple"
+									id="edit-settings_lfg-systems"
+									label="Systems"
+									hideLabel
+									placeholder="Filter systems..."
+									items={lfgItems}
+									getId={(system: BasicSystem) => system.id}
+									getLabel={(system: BasicSystem) => system.name}
+									selectedIds={field.state.value}
+									onChange={(ids) => field.handleChange(ids)}
+									maxVisibleItems={8}
+								/>
+								<div className={styles["lfg-count"]} aria-live="polite">
+									{field.state.value.length} selected
+								</div>
+							</div>
+						</div>
+					)}
+				</profileSettingsForm.Field>
+
+				<profileSettingsForm.Field name="newGameMail">
+					{(field) => (
+						<div>
+							<div>Receive new game emails?</div>
+							<div>
+								<input
+									id="edit-settings_new-game-mail-yes"
+									type="radio"
+									name={field.name}
+									checked={field.state.value === true}
+									onChange={() => field.handleChange(true)}
+								/>
+								<label htmlFor="edit-settings_new-game-mail-yes">Yes</label>
+								<input
+									id="edit-settings_new-game-mail-no"
+									type="radio"
+									name={field.name}
+									checked={field.state.value === false}
+									onChange={() => field.handleChange(false)}
+								/>
+								<label htmlFor="edit-settings_new-game-mail-no">No</label>
+							</div>
+						</div>
+					)}
+				</profileSettingsForm.Field>
 
 				<profileSettingsForm.Subscribe selector={(state) => state.canSubmit}>
 					{(canSubmit) => (
