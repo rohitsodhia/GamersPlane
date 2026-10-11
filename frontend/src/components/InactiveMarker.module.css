@@ -1,0 +1,23 @@
+.marker {
+	display: inline-flex;
+	vertical-align: middle;
+	cursor: help;
+
+	img {
+		height: 1.2em;
+		width: auto;
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--gp-light-blue);
+		outline-offset: 2px;
+	}
+}
+
+.tooltip {
+	padding: 0.3em 0.6em;
+	border-radius: 0.3em;
+	background: var(--bg-inverse);
+	color: var(--bg);
+	font-size: var(--font-size-sm);
+}

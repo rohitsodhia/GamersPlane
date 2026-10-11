@@ -124,6 +124,31 @@
 			color: #fff;
 		}
 	}
+
+	/* Checklist mode: every row leads with a box, ticked when selected, so state
+	   doesn't rest on the background colour alone. */
+	&.filterable-listbox--multiple .react-aria-ListBoxItem {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+
+		&::before {
+			content: "";
+			flex: none;
+			box-sizing: border-box;
+			width: 1.1em;
+			height: 1.1em;
+			border: 2px solid currentColor;
+			border-radius: 0.2em;
+			background-position: center;
+			background-repeat: no-repeat;
+			background-size: 80%;
+		}
+
+		&[data-selected]::before {
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpolyline points='1 9 7 14 15 4' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E");
+		}
+	}
 }
 
 /* Any wrapper that directly contains a SearchField immediately followed by a

@@ -1,6 +1,7 @@
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { LfgSystemsPicker } from "#/components/LfgSystemsPicker";
 import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { favoriteGame, myGamesQueryOptions } from "#/queries/game";
@@ -36,9 +37,10 @@ function RouteComponent() {
 
 	const playingHb = useHbMargined<HTMLHeadingElement>();
 	const runningHb = useHbMargined<HTMLHeadingElement>();
+	const notificationsHb = useHbMargined<HTMLHeadingElement>();
 
 	return (
-		<div>
+		<div className={styles["page"]}>
 			<h1 className="headerbar">
 				<i className="ra ra-gamers-plane" /> My Games
 			</h1>
@@ -144,6 +146,15 @@ function RouteComponent() {
 					</ul>
 				</details>
 			)}
+
+			<aside className={styles["notifications"]}>
+				<h2 className="headerbar hb-dark" ref={notificationsHb.ref}>
+					New Game Notifications
+				</h2>
+				<div style={{ marginInline: notificationsHb.margin }}>
+					<LfgSystemsPicker idPrefix="games" />
+				</div>
+			</aside>
 		</div>
 	);
 }

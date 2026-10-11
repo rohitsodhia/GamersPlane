@@ -10,6 +10,11 @@
 .user-profile-info {
 	flex-grow: 1;
 
+	.game-interests {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+
 	.section-info {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

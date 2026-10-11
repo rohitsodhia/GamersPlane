@@ -2,6 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { FadeOut } from "#/components/FadeOut";
+import { LfgSystemsPicker } from "#/components/LfgSystemsPicker";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
 import { useFlash } from "#/lib/use-flash";
@@ -50,7 +51,7 @@ function RouteComponent() {
 			gmMail: me.gmMail ?? undefined,
 			postSide: me.postSide,
 			lookingForAGame: me.lookingForAGame ? "1" : "0",
-			games: me.games ?? "",
+			gameInterests: me.gameInterests ?? "",
 		},
 		onSubmit: async ({ value }) => {
 			const { avatarFile, deleteAvatar, lookingForAGame, ...profile } = value;
@@ -368,10 +369,10 @@ function RouteComponent() {
 					)}
 				</profileSettingsForm.Field>
 
-				<profileSettingsForm.Field name="games">
+				<profileSettingsForm.Field name="gameInterests">
 					{(field) => (
 						<div>
-							<label htmlFor="games">What games are you into?</label>
+							<label htmlFor="gameInterests">What games are you into?</label>
 							<div>
 								<textarea
 									id={field.name}
@@ -384,6 +385,15 @@ function RouteComponent() {
 						</div>
 					)}
 				</profileSettingsForm.Field>
+
+				{/* Saves on its own (not with the form's Save); the email toggle is the
+					    "Receive new game emails?" field above. */}
+				<div>
+					<div>Notify me about games in</div>
+					<div>
+						<LfgSystemsPicker idPrefix="profile" showMailToggle={false} />
+					</div>
+				</div>
 
 				<profileSettingsForm.Subscribe selector={(state) => state.canSubmit}>
 					{(canSubmit) => (

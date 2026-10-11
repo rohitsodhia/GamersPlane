@@ -30,6 +30,7 @@ from app.exceptions import (
 from app.forums.acp_routes import forums_acp
 from app.forums.routes import forums
 from app.gamers.legacy_routes import gamers as legacy_gamers
+from app.gamers.routes import gamers
 from app.games.routes import games
 from app.helpers.functions import error_response
 from app.me.legacy_routes import me as legacy_me
@@ -193,6 +194,7 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(referral_links)
     app.include_router(me)
     app.include_router(users)
+    app.include_router(gamers)
     app.include_router(systems)
     app.include_router(pms)
     app.include_router(forums)

@@ -51,7 +51,7 @@ type MeFullApiResponse = MeResponse & {
 	gmMail: boolean | null;
 	postSide: PostSide;
 	lookingForAGame: boolean | null;
-	games: string | null;
+	gameInterests: string | null;
 };
 
 type MeFullResponse = Omit<MeFullApiResponse, "joinDate"> & {
@@ -154,11 +154,46 @@ export const updateUserSettings = async (userData: {
 	gmMail?: boolean;
 	postSide?: PostSide;
 	lookingForAGame?: boolean;
-	games?: string;
+	gameInterests?: string;
 }) => {
 	const res = await apiFetch("/me", {
 		method: "POST",
 		body: JSON.stringify(userData),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+export type LfgSystem = {
+	id: string;
+	name: string;
+};
+
+type LfgSystemsResponse = { systems: LfgSystem[] };
+
+// Nested under "me" so invalidating ["me"] refreshes it too.
+export const lfgSystemsQueryOptions = queryOptions({
+	queryKey: ["me", "lfg-systems"],
+	queryFn: async (): Promise<LfgSystemsResponse> => {
+		const res = await apiFetch("/me/lfg-systems");
+		if (!res.ok) return handleMeError(res);
+		return res.json();
+	},
+	staleTime: 1000 * 60 * 5,
+	retry: retryUnlessForbidden,
+});
+
+// Replaces the whole set. Callers seed the cache from the response so every
+// picker instance sharing lfgSystemsQueryOptions updates at once.
+export const updateLfgSystems = async (
+	systems: string[],
+): Promise<LfgSystemsResponse> => {
+	const res = await apiFetch("/me/lfg-systems", {
+		method: "POST",
+		body: JSON.stringify({ systems }),
 	});
 	if (!res.ok) {
 		const { errors } = await res.json();

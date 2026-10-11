@@ -32,7 +32,7 @@ function Footer() {
 						</Link>
 					</li>
 					<li>
-						<Link to="/gamersList">The Gamers</Link>
+						<Link to="/gamers">The Gamers</Link>
 					</li>
 				</ul>
 				<ul>

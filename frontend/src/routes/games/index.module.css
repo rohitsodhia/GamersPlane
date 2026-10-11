@@ -1,3 +1,36 @@
+.notifications {
+	margin-top: 1em;
+
+	h2 {
+		margin-bottom: 0.75em;
+	}
+}
+
+/* Wide screens: game sections on the left, notifications widget on the right.
+   Narrow screens: single column, widget last. */
+.page {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	/* The page area stretches to fill the viewport; without this the grid hands
+	   the spare height to its rows, stretching the headerbars. */
+	align-content: start;
+	column-gap: 1.5em;
+
+	> h1 {
+		grid-column: 1 / -1;
+	}
+
+	@media (min-width: 60em) {
+		grid-template-columns: minmax(0, 1fr) 18em;
+
+		.notifications {
+			grid-column: 2;
+			grid-row: 2 / span 4;
+			align-self: start;
+		}
+	}
+}
+
 .topper {
 	a {
 		padding: 0.5em 0.8em;

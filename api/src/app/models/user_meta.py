@@ -14,7 +14,7 @@ class UserMeta(Base):
     class MetaKeys(LabelEnum):
         AVATAR_EXT = "avatarExt", "Avatar Extension", str
         BIRTHDAY = "birthday", "Birthday", str
-        GAMES = "games", "Games", str
+        GAME_INTERESTS = "gameInterests", "Game Interests", str
         GM_MAIL = "gmMail", "GM Mail", bool
         LOCATION = "location", "Location", str
         LOOKING_FOR_A_GAME = "lookingForAGame", "Looking For A Game", bool
