@@ -44,7 +44,7 @@ class TestGetActivationLink:
             )
         )
         assert token is not None
-        assert link == f"{configs.HOST_NAME}/activate/{token.token}"
+        assert link == f"{configs.HOST_NAME}/activate?token={token.token}"
 
     async def test_reuses_existing_token(self, db_session, create):
         user = await create(UserFactory)
@@ -52,7 +52,7 @@ class TestGetActivationLink:
 
         link = await get_activation_link(db_session, user)
 
-        assert link == f"{configs.HOST_NAME}/activate/{existing_token.token}"
+        assert link == f"{configs.HOST_NAME}/activate?token={existing_token.token}"
 
 
 class TestActivateAccount:

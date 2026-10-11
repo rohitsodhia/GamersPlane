@@ -1,0 +1,27 @@
+compatibility_level = 3.8
+
+myhostname = gamersplane.com
+
+smtpd_banner = $myhostname ESMTP $mail_name
+
+biff = no
+
+alias_maps = lmdb:/etc/postfix/aliases
+alias_database = lmdb:/etc/postfix/aliases
+mydestination = localhost.localdomain, localhost
+# 172.30.25.0/24 is the "mail" docker network defined in compose.email.yml (keep in sync, also in opendkim.conf)
+mynetworks = 127.0.0.0/8 [::1]/128 172.30.25.0/24
+relayhost =
+smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination
+
+inet_interfaces = all
+inet_protocols = ipv4
+
+smtp_tls_security_level = may
+tls_ssl_options = NO_COMPRESSION, NO_RENEGOTIATION
+
+milter_default_action = accept
+smtpd_milters = inet:opendkim:8891
+non_smtpd_milters = $smtpd_milters
+
+maillog_file=/var/log/postfix.log

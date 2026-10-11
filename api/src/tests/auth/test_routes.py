@@ -346,6 +346,26 @@ class TestGeneratePasswordReset:
         )
         assert token is not None
 
+    async def test_reset_email_link_contains_real_token(
+        self, client, create, db_session, monkeypatch
+    ):
+        sent = []
+
+        async def fake_send_email(to, subject, content):
+            sent.append((to, content))
+
+        monkeypatch.setattr("app.auth.routes.send_email", fake_send_email)
+        user = await create(ActivatedUserFactory)
+
+        await client.post("/auth/password_reset", json={"email": user.email})
+
+        token = await db_session.scalar(
+            select(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
+        )
+        assert len(sent) == 1
+        assert sent[0][0] == user.email
+        assert f"/reset-password?token={token.token}" in sent[0][1]
+
     async def test_generate_for_unknown_email(self, client):
         response = await client.post(
             "/auth/password_reset", json={"email": "nobody@example.com"}

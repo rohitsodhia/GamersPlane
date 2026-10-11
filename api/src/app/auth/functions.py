@@ -30,7 +30,7 @@ async def get_activation_link(db_session: AsyncSession, user: User) -> str:
         db_session.add(account_activation_token)
         await db_session.flush()
 
-    return f"{configs.HOST_NAME}/activate/{account_activation_token.token}"
+    return f"{configs.HOST_NAME}/activate?token={account_activation_token.token}"
 
 
 async def activate_account(db_session: AsyncSession, token: str) -> bool:
@@ -53,4 +53,4 @@ async def send_activation_email(db_session: AsyncSession, user: User) -> None:
         "auth/templates/activation.html",
         activation_link=await get_activation_link(db_session, user),
     )
-    send_email(user.email, "Activate your Gamers' Plane account!", email_content)
+    await send_email(user.email, "Activate your Gamers' Plane account!", email_content)

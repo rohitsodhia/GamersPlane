@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from random import seed
@@ -70,6 +71,17 @@ def _request_validation_error_item(error: dict) -> ErrorItem:
 
 
 def create_app(init_db=True) -> FastAPI:
+    # Nothing configures the root logger, which stays at WARNING; give our own
+    # loggers a handler so INFO records (e.g. dev email dumps) are visible
+    app_logger = logging.getLogger("app")
+    if not app_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(levelname)s:     %(name)s - %(message)s")
+        )
+        app_logger.addHandler(handler)
+        app_logger.setLevel(logging.INFO)
+
     if init_db:
         ssh_config = {}
         if (
