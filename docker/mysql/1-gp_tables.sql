@@ -1,55 +1,60 @@
-ALTER DATABASE gamersplane CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+ALTER DATABASE gamersplane CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 CREATE TABLE `acpPermissions` (
-  `userID` int(11) NOT NULL,
+  `userID` int NOT NULL,
   `permission` varchar(20) NOT NULL,
   PRIMARY KEY (`userID`,`permission`)
 );
 
 CREATE TABLE `charAutocomplete` (
-  `itemID` int(11) NOT NULL AUTO_INCREMENT,
-  `type` varchar(10) NOT NULL,
-  `name` varchar(50) NOT NULL,
+  `itemID` int NOT NULL AUTO_INCREMENT,
+  `type` varchar(30) NOT NULL,
+  `name` varchar(100) NOT NULL,
   `searchName` varchar(50) NOT NULL,
-  `userDefined` int(11) DEFAULT NULL,
+  `userDefined` int DEFAULT NULL,
+  `approved` tinyint(1) NOT NULL DEFAULT '0',
+  `approvedBy` int DEFAULT NULL,
+  `approvedOn` datetime DEFAULT NULL,
   PRIMARY KEY (`itemID`),
   UNIQUE KEY `type` (`type`,`name`)
 );
 
+CREATE TABLE `charAutocomplete_systems` (
+  `itemID` int NOT NULL,
+  `system` varchar(200) NOT NULL,
+  PRIMARY KEY (`itemID`,`system`)
+);
+
 CREATE TABLE `characterHistory` (
-  `actionID` int(11) NOT NULL AUTO_INCREMENT,
-  `characterID` int(11) NOT NULL,
-  `enactedBy` int(11) NOT NULL,
+  `actionID` int NOT NULL AUTO_INCREMENT,
+  `characterID` int NOT NULL,
+  `enactedBy` int NOT NULL,
   `enactedOn` datetime NOT NULL,
-  `gameID` int(11) DEFAULT NULL,
+  `gameID` int DEFAULT NULL,
   `action` varchar(30) NOT NULL,
   `additionalInfo` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`actionID`)
 );
 
-CREATE TABLE `characterLibrary` (
-  `characterID` int(11) NOT NULL,
-  `inLibrary` tinyint(1) NOT NULL DEFAULT '1',
-  `viewed` int(11) NOT NULL,
-  PRIMARY KEY (`characterID`)
-);
-
 CREATE TABLE `characterLibrary_favorites` (
-  `userID` int(11) NOT NULL,
-  `characterID` int(11) NOT NULL,
-  `updateDate` datetime NOT NULL,
+  `userID` int NOT NULL,
+  `characterID` int NOT NULL,
   PRIMARY KEY (`userID`,`characterID`)
 );
 
 CREATE TABLE `characters` (
-  `characterID` int(11) NOT NULL AUTO_INCREMENT,
-  `userID` int(11) NOT NULL,
-  `label` varchar(50) NOT NULL,
+  `characterID` int NOT NULL AUTO_INCREMENT,
+  `userID` int NOT NULL,
+  `label` varchar(100) NOT NULL,
+  `name` varchar(200) DEFAULT NULL,
   `charType` varchar(3) NOT NULL,
-  `systemID` int(11) NOT NULL,
-  `system` varchar(30) NOT NULL,
-  `gameID` int(11) DEFAULT NULL,
-  `approved` tinyint(1) NOT NULL,
+  `system` varchar(20) NOT NULL,
+  `data` json NOT NULL,
+  `gameID` int DEFAULT NULL,
+  `approved` tinyint(1) NOT NULL DEFAULT '0',
+  `inLibrary` tinyint(1) NOT NULL DEFAULT '0',
+  `libraryViews` int NOT NULL DEFAULT '0',
+  `created` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `retired` date DEFAULT NULL,
   PRIMARY KEY (`characterID`),
   KEY `userID` (`userID`),
@@ -57,20 +62,20 @@ CREATE TABLE `characters` (
 );
 
 CREATE TABLE `contact` (
-  `contactID` int(11) NOT NULL AUTO_INCREMENT,
+  `contactID` int NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
   `date` datetime NOT NULL,
   `username` varchar(50) NOT NULL,
   `email` varchar(50) NOT NULL,
-  `subject` mediumtext NOT NULL,
-  `comment` mediumtext NOT NULL,
+  `subject` longtext NOT NULL,
+  `comment` longtext NOT NULL,
   PRIMARY KEY (`contactID`)
 );
 
 CREATE TABLE `deckDraws` (
-  `drawID` int(11) NOT NULL AUTO_INCREMENT,
-  `postID` int(11) NOT NULL,
-  `deckID` int(11) NOT NULL,
+  `drawID` int NOT NULL AUTO_INCREMENT,
+  `postID` int NOT NULL,
+  `deckID` int NOT NULL,
   `type` varchar(10) NOT NULL,
   `cardsDrawn` varchar(200) NOT NULL,
   `reveals` varchar(20) NOT NULL,
@@ -81,8 +86,8 @@ CREATE TABLE `deckDraws` (
 );
 
 CREATE TABLE `deckPermissions` (
-  `deckID` int(11) NOT NULL,
-  `userID` int(11) NOT NULL DEFAULT '0',
+  `deckID` int NOT NULL,
+  `userID` int NOT NULL DEFAULT '0',
   PRIMARY KEY (`deckID`,`userID`),
   KEY `userID` (`userID`)
 );
@@ -90,7 +95,7 @@ CREATE TABLE `deckPermissions` (
 CREATE TABLE `deckTypes` (
   `short` varchar(10) NOT NULL,
   `name` varchar(50) NOT NULL,
-  `deckSize` tinyint(4) NOT NULL,
+  `deckSize` tinyint NOT NULL,
   `class` varchar(20) NOT NULL,
   `image` varchar(20) NOT NULL,
   `extension` varchar(4) NOT NULL,
@@ -98,12 +103,12 @@ CREATE TABLE `deckTypes` (
 );
 
 CREATE TABLE `decks` (
-  `deckID` int(11) NOT NULL AUTO_INCREMENT,
-  `gameID` int(11) NOT NULL,
+  `deckID` int NOT NULL AUTO_INCREMENT,
+  `gameID` int NOT NULL,
   `label` varchar(50) NOT NULL,
   `type` varchar(10) NOT NULL,
-  `deck` varchar(200) NOT NULL,
-  `position` tinyint(4) NOT NULL,
+  `deck` json NOT NULL,
+  `position` tinyint NOT NULL,
   `lastShuffle` datetime NOT NULL,
   PRIMARY KEY (`deckID`),
   KEY `gameID` (`gameID`)
@@ -115,85 +120,102 @@ CREATE TABLE `dispatch` (
   `ngController` varchar(50) DEFAULT NULL,
   `file` varchar(100) NOT NULL,
   `title` varchar(50) DEFAULT NULL,
-  `description` text,
+  `description` mediumtext,
   `loginReq` tinyint(1) NOT NULL DEFAULT '1',
-  `fixedGameMenu` tinyint(4) NOT NULL,
+  `fixedGameMenu` tinyint NOT NULL,
   `bodyClass` varchar(50) DEFAULT NULL,
   `active` tinyint(1) NOT NULL DEFAULT '1',
-  `modalWidth` smallint(4) DEFAULT NULL,
+  `modalWidth` smallint DEFAULT NULL,
   PRIMARY KEY (`url`)
 );
 
+CREATE TABLE `faqs` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `category` varchar(40) NOT NULL,
+  `question` text NOT NULL,
+  `answer` text NOT NULL,
+  `order` int NOT NULL,
+  PRIMARY KEY (`id`)
+);
+
 CREATE TABLE `featsList` (
-  `featID` int(11) NOT NULL AUTO_INCREMENT,
+  `featID` int NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
   `searchName` varchar(50) DEFAULT NULL,
-  `userDefined` int(11) DEFAULT NULL,
+  `userDefined` int DEFAULT NULL,
   PRIMARY KEY (`featID`),
   UNIQUE KEY `name` (`name`)
 );
 
 CREATE TABLE `forumAdmins` (
-  `userID` int(11) NOT NULL,
-  `forumID` int(11) NOT NULL DEFAULT '0',
+  `userID` int NOT NULL,
+  `forumID` int NOT NULL DEFAULT '0',
   PRIMARY KEY (`userID`,`forumID`),
   KEY `forumID` (`forumID`)
 );
 
+CREATE TABLE `forumNotifications` (
+  `userID` int NOT NULL,
+  `threadID` int NOT NULL,
+  `postID` int NOT NULL,
+  `notificationType` int NOT NULL,
+  PRIMARY KEY (`userID`,`threadID`,`postID`,`notificationType`)
+);
+
 CREATE TABLE `forumSubs` (
-  `userID` int(11) NOT NULL,
+  `userID` int NOT NULL,
   `type` varchar(1) NOT NULL,
-  `ID` int(11) NOT NULL,
+  `ID` int NOT NULL,
   PRIMARY KEY (`userID`,`type`,`ID`)
 );
 
 CREATE TABLE `forums` (
-  `forumID` int(11) NOT NULL AUTO_INCREMENT,
+  `forumID` int NOT NULL AUTO_INCREMENT,
   `title` varchar(200) NOT NULL,
-  `description` text,
+  `description` mediumtext,
   `forumType` varchar(1) DEFAULT 'f',
-  `parentID` int(11) DEFAULT NULL,
-  `heritage` varchar(25) NOT NULL,
-  `order` int(5) NOT NULL,
-  `gameID` int(11) DEFAULT NULL,
-  `threadCount` int(11) NOT NULL,
+  `parentID` int DEFAULT NULL,
+  `depth` int DEFAULT NULL,
+  `order` int NOT NULL,
+  `gameID` int DEFAULT NULL,
+  `threadCount` int NOT NULL DEFAULT '0',
   PRIMARY KEY (`forumID`),
-  UNIQUE KEY `heritage` (`heritage`),
-  KEY `parentID` (`parentID`)
-);
-
-CREATE TABLE `forums_heritage` (
-  `parentID` int(11) NOT NULL,
-  `childID` int(11) NOT NULL,
-  PRIMARY KEY (`parentID`,`childID`)
+  KEY `parentID` (`parentID`),
+  KEY `depth` (`depth`) USING BTREE
 );
 
 CREATE TABLE `forums_groupMemberships` (
-  `groupID` int(11) NOT NULL,
-  `userID` int(11) NOT NULL,
+  `groupID` int NOT NULL,
+  `userID` int NOT NULL,
   PRIMARY KEY (`groupID`,`userID`),
   KEY `userID` (`userID`)
 );
 
 CREATE TABLE `forums_groups` (
-  `groupID` int(11) NOT NULL AUTO_INCREMENT,
+  `groupID` int NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
-  `status` tinyint(4) NOT NULL,
-  `ownerID` int(11) NOT NULL,
-  `gameID` int(11) DEFAULT NULL,
+  `status` tinyint NOT NULL DEFAULT '1',
+  `ownerID` int NOT NULL,
+  `gameID` int DEFAULT NULL,
   PRIMARY KEY (`groupID`),
   KEY `ownerID` (`ownerID`)
 );
 
+CREATE TABLE `forums_heritage` (
+  `parentID` int NOT NULL,
+  `childID` int NOT NULL,
+  PRIMARY KEY (`parentID`,`childID`)
+);
+
 CREATE TABLE `forums_permissions_general` (
-  `forumID` int(11) NOT NULL,
-  `read` tinyint(1) NOT NULL,
-  `write` tinyint(1) NOT NULL,
-  `editPost` tinyint(1) NOT NULL,
-  `deletePost` tinyint(1) NOT NULL,
-  `createThread` tinyint(1) NOT NULL,
-  `deleteThread` tinyint(1) NOT NULL,
-  `addPoll` tinyint(1) NOT NULL,
+  `forumID` int NOT NULL,
+  `read` tinyint(1) NOT NULL DEFAULT '-1',
+  `write` tinyint(1) NOT NULL DEFAULT '-1',
+  `editPost` tinyint(1) NOT NULL DEFAULT '-1',
+  `deletePost` tinyint(1) NOT NULL DEFAULT '-1',
+  `createThread` tinyint(1) NOT NULL DEFAULT '-1',
+  `deleteThread` tinyint(1) NOT NULL DEFAULT '-1',
+  `addPoll` tinyint(1) NOT NULL DEFAULT '-1',
   `addRolls` tinyint(1) NOT NULL DEFAULT '-1',
   `addDraws` tinyint(1) NOT NULL DEFAULT '-1',
   `moderate` tinyint(1) NOT NULL DEFAULT '-1',
@@ -201,25 +223,25 @@ CREATE TABLE `forums_permissions_general` (
 );
 
 CREATE TABLE `forums_permissions_groups` (
-  `groupID` int(11) NOT NULL,
-  `forumID` int(11) NOT NULL,
-  `read` tinyint(1) NOT NULL,
-  `write` tinyint(1) NOT NULL,
-  `editPost` tinyint(1) NOT NULL,
-  `deletePost` tinyint(1) NOT NULL,
-  `createThread` tinyint(1) NOT NULL,
-  `deleteThread` tinyint(1) NOT NULL,
-  `addPoll` tinyint(1) NOT NULL,
-  `addRolls` tinyint(1) NOT NULL,
-  `addDraws` tinyint(1) NOT NULL,
-  `moderate` tinyint(1) NOT NULL,
+  `groupID` int NOT NULL,
+  `forumID` int NOT NULL,
+  `read` tinyint(1) NOT NULL DEFAULT '-2',
+  `write` tinyint(1) NOT NULL DEFAULT '-2',
+  `editPost` tinyint(1) NOT NULL DEFAULT '-2',
+  `deletePost` tinyint(1) NOT NULL DEFAULT '-2',
+  `createThread` tinyint(1) NOT NULL DEFAULT '-2',
+  `deleteThread` tinyint(1) NOT NULL DEFAULT '-2',
+  `addPoll` tinyint(1) NOT NULL DEFAULT '-2',
+  `addRolls` tinyint(1) NOT NULL DEFAULT '-2',
+  `addDraws` tinyint(1) NOT NULL DEFAULT '-2',
+  `moderate` tinyint(1) NOT NULL DEFAULT '-2',
   PRIMARY KEY (`groupID`,`forumID`),
   KEY `forumID` (`forumID`)
 );
 
 CREATE TABLE `forums_permissions_users` (
-  `userID` int(11) NOT NULL,
-  `forumID` int(11) NOT NULL,
+  `userID` int NOT NULL,
+  `forumID` int NOT NULL,
   `read` tinyint(1) NOT NULL DEFAULT '0',
   `write` tinyint(1) NOT NULL DEFAULT '0',
   `editPost` tinyint(1) NOT NULL DEFAULT '0',
@@ -227,111 +249,134 @@ CREATE TABLE `forums_permissions_users` (
   `createThread` tinyint(1) NOT NULL DEFAULT '0',
   `deleteThread` tinyint(1) NOT NULL DEFAULT '0',
   `addPoll` tinyint(1) NOT NULL DEFAULT '0',
-  `addRolls` tinyint(1) NOT NULL,
-  `addDraws` tinyint(1) NOT NULL,
-  `moderate` tinyint(1) NOT NULL,
+  `addRolls` tinyint(1) NOT NULL DEFAULT '0',
+  `addDraws` tinyint(1) NOT NULL DEFAULT '0',
+  `moderate` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`userID`,`forumID`),
   KEY `forumID` (`forumID`)
 );
 
 CREATE TABLE `forums_pollOptions` (
-  `pollOptionID` int(11) NOT NULL AUTO_INCREMENT,
-  `threadID` int(11) NOT NULL,
+  `pollOptionID` int NOT NULL AUTO_INCREMENT,
+  `threadID` int NOT NULL,
   `option` varchar(200) NOT NULL,
   PRIMARY KEY (`pollOptionID`)
 );
 
 CREATE TABLE `forums_pollVotes` (
-  `userID` int(11) NOT NULL,
-  `pollOptionID` int(11) NOT NULL,
+  `userID` int NOT NULL,
+  `pollOptionID` int NOT NULL,
   `votedOn` datetime NOT NULL,
   PRIMARY KEY (`userID`,`pollOptionID`)
 );
 
 CREATE TABLE `forums_polls` (
-  `threadID` int(11) NOT NULL,
+  `threadID` int NOT NULL,
   `poll` varchar(200) NOT NULL,
-  `optionsPerUser` tinyint(4) NOT NULL DEFAULT '1',
-  `pollLength` tinyint(4) NOT NULL,
+  `optionsPerUser` tinyint NOT NULL DEFAULT '1',
+  `pollLength` tinyint DEFAULT NULL,
   `allowRevoting` tinyint(1) NOT NULL,
   PRIMARY KEY (`threadID`)
 );
 
+CREATE TABLE `forums_postFFGFlips` (
+  `flipID` int NOT NULL AUTO_INCREMENT,
+  `postID` int NOT NULL,
+  `userID` int NOT NULL,
+  `toDark` int NOT NULL,
+  `timestamp` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`flipID`)
+);
+
+CREATE TABLE `forums_postPollVotes` (
+  `postID` int NOT NULL,
+  `userID` int NOT NULL,
+  `vote` int NOT NULL,
+  PRIMARY KEY (`postID`,`userID`,`vote`)
+);
+
 CREATE TABLE `forums_readData` (
-  `userID` int(11) NOT NULL,
-  `forumData` mediumtext NOT NULL,
-  `threadData` mediumtext NOT NULL,
+  `userID` int NOT NULL,
+  `forumData` longtext NOT NULL,
+  `threadData` longtext NOT NULL,
   PRIMARY KEY (`userID`)
 );
 
 CREATE TABLE `forums_readData_forums` (
-  `userID` int(11) NOT NULL,
-  `forumID` int(11) NOT NULL,
-  `markedRead` int(11) NOT NULL,
+  `userID` int NOT NULL,
+  `forumID` int NOT NULL,
+  `markedRead` int NOT NULL,
   PRIMARY KEY (`userID`,`forumID`)
 );
 
 CREATE TABLE `forums_readData_threads` (
-  `userID` int(11) NOT NULL,
-  `threadID` int(11) NOT NULL,
-  `lastRead` int(11) NOT NULL,
+  `userID` int NOT NULL,
+  `threadID` int NOT NULL,
+  `lastRead` int NOT NULL,
   PRIMARY KEY (`userID`,`threadID`)
 );
 
 CREATE TABLE `gameHistory` (
-  `actionID` int(11) NOT NULL AUTO_INCREMENT,
-  `gameID` int(11) NOT NULL,
-  `enactedBy` int(11) NOT NULL,
+  `actionID` int NOT NULL AUTO_INCREMENT,
+  `gameID` int NOT NULL,
+  `enactedBy` int NOT NULL,
   `enactedOn` datetime NOT NULL,
   `action` varchar(20) NOT NULL,
   `affectedType` varchar(20) DEFAULT NULL,
-  `affectedID` int(11) DEFAULT NULL,
+  `affectedID` int DEFAULT NULL,
   PRIMARY KEY (`actionID`)
 );
 
 CREATE TABLE `gameInvites` (
-  `gameID` int(11) NOT NULL,
-  `invitedID` int(11) NOT NULL,
-  `invitedOn` datetime NOT NULL,
-  PRIMARY KEY (`gameID`,`invitedID`)
+  `gameID` int NOT NULL,
+  `userID` int NOT NULL,
+  `timestamp` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`gameID`,`userID`)
 );
 
 CREATE TABLE `games` (
-  `gameID` int(11) NOT NULL AUTO_INCREMENT,
-  `title` varchar(50) NOT NULL,
-  `systemID` int(11) NOT NULL,
+  `gameID` int NOT NULL AUTO_INCREMENT,
+  `title` varchar(100) NOT NULL,
   `system` varchar(30) NOT NULL,
-  `gmID` int(11) NOT NULL,
+  `customSystem` varchar(100) DEFAULT NULL,
+  `gmID` int NOT NULL,
   `created` datetime NOT NULL,
   `start` datetime NOT NULL,
-  `end` datetime NOT NULL,
-  `postFrequency` varchar(4) NOT NULL,
-  `numPlayers` tinyint(4) NOT NULL,
-  `charsPerPlayer` tinyint(4) NOT NULL DEFAULT '1',
-  `description` mediumtext NOT NULL,
-  `charGenInfo` mediumtext NOT NULL,
-  `forumID` int(11) DEFAULT NULL,
-  `groupID` int(11) NOT NULL,
-  `logForumID` int(11) DEFAULT NULL,
+  `end` datetime DEFAULT NULL,
+  `postFrequency` json NOT NULL,
+  `numPlayers` tinyint NOT NULL,
+  `charsPerPlayer` tinyint NOT NULL DEFAULT '1',
+  `description` longtext NOT NULL,
+  `charGenInfo` longtext NOT NULL,
+  `forumID` int DEFAULT NULL,
+  `groupID` int NOT NULL,
   `status` tinyint(1) NOT NULL DEFAULT '1',
   `public` tinyint(1) NOT NULL,
   `retired` datetime DEFAULT NULL,
+  `allowedCharSheets` json NOT NULL,
+  `gameOptions` json DEFAULT NULL,
+  `recruitmentThreadId` int DEFAULT NULL,
   PRIMARY KEY (`gameID`),
   KEY `gmID` (`gmID`),
   KEY `forumID` (`forumID`),
   KEY `groupID` (`groupID`)
 );
 
+CREATE TABLE `games_favorites` (
+  `userID` int NOT NULL,
+  `gameID` int NOT NULL,
+  PRIMARY KEY (`userID`,`gameID`)
+);
+
 CREATE TABLE `lfg` (
-  `userID` int(11) NOT NULL,
-  `systemID` int(11) NOT NULL,
+  `userID` int NOT NULL,
   `system` varchar(30) NOT NULL,
   PRIMARY KEY (`userID`,`system`),
   UNIQUE KEY `userID` (`userID`,`system`) USING BTREE
 );
 
 CREATE TABLE `loginRecords` (
-  `userID` int(11) NOT NULL,
+  `userID` int NOT NULL,
   `attemptStamp` datetime NOT NULL,
   `ipAddress` varchar(15) NOT NULL,
   `successful` tinyint(1) NOT NULL,
@@ -339,19 +384,19 @@ CREATE TABLE `loginRecords` (
 );
 
 CREATE TABLE `mapData` (
-  `mapID` int(11) NOT NULL,
-  `col` tinyint(4) NOT NULL,
-  `row` tinyint(4) NOT NULL,
-  `data` mediumtext,
+  `mapID` int NOT NULL,
+  `col` tinyint NOT NULL,
+  `row` tinyint NOT NULL,
+  `data` longtext,
   PRIMARY KEY (`mapID`,`col`,`row`)
 );
 
 CREATE TABLE `maps` (
-  `mapID` int(11) NOT NULL AUTO_INCREMENT,
-  `gameID` int(11) NOT NULL,
+  `mapID` int NOT NULL AUTO_INCREMENT,
+  `gameID` int NOT NULL,
   `name` varchar(50) NOT NULL,
-  `rows` tinyint(4) NOT NULL,
-  `cols` tinyint(4) NOT NULL,
+  `rows` tinyint NOT NULL,
+  `cols` tinyint NOT NULL,
   `info` varchar(300) NOT NULL,
   `visible` tinyint(1) NOT NULL,
   `deleted` tinyint(1) NOT NULL,
@@ -359,10 +404,10 @@ CREATE TABLE `maps` (
 );
 
 CREATE TABLE `maps_iconHistory` (
-  `actionID` int(11) NOT NULL AUTO_INCREMENT,
-  `iconID` int(11) NOT NULL,
-  `mapID` int(11) NOT NULL,
-  `enactedBy` int(11) NOT NULL,
+  `actionID` int NOT NULL AUTO_INCREMENT,
+  `iconID` int NOT NULL,
+  `mapID` int NOT NULL,
+  `enactedBy` int NOT NULL,
   `enactedOn` datetime NOT NULL,
   `action` varchar(20) NOT NULL,
   `origin` varchar(10) DEFAULT NULL,
@@ -371,8 +416,8 @@ CREATE TABLE `maps_iconHistory` (
 );
 
 CREATE TABLE `maps_icons` (
-  `iconID` int(11) NOT NULL AUTO_INCREMENT,
-  `mapID` int(11) NOT NULL,
+  `iconID` int NOT NULL AUTO_INCREMENT,
+  `mapID` int NOT NULL,
   `label` varchar(2) NOT NULL,
   `name` varchar(50) NOT NULL,
   `description` varchar(200) NOT NULL,
@@ -383,77 +428,95 @@ CREATE TABLE `maps_icons` (
 );
 
 CREATE TABLE `marvel_actionsList` (
-  `actionID` int(11) NOT NULL AUTO_INCREMENT,
+  `actionID` int NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
   `searchName` varchar(50) DEFAULT NULL,
-  `cost` tinyint(4) NOT NULL,
+  `cost` tinyint NOT NULL,
   `magic` tinyint(1) NOT NULL,
   `source` varchar(50) NOT NULL,
-  `userDefined` int(11) DEFAULT NULL,
+  `userDefined` int DEFAULT NULL,
   PRIMARY KEY (`actionID`)
 );
 
 CREATE TABLE `marvel_modifiersList` (
-  `modifierID` int(11) NOT NULL AUTO_INCREMENT,
+  `modifierID` int NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
   `searchName` varchar(50) DEFAULT NULL,
   `cost` float NOT NULL,
   `costTo` varchar(5) NOT NULL,
   `multipleAllowed` varchar(40) NOT NULL,
   `source` varchar(50) NOT NULL,
-  `userDefined` int(11) DEFAULT NULL,
+  `userDefined` int DEFAULT NULL,
   PRIMARY KEY (`modifierID`)
 );
 
+CREATE TABLE `music` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `url` text NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `lyrics` tinyint(1) NOT NULL DEFAULT '0',
+  `genres` json DEFAULT NULL,
+  `notes` text,
+  `approved` tinyint(1) NOT NULL DEFAULT '0',
+  `user` int NOT NULL,
+  PRIMARY KEY (`id`)
+);
+
 CREATE TABLE `notifications` (
-  `notificationID` int(11) NOT NULL AUTO_INCREMENT,
+  `notificationID` int NOT NULL AUTO_INCREMENT,
   `category` varchar(20) NOT NULL,
-  `enactedBy` int(11) NOT NULL,
+  `enactedBy` int NOT NULL,
   `enactedOn` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `actedUpon` int(11) NOT NULL,
+  `actedUpon` int NOT NULL,
   PRIMARY KEY (`notificationID`)
 );
 
 CREATE TABLE `players` (
-  `gameID` int(11) NOT NULL,
-  `userID` int(11) NOT NULL,
-  `approved` tinyint(1) NOT NULL,
-  `isGM` tinyint(1) NOT NULL,
-  `primaryGM` tinyint(1) DEFAULT NULL,
+  `gameID` int NOT NULL,
+  `userID` int NOT NULL,
+  `approved` tinyint(1) NOT NULL DEFAULT '0',
+  `isGM` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`gameID`,`userID`)
 );
 
 CREATE TABLE `pms` (
-  `pmID` int(11) NOT NULL AUTO_INCREMENT,
-  `recipientID` int(11) NOT NULL,
-  `senderID` int(11) NOT NULL,
-  `title` varchar(100) NOT NULL,
+  `pmID` int NOT NULL AUTO_INCREMENT,
+  `recipientID` int NOT NULL,
+  `senderID` int NOT NULL,
+  `title` varchar(200) NOT NULL,
   `message` mediumtext NOT NULL,
   `datestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `viewed` tinyint(1) NOT NULL,
-  `replyTo` int(11) NOT NULL,
+  `recipientRead` tinyint(1) NOT NULL DEFAULT '0',
+  `senderRead` tinyint(1) NOT NULL DEFAULT '0',
+  `replyTo` int DEFAULT NULL,
+  `recipientDeleted` tinyint(1) NOT NULL DEFAULT '0',
+  `senderDeleted` tinyint(1) NOT NULL DEFAULT '0',
+  `history` json DEFAULT NULL,
   PRIMARY KEY (`pmID`),
   KEY `recipientID` (`recipientID`),
   KEY `senderID` (`senderID`)
 );
 
 CREATE TABLE `posts` (
-  `postID` int(11) NOT NULL AUTO_INCREMENT,
-  `threadID` int(11) NOT NULL,
-  `title` varchar(50) NOT NULL,
-  `authorID` int(11) NOT NULL,
-  `message` mediumtext NOT NULL,
+  `postID` int NOT NULL AUTO_INCREMENT,
+  `threadID` int NOT NULL,
+  `title` varchar(100) NOT NULL,
+  `authorID` int NOT NULL,
+  `message` longtext NOT NULL,
   `datePosted` datetime NOT NULL,
-  `lastEdit` datetime NOT NULL,
-  `timesEdited` tinyint(4) NOT NULL,
-  `postAs` int(11) DEFAULT NULL,
+  `lastEdit` datetime DEFAULT NULL,
+  `timesEdited` tinyint NOT NULL DEFAULT '0',
+  `postAs` int DEFAULT NULL,
+  `messageFullText` longtext,
   PRIMARY KEY (`postID`),
   KEY `threadID` (`threadID`),
-  KEY `authorID` (`authorID`)
+  KEY `authorID` (`authorID`),
+  KEY `datePosted` (`datePosted`),
+  FULLTEXT KEY `messageFullText` (`messageFullText`)
 );
 
 CREATE TABLE `privilages` (
-  `userID` int(11) NOT NULL,
+  `userID` int NOT NULL,
   `privilage` varchar(20) NOT NULL,
   PRIMARY KEY (`userID`,`privilage`)
 );
@@ -462,13 +525,13 @@ CREATE TABLE `referralLinks` (
   `key` varchar(255) NOT NULL,
   `title` varchar(255) DEFAULT NULL,
   `link` varchar(255) DEFAULT NULL,
-  `order` int(11) DEFAULT NULL,
+  `order` int DEFAULT NULL,
   PRIMARY KEY (`key`)
 );
 
 CREATE TABLE `rolls` (
-  `rollID` int(11) NOT NULL AUTO_INCREMENT,
-  `postID` int(11) NOT NULL,
+  `rollID` int NOT NULL AUTO_INCREMENT,
+  `postID` int NOT NULL,
   `type` varchar(12) NOT NULL,
   `reason` varchar(100) NOT NULL,
   `roll` varchar(50) NOT NULL,
@@ -481,35 +544,35 @@ CREATE TABLE `rolls` (
 );
 
 CREATE TABLE `skillsList` (
-  `skillID` int(11) NOT NULL AUTO_INCREMENT,
+  `skillID` int NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
   `searchName` varchar(50) DEFAULT NULL,
-  `userDefined` int(11) DEFAULT NULL,
+  `userDefined` int DEFAULT NULL,
   PRIMARY KEY (`skillID`),
   UNIQUE KEY `name` (`name`)
 );
 
 CREATE TABLE `spycraft2_focusesList` (
-  `focusID` int(11) NOT NULL AUTO_INCREMENT,
+  `focusID` int NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
   `searchName` varchar(50) DEFAULT NULL,
-  `userDefined` int(11) DEFAULT NULL,
+  `userDefined` int DEFAULT NULL,
   PRIMARY KEY (`focusID`)
 );
 
 CREATE TABLE `starwarsffg_talentsList` (
-  `talentID` int(11) NOT NULL AUTO_INCREMENT,
+  `talentID` int NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
   `searchName` varchar(50) NOT NULL,
-  `userDefined` int(11) DEFAULT NULL,
+  `userDefined` int DEFAULT NULL,
   PRIMARY KEY (`talentID`),
   UNIQUE KEY `name` (`name`)
 );
 
 CREATE TABLE `system_charAutocomplete_map` (
-  `systemID` int(11) NOT NULL,
+  `systemID` int NOT NULL,
   `system` varchar(30) NOT NULL,
-  `itemID` int(11) NOT NULL,
+  `itemID` int NOT NULL,
   PRIMARY KEY (`systemID`,`itemID`)
 );
 
@@ -517,41 +580,44 @@ CREATE TABLE `systems` (
   `id` varchar(20) NOT NULL,
   `name` varchar(40) NOT NULL,
   `sortName` varchar(40) NOT NULL,
-  `publisher` json NOT NULL,
-  `genres` json,
-  `basics` json,
-  `hasCharSheet` tinyint(1) NOT NULL DEFAULT 1,
-  `enabled` tinyint(1) NOT NULL DEFAULT 0,
-  `createdOn` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updatedOn` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `enabled` tinyint(1) NOT NULL,
+  `angular` tinyint(1) NOT NULL DEFAULT '1',
+  `genres` json DEFAULT NULL,
+  `publisher` json DEFAULT NULL,
+  `basics` json DEFAULT NULL,
+  `hasCharSheet` tinyint(1) NOT NULL DEFAULT '1',
+  `lfg` int NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
 );
 
 CREATE TABLE `threads` (
-  `threadID` int(11) NOT NULL AUTO_INCREMENT,
-  `forumID` int(11) NOT NULL,
+  `threadID` int NOT NULL AUTO_INCREMENT,
+  `forumID` int NOT NULL,
   `sticky` tinyint(1) NOT NULL,
   `locked` tinyint(1) NOT NULL,
   `allowRolls` tinyint(1) NOT NULL,
   `allowDraws` tinyint(1) NOT NULL,
-  `firstPostID` int(11) NOT NULL,
-  `lastPostID` int(11) NOT NULL,
-  `postCount` int(11) NOT NULL,
+  `firstPostID` int NOT NULL,
+  `lastPostID` int NOT NULL,
+  `postCount` int NOT NULL,
+  `publicPosting` tinyint(1) NOT NULL,
+  `discordWebhook` varchar(256) DEFAULT NULL,
   PRIMARY KEY (`threadID`),
-  KEY `forumID` (`forumID`)
+  KEY `forumID` (`forumID`),
+  KEY `lastPostID` (`lastPostID`)
 );
 
 CREATE TABLE `userAddedItems` (
-  `uItemID` int(11) NOT NULL AUTO_INCREMENT,
+  `uItemID` int NOT NULL AUTO_INCREMENT,
   `itemType` varchar(10) NOT NULL,
   `name` varchar(50) DEFAULT NULL,
-  `itemID` int(11) DEFAULT NULL,
-  `addedBy` int(11) NOT NULL,
+  `itemID` int DEFAULT NULL,
+  `addedBy` int NOT NULL,
   `addedOn` datetime NOT NULL,
-  `systemID` int(11) DEFAULT NULL,
+  `systemID` int DEFAULT NULL,
   `system` varchar(30) DEFAULT NULL,
   `action` varchar(10) DEFAULT NULL,
-  `actedBy` int(11) DEFAULT NULL,
+  `actedBy` int DEFAULT NULL,
   `actedOn` datetime DEFAULT NULL,
   PRIMARY KEY (`uItemID`),
   UNIQUE KEY `name` (`name`),
@@ -561,9 +627,9 @@ CREATE TABLE `userAddedItems` (
 );
 
 CREATE TABLE `userHistory` (
-  `actionID` int(11) NOT NULL AUTO_INCREMENT,
-  `userID` int(11) NOT NULL,
-  `enactedBy` int(11) NOT NULL,
+  `actionID` int NOT NULL AUTO_INCREMENT,
+  `userID` int NOT NULL,
+  `enactedBy` int NOT NULL,
   `enactedOn` datetime NOT NULL,
   `action` varchar(30) NOT NULL,
   `additionalInfo` varchar(50) DEFAULT NULL,
@@ -571,8 +637,8 @@ CREATE TABLE `userHistory` (
 );
 
 CREATE TABLE `usermeta` (
-  `metaID` int(11) NOT NULL AUTO_INCREMENT,
-  `userID` int(11) NOT NULL,
+  `metaID` int NOT NULL AUTO_INCREMENT,
+  `userID` int NOT NULL,
   `metaKey` varchar(50) NOT NULL,
   `metaValue` longtext NOT NULL,
   `autoload` tinyint(1) NOT NULL,
@@ -582,40 +648,24 @@ CREATE TABLE `usermeta` (
 );
 
 CREATE TABLE `users` (
-  `userID` int(11) NOT NULL AUTO_INCREMENT,
+  `userID` int NOT NULL AUTO_INCREMENT,
   `username` varchar(24) NOT NULL,
   `password` varchar(64) NOT NULL,
   `salt` varchar(20) NOT NULL,
   `email` varchar(50) NOT NULL,
-  `joinDate` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `joinDate` datetime NOT NULL,
   `activatedOn` datetime DEFAULT NULL,
   `lastActivity` datetime DEFAULT NULL,
-  `reference` mediumtext DEFAULT NULL,
   `enableFilter` tinyint(1) NOT NULL DEFAULT '1',
-  `showAvatars` tinyint(1) NOT NULL DEFAULT '1',
-  `avatarExt` varchar(3) DEFAULT NULL,
   `timezone` varchar(20) NOT NULL DEFAULT 'Europe/London',
-  `showTZ` tinyint(1) DEFAULT 0,
-  `realName` varchar(50) DEFAULT NULL,
-  `gender` varchar(1) DEFAULT NULL,
-  `birthday` date DEFAULT NULL,
-  `showAge` tinyint(1) DEFAULT 0,
-  `location` varchar(100) DEFAULT NULL,
-  `aim` varchar(50) DEFAULT NULL,
-  `gmail` varchar(50) DEFAULT NULL,
-  `twitter` varchar(50) DEFAULT NULL,
-  `stream` varchar(50) DEFAULT NULL,
-  `games` varchar(200) DEFAULT NULL,
-  `newGameMail` tinyint(1) NOT NULL DEFAULT '1',
-  `postSide` varchar(1) NOT NULL DEFAULT 'r',
   `suspendedUntil` datetime DEFAULT NULL,
-  `banned` tinyint(1) DEFAULT 0,
+  `banned` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`userID`),
   UNIQUE KEY `username` (`username`)
 );
 
 CREATE TABLE `wordFilter` (
-  `wordID` int(11) NOT NULL AUTO_INCREMENT,
+  `wordID` int NOT NULL AUTO_INCREMENT,
   `word` varchar(50) NOT NULL,
   `spam` tinyint(1) NOT NULL DEFAULT '1',
   PRIMARY KEY (`wordID`)
