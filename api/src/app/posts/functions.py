@@ -3,20 +3,35 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.configs import configs
 from app.exceptions import ForbiddenException, ValidationError
 from app.forums.permissions import ForumPermissions, Verbs
-from app.games.functions import require_game_image
-from app.games.npc_schemas import PostedNPCInput
-from app.games.npcs import game_image_url
 from app.models import (
     Character,
     CharacterAvatar,
     Forum,
-    GameNPC,
     Post,
     PostRoll,
+    QuickNPC,
     User,
 )
 from app.posts.schemas import PostedAsData, PostedNPCData, RollVisibilityInput
-from app.repositories import CharacterRepository, GameNPCRepository, PlayerRepository
+from app.helpers.prose import (
+    MAX_ROSTER_TITLE_LENGTH,
+    content_npc_ids,
+    is_valid_id,
+    raw_content_npc_ids,
+    roster_attrs,
+)
+from app.quick_npcs.functions import (
+    build_image_data,
+    npc_image_url,
+    require_npc_image,
+)
+from app.quick_npcs.schemas import PostedNPCInput, ContentNPCData
+from app.repositories import (
+    CharacterRepository,
+    NPCOwner,
+    PlayerRepository,
+    QuickNPCRepository,
+)
 
 
 def can_post_as(
@@ -71,25 +86,112 @@ async def resolve_posted_npc(
     principal: User,
     forum: Forum,
     posted_npc: PostedNPCInput,
-) -> GameNPC:
-    """The game's live NPC for the name + image, made if need be. Only a GM of the
-    forum's game may post as one, and the image must be from that game's library."""
-    if forum.game_id is None:
-        raise ValidationError("Quick NPCs can only post in game forums")
-    if not await PlayerRepository(db_session, principal=principal).is_gm(
-        forum.game_id, principal.id
-    ):
-        raise ValidationError("Only the game's GMs can post as a quick NPC")
-    npc_repository = GameNPCRepository(db_session, principal=principal)
+) -> QuickNPC:
+    """The live NPC for the name + image, made if need be. In a game forum it comes
+    from the game's library, and only the game's accepted players may post as one;
+    elsewhere it comes from the poster's personal library. The image must be from
+    the same library."""
+    if forum.game_id is not None:
+        if not await PlayerRepository(db_session, principal=principal).is_member(
+            forum.game_id, principal.id
+        ):
+            raise ValidationError("Only the game's players can post as a quick NPC")
+        owner = NPCOwner.game(forum.game_id)
+    else:
+        owner = NPCOwner.user(principal.id)
+    npc_repository = QuickNPCRepository(db_session, principal=principal)
     image = (
-        await require_game_image(npc_repository, forum.game_id, posted_npc.image_id)
+        await require_npc_image(npc_repository, owner, posted_npc.image_id)
         if posted_npc.image_id is not None
         else None
     )
-    return await npc_repository.get_or_create(forum.game_id, posted_npc.name, image)
+    return await npc_repository.get_or_create(owner, posted_npc.name, image)
 
 
-def is_same_npc(npc: GameNPC | None, posted_npc: PostedNPCInput | None) -> bool:
+def validate_roster(attrs: dict) -> None:
+    """Raise ``ValidationError`` unless a roster block's attrs are well-formed: a
+    short (or no) title and a non-empty list of distinct NPC ids. Whether the NPCs
+    are usable is checked separately."""
+    title = attrs.get("title", "")
+    if not isinstance(title, str):
+        raise ValidationError("A roster's title must be text")
+    if len(title) > MAX_ROSTER_TITLE_LENGTH:
+        raise ValidationError(
+            f"A roster's title can be at most {MAX_ROSTER_TITLE_LENGTH} characters"
+        )
+    ids = attrs.get("npcIds")
+    if not isinstance(ids, list) or not all(is_valid_id(npc_id) for npc_id in ids):
+        raise ValidationError("A roster block needs a valid list of NPCs")
+    if not ids:
+        raise ValidationError("A roster needs at least one NPC")
+    if len(set(ids)) != len(ids):
+        raise ValidationError("A roster can't list an NPC twice")
+
+
+async def validate_content_npcs(
+    db_session: AsyncSession,
+    principal: User,
+    forum: Forum,
+    body: dict,
+    previous_body: dict | None = None,
+) -> None:
+    """Raise ``ValidationError`` unless every quick NPC speaker and roster block in
+    ``body`` is well-formed and names a live NPC of the right library: the game's
+    (and ``principal`` an accepted player) in a game forum, else ``principal``'s
+    own. Ids already in
+    ``previous_body`` (an edit) aren't re-checked, so an old post stays editable
+    after its NPC is deleted or its author leaves the game."""
+    for attrs in roster_attrs(body):
+        validate_roster(attrs)
+    raw_ids = raw_content_npc_ids(body)
+    if not all(is_valid_id(npc_id) for npc_id in raw_ids):
+        raise ValidationError("A speaker or roster block needs a valid NPC")
+    new_ids = set(raw_ids)
+    if previous_body is not None:
+        new_ids -= set(content_npc_ids(previous_body))
+    if not new_ids:
+        return
+
+    if forum.game_id is not None:
+        if not await PlayerRepository(db_session, principal=principal).is_member(
+            forum.game_id, principal.id
+        ):
+            raise ValidationError("Only the game's players can use a quick NPC")
+        owner = NPCOwner.game(forum.game_id)
+    else:
+        owner = NPCOwner.user(principal.id)
+    live = await QuickNPCRepository(db_session, principal=principal).live_ids(
+        owner, sorted(new_ids)
+    )
+    if new_ids - live:
+        raise ValidationError("A speaker or roster block's NPC isn't in this library")
+
+
+async def load_content_npcs(
+    db_session: AsyncSession, principal: User | None, bodies: list[dict]
+) -> dict[int, ContentNPCData]:
+    """Every NPC the speaker and roster blocks of ``bodies`` name, by id, in one query. Deleted
+    NPCs are included."""
+    ids = list(dict.fromkeys(i for body in bodies for i in content_npc_ids(body)))
+    npcs = await QuickNPCRepository(db_session, principal=principal).get_many(ids)
+    return {
+        npc.id: ContentNPCData(
+            id=npc.id,
+            name=npc.name,
+            image=build_image_data(npc.image) if npc.image is not None else None,
+        )
+        for npc in npcs
+    }
+
+
+def build_content_npcs(
+    body: dict, loaded: dict[int, ContentNPCData]
+) -> list[ContentNPCData]:
+    """The NPCs ``body``'s speaker and roster blocks name, from ``load_content_npcs``' result."""
+    return [loaded[i] for i in content_npc_ids(body) if i in loaded]
+
+
+def is_same_npc(npc: QuickNPC | None, posted_npc: PostedNPCInput | None) -> bool:
     """Whether ``posted_npc`` (as sent) is the NPC a post already has."""
     if npc is None or posted_npc is None:
         return npc is None and posted_npc is None
@@ -104,7 +206,7 @@ def build_posted_npc(post: Post) -> PostedNPCData | None:
     return PostedNPCData(
         id=npc.id,
         name=npc.name,
-        image=game_image_url(npc.image) if npc.image is not None else None,
+        image=npc_image_url(npc.image) if npc.image is not None else None,
     )
 
 

@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { ApiError, apiFetch } from "#/lib/api";
-import type { GameNpc } from "#/queries/game";
+import type { QuickNpc } from "#/queries/quick-npcs";
 
 export type ForumType = "f" | "c";
 
@@ -165,14 +165,15 @@ export type PostableCharacters = {
 	// they used.
 	default_id: number | null;
 	default_avatar_id: number | null;
-	// The game's quick NPCs; empty unless the user is one of its GMs.
-	npcs: GameNpc[];
+	// The quick NPCs to post as: the game's for its accepted players, the user's
+	// personal ones outside games.
+	npcs: QuickNpc[];
 	// The quick NPC the user last posted as in the thread, if still valid.
 	default_npc_id: number | null;
-	// The forum's game, if it has one.
+	// The forum's game, if it has one (null: quick NPCs are the user's personal ones).
 	game_id: number | null;
-	// Whether the user can make and manage quick NPCs there: a GM of the game, which
-	// isn't retired.
+	// Whether the user can make quick NPCs there: an accepted player of a game that
+	// isn't retired, or anyone outside games.
 	can_manage_npcs: boolean;
 };
 

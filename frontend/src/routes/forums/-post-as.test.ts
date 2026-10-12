@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PostableCharacter } from "#/queries/forums";
-import type { GameNpc } from "#/queries/game";
+import type { QuickNpc } from "#/queries/quick-npcs";
 import {
 	changedPostedAs,
 	defaultPostAs,
@@ -37,8 +37,15 @@ function character(
 	};
 }
 
-function npc(id: number, overrides: Partial<GameNpc> = {}): GameNpc {
-	return { id, name: `Npc ${id}`, image: null, last_used_at: null, ...overrides };
+function npc(id: number, overrides: Partial<QuickNpc> = {}): QuickNpc {
+	return {
+		id,
+		name: `Npc ${id}`,
+		image: null,
+		last_used_at: null,
+		can_edit: false,
+		...overrides,
+	};
 }
 
 // Two avatars, the primary first.
@@ -50,7 +57,7 @@ const withAvatars = character(1, {
 });
 const player: PostAsValue = { characterId: null, avatarId: null };
 const npcOf = (
-	id: number | null,
+	id: number,
 	name: string,
 	imageId: number | null = null,
 ): PostAsValue => ({ characterId: null, avatarId: null, npc: { id, name, imageId } });
@@ -167,27 +174,20 @@ describe("newNpcEntry", () => {
 	const npcs = [npc(1, { name: "Guard" })];
 
 	it("offers the typed name, trimmed", () => {
-		expect(newNpcEntry("  Mayor ", npcs, player)).toMatchObject({
+		expect(newNpcEntry("  Mayor ", npcs)).toMatchObject({
 			kind: "new",
 			name: "Mayor",
 		});
 	});
 
 	it("is hidden when a quick NPC has exactly that name", () => {
-		expect(newNpcEntry("Guard", npcs, player)).toBeNull();
+		expect(newNpcEntry("Guard", npcs)).toBeNull();
 		// A partial match still lets a new one be made.
-		expect(newNpcEntry("Guar", npcs, player)).toMatchObject({ name: "Guar" });
+		expect(newNpcEntry("Guar", npcs)).toMatchObject({ name: "Guar" });
 	});
 
-	it("is hidden with nothing typed and nothing unsaved chosen", () => {
-		expect(newNpcEntry("  ", npcs, player)).toBeNull();
-		expect(newNpcEntry("", npcs, npcOf(1, "Guard"))).toBeNull();
-	});
-
-	it("keeps the row of an unsaved NPC already chosen", () => {
-		expect(newNpcEntry("", npcs, npcOf(null, "Mayor"))).toMatchObject({
-			name: "Mayor",
-		});
+	it("is hidden with nothing typed", () => {
+		expect(newNpcEntry("  ", npcs)).toBeNull();
 	});
 });
 
@@ -232,25 +232,17 @@ describe("pickEntry and isEntrySelected", () => {
 		expect(pickEntry(entry)).toEqual(npcOf(3, "Guard", 9));
 	});
 
-	it("picks a new quick NPC without an id or image", () => {
-		const entry = newNpcEntry("Mayor", [], player);
-		expect(entry && pickEntry(entry)).toEqual(npcOf(null, "Mayor", null));
-	});
-
 	it("tells which kind of row is chosen", () => {
 		const [char, quick] = entriesOfType(
 			[character(2, { type: "npc" })],
 			[npc(3)],
 			"npc",
 		);
-		const created = newNpcEntry("Mayor", [], player);
 		expect(isEntrySelected(char, { characterId: 2, avatarId: null })).toBe(true);
 		expect(isEntrySelected(char, npcOf(3, "Npc 3"))).toBe(false);
 		expect(isEntrySelected(quick, npcOf(3, "Npc 3"))).toBe(true);
+		expect(isEntrySelected(quick, npcOf(4, "Npc 3"))).toBe(false);
 		expect(isEntrySelected(quick, { characterId: 2, avatarId: null })).toBe(false);
-		expect(created && isEntrySelected(created, npcOf(null, "Mayor"))).toBe(true);
-		// A saved pair of the same name is a different row.
-		expect(created && isEntrySelected(created, npcOf(3, "Mayor"))).toBe(false);
 	});
 });
 
@@ -263,10 +255,6 @@ describe("resolveNpc", () => {
 			name: "Guard",
 			imageId: 9,
 		});
-	});
-
-	it("gives a new pair the id the server has since made", () => {
-		expect(resolveNpc({ id: null, name: "Guard", imageId: 9 }, npcs).id).toBe(3);
 	});
 
 	it("leaves an unlisted pair alone", () => {
@@ -331,7 +319,7 @@ describe("modeOf", () => {
 	});
 
 	it("is npc for a quick NPC", () => {
-		expect(modeOf(npcOf(null, "Mayor"), list)).toBe("npc");
+		expect(modeOf(npcOf(5, "Mayor"), list)).toBe("npc");
 	});
 
 	it("is null for a character that isn't listed", () => {
@@ -355,7 +343,7 @@ describe("selectOnOpen", () => {
 
 	it("leaves a choice already in the type alone", () => {
 		expect(selectOnOpen(list, "npc", { characterId: 2, avatarId: 5 })).toBeNull();
-		expect(selectOnOpen(list, "npc", npcOf(null, "Mayor"))).toBeNull();
+		expect(selectOnOpen(list, "npc", npcOf(5, "Mayor"))).toBeNull();
 	});
 
 	it("does nothing for a type with no entries", () => {
@@ -467,7 +455,7 @@ describe("changedPostedAs", () => {
 		const posted = npcOf(7, "Guard", null);
 
 		it("sends the NPC when switching to one", () => {
-			expect(changedPostedAs(player, npcOf(null, "Mayor", 4), list)).toEqual({
+			expect(changedPostedAs(player, npcOf(8, "Mayor", 4), list)).toEqual({
 				posted_npc: { name: "Mayor", image_id: 4 },
 			});
 			expect(changedPostedAs({ characterId: 1, avatarId: 10 }, posted, list)).toEqual({
@@ -479,14 +467,8 @@ describe("changedPostedAs", () => {
 			expect(changedPostedAs(posted, npcOf(7, "Guard", 9), list)).toEqual({});
 		});
 
-		it("omits an unchanged NPC that was never saved, told by name and image", () => {
-			expect(
-				changedPostedAs(npcOf(null, "Mayor", 4), npcOf(null, "Mayor", 4), list),
-			).toEqual({});
-		});
-
-		it("sends the NPC when its image changed", () => {
-			expect(changedPostedAs(posted, npcOf(null, "Guard", 4), list)).toEqual({
+		it("sends the NPC when it's a different pair with the same name", () => {
+			expect(changedPostedAs(posted, npcOf(8, "Guard", 4), list)).toEqual({
 				posted_npc: { name: "Guard", image_id: 4 },
 			});
 		});

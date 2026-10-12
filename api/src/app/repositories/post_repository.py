@@ -10,10 +10,10 @@ from app.models import (
     Character,
     Deck,
     Forum,
-    GameNPC,
     Post,
     PostDraw,
     PostRoll,
+    QuickNPC,
     Thread,
     User,
 )
@@ -141,7 +141,7 @@ class PostRepository:
         state: Post.States = Post.States.DRAFT,
         posted_as_id: int | None = None,
         posted_avatar_id: int | None = None,
-        posted_npc: GameNPC | None = None,
+        posted_npc: QuickNPC | None = None,
     ) -> Post:
         post = Post(
             thread_id=thread_id,
@@ -180,7 +180,7 @@ class PostRepository:
         await self.db_session.flush()
         return post
 
-    async def set_posted_npc(self, post: Post, npc: GameNPC | None) -> Post:
+    async def set_posted_npc(self, post: Post, npc: QuickNPC | None) -> Post:
         """Post as the quick NPC (``None`` clears it). Posting as an NPC also clears
         the character and its avatar. Not validated."""
         post.posted_npc = npc

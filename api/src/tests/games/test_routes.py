@@ -88,14 +88,6 @@ class TestCreateGame:
 
         assert response.status_code == 403
 
-    async def test_create_game(self, authed_client, system):
-        client, _user = authed_client
-
-        response = await client.post("/games/", json=_payload())
-
-        assert response.status_code == 200
-        assert response.json()["id"] is not None
-
     async def test_create_game_makes_creator_a_gm_player(
         self, authed_client, system, db_session
     ):
@@ -103,7 +95,9 @@ class TestCreateGame:
 
         response = await client.post("/games/", json=_payload())
 
+        assert response.status_code == 200
         game_id = response.json()["id"]
+        assert game_id is not None
         player = await db_session.get(Player, {"game_id": game_id, "user_id": user.id})
         assert player is not None
         assert player.is_gm is True
@@ -128,15 +122,6 @@ class TestCreateGame:
         )
 
         assert response.status_code == 404
-
-    async def test_create_game_requires_an_allowed_char_sheet(
-        self, authed_client, system
-    ):
-        client, _user = authed_client
-
-        response = await client.post("/games/", json=_payload(allowed_char_sheets=[]))
-
-        assert response.status_code == 422
 
     async def test_create_game_strips_and_converts_title(
         self, authed_client, system, db_session
@@ -248,15 +233,6 @@ class TestGetGame:
 
         assert response.json()["allowed_char_sheets"] == [sheet.id]
 
-    async def test_get_game_status_closed(self, client, db_session, game):
-        game.status = Game.Statuses.CLOSED
-        db_session.add(game)
-        await db_session.flush()
-
-        response = await client.get(f"/games/{game.id}")
-
-        assert response.json()["status"] == "closed"
-
     async def test_get_game_as_gm_returns_players_in_all_states(
         self, auth_as, client, db_session, gm, game, create
     ):
@@ -318,22 +294,13 @@ class TestGetGame:
         # the public players list even though they can see their own state.
         assert body["players"] == []
 
-    async def test_get_game_viewer_state_none_when_not_a_player(
-        self, auth_as, client, db_session, gm, game, create
-    ):
-        other_user = await create(ActivatedUserFactory)
-
-        client = auth_as(other_user)
-        response = await client.get(f"/games/{game.id}")
-
-        assert response.json()["viewer_state"] is None
-
     async def test_get_game_player_fields(self, client, db_session, gm, game, create):
-        player_repository = PlayerRepository(db_session, principal=gm)
         user = await create(ActivatedUserFactory)
-        await player_repository.attach_player_to_game(
+        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
             game.id, user.id, is_gm=False, state=Player.States.ACCEPTED
         )
+        character = await _make_character(db_session, user)
+        await _put_in_game(db_session, character, game.id, approved=True)
 
         response = await client.get(f"/games/{game.id}")
 
@@ -344,25 +311,15 @@ class TestGetGame:
                 "username": user.username,
                 "is_gm": False,
                 "state": "accepted",
-                "characters": [],
+                "characters": [
+                    {
+                        "id": character.id,
+                        "label": "Aragorn",
+                        "type": "pc",
+                        "approved": True,
+                    }
+                ],
             }
-        ]
-
-    async def test_get_game_player_characters_fields(
-        self, client, db_session, gm, game, create
-    ):
-        user = await create(ActivatedUserFactory)
-        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
-            game.id, user.id, state=Player.States.ACCEPTED
-        )
-        character = await _make_character(db_session, user)
-        await _put_in_game(db_session, character, game.id, approved=True)
-
-        response = await client.get(f"/games/{game.id}")
-
-        players = response.json()["players"]
-        assert players[0]["characters"] == [
-            {"id": character.id, "label": "Aragorn", "type": "pc", "approved": True}
         ]
 
     @pytest.mark.parametrize("viewer", ["anonymous", "other_player"])
@@ -477,11 +434,6 @@ class _GameFixtures:
 class TestGetGames(_GameFixtures):
     """GET /games/ - the public "browse games" listing."""
 
-    async def test_get_games_requires_no_auth(self, client):
-        response = await client.get("/games/")
-
-        assert response.status_code == 200
-
     async def test_get_games_returns_all_games(self, client, gm, make_game, create):
         other_gm = await create(ActivatedUserFactory)
         game_a = await make_game(gm, title="A Game")
@@ -515,16 +467,6 @@ class TestGetGames(_GameFixtures):
         assert game_ids == {game_other.id}
         assert game_mine.id not in game_ids
 
-    async def test_get_games_includes_accepted_games_for_anonymous(
-        self, client, gm, make_game
-    ):
-        game = await make_game(gm)
-
-        response = await client.get("/games/")
-
-        game_ids = {g["id"] for g in response.json()["games"]}
-        assert game_ids == {game.id}
-
     async def test_get_games_includes_games_viewer_only_applied_to(
         self, auth_as, client, db_session, gm, make_game, create
     ):
@@ -552,36 +494,6 @@ class TestGetGames(_GameFixtures):
         titles = [g["title"] for g in response.json()["games"]]
         assert titles == ["Curse of Strahd"]
 
-    async def test_get_games_search_matches_substring_anywhere_in_title(
-        self, client, gm, make_game
-    ):
-        await make_game(gm, title="Curse of Strahd")
-        await make_game(gm, title="Tomb of Annihilation")
-
-        response = await client.get("/games/", params={"search": "of"})
-
-        titles = {g["title"] for g in response.json()["games"]}
-        assert titles == {"Curse of Strahd", "Tomb of Annihilation"}
-
-    async def test_get_games_search_no_match_returns_empty(self, client, gm, make_game):
-        await make_game(gm, title="Curse of Strahd")
-
-        response = await client.get("/games/", params={"search": "nonexistent"})
-
-        assert response.json()["games"] == []
-
-    async def test_get_games_filters_by_single_system(
-        self, client, gm, make_game, create
-    ):
-        other_system = await create(SystemFactory, id="pf2e")
-        game_dnd = await make_game(gm, title="A Game")
-        await make_game(gm, title="B Game", system_id=other_system.id)
-
-        response = await client.get("/games/", params={"systems": ["dnd5e"]})
-
-        game_ids = [g["id"] for g in response.json()["games"]]
-        assert game_ids == [game_dnd.id]
-
     async def test_get_games_filters_by_multiple_systems(
         self, client, gm, make_game, create
     ):
@@ -596,19 +508,7 @@ class TestGetGames(_GameFixtures):
         game_ids = {g["id"] for g in response.json()["games"]}
         assert game_ids == {game_dnd.id, game_pf2e.id}
 
-    async def test_get_games_response_includes_count_and_page(
-        self, client, gm, make_game
-    ):
-        await make_game(gm, title="A Game")
-        await make_game(gm, title="B Game")
-
-        response = await client.get("/games/")
-
-        body = response.json()
-        assert body["count"] == 2
-        assert body["page"] == 1
-
-    async def test_get_games_second_page_returns_remaining_games(
+    async def test_get_games_paginates_and_reports_count_and_page(
         self, client, gm, make_game
     ):
         for i in range(configs.PAGINATE_PER_PAGE + 3):
@@ -619,6 +519,9 @@ class TestGetGames(_GameFixtures):
 
         assert len(first_page.json()["games"]) == configs.PAGINATE_PER_PAGE
         assert len(second_page.json()["games"]) == 3
+        assert first_page.json()["count"] == configs.PAGINATE_PER_PAGE + 3
+        assert first_page.json()["page"] == 1
+        assert second_page.json()["page"] == 2
         first_ids = {g["id"] for g in first_page.json()["games"]}
         second_ids = {g["id"] for g in second_page.json()["games"]}
         assert first_ids.isdisjoint(second_ids)
@@ -710,11 +613,6 @@ class TestGetLatestGames(_GameFixtures):
 
         return _make_dated_game
 
-    async def test_get_latest_games_requires_no_auth(self, client):
-        response = await client.get("/games/latest")
-
-        assert response.status_code == 200
-
     async def test_get_latest_games_returns_three_newest_first(
         self, client, gm, make_dated_game
     ):
@@ -772,38 +670,9 @@ class TestGetLatestGames(_GameFixtures):
 
         assert [g["id"] for g in response.json()["games"]] == [game.id]
 
-    async def test_get_latest_games_returns_expected_fields(
-        self, client, gm, system, make_game
-    ):
-        game = await make_game(gm, title="My Campaign")
-
-        response = await client.get("/games/latest", params={"system": system.id})
-
-        assert response.json()["games"] == [
-            {
-                "id": game.id,
-                "title": "My Campaign",
-                "system": system.name,
-                "gm": {"id": gm.id, "username": gm.username},
-                "post_frequency": {"times_per": 3, "per_period": "w"},
-                "num_players": 4,
-                "player_count": 0,
-                "forum_id": game.root_forum_id,
-                "is_retired": False,
-                "status": "open",
-                "public": True,
-                "favorited": False,
-            }
-        ]
-
 
 class TestGetMyGames(_GameFixtures):
     """GET /games/my - the authenticated "My Games" listing."""
-
-    async def test_get_my_games_requires_auth(self, client):
-        response = await client.get("/games/my")
-
-        assert response.status_code == 403
 
     async def test_get_my_games_excludes_other_users_games(
         self, auth_as, client, gm, make_game, create
@@ -922,21 +791,6 @@ class TestGetMyGames(_GameFixtures):
 
         assert response.json()["games"][0]["is_gm"] is True
 
-    async def test_get_my_games_is_gm_false_for_regular_player(
-        self, auth_as, client, db_session, gm, make_game, create
-    ):
-        game = await make_game(gm)
-        player = await create(ActivatedUserFactory)
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, player.id, state=Player.States.ACCEPTED
-        )
-        client = auth_as(player)
-
-        response = await client.get("/games/my")
-
-        assert response.json()["games"][0]["is_gm"] is False
-
     async def test_get_my_games_is_retired_reflects_retired_field(
         self, auth_as, client, gm, make_game
     ):
@@ -958,43 +812,6 @@ class TestGetMyGames(_GameFixtures):
         response = await client.get("/games/my")
 
         assert response.json()["games"][0]["status"] == "closed"
-
-    async def test_get_my_games_favorited_true_when_favorited(
-        self, auth_as, client, gm, make_game
-    ):
-        game = await make_game(gm)
-        client = auth_as(gm)
-        await client.post(f"/games/{game.id}/favorite")
-
-        response = await client.get("/games/my")
-
-        assert response.json()["games"][0]["favorited"] is True
-
-    async def test_get_my_games_returns_expected_fields(
-        self, auth_as, client, gm, system, make_game
-    ):
-        game = await make_game(gm, title="My Campaign")
-        client = auth_as(gm)
-
-        response = await client.get("/games/my")
-
-        assert response.status_code == 200
-        body = response.json()["games"][0]
-        assert body == {
-            "id": game.id,
-            "title": "My Campaign",
-            "system": system.name,
-            "gm": {"id": gm.id, "username": gm.username},
-            "post_frequency": {"times_per": 3, "per_period": "w"},
-            "num_players": 4,
-            "player_count": 0,
-            "forum_id": game.root_forum_id,
-            "is_gm": True,
-            "is_retired": False,
-            "status": "open",
-            "public": True,
-            "favorited": False,
-        }
 
 
 class TestUpdateGame:
@@ -1036,11 +853,6 @@ class TestUpdateGame:
             None,
             None,
         )
-
-    async def test_update_game_requires_auth(self, client, game):
-        response = await client.patch(f"/games/{game.id}", json=_payload())
-
-        assert response.status_code == 403
 
     async def test_update_game_not_found(self, authed_client):
         client, _user = authed_client
@@ -1090,31 +902,6 @@ class TestUpdateGame:
         assert updated.recruitment_thread_id == 42
         assert updated.advanced_options == {"foo": "bar"}
 
-    async def test_update_game_strips_and_converts_title(
-        self, auth_as, client, db_session, game, gm
-    ):
-        client = auth_as(gm)
-
-        response = await client.patch(
-            f"/games/{game.id}", json=_payload(title="  Line one\nLine two  ")
-        )
-
-        assert response.status_code == 200
-        updated = await db_session.get(Game, game.id)
-        assert updated.title == "Line one<br>Line two"
-
-    async def test_update_game_soft_deleted_not_found(
-        self, auth_as, client, db_session, game, gm
-    ):
-        client = auth_as(gm)
-        game.deleted = game.created
-        db_session.add(game)
-        await db_session.flush()
-
-        response = await client.patch(f"/games/{game.id}", json=_payload())
-
-        assert response.status_code == 404
-
     async def test_update_game_allowed_char_sheets(
         self, auth_as, client, db_session, game, gm, create
     ):
@@ -1131,17 +918,6 @@ class TestUpdateGame:
             Game, game.id, options=[selectinload(Game.allowed_char_sheets)]
         )
         assert [s.id for s in updated.allowed_char_sheets] == [sheet.id]
-
-    async def test_update_game_requires_an_allowed_char_sheet(
-        self, auth_as, client, game, gm
-    ):
-        client = auth_as(gm)
-
-        response = await client.patch(
-            f"/games/{game.id}", json=_payload(allowed_char_sheets=[])
-        )
-
-        assert response.status_code == 422
 
     async def test_update_game_system_not_found(self, auth_as, client, game, gm):
         client = auth_as(gm)

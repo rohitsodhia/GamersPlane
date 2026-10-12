@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useState } from "react";
@@ -11,11 +11,15 @@ import {
 	ToggleButton,
 	ToggleButtonGroup,
 } from "react-aria-components";
-import { NpcImageChooser } from "#/components/NpcImageChooser";
+import { QuickNpcModal } from "#/components/QuickNpcModal";
 import type { PostableCharacter } from "#/queries/forums";
-import { type GameNpc, gameImagesQueryOptions } from "#/queries/game";
 import type { MeResponse } from "#/queries/me";
 import type { PostedNpc } from "#/queries/posts";
+import {
+	type NpcLibrary,
+	npcImagesQueryOptions,
+	type QuickNpc,
+} from "#/queries/quick-npcs";
 import {
 	type CharacterType,
 	effectiveAvatarId,
@@ -25,6 +29,7 @@ import {
 	type NpcEntry,
 	newNpcEntry,
 	npcImageUrl,
+	npcValue,
 	orderEntries,
 	PLAYER,
 	type PostAsValue,
@@ -44,7 +49,7 @@ export function PostAsPicker({
 	labelId,
 	characters,
 	npcs = [],
-	npcGameId = null,
+	npcLibrary = null,
 	viewer,
 	value,
 	onChange,
@@ -54,10 +59,10 @@ export function PostAsPicker({
 	// The visible "Post as" label's id, naming the buttons.
 	labelId: string;
 	characters: PostableCharacter[];
-	// The game's quick NPCs (only a GM's response has any).
-	npcs?: GameNpc[];
-	// Set when the viewer can make quick NPCs: the game whose image library they use.
-	npcGameId?: number | null;
+	// The quick NPCs to post as (the game's, or the viewer's own outside games).
+	npcs?: QuickNpc[];
+	// Set when the viewer can make quick NPCs: the library a new one goes to.
+	npcLibrary?: NpcLibrary | null;
 	viewer: Pick<MeResponse, "id" | "username" | "avatar"> | undefined;
 	value: PostAsValue;
 	onChange: (value: PostAsValue) => void;
@@ -68,9 +73,13 @@ export function PostAsPicker({
 }) {
 	const [expanded, setExpanded] = useState<CharacterType | null>(null);
 	const [query, setQuery] = useState("");
-	const canCreateNpc = npcGameId !== null;
+	const queryClient = useQueryClient();
+	// The name typed into a "New quick NPC" row while its modal is open.
+	const [newNpcName, setNewNpcName] = useState<string | null>(null);
+	const canCreateNpc = npcLibrary !== null;
+	// A just-made NPC's image is found here until the characters data refetches.
 	const { data: images = [] } = useQuery({
-		...gameImagesQueryOptions(npcGameId ?? 0),
+		...npcImagesQueryOptions(npcLibrary ?? { kind: "me" }),
 		enabled: canCreateNpc && value.npc !== undefined,
 	});
 
@@ -111,7 +120,7 @@ export function PostAsPicker({
 	const isNpcList = expanded === "npc";
 	const entries = expanded === null ? [] : entriesOfType(characters, npcs, expanded);
 	const ordered = orderEntries(entries, query);
-	const newEntry = isNpcList && canCreateNpc ? newNpcEntry(query, npcs, shown) : null;
+	const newEntry = isNpcList && canCreateNpc ? newNpcEntry(query, npcs) : null;
 	// The new-NPC row leads the list, ahead of the recents and their divider.
 	const items = newEntry ? [newEntry, ...ordered.items] : ordered.items;
 	const recentCount = ordered.recentCount;
@@ -123,7 +132,9 @@ export function PostAsPicker({
 
 	const pickEntryByKey = (key: string | number | undefined) => {
 		const picked = items.find((entry) => entry.key === String(key));
-		if (picked && !isEntrySelected(picked, shown)) onChange(pickEntry(picked));
+		if (!picked) return;
+		if (picked.kind === "new") setNewNpcName(picked.name);
+		else if (!isEntrySelected(picked, shown)) onChange(pickEntry(picked));
 	};
 
 	return (
@@ -211,7 +222,7 @@ export function PostAsPicker({
 						selectionMode="single"
 						disallowEmptySelection
 						selectedKeys={items
-							.filter((entry) => isEntrySelected(entry, shown))
+							.filter((entry) => entry.kind !== "new" && isEntrySelected(entry, shown))
 							.map((entry) => entry.key)}
 						renderEmptyState={() => (
 							<div className={styles["empty"]}>
@@ -243,19 +254,23 @@ export function PostAsPicker({
 				</div>
 			)}
 
-			{/* Only a new quick NPC picks its image here; an existing one's image is
-			    changed from the game page's Quick NPCs list. */}
-			{isNpcList && npcGameId !== null && npc && npc.id === null && (
-				<div className={styles["npc-image"]}>
-					<span>Image for {npc.name}:</span>
-					<NpcImageChooser
-						gameId={npcGameId}
-						value={npc.imageId}
-						onChange={(imageId) =>
-							onChange({ characterId: null, avatarId: null, npc: { ...npc, imageId } })
-						}
-					/>
-				</div>
+			{/* Making a quick NPC (name and image) happens in the modal; an existing
+			    one's image is changed from the game page's Quick NPCs list. */}
+			{npcLibrary !== null && (
+				<QuickNpcModal
+					library={npcLibrary}
+					isOpen={newNpcName !== null}
+					onOpenChange={(open) => {
+						if (!open) setNewNpcName(null);
+					}}
+					initialName={newNpcName ?? ""}
+					onCreated={(created) => {
+						onChange(npcValue(created));
+						setQuery("");
+						// The new NPC joins the list the next time the characters load.
+						queryClient.invalidateQueries({ queryKey: ["forums"] });
+					}}
+				/>
 			)}
 		</div>
 	);

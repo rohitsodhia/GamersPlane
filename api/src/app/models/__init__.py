@@ -10,9 +10,8 @@ from .forum import Forum
 from .forum_read import ForumRead
 from .game import Game
 from .game_allowed_char_sheets import GameAllowedSystem
-from .game_image import GameImage
-from .game_npc import GameNPC
 from .genre import Genre
+from .npc_image import NPCImage
 from .player import Player
 from .pm import PM
 from .poll import Poll, PollOption, PollVote
@@ -20,6 +19,7 @@ from .post import Post
 from .post_draw import PostDraw
 from .post_roll import PostRoll
 from .publisher import Publisher
+from .quick_npc import QuickNPC
 from .rbac import Role, RolePermission, UserRole
 from .referral_link import ReferralLink
 from .system import System

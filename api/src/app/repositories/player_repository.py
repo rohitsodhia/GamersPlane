@@ -141,6 +141,11 @@ class PlayerRepository:
         player = await self.get_player(game_id, user_id)
         return player is not None and player.is_gm
 
+    async def is_member(self, game_id: int, user_id: int) -> bool:
+        """Whether the user is an accepted player (GMs included) of the game."""
+        player = await self.get_player(game_id, user_id)
+        return player is not None and player.state is Player.States.ACCEPTED
+
     async def delete_player(self, player: Player) -> None:
         """Remove the player and their membership in every role scoped to the game."""
         await self._remove_from_game_roles(player)

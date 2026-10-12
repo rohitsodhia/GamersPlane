@@ -4,7 +4,6 @@ from .deck_repository import DeckRepository
 from .favorites_repository import FavoritesRepository
 from .forum_acp_repository import ForumACPRepository
 from .forum_repository import ForumRepository
-from .game_npc_repository import GameNPCRepository
 from .game_repository import GameRepository
 from .genre_repository import GenreRepository
 from .player_repository import PlayerRepository
@@ -12,6 +11,7 @@ from .pm_repository import PMRepository
 from .poll_repository import PollRepository
 from .post_repository import PostRepository
 from .publisher_repository import PublisherRepository
+from .quick_npc_repository import NPCOwner, QuickNPCRepository
 from .rbac_repository import RBACkRepository
 from .read_tracking_repository import ReadTrackingRepository
 from .referral_link_repository import ReferralLinkRepository

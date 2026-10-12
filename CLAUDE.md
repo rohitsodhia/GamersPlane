@@ -53,7 +53,7 @@ uv run ruff format src/
 ../docker/api_tests tests/referral_links/test_routes.py::TestGetReferralLinks::test_get_referral_links_is_public
 ```
 
-`docker/api_tests` (at the repo root, not under `api/`) runs `pytest` inside the `gamersplane-api` container (`docker exec -i -w /app/src gamersplane-api pytest $@`), so the stack must be up (`./compose.sh -e dev up`) before running tests. Tests use a real PostgreSQL database named `{DATABASE_DATABASE}_test` (drops/recreates tables on each test function). There is no mocking of the database layer.
+`docker/api_tests` (at the repo root, not under `api/`) runs `pytest` inside the `gamersplane-api` container (`docker exec -i -w /app/src gamersplane-api pytest $@`), so the stack must be up (`./compose.sh -e dev up`) before running tests. Tests use a real PostgreSQL database named `{DATABASE_DATABASE}_test`. Migrations run once per session (downgrade to base, then upgrade to head), and each test runs inside a savepoint that is rolled back afterwards (`wrap_in_savepoint` in `tests/conftest.py`; the `client` fixture pulls it in, and tests that don't use `client` request it directly). There is no mocking of the database layer.
 
 **Alembic migrations** live in `api/src/alembic/`. Run via `api/alembic.sh` (from `api/`; it runs `docker compose exec`).
 

@@ -10,36 +10,37 @@ import {
 } from "react-aria-components";
 import { ApiError } from "#/lib/api";
 import {
-	type GameImage,
-	gameImagesQueryOptions,
-	linkGameImage,
-	uploadGameImage,
-} from "#/queries/game";
+	linkNpcImage,
+	type NpcImage,
+	type NpcLibrary,
+	npcImagesQueryOptions,
+	uploadNpcImage,
+} from "#/queries/quick-npcs";
 import styles from "./NpcImageChooser.module.css";
 
-// Picks a quick NPC's image from the game's library, or adds one to it (an upload,
-// or a link the server downloads a copy of). A new image is selected on arrival.
-// `value` is the chosen image's id; null is no image. GMs only (the library is).
+// Picks a quick NPC's image from a library (a game's or the viewer's own), or adds
+// one to it (an upload, or a link the server downloads a copy of). A new image is
+// selected on arrival. `value` is the chosen image's id; null is no image.
 export function NpcImageChooser({
-	gameId,
+	library,
 	value,
 	onChange,
 	isDisabled = false,
 }: {
-	gameId: number;
+	library: NpcLibrary;
 	value: number | null;
 	onChange: (imageId: number | null) => void;
 	isDisabled?: boolean;
 }) {
 	const queryClient = useQueryClient();
-	const imagesQuery = gameImagesQueryOptions(gameId);
+	const imagesQuery = npcImagesQueryOptions(library);
 	const { data: images = [] } = useQuery(imagesQuery);
 	const [url, setUrl] = useState("");
 	const [error, setError] = useState<string | null>(null);
 
 	const added = {
-		onSuccess: (image: GameImage) => {
-			queryClient.setQueryData<GameImage[]>(imagesQuery.queryKey, (cached) => [
+		onSuccess: (image: NpcImage) => {
+			queryClient.setQueryData<NpcImage[]>(imagesQuery.queryKey, (cached) => [
 				...(cached ?? []),
 				image,
 			]);
@@ -54,11 +55,11 @@ export function NpcImageChooser({
 			),
 	};
 	const upload = useMutation({
-		mutationFn: (file: File) => uploadGameImage(gameId, file),
+		mutationFn: (file: File) => uploadNpcImage(library, file),
 		...added,
 	});
 	const link = useMutation({
-		mutationFn: (linked: string) => linkGameImage(gameId, linked),
+		mutationFn: (linked: string) => linkNpcImage(library, linked),
 		...added,
 		onSuccess: (image) => {
 			added.onSuccess(image);

@@ -9,6 +9,7 @@ import { useState } from "react";
 import { ActionsMenu, type MenuAction } from "#/components/ActionsMenu";
 import { Autocomplete } from "#/components/Autocomplete";
 import GMBadge from "#/components/GMBadge";
+import { QuickNpcList } from "#/components/QuickNpcList";
 import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
 import { formatDate } from "#/lib/format-date";
@@ -40,7 +41,6 @@ import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { searchUserByUsername } from "#/queries/users";
 import { useAuthStore } from "#/stores/auth";
 import DeckFormPopover from "./-deck-form-popover";
-import { QuickNpcs } from "./-quick-npcs";
 import styles from "./index.module.css";
 
 export const Route = createFileRoute("/games/$gameId/")({
@@ -958,8 +958,12 @@ function RouteComponent() {
 								{deleteDeckError && <div className="error">{deleteDeckError}</div>}
 							</div>
 						</div>
-						{!retired && isGM && (
-							<QuickNpcs gameId={game.id} margin={hbMarginedH2.margin} />
+						{approved && (
+							<QuickNpcList
+								gameId={game.id}
+								margin={hbMarginedH2.margin}
+								isReadOnly={!!retired}
+							/>
 						)}
 						{isGM && (
 							<DeckFormPopover

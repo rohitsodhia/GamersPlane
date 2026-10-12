@@ -7,10 +7,22 @@ from sqlalchemy import select
 
 from app.configs import configs
 from app.games import routes as game_routes
-from app.models import GameNPC, Player
-from app.repositories import GameNPCRepository, GameRepository, PlayerRepository
+from sqlalchemy.exc import IntegrityError
+
+from app.models import Player, QuickNPC
+from app.repositories import (
+    GameRepository,
+    NPCOwner,
+    PlayerRepository,
+    QuickNPCRepository,
+)
 from tests.factories import ActivatedUserFactory
-from tests.game_forum import make_game_forum, make_game_image, make_npc
+from tests.game_forum import (
+    make_game_forum,
+    make_game_image,
+    make_npc,
+    make_user_image,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -23,10 +35,12 @@ async def world(create, db_session):
     return await make_game_forum(create, db_session)
 
 
-async def add_player(create, db_session, game, *, is_gm):
+async def add_player(
+    create, db_session, game, *, is_gm=False, state=Player.States.ACCEPTED
+):
     user = await create(ActivatedUserFactory)
     await PlayerRepository(db_session, principal=user).attach_player_to_game(
-        game.id, user.id, is_gm=is_gm, state=Player.States.ACCEPTED
+        game.id, user.id, is_gm=is_gm, state=state
     )
     return user
 
@@ -46,24 +60,35 @@ def upload(contents=None):
     return {"image": ("pic.png", contents or png_bytes(), "image/png")}
 
 
-class TestGmOnly:
-    # Each endpoint, with the body it needs, so a missing GM check on any one of
-    # them shows up.
+class TestPlayersOnly:
+    # Each endpoint, with the body it needs, so a missing membership check on any
+    # one of them shows up.
     ENDPOINTS = [
         ("get", "/games/{game}/images", {}),
         ("post", "/games/{game}/images", {"files": upload()}),
         ("post", "/games/{game}/images/link", {"json": {"url": "http://x.test/a.png"}}),
         ("get", "/games/{game}/npcs", {}),
+        ("post", "/games/{game}/npcs", {"json": {"name": "New"}}),
         ("patch", "/games/{game}/npcs/{npc}", {"json": {"name": "New"}}),
         ("delete", "/games/{game}/npcs/{npc}", {}),
     ]
 
     @pytest.mark.parametrize("method,path,kwargs", ENDPOINTS)
-    async def test_a_non_gm_player_is_refused(
-        self, auth_as, db_session, world, player, method, path, kwargs
+    @pytest.mark.parametrize("membership", ["outsider", "applied"])
+    async def test_anyone_not_accepted_is_refused(
+        self, auth_as, create, db_session, world, method, path, kwargs, membership
     ):
         npc = await make_npc(db_session, world.game, world.gm)
-        client = auth_as(player)
+        if membership == "outsider":
+            user = await create(ActivatedUserFactory)
+        else:
+            user = await add_player(
+                create,
+                db_session,
+                world.game,
+                state=Player.States[membership.upper()],
+            )
+        client = auth_as(user)
 
         response = await getattr(client, method)(
             path.format(game=world.game.id, npc=npc.id), **kwargs
@@ -71,18 +96,25 @@ class TestGmOnly:
 
         assert response.status_code == 403
 
-    async def test_any_gm_of_the_game_can_manage_an_npc_another_gm_made(
-        self, auth_as, create, db_session, world
+    async def test_a_plain_player_can_use_the_library(
+        self, auth_as, monkeypatch, tmp_path, db_session, world, player
     ):
-        co_gm = await add_player(create, db_session, world.game, is_gm=True)
-        npc = await make_npc(db_session, world.game, world.gm, "Guard")
-        client = auth_as(co_gm)
+        monkeypatch.setattr(configs, "AVATARS_DIR", str(tmp_path))
+        await make_npc(db_session, world.game, world.gm, "Guard")
+        client = auth_as(player)
 
-        listed = await client.get(f"/games/{world.game.id}/npcs")
-        deleted = await client.delete(f"/games/{world.game.id}/npcs/{npc.id}")
+        uploaded = await client.post(f"/games/{world.game.id}/images", files=upload())
+        created = await client.post(
+            f"/games/{world.game.id}/npcs",
+            json={"name": "Mine", "image_id": uploaded.json()["id"]},
+        )
+        npcs = await client.get(f"/games/{world.game.id}/npcs")
+        images = await client.get(f"/games/{world.game.id}/images")
 
-        assert [n["name"] for n in listed.json()] == ["Guard"]
-        assert deleted.status_code == 204
+        assert uploaded.status_code == 200
+        assert created.status_code == 200
+        assert {n["name"] for n in npcs.json()} == {"Guard", "Mine"}
+        assert [i["id"] for i in images.json()] == [uploaded.json()["id"]]
 
     async def test_unknown_game_is_404(self, auth_as, world):
         client = auth_as(world.gm)
@@ -92,10 +124,150 @@ class TestGmOnly:
         assert response.status_code == 404
 
 
+class TestEditRights:
+    async def test_creator_can_edit_and_delete_their_own_pair(
+        self, auth_as, db_session, world, player
+    ):
+        npc = await make_npc(db_session, world.game, player, "Mine")
+        client = auth_as(player)
+
+        renamed = await client.patch(
+            f"/games/{world.game.id}/npcs/{npc.id}", json={"name": "Renamed"}
+        )
+        deleted = await client.delete(f"/games/{world.game.id}/npcs/{npc.id}")
+
+        assert renamed.json()["name"] == "Renamed"
+        assert deleted.status_code == 204
+
+    async def test_another_player_cannot_edit_or_delete_it(
+        self, auth_as, create, db_session, world, player
+    ):
+        other = await add_player(create, db_session, world.game)
+        npc = await make_npc(db_session, world.game, player, "Mine")
+        client = auth_as(other)
+
+        renamed = await client.patch(
+            f"/games/{world.game.id}/npcs/{npc.id}", json={"name": "Renamed"}
+        )
+        deleted = await client.delete(f"/games/{world.game.id}/npcs/{npc.id}")
+
+        assert renamed.status_code == 403
+        assert deleted.status_code == 403
+
+    async def test_any_gm_can_edit_and_delete_a_players_pair(
+        self, auth_as, create, db_session, world, player
+    ):
+        co_gm = await add_player(create, db_session, world.game, is_gm=True)
+        npc = await make_npc(db_session, world.game, player, "Guard")
+        client = auth_as(co_gm)
+
+        renamed = await client.patch(
+            f"/games/{world.game.id}/npcs/{npc.id}", json={"name": "Captain"}
+        )
+        deleted = await client.delete(f"/games/{world.game.id}/npcs/{npc.id}")
+
+        assert renamed.json()["name"] == "Captain"
+        assert deleted.status_code == 204
+
+    async def test_can_edit_reflects_gm_or_creator(
+        self, auth_as, create, db_session, world, player
+    ):
+        other = await add_player(create, db_session, world.game)
+        await make_npc(db_session, world.game, player, "Players")
+        await make_npc(db_session, world.game, world.gm, "GMs")
+
+        def flags(response):
+            return {n["name"]: n["can_edit"] for n in response.json()}
+
+        as_gm = await auth_as(world.gm).get(f"/games/{world.game.id}/npcs")
+        as_creator = await auth_as(player).get(f"/games/{world.game.id}/npcs")
+        as_other = await auth_as(other).get(f"/games/{world.game.id}/npcs")
+
+        assert flags(as_gm) == {"Players": True, "GMs": True}
+        assert flags(as_creator) == {"Players": True, "GMs": False}
+        assert flags(as_other) == {"Players": False, "GMs": False}
+
+
+class TestCreateNPC:
+    async def test_returns_the_existing_pair_instead_of_a_duplicate(
+        self, auth_as, db_session, world, player
+    ):
+        image = await make_game_image(db_session, world.game, world.gm)
+        existing = await make_npc(db_session, world.game, world.gm, "Guard", image)
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{world.game.id}/npcs",
+            json={"name": " Guard ", "image_id": image.id},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["id"] == existing.id
+        # It's the GM's pair, so the player gets no edit rights from asking for it.
+        assert response.json()["can_edit"] is False
+
+    async def test_image_must_be_in_the_games_library(
+        self, auth_as, db_session, world, player
+    ):
+        other = await world.make_game("Other Campaign")
+        foreign = await make_game_image(db_session, other.game, other.gm)
+        personal = await make_user_image(db_session, player)
+        client = auth_as(player)
+
+        from_game = await client.post(
+            f"/games/{world.game.id}/npcs",
+            json={"name": "X", "image_id": foreign.id},
+        )
+        from_user = await client.post(
+            f"/games/{world.game.id}/npcs",
+            json={"name": "X", "image_id": personal.id},
+        )
+
+        assert from_game.status_code == 400
+        assert from_user.status_code == 400
+
+    async def test_blank_name_is_rejected(self, auth_as, world, player):
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{world.game.id}/npcs", json={"name": "   "}
+        )
+
+        assert response.status_code == 422
+
+
+class TestOwnership:
+    async def test_a_row_needs_exactly_one_owner(self, db_session, world):
+        async def insert(**owner):
+            async with db_session.begin_nested():
+                db_session.add(QuickNPC(name="X", created_by=world.gm.id, **owner))
+                await db_session.flush()
+
+        with pytest.raises(IntegrityError):
+            await insert()
+        with pytest.raises(IntegrityError):
+            await insert(game_id=world.game.id, user_id=world.gm.id)
+
+    async def test_a_game_and_a_user_can_each_hold_the_same_pair(
+        self, db_session, world
+    ):
+        repository = QuickNPCRepository(db_session, principal=world.gm)
+
+        in_game = await repository.get_or_create(
+            NPCOwner.game(world.game.id), "Guard", None
+        )
+        personal = await repository.get_or_create(
+            NPCOwner.user(world.gm.id), "Guard", None
+        )
+
+        assert in_game.id != personal.id
+
+
 class TestRetiredGame:
     WRITES = [
         ("post", "/games/{game}/images", {"files": upload()}),
         ("post", "/games/{game}/images/link", {"json": {"url": "http://x.test/a.png"}}),
+        ("post", "/games/{game}/npcs", {"json": {"name": "New"}}),
         ("patch", "/games/{game}/npcs/{npc}", {"json": {"name": "New"}}),
         ("delete", "/games/{game}/npcs/{npc}", {}),
     ]
@@ -263,7 +435,7 @@ class TestUniqueness:
 
         assert again.id == first.id
         count = await db_session.scalars(
-            select(GameNPC).where(GameNPC.game_id == world.game.id)
+            select(QuickNPC).where(QuickNPC.game_id == world.game.id)
         )
         assert len(count.all()) == 1
 
@@ -274,7 +446,7 @@ class TestUniqueness:
         assert lower.id != upper.id
 
     async def test_deleting_frees_the_pair_for_a_new_npc(self, db_session, world):
-        repository = GameNPCRepository(db_session, principal=world.gm)
+        repository = QuickNPCRepository(db_session, principal=world.gm)
         old = await make_npc(db_session, world.game, world.gm, "Guard")
         await repository.delete(old)
 
@@ -404,7 +576,7 @@ class TestDeleteNPC:
         response = await client.delete(f"/games/{world.game.id}/npcs/{npc.id}")
 
         assert response.status_code == 204
-        row = await db_session.get(GameNPC, npc.id)
+        row = await db_session.get(QuickNPC, npc.id)
         assert row is not None
         assert row.deleted is not None
 

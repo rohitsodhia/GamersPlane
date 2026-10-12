@@ -13,12 +13,13 @@ from app.posts.functions import (
     resolve_posted_npc,
     validate_posted_as,
     validate_posted_avatar,
+    validate_content_npcs,
 )
 from app.repositories import (
     ForumRepository,
-    GameNPCRepository,
     PollRepository,
     PostRepository,
+    QuickNPCRepository,
     ReadTrackingRepository,
     ThreadRepository,
 )
@@ -164,6 +165,7 @@ async def create_thread(
         npc = await resolve_posted_npc(
             db_session, principal, forum, thread_data.posted_npc
         )
+    await validate_content_npcs(db_session, principal, forum, thread_data.body)
     attachments = await plan_attachments(
         db_session,
         principal,
@@ -192,7 +194,7 @@ async def create_thread(
         posted_npc=npc,
     )
     if npc is not None:
-        await GameNPCRepository(db_session, principal=principal).mark_used(npc)
+        await QuickNPCRepository(db_session, principal=principal).mark_used(npc)
     await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)
     if thread_data.poll is not None:

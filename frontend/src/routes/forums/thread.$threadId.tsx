@@ -26,6 +26,7 @@ import LockIcon from "#/components/LockIcon";
 import Paginate from "#/components/Paginate";
 import PinIcon from "#/components/PinIcon";
 import { TiptapContent } from "#/components/TiptapContent";
+import { flattenNpcBlocks } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker";
 import { ApiError } from "#/lib/api";
 import { PAGINATE_PER_PAGE } from "#/lib/config";
 import { formatDateTime } from "#/lib/format-date";
@@ -37,7 +38,13 @@ import {
 	forumDecksQueryOptions,
 } from "#/queries/forums";
 import { meFullQueryOptions, type PostSide } from "#/queries/me";
-import { createPost, deletePost, type Post, postsQueryOptions } from "#/queries/posts";
+import {
+	createPost,
+	deletePost,
+	fetchPostsPageOf,
+	type Post,
+	postsQueryOptions,
+} from "#/queries/posts";
 import {
 	markThreadUnread,
 	recordThreadRead,
@@ -56,7 +63,13 @@ import {
 import { Breadcrumbs } from "./-breadcrumbs";
 import ChatPoint from "./-chat-point";
 import { canChangePost, canWrite } from "./-permissions";
-import { defaultPostAs, PLAYER, type PostAsValue, postAsPayload } from "./-post-as";
+import {
+	defaultPostAs,
+	npcLibraryOf,
+	PLAYER,
+	type PostAsValue,
+	postAsPayload,
+} from "./-post-as";
 import { PostAsPicker } from "./-post-as-picker";
 import { PostAttachmentsEditor } from "./-post-attachments";
 import { PostDrawList } from "./-post-draw-list";
@@ -71,12 +84,39 @@ export const Route = createFileRoute("/forums/thread/$threadId")({
 	validateSearch: z.object({
 		view: z.enum(["new-post"]).optional(),
 		page: z.number().optional(),
+		// The old site's post links (`?p={postId}#p{postId}`) named the post, not
+		// its page.
+		p: z.number().optional(),
 	}),
 	beforeLoad: ({ params }) => {
 		if (!Number.isInteger(params.threadId) || params.threadId < 0) throw notFound();
 	},
-	loaderDeps: ({ search }) => ({ page: search.page ?? 1, view: search.view }),
+	loaderDeps: ({ search }) => ({
+		page: search.page ?? 1,
+		view: search.view,
+		postId: search.p,
+	}),
 	loader: async ({ context, params, deps }) => {
+		if (deps.postId !== undefined) {
+			const postsPage = await fetchPostsPageOf(params.threadId, deps.postId).catch(
+				() => null,
+			);
+			if (postsPage) {
+				// The redirect lands on this page; don't fetch it twice.
+				context.queryClient.setQueryData(
+					postsQueryOptions(params.threadId, postsPage.page).queryKey,
+					postsPage,
+				);
+			}
+			throw redirect({
+				to: "/forums/thread/$threadId",
+				params: { threadId: params.threadId },
+				search: postsPage ? { page: postsPage.page } : {},
+				hash: `post-${deps.postId}`,
+				replace: true,
+			});
+		}
+
 		const wantsNewPost = deps.view === "new-post";
 		// The unread position changes as the user reads, so a jump to the first
 		// new post must not use cached details.
@@ -232,7 +272,11 @@ function PostItem({
 							{formatDateTime(post.datestamp)}
 						</span>
 					</div>
-					<TiptapContent content={post.body} className="post-body" />
+					<TiptapContent
+						content={post.body}
+						className="post-body"
+						npcs={post.content_npcs}
+					/>
 					<PostRollList rolls={post.rolls} />
 					<PostDrawList
 						postId={post.id}
@@ -450,7 +494,7 @@ function RouteComponent() {
 	const [pickedPostAs, setPickedPostAs] = useState<PostAsValue | undefined>(undefined);
 	const postAs =
 		pickedPostAs ?? (charactersData ? defaultPostAs(charactersData) : PLAYER);
-	const npcGameId = charactersData?.can_manage_npcs ? charactersData.game_id : null;
+	const npcLibrary = charactersData ? npcLibraryOf(charactersData) : null;
 	// Bumped after each reply to remount the picker, clearing its filter text.
 	const [postAsPickerKey, setPostAsPickerKey] = useState(0);
 
@@ -491,7 +535,12 @@ function RouteComponent() {
 	});
 
 	const handleQuote = (post: Post) => {
-		const quotedBody = trimTrailingEmptyParagraph(post.body);
+		// Speech blocks are flattened: a quote is a reference, and mustn't carry
+		// NPC ids the quoter may not be allowed to use.
+		const quotedBody = trimTrailingEmptyParagraph({
+			...post.body,
+			content: flattenNpcBlocks(post.body.content ?? [], post.content_npcs),
+		});
 		const quoteNode: JSONContent = {
 			type: "quote",
 			attrs: { quotee: post.author.username },
@@ -635,7 +684,7 @@ function RouteComponent() {
 						{charactersData &&
 							(charactersData.characters.length > 0 ||
 								charactersData.npcs.length > 0 ||
-								npcGameId !== null) && (
+								npcLibrary !== null) && (
 								<div className={styles["quick-reply-post-as"]}>
 									<span id="quick-reply-post-as-label">Post as:</span>
 									<PostAsPicker
@@ -643,7 +692,7 @@ function RouteComponent() {
 										labelId="quick-reply-post-as-label"
 										characters={charactersData.characters}
 										npcs={charactersData.npcs}
-										npcGameId={npcGameId}
+										npcLibrary={npcLibrary}
 										viewer={me}
 										value={postAs}
 										onChange={setPickedPostAs}
@@ -656,16 +705,26 @@ function RouteComponent() {
 							validators={{
 								onBlur: ({ value }) =>
 									isContentEmpty(value) ? "Message required!" : undefined,
+								onSubmit: ({ value }) =>
+									isContentEmpty(value) ? "Message required!" : undefined,
 							}}
 						>
 							{(field) => (
-								<Editor
-									id={field.name}
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(value) => field.handleChange(value)}
-									className={field.state.meta.isValid ? "" : "field-invalid"}
-								/>
+								<>
+									<Editor
+										id={field.name}
+										value={field.state.value}
+										onBlur={field.handleBlur}
+										onChange={(value) => field.handleChange(value)}
+										className={field.state.meta.isValid ? "" : "field-invalid"}
+										npcLibrary={npcLibrary}
+									/>
+									{field.state.meta.errors[0] && (
+										<div className="error" role="alert">
+											{field.state.meta.errors[0]}
+										</div>
+									)}
+								</>
 							)}
 						</replyForm.Field>
 

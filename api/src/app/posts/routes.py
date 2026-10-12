@@ -11,20 +11,23 @@ from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import (
     build_posted_as,
     build_posted_npc,
+    build_content_npcs,
     check_post_change,
     is_same_npc,
+    load_content_npcs,
     require_one_poster,
     resolve_posted_npc,
     validate_posted_as,
     validate_posted_avatar,
     validate_roll_visibility,
+    validate_content_npcs,
     viewer_gm_game_id,
 )
 from app.posts.visibility import redact_draw, redact_roll
 from app.repositories import (
-    GameNPCRepository,
     PollRepository,
     PostRepository,
+    QuickNPCRepository,
     ReadTrackingRepository,
     ThreadRepository,
 )
@@ -42,8 +45,15 @@ posts = APIRouter(prefix="/posts")
 @posts.get("", response_model=schemas.GetPostsResponse)
 @public
 async def get_posts(
-    db_session: DBSessionDependency, principal: Principal, thread_id: int, page: int = 1
+    db_session: DBSessionDependency,
+    principal: Principal,
+    thread_id: int,
+    page: int = 1,
+    post_id: int | None = None,
 ):
+    """A page of the thread's posts. ``post_id`` asks for the page that post is on
+    instead of ``page`` (old site links named the post, not its page); a post
+    that isn't in this thread is ignored."""
     if page < 1:
         page = 1
 
@@ -56,6 +66,10 @@ async def get_posts(
     )
 
     post_repository = PostRepository(db_session, principal=principal)
+    if post_id is not None:
+        target = await post_repository.get(post_id)
+        if target is not None and target.thread_id == thread_id:
+            page = await post_repository.get_page_number(target)
     posts = list(await post_repository.get_all(thread_id, page=page))
 
     # Moderator status is per request (it's per forum), not per roll.
@@ -63,6 +77,9 @@ async def get_posts(
     rolls = await post_repository.get_rolls([post.id for post in posts])
     draws = await post_repository.get_draws([post.id for post in posts])
     gm_game_id = await viewer_gm_game_id(db_session, principal, thread.forum, posts)
+    speakers = await load_content_npcs(
+        db_session, principal, [post.body for post in posts]
+    )
 
     posts_data = []
     for post in posts:
@@ -82,6 +99,7 @@ async def get_posts(
                 posted_as=build_posted_as(post, principal, gm_game_id),
                 posted_npc=build_posted_npc(post),
                 body=post.body,
+                content_npcs=build_content_npcs(post.body, speakers),
                 rolls=[
                     redact_roll(roll, full_view=is_author or is_moderator)
                     for roll in rolls[post.id]
@@ -117,6 +135,7 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
     gm_game_id = await viewer_gm_game_id(
         db_session, principal, post.thread.forum, [post]
     )
+    speakers = await load_content_npcs(db_session, principal, [post.body])
     # The edit form needs the counts (to warn before dropping voted options), so
     # the poll goes to whoever may edit the first post, whatever they'd see on the
     # thread page.
@@ -148,6 +167,7 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
         posted_as=build_posted_as(post, principal, gm_game_id),
         posted_npc=build_posted_npc(post),
         body=post.body,
+        content_npcs=build_content_npcs(post.body, speakers),
         rolls=[redact_roll(roll, full_view=full_view) for roll in rolls],
         draws=[
             redact_draw(draw, is_author=principal.id == post.author_id)
@@ -196,6 +216,8 @@ async def create_post(
             db_session, principal, thread.forum, post_data.posted_npc
         )
 
+    await validate_content_npcs(db_session, principal, thread.forum, post_data.body)
+
     attachments = await plan_attachments(
         db_session,
         principal,
@@ -218,7 +240,7 @@ async def create_post(
         posted_npc=npc,
     )
     if npc is not None:
-        await GameNPCRepository(db_session, principal=principal).mark_used(npc)
+        await QuickNPCRepository(db_session, principal=principal).mark_used(npc)
     await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)
     assert post.published_at is not None
@@ -260,7 +282,7 @@ async def edit_post(
     require_one_poster(post_data.posted_as_id, post_data.posted_npc)
     # Same for the quick NPC: absent keeps it, null clears it, and one that's
     # unchanged isn't re-checked, so a post keeps its NPC if its author stops
-    # being a GM.
+    # being a player.
     npc_changes = "posted_npc" in post_data.model_fields_set and not is_same_npc(
         post.posted_npc, post_data.posted_npc
     )
@@ -309,6 +331,11 @@ async def edit_post(
         if post.author_id != principal.id:
             raise ForbiddenException("Only the author can change who a post is as")
         validate_posted_avatar(character, posted_avatar_id)
+    # Speakers the post already had stay even if since deleted; new ones come from
+    # the author's library (a moderator's edit is checked as the author).
+    await validate_content_npcs(
+        db_session, post.author, post.thread.forum, post_data.body, post.body
+    )
     existing_rolls = (await post_repository.get_rolls([post.id]))[post.id]
     visibility_changes = validate_roll_visibility(
         existing_rolls, post_data.roll_visibility
@@ -363,7 +390,7 @@ async def edit_post(
     if npc_changes:
         await post_repository.set_posted_npc(post, npc)
         if npc is not None:
-            await GameNPCRepository(db_session, principal=principal).mark_used(npc)
+            await QuickNPCRepository(db_session, principal=principal).mark_used(npc)
     for roll, change in visibility_changes:
         await post_repository.set_roll_visibility(
             roll, change.hide_reason, change.hide_dice, change.hide_result

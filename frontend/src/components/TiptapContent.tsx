@@ -14,7 +14,14 @@ import { useMemo } from "react";
 import { trimTrailingEmptyParagraph } from "#/components/Editor";
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
 import { Note } from "#/components/tiptap/tiptap-node/note-node/note-node-extension";
+import { NpcRoster } from "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node-extension";
+import {
+	type SpeakerLookup,
+	speakerLookup,
+} from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker";
+import { NpcSpeaker } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node-extension";
 import { Quote } from "#/components/tiptap/tiptap-node/quote-node/quote-node-extension";
+import type { ContentNpc } from "#/queries/quick-npcs";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
@@ -23,12 +30,15 @@ import "#/components/tiptap/tiptap-node/image-node/image-node.scss";
 import "#/components/tiptap/tiptap-node/heading-node/heading-node.scss";
 import "#/components/tiptap/tiptap-node/paragraph-node/paragraph-node.scss";
 import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
+import "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node.scss";
+import "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node.scss";
 import "#/components/tiptap/tiptap-node/quote-node/quote-node.scss";
 
 // Mirrors the node/mark extensions registered in #/components/Editor.tsx so
 // read-only content renders identically to how it was authored, without the
-// cost of mounting a full ProseMirror editor view per message.
-const extensions = [
+// cost of mounting a full ProseMirror editor view per message. `npcs` are the
+// quick NPCs the content's speech and roster blocks name (the document only holds their ids).
+const extensionsFor = (npcs: SpeakerLookup) => [
 	StarterKit.configure({
 		horizontalRule: false,
 		link: {
@@ -38,6 +48,8 @@ const extensions = [
 	}),
 	HorizontalRule,
 	Note,
+	NpcSpeaker.configure({ npcs }),
+	NpcRoster.configure({ npcs }),
 	Quote,
 	TextAlign.configure({ types: ["heading", "paragraph"] }),
 	TaskList,
@@ -53,13 +65,20 @@ const extensions = [
 export function TiptapContent({
 	content,
 	className,
+	npcs,
 }: {
 	content: JSONContent;
 	className?: string;
+	// The post's `content_npcs`.
+	npcs?: readonly ContentNpc[];
 }) {
 	const html = useMemo(
-		() => generateHTML(trimTrailingEmptyParagraph(content), extensions),
-		[content],
+		() =>
+			generateHTML(
+				trimTrailingEmptyParagraph(content),
+				extensionsFor(speakerLookup(npcs)),
+			),
+		[content, npcs],
 	);
 
 	return (

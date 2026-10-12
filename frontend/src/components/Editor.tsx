@@ -20,6 +20,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // --- Tiptap node styles ---
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
 import { Note } from "#/components/tiptap/tiptap-node/note-node/note-node-extension";
+import { NpcRoster } from "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node-extension";
+import {
+	NpcSpeaker,
+	NpcSpeakerContext,
+} from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node-extension";
 import { Quote } from "#/components/tiptap/tiptap-node/quote-node/quote-node-extension";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
@@ -29,8 +34,11 @@ import "#/components/tiptap/tiptap-node/image-node/image-node.scss";
 import "#/components/tiptap/tiptap-node/heading-node/heading-node.scss";
 import "#/components/tiptap/tiptap-node/paragraph-node/paragraph-node.scss";
 import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
+import "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node.scss";
+import "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node.scss";
 import "#/components/tiptap/tiptap-node/quote-node/quote-node.scss";
 
+import { NpcChooser } from "#/components/NpcChooser";
 // --- Icons ---
 import { ArrowLeftIcon } from "#/components/tiptap/tiptap-icons/arrow-left-icon";
 import { CaseSensitiveIcon } from "#/components/tiptap/tiptap-icons/case-sensitive-icon";
@@ -68,11 +76,11 @@ import {
 	ToolbarGroup,
 	ToolbarSeparator,
 } from "#/components/tiptap/tiptap-ui-primitive/toolbar";
-
 // --- Hooks ---
 import { useCursorVisibility } from "#/hooks/use-cursor-visibility";
 import { useIsBreakpoint } from "#/hooks/use-is-breakpoint";
 import { useWindowSize } from "#/hooks/use-window-size";
+import type { ContentNpc, NpcLibrary } from "#/queries/quick-npcs";
 
 // --- Styles ---
 import "#/components/tiptap/tiptap-templates/simple/simple-editor.scss";
@@ -99,9 +107,14 @@ const NonInclusiveTextStyle = TextStyle.extend({
 
 export const emptyContent: JSONContent = { type: "doc", content: [] };
 
+// Nodes that hold no text but are content in their own right, so a post made of
+// just one of them isn't empty.
+const CONTENT_ATOMS = new Set(["image", "npcRoster"]);
+
 export function isContentEmpty(content: JSONContent | null | undefined): boolean {
 	if (!content) return true;
 	if (content.text) return false;
+	if (content.type && CONTENT_ATOMS.has(content.type)) return false;
 	return (content.content ?? []).every(isContentEmpty);
 }
 
@@ -196,6 +209,64 @@ function QuoteButton({ editor }: { editor: TiptapEditor | null }) {
 	);
 }
 
+// Opens the speaker chooser; picking (or making) a quick NPC wraps the selection in
+// one of its speech blocks. Only shown where the editor was given an NPC library.
+function NpcSpeakerButton({
+	editor,
+	library,
+}: {
+	editor: TiptapEditor | null;
+	library: NpcLibrary;
+}) {
+	const [isChoosing, setIsChoosing] = useState(false);
+	const buttonRef = useRef<HTMLButtonElement>(null);
+
+	if (!editor) return null;
+
+	return (
+		<>
+			<Button
+				ref={buttonRef}
+				type="button"
+				variant="ghost"
+				tooltip="NPC speech"
+				aria-label="NPC speech"
+				aria-haspopup="dialog"
+				onClick={() => setIsChoosing(true)}
+			>
+				NPC
+			</Button>
+			<NpcChooser
+				library={library}
+				isOpen={isChoosing}
+				onOpenChange={setIsChoosing}
+				triggerRef={buttonRef}
+				onChoose={(npc) =>
+					editor.chain().focus().setNpcSpeaker({ npcId: npc.id }).run()
+				}
+			/>
+		</>
+	);
+}
+
+// Inserts an empty roster (a titled grid of NPC portraits) to fill in. Only shown
+// where the editor was given an NPC library, like the speaker button.
+function NpcRosterButton({ editor }: { editor: TiptapEditor | null }) {
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="NPC roster"
+			aria-label="NPC roster"
+			onClick={() => editor.chain().focus().insertNpcRoster().run()}
+		>
+			Roster
+		</Button>
+	);
+}
+
 // The template's ImageUploadButton needs a real upload endpoint we don't have
 // yet. Inserting by URL needs no backend, so wire that up with the installed
 // Image extension instead, matching markItUp's "By URL..." option.
@@ -230,8 +301,10 @@ const MainToolbarContent = ({
 	isSearchAndReplaceOpen,
 	searchAndReplaceButtonRef,
 	isMobile,
+	npcLibrary,
 }: {
 	editor: TiptapEditor | null;
+	npcLibrary: NpcLibrary | null;
 	onTextColorClick: () => void;
 	onLinkClick: () => void;
 	onSearchAndReplaceClick: () => void;
@@ -278,6 +351,8 @@ const MainToolbarContent = ({
 				<ImageUrlButton editor={editor} />
 				<HorizontalRuleButton editor={editor} />
 				<NoteButton editor={editor} />
+				{npcLibrary && <NpcSpeakerButton editor={editor} library={npcLibrary} />}
+				{npcLibrary && <NpcRosterButton editor={editor} />}
 			</ToolbarGroup>
 
 			<ToolbarSeparator />
@@ -345,7 +420,20 @@ type EditorProps = {
 	className?: string;
 	/** Forwarded to the editable element as `aria-labelledby`. */
 	ariaLabelledBy?: string;
+	/**
+	 * The quick NPC library speech blocks may name. Only when set does the toolbar
+	 * get an NPC button and a block's speaker become changeable; leave it unset for
+	 * editors that have no NPCs to offer.
+	 */
+	npcLibrary?: NpcLibrary | null;
+	/**
+	 * The edited post's own `content_npcs`, so a block whose NPC has since left the
+	 * library still shows its name and image.
+	 */
+	contentNpcs?: readonly ContentNpc[];
 };
+
+const NO_CONTENT_NPCS: readonly ContentNpc[] = [];
 
 const Editor = ({
 	id,
@@ -354,6 +442,8 @@ const Editor = ({
 	onBlur,
 	className,
 	ariaLabelledBy,
+	npcLibrary = null,
+	contentNpcs = NO_CONTENT_NPCS,
 }: EditorProps) => {
 	const isMobile = useIsBreakpoint();
 	const { height } = useWindowSize();
@@ -376,6 +466,8 @@ const Editor = ({
 			}),
 			HorizontalRule,
 			Note,
+			NpcSpeaker,
+			NpcRoster,
 			Quote,
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			TaskList,
@@ -473,6 +565,7 @@ const Editor = ({
 
 	// Memoize the provider value to avoid unnecessary re-renders
 	const providerValue = useMemo(() => ({ editor }), [editor]);
+	const speakerContext = { library: npcLibrary, fallback: contentNpcs };
 
 	return (
 		<div className="tiptap-editor simple-editor-wrapper">
@@ -492,6 +585,7 @@ const Editor = ({
 							isSearchAndReplaceOpen={isSearchAndReplaceOpen}
 							searchAndReplaceButtonRef={searchAndReplaceButtonRef}
 							isMobile={isMobile}
+							npcLibrary={npcLibrary}
 						/>
 					) : (
 						<MobileToolbarContent
@@ -509,11 +603,15 @@ const Editor = ({
 					scrollIntoViewOptions={SEARCH_AND_REPLACE_SCROLL_OPTIONS}
 				/>
 
-				<EditorContent
-					editor={editor}
-					role="presentation"
-					className={clsx("simple-editor-content", className)}
-				/>
+				{/* The speech blocks' node views render under EditorContent, so they
+				    read the library from here. */}
+				<NpcSpeakerContext.Provider value={speakerContext}>
+					<EditorContent
+						editor={editor}
+						role="presentation"
+						className={clsx("simple-editor-content", className)}
+					/>
+				</NpcSpeakerContext.Provider>
 			</EditorContext.Provider>
 		</div>
 	);

@@ -13,9 +13,18 @@ NPCName = Annotated[
 ]
 
 
-class GameImageData(SchemaBase):
+class NPCImageData(SchemaBase):
     id: int
     url: str
+
+
+class ContentNPCData(SchemaBase):
+    """A quick NPC named by a speaker or roster block in a post body. Sent even after the NPC
+    is deleted, so old posts still render."""
+
+    id: int
+    name: str
+    image: NPCImageData | None
 
 
 class LinkImageInput(SchemaBase):
@@ -25,8 +34,10 @@ class LinkImageInput(SchemaBase):
 class NPCData(SchemaBase):
     id: int
     name: str
-    image: GameImageData | None
+    image: NPCImageData | None
     last_used_at: datetime | None
+    # Whether the requester may rename, re-image or delete it.
+    can_edit: bool
 
 
 class UpdateNPCInput(SchemaBase):
