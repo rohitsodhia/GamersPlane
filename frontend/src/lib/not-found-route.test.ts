@@ -1,7 +1,11 @@
-import { isNotFound } from "@tanstack/react-router";
+import { isNotFound, isRedirect } from "@tanstack/react-router";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "#/lib/api";
-import { notFoundOnMissing, requirePositiveId } from "#/lib/not-found-route";
+import {
+	forbiddenOnDenied,
+	notFoundOnMissing,
+	requirePositiveId,
+} from "#/lib/not-found-route";
 
 async function caught(promise: Promise<unknown>) {
 	try {
@@ -29,6 +33,27 @@ describe("notFoundOnMissing", () => {
 	it("rethrows non-ApiErrors unchanged", async () => {
 		const original = new Error("boom");
 		const error = await caught(notFoundOnMissing(Promise.reject(original)));
+		expect(error).toBe(original);
+	});
+});
+
+describe("forbiddenOnDenied", () => {
+	it("turns an ApiError 403 into a redirect to the 403 page", async () => {
+		const error = await caught(
+			forbiddenOnDenied(Promise.reject(new ApiError(403, []))),
+		);
+		expect(isRedirect(error)).toBe(true);
+		expect((error as { options: unknown }).options).toMatchObject({
+			to: "/403",
+			replace: true,
+		});
+	});
+
+	it.each([
+		new ApiError(404, []),
+		new Error("boom"),
+	])("rethrows other errors unchanged (%s)", async (original) => {
+		const error = await caught(forbiddenOnDenied(Promise.reject(original)));
 		expect(error).toBe(original);
 	});
 });

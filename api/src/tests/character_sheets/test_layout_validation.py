@@ -204,6 +204,40 @@ class TestValidateSheetLayoutRejects:
             validate_sheet_layout({"schema_version": 1, "elements": [root]})
 
 
+class TestValidateLive:
+    @pytest.mark.parametrize("node_type", ["input", "textarea", "select", "checkbox"])
+    def test_accepts_live_on_value_controls(self, node_type):
+        validate_sheet_layout(
+            _layout({"type": node_type, "name": "x", "values": ["a"], "live": True})
+        )
+
+    def test_accepts_an_explicit_false_even_where_true_is_rejected(self):
+        validate_sheet_layout(
+            _layout({"type": "textarea", "name": "x", "richtext": True, "live": False})
+        )
+
+    @pytest.mark.parametrize("node_type", ["text", "repeater"])
+    def test_rejects_live_on_other_types(self, node_type):
+        with pytest.raises(ValidationError, match=f"isn't allowed on a '{node_type}'"):
+            validate_sheet_layout(
+                _layout({"type": node_type, "content": [], "live": True})
+            )
+
+    def test_rejects_a_non_boolean(self):
+        with pytest.raises(ValidationError, match="'live'.* must be a boolean"):
+            validate_sheet_layout(
+                _layout({"type": "input", "name": "x", "live": "yes"})
+            )
+
+    def test_rejects_live_on_a_richtext_textarea(self):
+        with pytest.raises(ValidationError, match="richtext"):
+            validate_sheet_layout(
+                _layout(
+                    {"type": "textarea", "name": "x", "richtext": True, "live": True}
+                )
+            )
+
+
 def _roll_layout(roll, node_type="text"):
     return _layout({"type": node_type, "text": "Athletics", "roll": roll})
 

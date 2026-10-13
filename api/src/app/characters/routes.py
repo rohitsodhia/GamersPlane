@@ -4,7 +4,7 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 
 from app.character_sheets.character_values import hidden_values
 from app.characters import schemas
-from app.characters.functions import can_view_character
+from app.characters.functions import can_edit_live_fields, can_view_character
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import (
@@ -206,7 +206,9 @@ async def get_character(
     if not can_view_character(character, principal, is_game_gm):
         raise ForbiddenException("Character not available")
 
-    return _character_response(character)
+    return _character_response(
+        character, can_edit_live=await _can_edit_live(db_session, character, principal)
+    )
 
 
 @characters.patch("/{character_id}", response_model=schemas.GetCharacterResponse)
@@ -225,7 +227,30 @@ async def update_character(
         character, label=data.label, type=data.type, values=data.values
     )
 
-    return _character_response(character)
+    return _character_response(character, can_edit_live=True)
+
+
+@characters.patch(
+    "/{character_id}/live_values", response_model=schemas.GetCharacterResponse
+)
+async def update_character_live_value(
+    character_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    data: schemas.LiveValueInput,
+):
+    """Change one `live: true` field. Open to the owner and the GMs of the game
+    the character is approved in, not just the owner like a full save."""
+    character_repository = CharacterRepository(db_session, principal)
+    character = await character_repository.get(character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+    if not await _can_edit_live(db_session, character, principal):
+        raise ForbiddenException("Character not available")
+
+    await character_repository.set_live_value(character, data.path, data.value)
+
+    return _character_response(character, can_edit_live=True)
 
 
 @characters.get(
@@ -443,6 +468,20 @@ async def set_primary_character_avatar(
     return {"success": True, "avatar": _avatar_data(avatar)}
 
 
+async def _can_edit_live(
+    db_session: DBSessionDependency, character: Character, principal: Principal
+) -> bool:
+    is_game_gm = (
+        character.game_id is not None
+        and character.approved
+        and character.user_id != principal.id
+        and await PlayerRepository(db_session, principal).is_gm(
+            character.game_id, principal.id
+        )
+    )
+    return can_edit_live_fields(character, principal, is_game_gm)
+
+
 async def _get_owned_character(
     character_repository: CharacterRepository,
     character_id: int,
@@ -504,7 +543,9 @@ def _avatar_data(avatar) -> schemas.CharacterAvatarData:
     )
 
 
-def _character_response(character) -> schemas.GetCharacterResponse:
+def _character_response(
+    character, *, can_edit_live: bool
+) -> schemas.GetCharacterResponse:
     sheet = character.character_sheet
 
     return schemas.GetCharacterResponse(
@@ -535,4 +576,5 @@ def _character_response(character) -> schemas.GetCharacterResponse:
         version_number=character.character_sheet_version.number,
         layout=character.character_sheet_version.layout,
         avatars=[_avatar_data(avatar) for avatar in character.avatars],
+        can_edit_live=can_edit_live,
     )

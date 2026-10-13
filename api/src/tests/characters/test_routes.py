@@ -61,6 +61,74 @@ async def _make_sheet(db_session, creator, system, *, status):
     return sheet
 
 
+# Live fields at the root, in a grid row and in a repeater row, next to a field
+# that isn't live. The root `name` field is live so it can be checked against
+# `Character.name`.
+LIVE_SHEET_LAYOUT = {
+    "schema_version": 1,
+    "elements": [
+        {"type": "input", "name": "name", "id": "nm1", "live": True},
+        {"type": "input", "name": "hp", "id": "hp1", "live": True},
+        {"type": "input", "name": "ac", "id": "ac1"},
+        {"type": "checkbox", "name": "inspired", "id": "ins1", "live": True},
+        {
+            "type": "grid",
+            "name": "skills",
+            "id": "skl1",
+            "items": [{"key": "stealth", "label": "Stealth", "id": "stl1"}],
+            "row": [{"type": "input", "name": "rank", "id": "rnk1", "live": True}],
+        },
+        {
+            "type": "repeater",
+            "name": "items",
+            "id": "itm1",
+            "content": [{"type": "input", "name": "qty", "id": "qty1", "live": True}],
+        },
+    ],
+}
+
+
+async def _live_character(db_session, owner, system, sheet_creator):
+    repository = CharacterSheetRepository(db_session, principal=sheet_creator)
+    sheet = await repository.create(
+        name="Live", system_id=system.id, layout=LIVE_SHEET_LAYOUT
+    )
+    await repository.publish(await repository.get_draft(sheet.id))
+    sheet.status = CharacterSheet.Status.PUBLIC
+    await db_session.flush()
+    return await _create_character(db_session, owner, sheet, "Aria")
+
+
+async def _game_with_gm(create, db_session, system, gm):
+    await create(ForumFactory, id=2, heritage=[])
+    # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+    # later auto-generated forum id in the test could collide with it.
+    await db_session.execute(
+        text(
+            "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+            "(SELECT MAX(id) FROM forums))"
+        )
+    )
+    game = await GameRepository(db_session, principal=gm).create(
+        "My Campaign",
+        system.id,
+        [system.id],
+        gm.id,
+        "1/d",
+        4,
+        1,
+        None,
+        None,
+        True,
+        None,
+        None,
+    )
+    await PlayerRepository(db_session, principal=gm).attach_player_to_game(
+        game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+    )
+    return game
+
+
 async def _create_character(db_session, owner, sheet, label, **kwargs):
     """Create a character pinned to the sheet's latest published version."""
     version = await CharacterSheetRepository(
@@ -274,6 +342,7 @@ class TestGetCharacter:
             "version_number": 1,
             "layout": SHEET_LAYOUT,
             "avatars": [],
+            "can_edit_live": True,
         }
 
     async def test_loads_the_sheet_creators_avatar_when_they_arent_the_viewer(
@@ -397,6 +466,43 @@ class TestGetCharacter:
         assert response.status_code == (200 if is_gm else 403)
         if is_gm:
             assert response.json()["game_id"] == game.id
+
+    @pytest.mark.parametrize(
+        ("who", "approved", "expected"),
+        [
+            ("owner", False, True),
+            ("gm", True, True),
+            ("gm", False, False),
+            ("library_viewer", False, False),
+        ],
+    )
+    async def test_reports_whether_the_viewer_can_edit_live_fields(
+        self,
+        client,
+        character,
+        owner,
+        create,
+        auth_as,
+        db_session,
+        system,
+        who,
+        approved,
+        expected,
+    ):
+        viewer = owner if who == "owner" else await create(ActivatedUserFactory)
+        if who == "gm":
+            game = await _game_with_gm(create, db_session, system, viewer)
+            character.game_id = game.id
+            character.approved = approved
+        if who == "library_viewer":
+            character.in_library = True
+        await db_session.flush()
+        auth_as(viewer)
+
+        response = await client.get(f"/characters/{character.id}")
+
+        assert response.status_code == 200
+        assert response.json()["can_edit_live"] is expected
 
 
 class TestGetCharacters:
@@ -1216,6 +1322,129 @@ class TestUpdateCharacter:
 
         assert response.status_code == 200
         assert response.json()["values"] == new_values
+
+
+class TestUpdateCharacterLiveValue:
+    @pytest.fixture
+    async def owner(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    async def character(
+        self, db_session, owner, system, sheet_creator, wrap_in_savepoint
+    ):
+        character = await _live_character(db_session, owner, system, sheet_creator)
+        character.values = {"hp1": "10", "itm1": [{"qty1": "1"}, {"qty1": "2"}]}
+        await db_session.flush()
+        return character
+
+    async def _patch(self, client, character, path, value):
+        return await client.patch(
+            f"/characters/{character.id}/live_values",
+            json={"path": path, "value": value},
+        )
+
+    async def test_returns_404_when_missing(self, authed_client):
+        client, _user = authed_client
+
+        response = await client.patch(
+            "/characters/999999/live_values", json={"path": ["hp1"], "value": "1"}
+        )
+
+        assert response.status_code == 404
+
+    @pytest.mark.parametrize(
+        ("path", "value", "expected"),
+        [
+            (["hp1"], "7", {"hp1": "7", "itm1": [{"qty1": "1"}, {"qty1": "2"}]}),
+            (["ins1"], True, {"ins1": True}),
+            (["itm1", 1, "qty1"], "9", {"itm1": [{"qty1": "1"}, {"qty1": "9"}]}),
+        ],
+        ids=["root", "checkbox", "repeater-row"],
+    )
+    async def test_owner_writes_only_that_field(
+        self, client, character, owner, db_session, auth_as, path, value, expected
+    ):
+        auth_as(owner)
+
+        response = await self._patch(client, character, path, value)
+
+        assert response.status_code == 200
+        body = response.json()
+        # The response is the full character, like GET /characters/{id}.
+        assert body["id"] == character.id
+        assert body["can_edit_live"] is True
+        stored = {"hp1": "10", "itm1": [{"qty1": "1"}, {"qty1": "2"}]} | expected
+        assert body["values"] == stored
+        await db_session.refresh(character, ["values"])
+        assert character.values == stored
+
+    async def test_rejects_a_write_it_cant_apply(
+        self, client, character, owner, db_session, auth_as
+    ):
+        auth_as(owner)
+
+        response = await self._patch(client, character, ["ac1"], "16")
+
+        assert response.status_code == 400
+        assert "isn't live" in response.json()["errors"][0]["detail"]
+        await db_session.refresh(character, ["values"])
+        assert character.values == {"hp1": "10", "itm1": [{"qty1": "1"}, {"qty1": "2"}]}
+
+    async def test_rejects_values_over_the_size_cap(
+        self, client, character, owner, auth_as
+    ):
+        auth_as(owner)
+
+        response = await self._patch(client, character, ["hp1"], "x" * MAX_VALUES_SIZE)
+
+        assert response.status_code == 400
+        assert "can't exceed" in response.json()["errors"][0]["detail"]
+
+    async def test_writing_the_name_field_updates_the_character_name(
+        self, client, character, owner, db_session, auth_as
+    ):
+        auth_as(owner)
+
+        response = await self._patch(client, character, ["nm1"], "  Aria  ")
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "Aria"
+        await db_session.refresh(character, ["name"])
+        assert character.name == "Aria"
+
+    async def test_an_approved_games_gm_can_write(
+        self, client, character, create, auth_as, db_session, system
+    ):
+        gm = await create(ActivatedUserFactory)
+        game = await _game_with_gm(create, db_session, system, gm)
+        character.game_id = game.id
+        character.approved = True
+        await db_session.flush()
+        auth_as(gm)
+
+        response = await self._patch(client, character, ["hp1"], "4")
+
+        assert response.status_code == 200
+        assert response.json()["values"]["hp1"] == "4"
+
+    @pytest.mark.parametrize("who", ["pending_gm", "stranger"])
+    async def test_forbids_everyone_else(
+        self, client, character, create, auth_as, db_session, system, who
+    ):
+        user = await create(ActivatedUserFactory)
+        if who == "pending_gm":
+            game = await _game_with_gm(create, db_session, system, user)
+            character.game_id = game.id
+            character.approved = False
+            await db_session.flush()
+        auth_as(user)
+
+        response = await self._patch(client, character, ["hp1"], "4")
+
+        assert response.status_code == 403
+        await db_session.refresh(character, ["values"])
+        assert character.values["hp1"] == "10"
 
 
 class TestAddCharacterAvatar:

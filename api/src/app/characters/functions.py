@@ -16,3 +16,15 @@ def can_view_character(
         or (principal is not None and character.user_id == principal.id)
         or (character.game_id is not None and is_game_gm)
     )
+
+
+def can_edit_live_fields(
+    character: Character, principal: User, is_game_gm: bool
+) -> bool:
+    """Whether the principal may change the character's `live` fields: the
+    owner, or a GM of the game the character is approved in (a GM of a game it
+    is only pending in can't). ``is_game_gm`` is whether the principal GMs the
+    character's game."""
+    return character.user_id == principal.id or (
+        character.game_id is not None and character.approved and is_game_gm
+    )

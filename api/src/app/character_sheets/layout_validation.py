@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 
+from app.character_sheets.layout_scopes import SCALAR_FIELD_TYPES
 from app.character_sheets.roll_template import (
     TemplateSyntaxError,
     has_single_d20,
@@ -103,6 +104,9 @@ def _validate_node(node: object, *, path: str, depth: int) -> None:
     if "roll" in node:
         _validate_roll(node_type, node["roll"], path=f"{path}.roll")
 
+    if "live" in node:
+        _validate_live(node_type, node, path=f"{path}.live")
+
     for key in _CHILD_ELEMENT_KEYS:
         if key not in node:
             continue
@@ -111,6 +115,21 @@ def _validate_node(node: object, *, path: str, depth: int) -> None:
             raise ValidationError(f"Sheet element at {path}.{key} must be an array")
         for index, child in enumerate(children):
             _validate_node(child, path=f"{path}.{key}[{index}]", depth=depth + 1)
+
+
+# --- `live` -------------------------------------------------------------------
+
+
+def _validate_live(node_type: str, node: dict, *, path: str) -> None:
+    if node_type not in SCALAR_FIELD_TYPES:
+        raise ValidationError(
+            f"'live' at {path} isn't allowed on a '{node_type}' "
+            "(only input, textarea, select and checkbox)"
+        )
+    if not isinstance(node["live"], bool):
+        raise ValidationError(f"Sheet 'live' at {path} must be a boolean")
+    if node["live"] and node_type == "textarea" and node.get("richtext") is True:
+        raise ValidationError(f"'live' at {path} isn't allowed on a richtext textarea")
 
 
 # --- `roll` -------------------------------------------------------------------

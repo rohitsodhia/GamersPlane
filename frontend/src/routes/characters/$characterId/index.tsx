@@ -1,10 +1,15 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import clsx from "clsx";
 import { DismissibleBanner } from "#/components/DismissibleBanner";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
-import { notFoundOnMissing, requirePositiveId } from "#/lib/not-found-route";
+import {
+	forbiddenOnDenied,
+	notFoundOnMissing,
+	requirePositiveId,
+} from "#/lib/not-found-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
+import { useLiveSave } from "#/lib/use-live-save";
 import {
 	characterQueryOptions,
 	characterSheetMovesQueryOptions,
@@ -21,17 +26,19 @@ export const Route = createFileRoute("/characters/$characterId/")({
 	},
 	beforeLoad: ({ params }) => requirePositiveId(params.characterId),
 	loader: async ({ context, params, location }) => {
-		const character = await notFoundOnMissing(
-			redirectToLoginOnAuthFailure(
-				context.queryClient.ensureQueryData(characterQueryOptions(params.characterId)),
-				location,
+		// Who may view is the API's call: the owner, anyone for a library
+		// character, and the GMs of the game it's submitted to.
+		await forbiddenOnDenied(
+			notFoundOnMissing(
+				redirectToLoginOnAuthFailure(
+					context.queryClient.ensureQueryData(
+						characterQueryOptions(params.characterId),
+					),
+					location,
+				),
 			),
 		);
-		const me = await context.queryClient.ensureQueryData(meQueryOptions);
-		// Non-library characters are visible only to their owner.
-		if (!character.in_library && character.user_id !== me.id) {
-			throw redirect({ to: "/403", replace: true });
-		}
+		await context.queryClient.ensureQueryData(meQueryOptions);
 	},
 	component: RouteComponent,
 });
@@ -41,6 +48,7 @@ function RouteComponent() {
 	const { data: character } = useSuspenseQuery(characterQueryOptions(characterId));
 	const { character_sheet: sheet } = character;
 	useGameBarGame(character.game_id);
+	const onLiveSave = useLiveSave(characterId);
 
 	const { data: me } = useSuspenseQuery(meQueryOptions);
 	const isOwner = character.user_id === me.id;
@@ -62,9 +70,11 @@ function RouteComponent() {
 					className="trapezoid red-trapezoid upside-down"
 					style={{ marginRight: hbMargined.margin }}
 				>
-					<Link to="/characters/$characterId/edit" params={{ characterId }}>
-						Edit
-					</Link>
+					{isOwner && (
+						<Link to="/characters/$characterId/edit" params={{ characterId }}>
+							Edit
+						</Link>
+					)}
 					<button type="button">
 						<img
 							src="/images/icons/bookmark_off.png"
@@ -118,6 +128,8 @@ function RouteComponent() {
 				key={characterId}
 				mode="display"
 				initialValues={character.values ?? {}}
+				onLiveSave={onLiveSave}
+				canEditLive={character.can_edit_live}
 			>
 				<SheetRenderer schema={character.layout} />
 			</SheetValuesProvider>

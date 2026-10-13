@@ -124,6 +124,21 @@ export interface BaseElement {
 	style_when?: StyleWhen[];
 }
 
+/**
+ * Keys of the value-bearing controls (`input`, `textarea`, `select`, `checkbox`)
+ * that can be marked `live`.
+ */
+export interface LiveCapable {
+	/**
+	 * Editable in display mode as well as edit mode, for values that change during
+	 * play (HP, spell slots). Saves on its own: a `select` / `checkbox` on change,
+	 * an `input` / `textarea` on blur (or Enter, for an `input`). Only the
+	 * character's owner and the GMs of the game it's approved in can edit it; for
+	 * everyone else it renders as text. Not allowed on a `richtext` textarea.
+	 */
+	live?: boolean;
+}
+
 /** Where the roll icon's centre sits along one axis of its element's box. */
 export type RollIconAnchor = "start" | "middle" | "end";
 
@@ -188,7 +203,7 @@ export interface LabelElement extends BaseElement {
 	roll?: RollSpec;
 }
 
-export interface InputElement extends BaseElement {
+export interface InputElement extends BaseElement, LiveCapable {
 	type: "input";
 	/** Form-field name; the key this field's value lives under in sheet state. */
 	name: string;
@@ -212,7 +227,7 @@ export interface InputElement extends BaseElement {
  * own — a sibling `label` in the enclosing `group` binds to it. Value doc:
  * `name -> "<text>"`, or `name -> <Tiptap JSON document>` when `richtext` is set.
  */
-export interface TextareaElement extends BaseElement {
+export interface TextareaElement extends BaseElement, LiveCapable {
 	type: "textarea";
 	/** Form-field name; the key this field's value lives under in sheet state. */
 	name: string;
@@ -452,7 +467,7 @@ export interface HeaderElement extends BaseElement {
 	headerbar?: boolean;
 }
 
-export interface CheckboxElement extends BaseElement {
+export interface CheckboxElement extends BaseElement, LiveCapable {
 	type: "checkbox";
 	/** Form-field name; the key this checkbox's boolean lives under. */
 	name: string;
@@ -482,7 +497,7 @@ export type SelectOption = string | { value: string; label: string };
  * enclosing `group` binds to it. A blank choice is offered unless `default`
  * picks one. Value doc: `name -> "<chosen value>"`.
  */
-export interface SelectElement extends BaseElement {
+export interface SelectElement extends BaseElement, LiveCapable {
 	type: "select";
 	/** Form-field name; the key this field's value lives under in sheet state. */
 	name: string;

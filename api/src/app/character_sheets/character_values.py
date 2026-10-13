@@ -20,6 +20,8 @@ Only keys and the containers' shapes are checked, not the values themselves.
 
 from __future__ import annotations
 
+import copy
+
 from app.character_sheets.layout_ids import collect_ids, field_labels
 from app.character_sheets.layout_scopes import Field, Scope, scope_for
 from app.exceptions import ValidationError
@@ -39,6 +41,100 @@ def validate_character_values(values: dict, layout: dict, stored: dict | None) -
         _stored_keys(stored),
         path="values",
     )
+
+
+def set_live_value(
+    values: dict | None, layout: dict, path: list[str | int], value: object
+) -> dict:
+    """A copy of `values` with `value` written at `path`, after checking that
+    `path` addresses a `live: true` field of `layout` and that `value` suits it.
+
+    `path` is the field's address in the values document: field ids, with a
+    repeater's row index (int) or a grid's row id (str) after each repeater /
+    grid id. Containers missing along the way are created, except that a
+    repeater row must already exist: a live write never adds rows.
+    """
+    field = _live_field(layout, path)
+    _check_live_value(field, value)
+
+    updated = copy.deepcopy(values) if values else {}
+    node: dict | list = updated
+    for index, segment in enumerate(path[:-1]):
+        if isinstance(segment, int):
+            if not isinstance(node, list) or not 0 <= segment < len(node):
+                raise ValidationError("That repeater row doesn't exist")
+            if not isinstance(node[segment], dict):
+                node[segment] = {}
+            node = node[segment]
+            continue
+        if not isinstance(node, dict):
+            raise ValidationError("Field path doesn't match the stored values")
+        child = node.get(segment)
+        if not isinstance(child, dict | list):
+            child = [] if isinstance(path[index + 1], int) else {}
+            node[segment] = child
+        node = child
+    if not isinstance(node, dict):
+        raise ValidationError("Field path doesn't match the stored values")
+    node[path[-1]] = value
+
+    return updated
+
+
+def _live_field(layout: dict, path: list[str | int]) -> Field:
+    """Walk `layout` along `path` to the live scalar field it names."""
+    scope = scope_for(layout.get("elements"))
+    position = 0
+    while position < len(path):
+        segment = path[position]
+        field = (
+            next((f for f in scope.values() if f.id == segment), None)
+            if isinstance(segment, str)
+            else None
+        )
+        if field is None:
+            raise ValidationError(f"Unknown field '{segment}' in the field path")
+        position += 1
+
+        if field.kind == "value":
+            if position != len(path):
+                raise ValidationError("Field path continues past a value field")
+            if not field.live:
+                raise ValidationError(f"Field '{segment}' isn't live")
+            return field
+
+        if position >= len(path):
+            raise ValidationError(f"Field path ends at the container '{segment}'")
+        coordinate = path[position]
+        position += 1
+        if field.kind == "repeater":
+            if not isinstance(coordinate, int) or isinstance(coordinate, bool):
+                raise ValidationError(f"'{segment}' needs a row index")
+            scope = field.row_scope or {}
+        else:
+            row = next(
+                (r for r in (field.rows or {}).values() if r.id == coordinate), None
+            )
+            if row is None:
+                raise ValidationError(f"Unknown grid row '{coordinate}' in '{segment}'")
+            scope = row.scope
+    # Only reached after a row coordinate with no field after it (the loop
+    # returns on the first value field, and `path` is never empty).
+    raise ValidationError("Field path ends at the container, not a field")
+
+
+def _check_live_value(field: Field, value: object) -> None:
+    if field.element_type == "checkbox":
+        valid = isinstance(value, bool)
+    elif field.element_type == "select":
+        valid = isinstance(value, str) and (value == "" or value in field.options)
+    else:
+        # input and textarea: text, or a number typed into a numeric input.
+        valid = isinstance(value, str) or (
+            isinstance(value, int | float) and not isinstance(value, bool)
+        )
+    if not valid:
+        raise ValidationError(f"Invalid value for a {field.element_type} field")
 
 
 def character_name(values: dict | None, layout: dict) -> str | None:

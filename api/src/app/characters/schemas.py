@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from app.models import Character
 from app.schema_base import SchemaBase, filtered_str
@@ -53,6 +53,13 @@ class UpdateCharacterInput(SchemaBase):
         return v
 
 
+class LiveValueInput(SchemaBase):
+    # The field's address in the values document: field ids, with a repeater's
+    # row index or a grid's row id after each repeater / grid id.
+    path: list[str | int] = Field(min_length=1, max_length=32)
+    value: str | int | float | bool
+
+
 class CharacterSheetData(SchemaBase):
     id: int
     name: str
@@ -85,6 +92,9 @@ class GetCharacterResponse(SchemaBase):
     version_number: int
     layout: dict
     avatars: list[CharacterAvatarData]
+    # Whether the viewer may change this character's `live` fields from its
+    # display page: the owner, or a GM of the game it's approved in.
+    can_edit_live: bool = False
 
 
 class LibraryUserData(SchemaBase):

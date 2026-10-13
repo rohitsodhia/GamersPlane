@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { Button } from "react-aria-components";
+import { useLiveSave } from "#/lib/use-live-save";
 import { characterQueryOptions } from "#/queries/character";
 import { meQueryOptions } from "#/queries/me";
 import { SheetRenderer } from "#/routes/characters/sheets/-components/SheetRenderer";
@@ -50,6 +51,7 @@ function SheetPanelContent({
 	const panelHeight = useGameBarStore((state) => state.panelHeight);
 	const setPanelHeight = useGameBarStore((state) => state.setPanelHeight);
 	const { data: character, isError } = useQuery(characterQueryOptions(characterId));
+	const onLiveSave = useLiveSave(characterId);
 	const token = useAuthStore((state) => state.token);
 	const { data: me } = useQuery({ ...meQueryOptions, enabled: !!token });
 
@@ -107,6 +109,8 @@ function SheetPanelContent({
 							key={characterId}
 							mode="display"
 							initialValues={character.values ?? {}}
+							onLiveSave={onLiveSave}
+							canEditLive={character.can_edit_live}
 						>
 							<SheetRenderer schema={character.layout} />
 						</SheetValuesProvider>

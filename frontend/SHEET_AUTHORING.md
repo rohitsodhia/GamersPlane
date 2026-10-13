@@ -49,7 +49,8 @@ The sheet renders in one of two modes:
   fields and defaults are written back into the store.
 - **display** — every control renders its stored value as static text
   (`input`/`textarea`/`select` → a `<span>`, `checkbox` → `✓` / `—`). Buttons
-  render but do nothing. The store is never mutated.
+  render but do nothing. The store is never mutated, except by `live` fields
+  (§4.5), which stay editable.
 
 You author one sheet; the mode is chosen at render time. You don't need to do
 anything special for display mode, but keep it in mind: a sheet that only makes
@@ -325,6 +326,39 @@ Single boolean. Renders a box in edit mode, `✓` / `—` in display mode.
 ```jsonc
 { "type": "checkbox", "name": "save_prof" }
 ```
+
+### 4.5 `live` — editable during play
+
+Add `"live": true` to a value field that changes while the character is being
+played — hit points, inspiration, spell slots, ammo — so it can be changed
+without going to the edit page. It is the only thing `live` does: a live field
+is a normal field that also stays an editable control in display mode (the
+character page and the game bar's sheet panel). Computed values that read it
+update immediately.
+
+| Key | Type | Notes |
+|---|---|---|
+| `live` | boolean | Optional. Allowed on `input`, `textarea`, `select` and `checkbox` only (any other element type is rejected, as is a non-boolean value), and not on a `richtext` textarea. Works anywhere those do, including inside `grid` rows and `repeater` rows. |
+
+```jsonc
+{ "type": "input", "name": "hp", "maxlength": 3, "live": true }
+{ "type": "checkbox", "name": "inspiration", "live": true }
+```
+
+- **Who can edit:** the character's owner, and any GM of the game the character
+  is *approved* in (not one where it is only pending). Everyone else sees the
+  field as plain text, like any other display-mode field.
+- **When it saves:** a `checkbox` or `select` saves the moment it changes. An
+  `input` saves when it loses focus or Enter is pressed; a `textarea` when it
+  loses focus. Nothing is sent if the value is the same as the last saved one.
+  The field dims while the save is in flight.
+- **If a save fails** an error message appears beside the field and the field
+  goes back to its last saved value.
+- **Repeaters:** rows still can't be added or removed in display mode, and a
+  live field in a repeater can only change a row that already exists.
+- **Edit mode** is unchanged; it saves the whole sheet with the Save button.
+  Changes made on the display page overwrite the stored value for that field
+  only; the last write wins against an edit page that was already open.
 
 ---
 
@@ -1289,6 +1323,8 @@ actually reach for while authoring are marked **author knob**.
 | Class | Applied to | Notes |
 |---|---|---|
 | `char-sheet-value` | the `<span>` a control renders in display mode (auto) | No rules of its own in the stylesheet today — a stable hook for display-mode styling. |
+| `char-sheet-live--saving` | a `live` control while its save is in flight (auto) | Dims the control. |
+| `char-sheet-live-error` | the message after a `live` control whose save failed (auto) | Error colour, small text. |
 
 ### From outside `char-sheet.css`
 

@@ -37,6 +37,8 @@ export type Character = {
 	/** Layout of the sheet version this character is pinned to. */
 	layout: SheetSchema;
 	avatars: CharacterAvatar[];
+	/** Whether the viewer may change the sheet's `live` fields from the display page. */
+	can_edit_live: boolean;
 };
 
 export type CharacterListItem = {
@@ -149,6 +151,23 @@ export const updateCharacter = async (
 	data: { label?: string; type?: CharacterType; values?: ScopeValues },
 ): Promise<Character> => {
 	const res = await apiFetch(`/characters/${characterId}`, {
+		method: "PATCH",
+		body: JSON.stringify(data),
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+// Change one `live: true` field (display mode), leaving the rest of the values
+// alone. Open to the owner and the GMs of the game the character is approved in.
+export const updateCharacterLiveValue = async (
+	characterId: number,
+	data: { path: (string | number)[]; value: string | number | boolean },
+): Promise<Character> => {
+	const res = await apiFetch(`/characters/${characterId}/live_values`, {
 		method: "PATCH",
 		body: JSON.stringify(data),
 	});

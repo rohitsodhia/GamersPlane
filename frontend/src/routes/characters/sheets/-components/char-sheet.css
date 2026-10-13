@@ -70,6 +70,19 @@
 	gap: 0.35rem;
 }
 
+/* --- Live fields (editable in display mode) ---------------------------------- */
+
+/* A live field's save is in flight. */
+.char-sheet-live--saving {
+	opacity: 0.6;
+}
+
+/* Why a live field's save failed, right after the control. */
+.char-sheet-live-error {
+	color: var(--gp-error-accent);
+	font-size: var(--font-size-sm);
+}
+
 /* --- Select ----------------------------------------------------------------- */
 
 /* The dropdown itself (trigger + popover) is styled globally in rac.css, where

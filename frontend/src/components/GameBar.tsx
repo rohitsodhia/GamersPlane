@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 import { Button } from "react-aria-components";
 import { gameDetailsQueryOptions } from "#/queries/game";
 import { meQueryOptions } from "#/queries/me";
@@ -23,6 +24,18 @@ import { panelHeightCss } from "./sheet-panel";
 // right cluster holds the dice and card tools.
 export default function GameBar() {
 	const gameId = useGameBarStore((state) => state.gameId);
+	const closePanel = useGameBarStore((state) => state.closePanel);
+	const href = useLocation({ select: (location) => location.href });
+	const lastHref = useRef(href);
+
+	// Any navigation closes the sheet panel, including to a page without the bar.
+	// Its popovers close themselves (see `BarPopover`).
+	useEffect(() => {
+		if (lastHref.current === href) return;
+		lastHref.current = href;
+		closePanel();
+	}, [href, closePanel]);
+
 	if (gameId === null) return null;
 	return <GameBarContent gameId={gameId} />;
 }

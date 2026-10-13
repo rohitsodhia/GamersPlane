@@ -11,6 +11,8 @@ vi.mock("@tanstack/react-router", () => ({
 	Link: ({ children, to }: { children: ReactNode; to: string }) => (
 		<a href={to}>{children}</a>
 	),
+	useLocation: ({ select }: { select: (location: { href: string }) => unknown }) =>
+		select({ href: "/games/5" }),
 }));
 
 const apiFetch = vi.fn();

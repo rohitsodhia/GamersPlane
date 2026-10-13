@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,8 +15,11 @@ vi.mock("@tanstack/react-router", () => ({
 			{children as ReactNode}
 		</a>
 	),
-	useLocation: ({ select }: { select: (location: { pathname: string }) => unknown }) =>
-		select({ pathname }),
+	useLocation: ({
+		select,
+	}: {
+		select: (location: { pathname: string; href: string }) => unknown;
+	}) => select({ pathname, href: pathname }),
 }));
 
 const apiFetch = vi.fn();
@@ -104,20 +107,30 @@ const visibleCharacterGame = () =>
 let viewerId = 1;
 
 async function openVisibleSheet(buttonName = "Visible") {
-	renderBar();
+	const view = renderBar();
 	await userEvent.click(await screen.findByRole("button", { name: "Characters" }));
 	await userEvent.click(screen.getByRole("button", { name: buttonName }));
+	return view;
 }
 
 function renderBar() {
 	const queryClient = new QueryClient({
 		defaultOptions: { queries: { retry: false } },
 	});
-	return render(
+	// A fresh element each time, so a rerender reaches `GameBar` and it reads the
+	// mocked location again.
+	const ui = () => (
 		<QueryClientProvider client={queryClient}>
 			<GameBar />
-		</QueryClientProvider>,
+		</QueryClientProvider>
 	);
+	const view = render(ui());
+	// Re-renders at a new `pathname`, as a navigation would.
+	const navigate = (to: string) => {
+		pathname = to;
+		view.rerender(ui());
+	};
+	return { ...view, navigate };
 }
 
 beforeEach(() => {
@@ -322,6 +335,22 @@ describe("GameBar sheet panel", () => {
 
 		expect(screen.queryByRole("region", { name: "Visible sheet" })).toBeNull();
 		expect(useGameBarStore.getState().panel).toBeNull();
+	});
+
+	it("closes on navigation, along with an open popover", async () => {
+		respondWith(visibleCharacterGame());
+		const { navigate } = await openVisibleSheet();
+		await screen.findByRole("region", { name: "Visible sheet" });
+		await userEvent.click(screen.getByRole("button", { name: "Characters" }));
+		expect(screen.getByRole("dialog", { name: "Characters" })).toBeInTheDocument();
+
+		navigate("/characters/1?tab=notes");
+
+		expect(screen.queryByRole("region", { name: "Visible sheet" })).toBeNull();
+		expect(useGameBarStore.getState().panel).toBeNull();
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog", { name: "Characters" })).toBeNull(),
+		);
 	});
 
 	it("grows the page-end spacer by the panel's height", async () => {

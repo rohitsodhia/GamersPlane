@@ -1,3 +1,4 @@
+import { useLocation } from "@tanstack/react-router";
 import clsx from "clsx";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button, Dialog, DialogTrigger, Popover } from "react-aria-components";
@@ -8,7 +9,7 @@ import styles from "./GameBar.module.css";
 // bar's height like its links, and a second press on it closes the popover.
 // Non-modal so opening it doesn't lock page scrolling (see `ActionsMenu`), which
 // means an outside press and Escape close it by hand. `children` gets a `close`
-// for content that should dismiss it (picking a character).
+// for content that should dismiss it (picking a character). Navigating closes it.
 export default function BarPopover({
 	label,
 	placement,
@@ -22,6 +23,14 @@ export default function BarPopover({
 }) {
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+
+	// Any navigation closes it (the bar stays mounted across game pages).
+	const href = useLocation({ select: (location) => location.href });
+	const [shownAt, setShownAt] = useState(href);
+	if (href !== shownAt) {
+		setShownAt(href);
+		setOpen(false);
+	}
 	const popoverRef = useRef<HTMLElement>(null);
 
 	useEffect(() => {
