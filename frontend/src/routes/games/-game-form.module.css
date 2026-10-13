@@ -9,18 +9,16 @@
 		}
 	}
 
+	.small-text {
+		font-size: 0.85em;
+	}
+
 	.input-field {
 		width: min(100%, 400px);
 	}
 
 	input[type="number"] {
 		width: 4em;
-	}
-
-	.char-sheet-picker {
-		/* display: flex;
-		gap: 0.5em;
-		align-items: center; */
 	}
 
 	div:has(> :global(.react-aria-SearchField)) {
@@ -35,6 +33,10 @@
 		li {
 			margin-bottom: 0.25em;
 		}
+	}
+
+	.public-input {
+		margin-right: 0.5em;
 	}
 
 	.thread-url {

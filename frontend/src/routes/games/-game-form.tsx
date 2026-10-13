@@ -43,7 +43,7 @@ export function GameForm({ title, game }: { title: string; game?: GameDetails })
 			charsPerPlayer: game?.chars_per_player ?? 1,
 			description: (game?.description ?? emptyContent) as JSONContent,
 			charGenInfo: (game?.char_gen_info ?? emptyContent) as JSONContent,
-			isPublic: game?.public ?? true,
+			isPublic: game?.public ?? false,
 			recruitmentThreadId: game?.recruitment_thread_id
 				? String(game.recruitment_thread_id)
 				: "",
@@ -352,7 +352,12 @@ export function GameForm({ title, game }: { title: string; game?: GameDetails })
 										id={field.name}
 										checked={field.state.value}
 										onChange={(checked) => field.handleChange(checked)}
-									/>
+										className={styles["public-input"]}
+									/>{" "}
+									<span className={styles["small-text"]}>
+										(Leave the game private if you'd like to try things out without
+										exposing it to others)
+									</span>
 								</div>
 							</div>
 						)}
