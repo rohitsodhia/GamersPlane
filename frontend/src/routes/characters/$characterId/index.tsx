@@ -10,6 +10,7 @@ import {
 	characterSheetMovesQueryOptions,
 } from "#/queries/character";
 import { meQueryOptions } from "#/queries/me";
+import { useGameBarGame } from "#/stores/game-bar";
 import { SheetRenderer } from "../sheets/-components/SheetRenderer";
 import { SheetValuesProvider } from "../sheets/-components/sheet-values";
 import styles from "./character.module.css";
@@ -39,6 +40,7 @@ function RouteComponent() {
 	const { characterId } = Route.useParams();
 	const { data: character } = useSuspenseQuery(characterQueryOptions(characterId));
 	const { character_sheet: sheet } = character;
+	useGameBarGame(character.game_id);
 
 	const { data: me } = useSuspenseQuery(meQueryOptions);
 	const isOwner = character.user_id === me.id;

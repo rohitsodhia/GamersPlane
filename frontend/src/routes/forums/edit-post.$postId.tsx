@@ -17,6 +17,7 @@ import { forumCharactersQueryOptions, forumQueryOptions } from "#/queries/forums
 import { meQueryOptions } from "#/queries/me";
 import { editPost, postQueryOptions } from "#/queries/posts";
 import { threadQueryOptions } from "#/queries/threads";
+import { useGameBarGame } from "#/stores/game-bar";
 import { canChangePost } from "./-permissions";
 import { changedPostedAs, postAsOfPost } from "./-post-as";
 import { PostForm } from "./-post-form";
@@ -59,6 +60,7 @@ function RouteComponent() {
 	const { postId } = Route.useParams();
 	const { data: post } = useSuspenseQuery(postQueryOptions(postId));
 	const { data: forum } = useSuspenseQuery(forumQueryOptions(post.forum_id));
+	useGameBarGame(forum.game_id);
 	const { data: thread } = useSuspenseQuery(threadQueryOptions(post.thread_id));
 	const { data: me } = useSuspenseQuery(meQueryOptions);
 	// The same query the form's picker runs, for telling whether the avatar moved.

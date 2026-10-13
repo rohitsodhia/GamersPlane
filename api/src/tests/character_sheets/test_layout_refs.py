@@ -480,3 +480,44 @@ class TestDynamicRefs:
     def test_rejects_a_malformed_dynamic_segment(self, ref, reason):
         with pytest.raises(ValidationError, match=re.escape(reason)):
             validate_layout_refs(_dynamic_root(_computed(ref)))
+
+
+class TestRollRefs:
+    def _roll(self, roll):
+        return {"type": "text", "text": "Athletics", "roll": roll}
+
+    def test_accepts_resolving_refs_in_dice_and_reason(self):
+        validate_layout_refs(
+            _root_with(
+                self._roll(
+                    {
+                        "dice": "1d20+${stats.str.score}+${hp}",
+                        "reason": "Check ${hp}",
+                    }
+                )
+            )
+        )
+
+    @pytest.mark.parametrize(
+        ("roll", "where"),
+        [
+            ({"dice": "${hp}d6+${nope}"}, r"roll\.dice\[1\]"),
+            ({"dice": "1d20", "reason": "x ${nope}"}, r"roll\.reason\[0\]"),
+        ],
+        ids=["dice-second-ref", "reason"],
+    )
+    def test_rejects_an_unresolved_ref(self, roll, where):
+        with pytest.raises(ValidationError, match=f"Ref 'nope' at .*{where}"):
+            validate_layout_refs(_root_with(self._roll(roll)))
+
+    def test_roll_is_walked_with_the_repeater_row_context(self):
+        validate_layout_refs(
+            _in_repeater_row(
+                self._roll({"dice": "1d20", "reason": "Attack ${$row.level}"})
+            )
+        )
+
+    def test_resolves_a_dynamic_ref_inside_a_placeholder(self):
+        validate_layout_refs(
+            _dynamic_root(self._roll({"dice": "1d20+${stats.$(pick).score}"}))
+        )

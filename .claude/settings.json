@@ -27,7 +27,8 @@
             "Bash(tail *)",
             "Bash(/usr/bin/tail *)",
             "Bash(head *)",
-            "Bash(/usr/bin/head *)"
+            "Bash(/usr/bin/head *)",
+            "Read(//home/rohit/www/GamersPlane.old/Gamers_Plane/**)"
         ]
     },
     "hooks": {

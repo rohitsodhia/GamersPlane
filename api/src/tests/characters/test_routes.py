@@ -257,6 +257,7 @@ class TestGetCharacter:
             "type": "pc",
             "values": None,
             "in_library": False,
+            "game_id": None,
             "character_sheet_id": public_sheet.id,
             "character_sheet": {
                 "id": public_sheet.id,
@@ -394,6 +395,8 @@ class TestGetCharacter:
         response = await client.get(f"/characters/{character.id}")
 
         assert response.status_code == (200 if is_gm else 403)
+        if is_gm:
+            assert response.json()["game_id"] == game.id
 
 
 class TestGetCharacters:

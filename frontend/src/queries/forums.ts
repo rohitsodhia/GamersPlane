@@ -88,6 +88,7 @@ export type Forum = {
 export type ForumBreadcrumbs = {
 	id: number;
 	title: string;
+	game_id: number | null;
 	heritage: HeritageForum[];
 };
 

@@ -18,6 +18,7 @@ import { Label } from "./Label";
 import { List } from "./List";
 import { Loop } from "./Loop";
 import { Repeater } from "./Repeater";
+import { type OnRoll, RollContext } from "./roll-context";
 import { Section } from "./Section";
 import { Select } from "./Select";
 import { RootScopeProvider } from "./sheet-values";
@@ -171,6 +172,16 @@ function groupLabelTarget(content: SheetElement[]): string | undefined {
 	return bound.length === 1 ? bound[0].name : undefined;
 }
 
+/** A rollable `group`'s default reason: the text of its first literal `label` / `text` child. */
+function groupRollReason(content: SheetElement[]): string {
+	for (const child of content) {
+		if ((child.type === "label" || child.type === "text") && child.text) {
+			return child.text;
+		}
+	}
+	return "";
+}
+
 /**
  * Flattens a `grid`'s two authoring forms into one header + row list for `Grid`.
  * Compact (`items` + `row`) synthesises a leading literal `text` label cell per
@@ -276,7 +287,13 @@ function renderNode(node: SheetElement, path: string, bundles: StyleBundles) {
 			path,
 			dom,
 			key,
-			<Group key={key} {...dom} labelFor={groupLabelTarget(node.content)}>
+			<Group
+				key={key}
+				{...dom}
+				labelFor={groupLabelTarget(node.content)}
+				roll={node.roll}
+				rollReason={groupRollReason(node.content)}
+			>
 				{node.content.map((child, i) => renderNode(child, `${path}/${i}`, bundles))}
 			</Group>,
 		);
@@ -368,14 +385,27 @@ function renderNode(node: SheetElement, path: string, bundles: StyleBundles) {
  * rendered inside a `<SheetValuesProvider>` (see `sheet-values`): element
  * components bind their values through it and read the edit/display mode from it.
  */
-export function SheetRenderer({ schema }: { schema: SheetSchema }) {
+export function SheetRenderer({
+	schema,
+	onRoll,
+}: {
+	schema: SheetSchema;
+	/**
+	 * Receives a roll the user activated on a rollable element (display mode
+	 * only). Without it rollable elements still show their dice icon and tooltip,
+	 * but aren't clickable.
+	 */
+	onRoll?: OnRoll;
+}) {
 	return (
 		<div className="char-sheet">
-			<RootScopeProvider nodes={schema.elements}>
-				<CollapsibleScopeProvider>
-					{schema.elements.map((node, i) => renderNode(node, `${i}`, schema.classes))}
-				</CollapsibleScopeProvider>
-			</RootScopeProvider>
+			<RollContext.Provider value={onRoll}>
+				<RootScopeProvider nodes={schema.elements}>
+					<CollapsibleScopeProvider>
+						{schema.elements.map((node, i) => renderNode(node, `${i}`, schema.classes))}
+					</CollapsibleScopeProvider>
+				</RootScopeProvider>
+			</RollContext.Provider>
 		</div>
 	);
 }

@@ -2,6 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { gameDetailsQueryOptions } from "#/queries/game";
 import { systemsQueryOptions } from "#/queries/systems";
+import { useGameBarGame } from "#/stores/game-bar";
 import { GameForm } from "../-game-form";
 
 export const Route = createFileRoute("/games/$gameId/edit")({
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/games/$gameId/edit")({
 function RouteComponent() {
 	const { gameId } = Route.useParams();
 	const { data: game } = useSuspenseQuery(gameDetailsQueryOptions(gameId));
+	useGameBarGame(gameId);
 
 	return <GameForm title="Edit Game" game={game} />;
 }

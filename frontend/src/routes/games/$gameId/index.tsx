@@ -40,6 +40,7 @@ import { meQueryOptions } from "#/queries/me";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { searchUserByUsername } from "#/queries/users";
 import { useAuthStore } from "#/stores/auth";
+import { useGameBarGame } from "#/stores/game-bar";
 import DeckFormPopover from "./-deck-form-popover";
 import styles from "./index.module.css";
 
@@ -106,6 +107,7 @@ function RouteComponent() {
 	const { gameId } = Route.useParams();
 	const queryClient = useQueryClient();
 	const { data: game } = useSuspenseQuery(gameDetailsQueryOptions(gameId));
+	useGameBarGame(gameId);
 	const { data: systems } = useSuspenseQuery(systemsQueryOptions({ basic: true }));
 	const token = useAuthStore((state) => state.token);
 	const { data: me } = useQuery({ ...meQueryOptions, enabled: !!token });
@@ -367,7 +369,10 @@ function RouteComponent() {
 			id: character.id,
 			label: character.label,
 			type: character.type,
-			approved: false,
+			// The API approves a GM's own submission straight away.
+			approved: isGM,
+			// The submitter owns it.
+			can_view: true,
 		});
 	};
 

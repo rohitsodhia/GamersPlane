@@ -1,0 +1,125 @@
+.spacer {
+	height: var(--game-bar-height);
+}
+
+/* Fixed, so it can't subgrid the body: it repeats the body's tracks instead, spanning
+   the full width while its content sits in the content column like the page's. */
+.bar {
+	position: fixed;
+	inset: auto 0 0 0;
+	z-index: 20;
+	height: var(--game-bar-height);
+	display: grid;
+	grid-template-columns: var(--page-columns);
+	align-items: center;
+	background:
+		linear-gradient(to top, oklch(0 0 0 / 0.5), oklch(0 0 0 / 0)),
+		oklch(from var(--gp-red) calc(l * 0.6) c h);
+	border-top: 1px solid #777;
+	color: #fff;
+
+	a,
+	a:hover,
+	a:visited {
+		color: inherit;
+	}
+}
+
+/* Left cluster now; the right one (tools) comes later. Both stretch to the bar's
+   full height, and so does every item in them (see `.cluster`). */
+.content {
+	grid-column: content;
+	align-self: stretch;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	min-width: 0;
+}
+
+/* Links and menu triggers all fill the bar's height (text centred), so they share
+   one hit area and a trigger's top edge is the bar's top border: a popover's
+   offset then lands it right on that border, whatever the bar's height. */
+.cluster {
+	align-self: stretch;
+	display: flex;
+	align-items: stretch;
+	gap: 0.5rem;
+	min-width: 0;
+
+	& > * {
+		display: flex;
+		align-items: center;
+	}
+}
+
+.title {
+	font-weight: bold;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.item {
+	flex: none;
+	background: none;
+	border: none;
+	padding-inline: 0.5em;
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+	text-decoration: none;
+
+	&[data-hovered],
+	&:hover,
+	&[data-focus-visible] {
+		text-decoration: underline;
+	}
+}
+
+.popover {
+	max-height: min(60dvh, 28rem);
+	overflow-y: auto;
+
+	/* Opened upward it sits on the bar: square bottom corners, and the bar's top
+	   border stands in for its own bottom one. The attribute also outranks
+	   `.react-aria-Popover`'s radius and border. */
+	&[data-placement="top"] {
+		border-bottom: none;
+		border-radius: 0;
+	}
+}
+
+.characters {
+	min-width: 12rem;
+	padding: 0.5em 0.75em;
+	outline: none;
+}
+
+.group + .group {
+	margin-top: 0.5em;
+}
+
+.group-title {
+	margin: 0;
+	font-size: var(--font-size-sm);
+	text-transform: uppercase;
+	opacity: 0.7;
+}
+
+.character-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.character {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5em;
+}
+
+.npc-tag {
+	font-size: var(--font-size-sm);
+	opacity: 0.7;
+}

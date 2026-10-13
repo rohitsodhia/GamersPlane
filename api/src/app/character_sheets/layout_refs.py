@@ -24,7 +24,7 @@ mirror):
   text can't be checked, so the path is only checked up to that segment.
 
 Refs are checked in formulas (`text.formula`, `class_when`, `style_when[].when`,
-a formula `loop.count`, `on_click.to`) and in `on_click.set`, which must name a
+a formula `loop.count`, `on_click.to`), in the `${ref}` placeholders of `roll.dice` / `roll.reason`, and in `on_click.set`, which must name a
 store field (`$index` / `$item` aren't writable).
 
 Duplicate names in one scope aren't rejected here; like the renderer, the
@@ -37,6 +37,7 @@ from dataclasses import dataclass, replace
 from itertools import product
 
 from app.character_sheets.layout_scopes import Field, Scope, dicts, scope_for
+from app.character_sheets.roll_template import TemplateSyntaxError, template_refs
 from app.exceptions import ValidationError
 
 
@@ -93,6 +94,7 @@ def _check_node(node: dict, context: _Context, *, path: str) -> None:
         return
 
     _check_styling(node, context, path=path)
+    _check_roll(node.get("roll"), context, path=f"{path}.roll")
 
     if node_type == "text" and node.get("formula") is not None:
         _check_formula(node["formula"], context, path=f"{path}.formula")
@@ -149,6 +151,23 @@ def _check_styling(node: dict, context: _Context, *, path: str) -> None:
                 _check_formula(
                     rule.get("when"), context, path=f"{path}.style_when[{index}].when"
                 )
+
+
+def _check_roll(roll: object, context: _Context, *, path: str) -> None:
+    """Every `${ref}` in the `roll.dice` / `roll.reason` templates must resolve.
+    (A reason ref may read a text field; the shape was already validated.)"""
+    if not isinstance(roll, dict):
+        return
+    for key in ("dice", "reason"):
+        template = roll.get(key)
+        if not isinstance(template, str):
+            continue
+        try:
+            refs = template_refs(template)
+        except TemplateSyntaxError:
+            continue
+        for index, ref in enumerate(refs):
+            _check_ref(ref, context, path=f"{path}.{key}[{index}]", target=False)
 
 
 def _check_click(action: object, context: _Context, *, path: str) -> None:

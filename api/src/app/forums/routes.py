@@ -105,6 +105,7 @@ async def get_forum_breadcrumbs(
     return schemas.GetForumBreadcrumbsResponse(
         id=forum.id,
         title=forum.title,
+        game_id=forum.game_id,
         heritage=build_heritage_data(heritage_forums, permissions),
     )
 

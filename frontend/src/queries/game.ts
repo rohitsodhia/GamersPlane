@@ -10,6 +10,8 @@ export type GamePlayerCharacter = {
 	label: string;
 	type: CharacterType;
 	approved: boolean;
+	/** Whether the viewer may open the character's page. */
+	can_view: boolean;
 };
 
 export type GamePlayer = {

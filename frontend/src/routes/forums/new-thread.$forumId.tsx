@@ -5,6 +5,7 @@ import { ApiError } from "#/lib/api";
 import { requireAuth } from "#/lib/auth-route";
 import { type ForumPermission, forumQueryOptions } from "#/queries/forums";
 import { createThread } from "#/queries/threads";
+import { useGameBarGame } from "#/stores/game-bar";
 import { postAsPayload } from "./-post-as";
 import { noOptions, PostForm } from "./-post-form";
 
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/forums/new-thread/$forumId")({
 function RouteComponent() {
 	const { forumId } = Route.useParams();
 	const { data: forum } = useSuspenseQuery(forumQueryOptions(forumId));
+	useGameBarGame(forum.game_id);
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 

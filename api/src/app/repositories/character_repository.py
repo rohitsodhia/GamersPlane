@@ -85,10 +85,13 @@ class CharacterRepository:
 
         return character
 
-    async def submit_to_game(self, character: Character, game_id: int) -> None:
-        """Attach the character to the game, pending the GM's approval."""
+    async def submit_to_game(
+        self, character: Character, game_id: int, *, approved: bool = False
+    ) -> None:
+        """Attach the character to the game, pending the GM's approval unless
+        ``approved`` (a GM's own submission needs no approval)."""
         character.game_id = game_id
-        character.approved = False
+        character.approved = approved
         await self.db_session.flush()
 
     async def approve(self, character: Character) -> None:

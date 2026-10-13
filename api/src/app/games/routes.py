@@ -2,6 +2,7 @@ from typing import Literal
 
 from fastapi import APIRouter, File, Query, UploadFile, status
 
+from app.characters.functions import can_view_character
 from app.database import DBSessionDependency
 from app.exceptions import (
     ConflictException,
@@ -241,6 +242,7 @@ async def get_game(game_id: int, db_session: DBSessionDependency, principal: Pri
                 label=character.label,
                 type=character.type,
                 approved=character.approved,
+                can_view=can_view_character(character, principal, viewer_is_gm),
             )
         )
 
@@ -550,7 +552,8 @@ async def submit_character(
     ):
         raise ForbiddenException("You cannot submit any more characters to this game")
 
-    await character_repository.submit_to_game(character, game_id)
+    # A GM would only be approving their own submission, so it skips the queue.
+    await character_repository.submit_to_game(character, game_id, approved=player.is_gm)
 
 
 @games.post(

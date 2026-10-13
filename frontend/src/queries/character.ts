@@ -20,6 +20,8 @@ export type Character = {
 	type: CharacterType;
 	values: ScopeValues | null;
 	in_library: boolean;
+	/** The game the character is submitted to (approved or pending), if any. */
+	game_id: number | null;
 	character_sheet_id: number;
 	/** Still filled once the sheet is deleted; the character renders from `layout`. */
 	character_sheet: {

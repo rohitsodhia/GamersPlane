@@ -48,6 +48,8 @@ class PlayerCharacterData(SchemaBase):
     label: str
     type: Character.Type
     approved: bool
+    # Whether the viewer may open the character's page.
+    can_view: bool
 
 
 class PlayerData(SchemaBase):

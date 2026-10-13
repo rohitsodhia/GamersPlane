@@ -53,6 +53,7 @@ import {
 	updateThread,
 } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
+import { useGameBarGame } from "#/stores/game-bar";
 import {
 	type Attachments,
 	attachmentAccess,
@@ -359,6 +360,7 @@ function RouteComponent() {
 	const { data: breadcrumbs } = useSuspenseQuery(
 		forumBreadcrumbsQueryOptions(thread.forum_id),
 	);
+	useGameBarGame(breadcrumbs.game_id);
 	const [page, setPage] = useState(searchPage ?? 1);
 	// The search param can change without a remount (e.g. a redirect or a post
 	// link on this same thread), so follow it.

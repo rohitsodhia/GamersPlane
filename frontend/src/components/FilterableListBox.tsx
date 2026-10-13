@@ -124,7 +124,10 @@ export function FilterableListBox<T>(props: FilterableListBoxProps<T>) {
 						if (event.key === "Enter") event.preventDefault();
 					}}
 				>
-					<Label className={hideLabel ? "visually-hidden" : undefined}>{label}</Label>
+					{/* A className replaces RAC's default class, which rac.css styles. */}
+					<Label className={clsx("react-aria-Label", hideLabel && "visually-hidden")}>
+						{label}
+					</Label>
 					<Input placeholder={placeholder} />
 				</SearchField>
 				<ListBox

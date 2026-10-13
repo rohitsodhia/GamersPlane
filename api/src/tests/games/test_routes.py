@@ -312,6 +312,7 @@ class TestGetGame:
                         "label": "Aragorn",
                         "type": "pc",
                         "approved": True,
+                        "can_view": False,
                     }
                 ],
             }
@@ -362,8 +363,50 @@ class TestGetGame:
 
         owner_data = next(p for p in response.json()["players"] if p["id"] == owner.id)
         assert owner_data["characters"] == [
-            {"id": pending.id, "label": "Pending", "type": "pc", "approved": False}
+            {
+                "id": pending.id,
+                "label": "Pending",
+                "type": "pc",
+                "approved": False,
+                "can_view": True,
+            }
         ]
+
+    @pytest.mark.parametrize(
+        ("viewer", "expected"),
+        [
+            ("owner", {"Private": True, "Library": True}),
+            ("gm", {"Private": True, "Library": True}),
+            ("other_player", {"Private": False, "Library": True}),
+            ("anonymous", {"Private": False, "Library": True}),
+        ],
+    )
+    async def test_get_game_character_can_view_depends_on_viewer(
+        self, auth_as, client, db_session, gm, game, create, viewer, expected
+    ):
+        player_repository = PlayerRepository(db_session, principal=gm)
+        await player_repository.attach_player_to_game(
+            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+        owner = await create(ActivatedUserFactory)
+        other = await create(ActivatedUserFactory)
+        for user in (owner, other):
+            await player_repository.attach_player_to_game(
+                game.id, user.id, state=Player.States.ACCEPTED
+            )
+        private = await _make_character(db_session, owner, label="Private")
+        await _put_in_game(db_session, private, game.id, approved=True)
+        library = await _make_character(db_session, owner, label="Library")
+        library.in_library = True
+        await _put_in_game(db_session, library, game.id, approved=True)
+        viewers = {"owner": owner, "gm": gm, "other_player": other}
+        if viewer in viewers:
+            client = auth_as(viewers[viewer])
+
+        response = await client.get(f"/games/{game.id}")
+
+        owner_data = next(p for p in response.json()["players"] if p["id"] == owner.id)
+        assert {c["label"]: c["can_view"] for c in owner_data["characters"]} == expected
 
     async def test_get_game_favorited_true_when_favorited(self, authed_client, game):
         client, _user = authed_client
@@ -2677,6 +2720,21 @@ class TestSubmitCharacter(_GameCharacterFixtures):
         await db_session.refresh(character)
         assert character.game_id == game.id
         assert character.approved is False
+
+    async def test_gm_submission_is_approved(
+        self, auth_as, client, db_session, game, gm
+    ):
+        character = await _make_character(db_session, gm)
+        client = auth_as(gm)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": character.id}
+        )
+
+        assert response.status_code == 204
+        await db_session.refresh(character)
+        assert character.game_id == game.id
+        assert character.approved is True
 
 
 class TestApproveCharacter(_GameCharacterFixtures):

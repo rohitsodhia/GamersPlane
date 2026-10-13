@@ -17,7 +17,16 @@ pointer to the offending node.
 
 from __future__ import annotations
 
+import re
+
+from app.character_sheets.roll_template import (
+    TemplateSyntaxError,
+    has_single_d20,
+    normalize_dice,
+    parse_template,
+)
 from app.exceptions import ValidationError
+from app.tools.dice.basic import MAX_DICE, MAX_SIDES, TERM_RE
 
 SCHEMA_VERSION = 1
 
@@ -91,6 +100,9 @@ def _validate_node(node: object, *, path: str, depth: int) -> None:
     if node_type not in KNOWN_ELEMENT_TYPES:
         raise ValidationError(f"Sheet element at {path} has unknown type '{node_type}'")
 
+    if "roll" in node:
+        _validate_roll(node_type, node["roll"], path=f"{path}.roll")
+
     for key in _CHILD_ELEMENT_KEYS:
         if key not in node:
             continue
@@ -99,6 +111,136 @@ def _validate_node(node: object, *, path: str, depth: int) -> None:
             raise ValidationError(f"Sheet element at {path}.{key} must be an array")
         for index, child in enumerate(children):
             _validate_node(child, path=f"{path}.{key}[{index}]", depth=depth + 1)
+
+
+# --- `roll` -------------------------------------------------------------------
+
+# Element types that may carry a `roll` (a group makes its whole row clickable).
+_ROLLABLE_TYPES = frozenset({"text", "label", "group"})
+
+_ROLL_KEYS = frozenset({"dice", "reason", "advantage", "mode", "icon"})
+_ROLL_MODES = frozenset({"new", "add"})
+_ICON_AXES = frozenset({"start", "middle", "end"})
+_ICON_DEFAULT_X = "start"
+_ICON_DEFAULT_Y = "middle"
+
+# Literal text in a `roll.dice` template (outside `${...}`): the dice grammar's
+# alphabet (digits, `d`, keep `h`/`l`, signs, the comma group separator) plus
+# spaces.
+_DICE_TEXT_RE = re.compile(r"[0-9dDhHlL+,\- ]*")
+
+
+def _validate_roll(node_type: str, roll: object, *, path: str) -> None:
+    if node_type not in _ROLLABLE_TYPES:
+        raise ValidationError(
+            f"'roll' at {path} isn't allowed on a '{node_type}' "
+            "(only text, label and group)"
+        )
+    if not isinstance(roll, dict):
+        raise ValidationError(f"Sheet 'roll' at {path} must be an object")
+
+    unknown = sorted(set(roll) - _ROLL_KEYS)
+    if unknown:
+        raise ValidationError(f"Sheet 'roll' at {path} has unknown key '{unknown[0]}'")
+
+    dice = roll.get("dice")
+    if not isinstance(dice, str):
+        raise ValidationError(f"Sheet 'roll.dice' at {path} must be a string")
+
+    advantage = roll.get("advantage", False)
+    if not isinstance(advantage, bool):
+        raise ValidationError(f"Sheet 'roll.advantage' at {path} must be a boolean")
+    _validate_dice_template(dice, path=path, advantage=advantage)
+
+    if "reason" in roll:
+        reason = roll["reason"]
+        if not isinstance(reason, str):
+            raise ValidationError(f"Sheet 'roll.reason' at {path} must be a string")
+        try:
+            parse_template(reason)
+        except TemplateSyntaxError as err:
+            raise ValidationError(f"Sheet 'roll.reason' at {path} {err}") from None
+
+    mode = roll.get("mode", "new")
+    if not isinstance(mode, str) or mode not in _ROLL_MODES:
+        raise ValidationError(f"Sheet 'roll.mode' at {path} must be 'new' or 'add'")
+
+    if "icon" in roll:
+        _validate_roll_icon(roll["icon"], path=f"{path}.icon")
+
+
+def _validate_roll_icon(icon: object, *, path: str) -> None:
+    if not isinstance(icon, dict):
+        raise ValidationError(f"Sheet 'roll.icon' at {path} must be an object")
+    unknown = sorted(set(icon) - {"x", "y"})
+    if unknown:
+        raise ValidationError(
+            f"Sheet 'roll.icon' at {path} has unknown key '{unknown[0]}'"
+        )
+    for axis in ("x", "y"):
+        value = icon.get(axis, "start")
+        if not isinstance(value, str) or value not in _ICON_AXES:
+            raise ValidationError(
+                f"Sheet 'roll.icon.{axis}' at {path} must be start, middle or end"
+            )
+    x = icon.get("x", _ICON_DEFAULT_X)
+    y = icon.get("y", _ICON_DEFAULT_Y)
+    if x == "middle" and y == "middle":
+        raise ValidationError(
+            f"Sheet 'roll.icon' at {path} can't be middle/middle (it would cover the text)"
+        )
+
+
+def _validate_dice_template(dice: str, *, path: str, advantage: bool) -> None:
+    """Static check of a `roll.dice` template: parseable, literal text limited to
+    the dice alphabet, and -- with every `${ref}` standing in as 2 -- the
+    tidied result is a string the basic roller accepts (and, for advantage,
+    holds a single d20). Whether the real values keep it valid is the
+    frontend's runtime check."""
+    try:
+        parts = parse_template(dice)
+    except TemplateSyntaxError as err:
+        raise ValidationError(f"Sheet 'roll.dice' at {path} {err}") from None
+
+    placeholder = ""
+    for kind, value in parts:
+        if kind == "text" and not _DICE_TEXT_RE.fullmatch(value):
+            raise ValidationError(
+                f"Sheet 'roll.dice' at {path} may only contain digits, spaces and "
+                "the characters d, h, l, +, - and , outside ${...}"
+            )
+        placeholder += value if kind == "text" else "2"
+
+    shape_error = _dice_shape_error(normalize_dice(placeholder))
+    if shape_error:
+        raise ValidationError(f"Sheet 'roll.dice' at {path} {shape_error}")
+
+    if advantage and not has_single_d20(normalize_dice(placeholder)):
+        raise ValidationError(
+            f"Sheet 'roll.advantage' at {path} needs a single d20 term in 'dice'"
+        )
+
+
+def _dice_shape_error(dice: str) -> str | None:
+    """Why the (tidied, space-free) `dice` isn't basic-roller grammar, or None."""
+    saw_term = False
+    for group in dice.split(","):
+        pos = 0
+        for match in TERM_RE.finditer(group):
+            if match.start() != pos:
+                break
+            pos = match.end()
+            saw_term = True
+            if match.group("sides") is not None:
+                count = int(match.group("count") or 1)
+                sides = int(match.group("sides"))
+                if not 1 <= count <= MAX_DICE:
+                    return f"rolls {count} dice; use 1 to {MAX_DICE}"
+                if not 2 <= sides <= MAX_SIDES:
+                    return f"has a d{sides}; dice need 2 to {MAX_SIDES} sides"
+        if pos != len(group):
+            return f"isn't a valid dice expression ('{dice}')"
+    return None if saw_term else "has no dice"
 
 
 # Fields every published sheet must carry: name -> required element type.

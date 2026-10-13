@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { templatePlacesAddButton } from "./repeater-context";
 import { buildRepeaterRow } from "./repeater-row";
-import { useHeaderCellIds, useRepeaterRows } from "./sheet-values";
+import { useHeaderCellIds, useRepeaterRows, useSheetMode } from "./sheet-values";
 import type { AddButtonPos, RowLayout, SheetElement } from "./types";
 
 interface RepeaterProps {
@@ -82,24 +82,30 @@ export function Repeater({
 		? { ...style, gridTemplateColumns }
 		: style;
 
+	// Rows are only added / removed while editing; display mode shows no controls.
+	const isEdit = useSheetMode() === "edit";
+
 	const nextId = useRef(0);
 	const makeId = () => `r${nextId.current++}`;
 	// One stable key per visible row, for React identity across add/remove. Seeded
-	// from however many rows the character already has, clamped up to `min` and to
-	// at least one so the fields are visible.
+	// from however many rows the character already has. While editing it's clamped
+	// up to `min` and to at least one so the fields are visible; display mode shows
+	// only the stored rows, so an empty repeater is just its (header and) space.
 	const [keys, setKeys] = useState<string[]>(() =>
-		Array.from({ length: Math.max(storedRows.length, min, 1) }, makeId),
+		Array.from(
+			{ length: isEdit ? Math.max(storedRows.length, min, 1) : storedRows.length },
+			makeId,
+		),
 	);
 
 	// Give the stored array a slot for every visible row, so an untouched repeater
 	// round-trips as `[{}, ...]` instead of a sparse array. Mount-only.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: one-time seed
 	useEffect(() => {
-		ensureCount(keys.length);
+		if (isEdit) ensureCount(keys.length);
 	}, []);
-
-	const canAdd = max == null || keys.length < max;
-	const canRemove = keys.length > min;
+	const canAdd = isEdit && (max == null || keys.length < max);
+	const canRemove = isEdit && keys.length > min;
 
 	const addRow = () => {
 		if (!canAdd) return;

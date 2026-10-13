@@ -446,6 +446,14 @@ class TestGetModeratedForums:
 
 
 class TestGetForumBreadcrumbs:
+    async def test_game_forum_reports_its_game_id(self, auth_as, site, make_game, gm):
+        game = await make_game("Mine")
+        client = auth_as(gm)
+
+        response = await client.get(f"/forums/{game.root_forum_id}/breadcrumbs")
+
+        assert response.json()["game_id"] == game.id
+
     async def test_unreadable_forum_is_not_found(self, client, create, open_forums):
         forum = await create(ForumFactory, heritage=[])
         await open_forums()
@@ -479,6 +487,7 @@ class TestGetForumBreadcrumbs:
         assert response.json() == {
             "id": forum.id,
             "title": "Forum",
+            "game_id": None,
             "heritage": [
                 {"id": grandparent.id, "title": "Grandparent", "moderate": False},
                 {"id": parent.id, "title": "Parent", "moderate": False},

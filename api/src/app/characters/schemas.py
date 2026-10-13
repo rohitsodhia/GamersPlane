@@ -74,6 +74,7 @@ class GetCharacterResponse(SchemaBase):
     type: Character.Type
     values: dict | None = None
     in_library: bool
+    game_id: int | None = None
     character_sheet_id: int
     # Still filled once the sheet is deleted; the character keeps working from
     # its pinned version's layout.

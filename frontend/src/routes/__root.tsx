@@ -10,6 +10,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import Footer from "#/components/Footer";
+import GameBar from "#/components/GameBar";
 import Header from "#/components/Header";
 import NotFound from "#/components/NotFound";
 import TanStackQueryDevtools from "#/integrations/tanstack-query/devtools";
@@ -136,6 +137,7 @@ function RootLayout() {
 				<Outlet />
 			</main>
 			{referralLinksResolved && <Footer />}
+			{authResolved && <GameBar />}
 		</>
 	);
 }

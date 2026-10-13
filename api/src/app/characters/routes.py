@@ -4,6 +4,7 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 
 from app.character_sheets.character_values import hidden_values
 from app.characters import schemas
+from app.characters.functions import can_view_character
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import (
@@ -193,18 +194,15 @@ async def get_character(
     character = await character_repository.get(character_id)
     if character is None:
         raise NotFoundException("Character not found")
-    # Besides the owner, a library character is open to anyone, and one
-    # submitted to a game is open to that game's GMs.
-    if (
-        not character.in_library
+    is_game_gm = (
+        character.game_id is not None
+        and not character.in_library
         and character.user_id != principal.id
-        and not (
-            character.game_id is not None
-            and await PlayerRepository(db_session, principal).is_gm(
-                character.game_id, principal.id
-            )
+        and await PlayerRepository(db_session, principal).is_gm(
+            character.game_id, principal.id
         )
-    ):
+    )
+    if not can_view_character(character, principal, is_game_gm):
         raise ForbiddenException("Character not available")
 
     return _character_response(character)
@@ -516,6 +514,7 @@ def _character_response(character) -> schemas.GetCharacterResponse:
         type=character.type,
         values=character.values,
         in_library=character.in_library,
+        game_id=character.game_id,
         character_sheet_id=character.character_sheet_id,
         character_sheet=schemas.CharacterSheetData(
             id=sheet.id,

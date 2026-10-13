@@ -24,6 +24,7 @@ import {
 } from "#/queries/character";
 import { copyCharacterSheet, restoreCharacterSheet } from "#/queries/characterSheet";
 import { meQueryOptions } from "#/queries/me";
+import { useGameBarGame } from "#/stores/game-bar";
 import { SheetRenderer } from "../sheets/-components/SheetRenderer";
 import { SheetValuesProvider, useSheetStore } from "../sheets/-components/sheet-values";
 import type { SheetSchema } from "../sheets/-components/types";
@@ -62,6 +63,7 @@ function RouteComponent() {
 	const { characterId } = Route.useParams();
 	const { data: character } = useSuspenseQuery(characterQueryOptions(characterId));
 	const { character_sheet: sheet } = character;
+	useGameBarGame(character.game_id);
 	const primaryAvatar = character.avatars.find((avatar) => avatar.is_primary);
 
 	const { data: me } = useSuspenseQuery(meQueryOptions);
@@ -139,32 +141,33 @@ function RouteComponent() {
 			<h1 className="headerbar" ref={hbMargined.ref}>
 				{character.name ?? character.label}
 			</h1>
-			{canCopySheet || canRestoreSheet ? (
-				<div className={clsx("controls-container", styles["top-links"])}>
-					<div
-						className="trapezoid red-trapezoid upside-down"
-						style={{ marginRight: hbMargined.margin }}
-					>
-						{canRestoreSheet ? (
-							<button
-								type="button"
-								onClick={() => restoreMutation.mutate()}
-								disabled={restoreMutation.isPending}
-							>
-								Restore Sheet
-							</button>
-						) : (
-							<button
-								type="button"
-								onClick={() => copyMutation.mutate()}
-								disabled={copyMutation.isPending}
-							>
-								Copy Sheet
-							</button>
-						)}
-					</div>
+			<div className={clsx("controls-container", styles["top-links"])}>
+				<div
+					className="trapezoid red-trapezoid upside-down"
+					style={{ marginRight: hbMargined.margin }}
+				>
+					<Link to="/characters/$characterId" params={{ characterId }}>
+						Back to Character
+					</Link>
+					{canRestoreSheet ? (
+						<button
+							type="button"
+							onClick={() => restoreMutation.mutate()}
+							disabled={restoreMutation.isPending}
+						>
+							Restore Sheet
+						</button>
+					) : canCopySheet ? (
+						<button
+							type="button"
+							onClick={() => copyMutation.mutate()}
+							disabled={copyMutation.isPending}
+						>
+							Copy Sheet
+						</button>
+					) : null}
 				</div>
-			) : null}
+			</div>
 
 			{copyMutation.isSuccess ? (
 				copyMutation.data.characters.length > 0 &&

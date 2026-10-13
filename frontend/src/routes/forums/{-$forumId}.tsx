@@ -24,6 +24,7 @@ import {
 	threadsQueryOptions,
 } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
+import { useGameBarGame } from "#/stores/game-bar";
 import { Breadcrumbs } from "./-breadcrumbs";
 import styles from "./{-$forumId}.module.css";
 
@@ -335,6 +336,7 @@ function RouteComponent() {
 
 	const { forumId } = Route.useParams();
 	const { data: forum } = useSuspenseQuery(forumQueryOptions(forumId));
+	useGameBarGame(forum.game_id);
 	const queryClient = useQueryClient();
 	const markReadMutation = useMutation({
 		mutationFn: () => markForumRead(forumId),

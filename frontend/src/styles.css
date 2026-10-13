@@ -33,6 +33,13 @@
 
 	--skew-angle: 20deg;
 
+	--game-bar-height: 2.75rem;
+
+	/* The page's column tracks: the body's grid, and anything fixed (e.g. the game
+	   bar) that must line up with it without being a grid child. */
+	--page-columns: [full-width-start] 1fr [content-start] 1080px [content-end] 1fr
+		[full-width-end];
+
 	accent-color: var(--gp-red);
 }
 
@@ -51,7 +58,7 @@ html {
 
 body {
 	display: grid;
-	grid-template-columns: [full-width-start] 1fr [content-start] 1080px [content-end] 1fr [full-width-end];
+	grid-template-columns: var(--page-columns);
 	grid-template-rows: auto 1fr auto;
 	min-height: 100dvh;
 	background: var(--bg);
@@ -65,8 +72,9 @@ body {
 }
 
 @media only screen and (max-width: calc(1080px + 2rem)) {
-	body {
-		grid-template-columns: [full-width-start] 2rem [content-start] 1fr [content-end] 2rem [full-width-end];
+	:root {
+		--page-columns: [full-width-start] 2rem [content-start] 1fr [content-end] 2rem
+			[full-width-end];
 	}
 }
 
