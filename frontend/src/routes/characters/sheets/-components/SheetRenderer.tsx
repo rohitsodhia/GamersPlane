@@ -18,7 +18,7 @@ import { Label } from "./Label";
 import { List } from "./List";
 import { Loop } from "./Loop";
 import { Repeater } from "./Repeater";
-import { type OnRoll, RollContext } from "./roll-context";
+import { type OnRoll, RollBlockedContext, RollContext } from "./roll-context";
 import { Section } from "./Section";
 import { Select } from "./Select";
 import { RootScopeProvider } from "./sheet-values";
@@ -388,6 +388,7 @@ function renderNode(node: SheetElement, path: string, bundles: StyleBundles) {
 export function SheetRenderer({
 	schema,
 	onRoll,
+	rollBlockedReason,
 }: {
 	schema: SheetSchema;
 	/**
@@ -396,15 +397,21 @@ export function SheetRenderer({
 	 * but aren't clickable.
 	 */
 	onRoll?: OnRoll;
+	/** Added to a rollable's tooltip: why the host can't take rolls (no `onRoll` then). */
+	rollBlockedReason?: string;
 }) {
 	return (
 		<div className="char-sheet">
 			<RollContext.Provider value={onRoll}>
-				<RootScopeProvider nodes={schema.elements}>
-					<CollapsibleScopeProvider>
-						{schema.elements.map((node, i) => renderNode(node, `${i}`, schema.classes))}
-					</CollapsibleScopeProvider>
-				</RootScopeProvider>
+				<RollBlockedContext.Provider value={rollBlockedReason}>
+					<RootScopeProvider nodes={schema.elements}>
+						<CollapsibleScopeProvider>
+							{schema.elements.map((node, i) =>
+								renderNode(node, `${i}`, schema.classes),
+							)}
+						</CollapsibleScopeProvider>
+					</RootScopeProvider>
+				</RollBlockedContext.Provider>
 			</RollContext.Provider>
 		</div>
 	);

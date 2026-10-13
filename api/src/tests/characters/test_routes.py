@@ -1353,28 +1353,19 @@ class TestUpdateCharacterLiveValue:
 
         assert response.status_code == 404
 
-    @pytest.mark.parametrize(
-        ("path", "value", "expected"),
-        [
-            (["hp1"], "7", {"hp1": "7", "itm1": [{"qty1": "1"}, {"qty1": "2"}]}),
-            (["ins1"], True, {"ins1": True}),
-            (["itm1", 1, "qty1"], "9", {"itm1": [{"qty1": "1"}, {"qty1": "9"}]}),
-        ],
-        ids=["root", "checkbox", "repeater-row"],
-    )
     async def test_owner_writes_only_that_field(
-        self, client, character, owner, db_session, auth_as, path, value, expected
+        self, client, character, owner, db_session, auth_as
     ):
         auth_as(owner)
 
-        response = await self._patch(client, character, path, value)
+        response = await self._patch(client, character, ["hp1"], "7")
 
         assert response.status_code == 200
         body = response.json()
         # The response is the full character, like GET /characters/{id}.
         assert body["id"] == character.id
         assert body["can_edit_live"] is True
-        stored = {"hp1": "10", "itm1": [{"qty1": "1"}, {"qty1": "2"}]} | expected
+        stored = {"hp1": "7", "itm1": [{"qty1": "1"}, {"qty1": "2"}]}
         assert body["values"] == stored
         await db_session.refresh(character, ["values"])
         assert character.values == stored

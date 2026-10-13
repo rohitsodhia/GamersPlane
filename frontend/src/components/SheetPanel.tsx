@@ -9,6 +9,7 @@ import { SheetRenderer } from "#/routes/characters/sheets/-components/SheetRende
 import { SheetValuesProvider } from "#/routes/characters/sheets/-components/sheet-values";
 import { useAuthStore } from "#/stores/auth";
 import { selectPanelCharacterId, useGameBarStore } from "#/stores/game-bar";
+import { selectActiveRollTarget, useRollTargetStore } from "#/stores/roll-target";
 import { characterDisplayName, ownerLabelHint } from "./game-bar";
 import LoadingSpinner from "./LoadingSpinner";
 import styles from "./SheetPanel.module.css";
@@ -54,6 +55,8 @@ function SheetPanelContent({
 	const onLiveSave = useLiveSave(characterId);
 	const token = useAuthStore((state) => state.token);
 	const { data: me } = useQuery({ ...meQueryOptions, enabled: !!token });
+	// Rollables take clicks only while a post composer is on the page to receive them.
+	const rollTarget = useRollTargetStore(selectActiveRollTarget);
 
 	// Pick up the remembered height. Done after mount so the first render matches the
 	// default and a missing or blocked storage changes nothing.
@@ -112,7 +115,15 @@ function SheetPanelContent({
 							onLiveSave={onLiveSave}
 							canEditLive={character.can_edit_live}
 						>
-							<SheetRenderer schema={character.layout} />
+							<SheetRenderer
+								schema={character.layout}
+								onRoll={
+									rollTarget && !rollTarget.blockedReason
+										? rollTarget.addRoll
+										: undefined
+								}
+								rollBlockedReason={rollTarget?.blockedReason ?? undefined}
+							/>
 						</SheetValuesProvider>
 					)}
 				</div>

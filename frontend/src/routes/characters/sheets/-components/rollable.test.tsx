@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SheetRenderer } from "./SheetRenderer";
@@ -162,6 +162,34 @@ describe("rollable elements", () => {
 
 		await userEvent.click(screen.getByText("Damage"));
 		expect(onRoll).toHaveBeenCalledWith({ dice: "1d6", reason: "Damage", mode: "new" });
+	});
+
+	it("shows the host's refusal as an alert and clears it after five seconds", () => {
+		vi.useFakeTimers();
+		try {
+			renderSheet([athletics({ dice: "1d20" })], {
+				onRoll: () => "A post can have at most 10 rolls.",
+			});
+
+			// userEvent is awkward under fake timers; a plain click is enough here.
+			act(() => {
+				screen.getByText("Athletics").click();
+			});
+			expect(screen.getByRole("alert")).toHaveTextContent(
+				"A post can have at most 10 rolls.",
+			);
+
+			act(() => {
+				vi.advanceTimersByTime(4999);
+			});
+			expect(screen.getByRole("alert")).toBeInTheDocument();
+			act(() => {
+				vi.advanceTimersByTime(1);
+			});
+			expect(screen.queryByRole("alert")).toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("asks advantage / normal / disadvantage and rolls the chosen form", async () => {

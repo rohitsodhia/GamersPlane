@@ -65,6 +65,7 @@ function RouteComponent() {
 			forum={forum}
 			defaultOptions={defaultOptions}
 			permissions={forum.permissions}
+			acceptSheetRolls
 			submitLabel="Create Thread"
 			apiErrors={apiErrors}
 			isSubmitting={mutation.isPending}

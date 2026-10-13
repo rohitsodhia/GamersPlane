@@ -107,6 +107,9 @@ function RouteComponent() {
 			threadOptions={thread.options}
 			// Only the author can add rolls and draws, moderators included.
 			canAddAttachments={post.author.id === me.id}
+			// New rolls can be added on an edit (existing ones are never removed), so
+			// the author can roll in from the game bar's sheet too.
+			acceptSheetRolls={post.author.id === me.id}
 			existingRolls={post.rolls}
 			existingPoll={post.poll}
 			showMinorEdit

@@ -1,6 +1,10 @@
 import type { DiceSystem, FengShuiRollType } from "#/queries/dice";
 import type { DrawableDeck, ForumPermission } from "#/queries/forums";
-import type { NewDrawInput, NewRollInput } from "#/queries/posts";
+import {
+	MAX_ROLLS_PER_POST,
+	type NewDrawInput,
+	type NewRollInput,
+} from "#/queries/posts";
 import type { ThreadOptions } from "#/queries/threads";
 
 // Form state for the rolls and draws a post adds. Numbers stay strings while
@@ -84,6 +88,62 @@ export function attachmentAccess(
 			options.allow_rolls && (moderator || permissions.includes("forum_add_rolls")),
 		draws:
 			options.allow_draws && (moderator || permissions.includes("forum_add_draws")),
+	};
+}
+
+// Why a sheet roll can't be added to the post, or null when it can. `off` is the
+// message for rolls being switched off, which differs between a new thread (the
+// checkbox is on the same page) and an existing one.
+export function rollsBlockedReason(
+	options: Pick<ThreadOptions, "allow_rolls">,
+	permissions: ForumPermission[],
+	off = "Rolls are turned off in this thread.",
+): string | null {
+	const allowed =
+		permissions.includes("forum_moderate") || permissions.includes("forum_add_rolls");
+	if (!allowed) return "You can't add rolls in this forum.";
+	return options.allow_rolls ? null : off;
+}
+
+export type AddedRoll = { attachments: Attachments; rowKey: string };
+
+// Puts a roll from a character sheet into the post's rolls. `add` mode extends the
+// latest basic roll as another comma group (the roller's dice-pool form), keeping
+// its reason unless it has none; with no basic roll to extend, or for a `new`
+// roll, it starts a row, which a full post refuses. Nothing here rolls: the dice
+// are rolled when the post is saved.
+export function addSheetRoll(
+	attachments: Attachments,
+	roll: { dice: string; reason: string; mode: "new" | "add" },
+): AddedRoll | { error: string } {
+	const target =
+		roll.mode === "add"
+			? attachments.rolls.filter((row) => row.system === "basic").at(-1)
+			: undefined;
+	if (target) {
+		const current = target.roll.trim();
+		const extended: RollRow = {
+			...target,
+			roll: current ? `${current},${roll.dice}` : roll.dice,
+			reason: target.reason.trim() ? target.reason : roll.reason,
+		};
+		return {
+			rowKey: target.key,
+			attachments: {
+				...attachments,
+				rolls: attachments.rolls.map((row) =>
+					row.key === target.key ? extended : row,
+				),
+			},
+		};
+	}
+	if (attachments.rolls.length >= MAX_ROLLS_PER_POST) {
+		return { error: `A post can have at most ${MAX_ROLLS_PER_POST} rolls.` };
+	}
+	const row: RollRow = { ...newRollRow(), roll: roll.dice, reason: roll.reason };
+	return {
+		rowKey: row.key,
+		attachments: { ...attachments, rolls: [...attachments.rolls, row] },
 	};
 }
 

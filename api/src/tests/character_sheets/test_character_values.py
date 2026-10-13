@@ -252,6 +252,13 @@ class TestSetLiveValue:
     def test_accepts_a_select_option_or_blank(self, value):
         assert set_live_value({}, self.LAYOUT, ["md1"], value) == {"md1": value}
 
+    @pytest.mark.parametrize("value", [12, 2.5])
+    def test_accepts_a_number_for_an_input(self, value):
+        assert set_live_value({}, self.LAYOUT, ["hp1"], value) == {"hp1": value}
+
+    def test_writes_when_nothing_is_stored_yet(self):
+        assert set_live_value(None, self.LAYOUT, ["hp1"], "5") == {"hp1": "5"}
+
 
 class TestHiddenValues:
     def test_lists_filled_fields_the_target_drops(self):

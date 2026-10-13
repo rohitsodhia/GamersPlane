@@ -63,20 +63,41 @@ describe("live fields in display mode", () => {
 		expect(screen.getByText("10")).toBeInTheDocument();
 	});
 
-	it("save an input on blur only when it changed", async () => {
+	it.each([
+		["input", "hp1", 0],
+		["textarea", "notes1", 2],
+	])("save the %s on blur only when it changed", async (_type, id, index) => {
+		// Textboxes in document order: hp, the grid's rank, then the notes textarea.
 		const onLiveSave = vi.fn<LiveSave>().mockResolvedValue();
-		renderSheet({ onLiveSave });
-		const [hp] = screen.getAllByRole("textbox");
+		render(
+			<SheetValuesProvider
+				mode="display"
+				initialValues={{ ...values, notes1: "old" }}
+				onLiveSave={onLiveSave}
+				canEditLive
+			>
+				<SheetRenderer
+					schema={{
+						schema_version: 1,
+						elements: [
+							...schema.elements,
+							{ type: "textarea", id: "notes1", name: "notes", live: true },
+						],
+					}}
+				/>
+			</SheetValuesProvider>,
+		);
+		const field = screen.getAllByRole("textbox")[index];
 
-		await userEvent.click(hp);
+		await userEvent.click(field);
 		await userEvent.tab();
 		expect(onLiveSave).not.toHaveBeenCalled();
 
-		await userEvent.clear(hp);
-		await userEvent.type(hp, "7");
+		await userEvent.clear(field);
+		await userEvent.type(field, "7");
 		await userEvent.tab();
 		expect(onLiveSave).toHaveBeenCalledTimes(1);
-		expect(onLiveSave).toHaveBeenCalledWith(["hp1"], "7");
+		expect(onLiveSave).toHaveBeenCalledWith([id], "7");
 	});
 
 	it("save an input once on Enter, not again on the blur after it", async () => {

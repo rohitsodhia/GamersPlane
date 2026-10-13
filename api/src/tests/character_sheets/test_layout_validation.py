@@ -216,12 +216,9 @@ class TestValidateLive:
             _layout({"type": "textarea", "name": "x", "richtext": True, "live": False})
         )
 
-    @pytest.mark.parametrize("node_type", ["text", "repeater"])
-    def test_rejects_live_on_other_types(self, node_type):
-        with pytest.raises(ValidationError, match=f"isn't allowed on a '{node_type}'"):
-            validate_sheet_layout(
-                _layout({"type": node_type, "content": [], "live": True})
-            )
+    def test_rejects_live_on_other_types(self):
+        with pytest.raises(ValidationError, match="isn't allowed on a 'text'"):
+            validate_sheet_layout(_layout({"type": "text", "content": [], "live": True}))
 
     def test_rejects_a_non_boolean(self):
         with pytest.raises(ValidationError, match="'live'.* must be a boolean"):

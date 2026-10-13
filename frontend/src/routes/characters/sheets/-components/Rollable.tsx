@@ -27,9 +27,11 @@ import {
 	buildRoll,
 	isInteractiveTarget,
 } from "./roll";
-import { useOnRoll } from "./roll-context";
+import { useOnRoll, useRollBlockedReason } from "./roll-context";
 import { useSheetMode, useSheetSubscribe } from "./sheet-values";
 import type { RollIconAnchor, RollSpec } from "./types";
+
+const NOTICE_MS = 5000;
 
 const ANCHOR_PERCENT: Record<RollIconAnchor, string> = {
 	start: "0%",
@@ -64,7 +66,15 @@ export function useRollable(
 	const resolve = useRefResolver();
 	const subscribe = useSheetSubscribe();
 	const onRoll = useOnRoll();
+	const blockedReason = useRollBlockedReason();
 	const [open, setOpen] = useState(false);
+	// Why the host refused the last roll (e.g. the post is full); clears itself.
+	const [notice, setNotice] = useState<string | null>(null);
+	useEffect(() => {
+		if (notice == null) return;
+		const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+		return () => clearTimeout(timer);
+	}, [notice]);
 
 	// Serialised so the snapshot is a primitive and an unchanged roll doesn't re-render.
 	const snapshot = useSyncExternalStore(subscribe, () =>
@@ -85,11 +95,12 @@ export function useRollable(
 	const fire = (choice: AdvantageChoice) => {
 		if (error != null || onRoll == null) return;
 		const ok = built as Exclude<BuildRollResult, { error: string }>;
-		onRoll({
+		const refusal = onRoll({
 			dice: ok.advantage ? applyAdvantage(ok.dice, choice) : ok.dice,
 			reason: ok.reason,
 			mode: ok.mode,
 		});
+		setNotice(typeof refusal === "string" ? refusal : null);
 		setOpen(false);
 	};
 
@@ -112,13 +123,21 @@ export function useRollable(
 			else fire("normal");
 		},
 		icon: (
-			<RollIcon
-				built={built}
-				clickable={clickable}
-				fire={fire}
-				open={open}
-				setOpen={setOpen}
-			/>
+			<>
+				<RollIcon
+					built={built}
+					clickable={clickable}
+					blockedReason={blockedReason}
+					fire={fire}
+					open={open}
+					setOpen={setOpen}
+				/>
+				{notice != null && (
+					<span role="alert" className="char-sheet-roll-notice">
+						{notice}
+					</span>
+				)}
+			</>
 		),
 	};
 }
@@ -134,13 +153,23 @@ function describe(built: BuildRollResult): string {
 interface RollIconProps {
 	built: BuildRollResult;
 	clickable: boolean;
+	/** Why the host can't take rolls; appended to the tooltip. */
+	blockedReason: string | undefined;
 	fire: (choice: AdvantageChoice) => void;
 	open: boolean;
 	setOpen: (open: boolean) => void;
 }
 
-function RollIcon({ built, clickable, fire, open, setOpen }: RollIconProps) {
-	const text = describe(built);
+function RollIcon({
+	built,
+	clickable,
+	blockedReason,
+	fire,
+	open,
+	setOpen,
+}: RollIconProps) {
+	const description = describe(built);
+	const text = blockedReason ? `${description}. ${blockedReason}` : description;
 	const isError = "error" in built;
 	const tooltip = (
 		<Tooltip className="char-sheet-roll-tooltip" offset={6}>

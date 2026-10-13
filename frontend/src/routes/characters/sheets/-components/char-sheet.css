@@ -438,6 +438,22 @@ button.char-sheet-roll-icon {
 	}
 }
 
+/* Why the composer refused a roll, shown under the icon until it times out. */
+.char-sheet-roll-notice {
+	position: absolute;
+	z-index: 3;
+	left: var(--roll-x, 0%);
+	top: calc(var(--roll-y, 50%) + 0.9em);
+	max-width: 16em;
+	padding: 0.25em 0.5em;
+	border-radius: 0.3em;
+	background: light-dark(oklch(0.55 0.2 25), oklch(0.45 0.17 25));
+	color: white;
+	font-size: var(--font-size-sm);
+	line-height: 1.3;
+	white-space: normal;
+}
+
 /* Tooltip and popover render in a portal, outside `.char-sheet`. */
 .char-sheet-roll-tooltip {
 	padding: 0.3em 0.6em;
