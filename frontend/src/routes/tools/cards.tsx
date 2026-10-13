@@ -1,42 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import DeckCard, {
-	type JokerCardProps,
-	type SuitCardProps,
-} from "#/components/DeckCard";
-import { RANKS, SUITS } from "#/lib/deck-cards";
+import DeckCard from "#/components/DeckCard";
+import {
+	buildDeck,
+	type Card,
+	DECK_TYPE_LABELS,
+	type DeckType,
+	shuffle,
+} from "#/lib/local-deck";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import styles from "./cards.module.css";
 
 export const Route = createFileRoute("/tools/cards")({
 	component: RouteComponent,
 });
-
-type DeckType = "pcwj" | "pcwoj";
-type Card = SuitCardProps | JokerCardProps;
-
-function buildDeck(deckType: DeckType): Card[] {
-	const cards: Card[] = [];
-	for (const suit of SUITS) {
-		for (const rank of RANKS) {
-			cards.push({ suit, rank });
-		}
-	}
-	if (deckType === "pcwj") {
-		cards.push({ suit: "joker", rank: "black" });
-		cards.push({ suit: "joker", rank: "red" });
-	}
-	return cards;
-}
-
-function shuffle<T>(items: T[]): T[] {
-	const shuffled = [...items];
-	for (let i = shuffled.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-	}
-	return shuffled;
-}
 
 function RouteComponent() {
 	const [deckType, setDeckType] = useState<DeckType | null>(null);
@@ -96,11 +73,7 @@ function RouteComponent() {
 								drawCards();
 							}}
 						>
-							<p className={styles["deck-name"]}>
-								{deckType === "pcwj"
-									? "Playing Cards w/ Jokers"
-									: "Playing Cards w/o Jokers"}
-							</p>
+							<p className={styles["deck-name"]}>{DECK_TYPE_LABELS[deckType]}</p>
 							<p>
 								Cards Left: <span>{deck.length}</span>
 							</p>

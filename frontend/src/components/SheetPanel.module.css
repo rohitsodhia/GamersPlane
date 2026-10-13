@@ -1,0 +1,137 @@
+/* Docked on the game bar's top edge. Below the bar's own z-index (20) so the bar's
+   popovers (portalled, higher still) render over it; above page content. The height
+   is set inline (`panelHeightCss`) so the page-end spacer can share it. */
+.panel {
+	position: fixed;
+	inset: auto 0 var(--game-bar-height) 0;
+	z-index: 19;
+	display: flex;
+	flex-direction: column;
+	background: var(--bg);
+	color: var(--text);
+	border-top: 1px solid var(--rac-border-color);
+	box-shadow: 0 -4px 12px oklch(0 0 0 / 0.25);
+}
+
+/* The grab strip along the top edge. */
+.handle {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 0.875rem;
+	cursor: ns-resize;
+	touch-action: none;
+	background: var(--rac-bg);
+	outline: none;
+
+	&::after {
+		content: "";
+		width: 3rem;
+		height: 4px;
+		border-radius: 2px;
+		background: var(--rac-border-color);
+	}
+
+	&:hover::after,
+	&:focus-visible::after {
+		background: var(--gp-red);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--gp-red);
+		outline-offset: -2px;
+	}
+}
+
+/* Header and body repeat the page's tracks so their content lines up with it. */
+.header,
+.body {
+	display: grid;
+	grid-template-columns: var(--page-columns);
+}
+
+.header {
+	flex: none;
+	background: var(--rac-bg);
+	border-bottom: 1px solid var(--rac-border-color);
+}
+
+.header-content {
+	grid-column: content;
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	min-width: 0;
+}
+
+.title {
+	margin: 0;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 1rem;
+}
+
+.name {
+	flex: none;
+	min-width: 0;
+	max-width: 30%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-size-sm);
+	opacity: 0.7;
+}
+
+.full-page {
+	flex: none;
+	margin-left: auto;
+	font-size: var(--font-size-sm);
+	white-space: nowrap;
+}
+
+.close {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	padding: 0;
+	background: none;
+	border: none;
+	border-radius: var(--rac-radius);
+	color: inherit;
+	font-size: 1.5rem;
+	line-height: 1;
+	cursor: pointer;
+
+	&[data-hovered] {
+		background: oklch(from var(--text) l c h / 0.12);
+	}
+
+	&[data-focus-visible] {
+		outline: 2px solid var(--gp-red);
+	}
+}
+
+/* The only part that scrolls. */
+.body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	align-content: start;
+}
+
+.body-content {
+	grid-column: content;
+	min-width: 0;
+	padding-block: 0.5rem;
+}
+
+.error {
+	margin: 0;
+	color: var(--gp-error-accent);
+}

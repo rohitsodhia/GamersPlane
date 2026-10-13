@@ -18,6 +18,7 @@ import {
 	TooltipTrigger,
 } from "react-aria-components";
 import DieOutlineIcon from "#/components/DieOutlineIcon";
+import { usePopoverToggle } from "#/lib/use-popover-toggle";
 import { useRefResolver } from "./loop-context";
 import {
 	type AdvantageChoice,
@@ -209,7 +210,8 @@ function AdvantageRoll({
 
 	// Non-modal so opening it doesn't lock page scrolling (see `ActionsMenu`),
 	// which means an outside press has to close it by hand. The trigger is left to
-	// DialogTrigger's own toggle so pressing it again doesn't close-then-reopen.
+	// DialogTrigger's toggle, with `usePopoverToggle` so pressing it again closes.
+	const toggle = usePopoverToggle(open, setOpen);
 	useEffect(() => {
 		if (!open) return;
 		const closeOnOutsidePress = (e: PointerEvent) => {
@@ -230,9 +232,14 @@ function AdvantageRoll({
 	}, [open, setOpen]);
 
 	return (
-		<DialogTrigger isOpen={open} onOpenChange={setOpen}>
+		<DialogTrigger isOpen={open} onOpenChange={toggle.onOpenChange}>
 			<TooltipTrigger delay={200} isDisabled={open}>
-				<Button ref={triggerRef} className="char-sheet-roll-icon" aria-label={text}>
+				<Button
+					ref={triggerRef}
+					className="char-sheet-roll-icon"
+					aria-label={text}
+					onPressStart={toggle.onPressStart}
+				>
 					<DieOutlineIcon />
 				</Button>
 				<Tooltip className="char-sheet-roll-tooltip" offset={6}>

@@ -90,6 +90,7 @@ async def get_characters(
             schemas.CharacterListItem(
                 id=character.id,
                 label=character.label,
+                name=character.name,
                 type=character.type,
                 in_library=character.in_library,
                 user=schemas.LibraryUserData(

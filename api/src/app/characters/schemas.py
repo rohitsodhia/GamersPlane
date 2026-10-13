@@ -101,6 +101,7 @@ class CharacterListSheetData(SchemaBase):
 class CharacterListItem(SchemaBase):
     id: int
     label: str
+    name: str | None
     type: Character.Type
     in_library: bool
     user: LibraryUserData

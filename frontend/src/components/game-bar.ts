@@ -27,6 +27,27 @@ export function approvedCharacterGroups(
 }
 
 /**
+ * What a character is called in a game: its in-game name, or the owner's label
+ * for ones that never got a name.
+ */
+export const characterDisplayName = (character: {
+	name: string | null;
+	label: string;
+}) => character.name || character.label;
+
+/**
+ * The owner's private label, shown muted beside the name, but only to the
+ * owner and only when it adds something. Null otherwise.
+ */
+export const ownerLabelHint = (
+	character: { name: string | null; label: string },
+	isOwner: boolean,
+) =>
+	isOwner && character.name && character.name !== character.label
+		? character.label
+		: null;
+
+/**
  * Whether the game's forum link is worth showing: a public game's forum is
  * open to everyone, a private one to its accepted players (GMs included).
  */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GamePlayer, GamePlayerCharacter } from "#/queries/game";
-import { approvedCharacterGroups, canReadGameForum } from "./game-bar";
+import { approvedCharacterGroups, canReadGameForum, ownerLabelHint } from "./game-bar";
 
 const character = (
 	id: number,
@@ -8,6 +8,7 @@ const character = (
 ): GamePlayerCharacter => ({
 	id,
 	label: `Char ${id}`,
+	name: null,
 	type: "pc",
 	approved: true,
 	can_view: true,
@@ -46,6 +47,17 @@ describe("approvedCharacterGroups", () => {
 
 		expect(groups.map((g) => g.player.id)).toEqual([1]);
 		expect(groups[0].characters.map((c) => c.id)).toEqual([11]);
+	});
+});
+
+describe("ownerLabelHint", () => {
+	it.each([
+		{ name: "Aragorn", isOwner: true, expected: "Ranger" },
+		{ name: "Aragorn", isOwner: false, expected: null },
+		{ name: "Ranger", isOwner: true, expected: null },
+		{ name: null, isOwner: true, expected: null },
+	])("name=$name isOwner=$isOwner is $expected", ({ name, isOwner, expected }) => {
+		expect(ownerLabelHint({ name, label: "Ranger" }, isOwner)).toBe(expected);
 	});
 });
 

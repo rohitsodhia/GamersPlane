@@ -464,6 +464,7 @@ class TestGetCharacters:
             {
                 "id": character.id,
                 "label": "Aragorn",
+                "name": None,
                 "type": "pc",
                 "in_library": False,
                 "user": {"id": owner.id, "username": owner.username},

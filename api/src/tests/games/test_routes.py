@@ -28,17 +28,23 @@ SHEET_LAYOUT = {
 }
 
 
-async def _make_character(db_session, owner, system_id="dnd5e", label="Aragorn"):
+async def _make_character(
+    db_session, owner, system_id="dnd5e", label="Aragorn", name="Strider"
+):
     sheet_repository = CharacterSheetRepository(db_session, principal=owner)
     sheet = await sheet_repository.create(
         name="Fighter", system_id=system_id, layout=SHEET_LAYOUT
     )
     version = await sheet_repository.publish(await sheet_repository.get_draft(sheet.id))
-    return await CharacterRepository(db_session, principal=owner).create(
+    character = await CharacterRepository(db_session, principal=owner).create(
         character_sheet_id=sheet.id,
         character_sheet_version_id=version.id,
         label=label,
     )
+    # `name` is normally derived from the sheet's values; set it directly.
+    character.name = name
+    await db_session.flush()
+    return character
 
 
 async def _put_in_game(db_session, character, game_id, approved=False):
@@ -310,6 +316,7 @@ class TestGetGame:
                     {
                         "id": character.id,
                         "label": "Aragorn",
+                        "name": "Strider",
                         "type": "pc",
                         "approved": True,
                         "can_view": False,
@@ -366,6 +373,7 @@ class TestGetGame:
             {
                 "id": pending.id,
                 "label": "Pending",
+                "name": "Strider",
                 "type": "pc",
                 "approved": False,
                 "can_view": True,
@@ -2664,6 +2672,20 @@ class TestSubmitCharacter(_GameCharacterFixtures):
 
         assert response.status_code == 400
 
+    async def test_nameless_character_rejected(
+        self, auth_as, client, db_session, game, player
+    ):
+        character = await _make_character(db_session, player, name=None)
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{game.id}/characters", json={"character_id": character.id}
+        )
+
+        assert response.status_code == 400
+        await db_session.refresh(character)
+        assert character.game_id is None
+
     async def test_player_at_character_limit_forbidden(
         self, auth_as, client, db_session, game, player
     ):
@@ -2792,6 +2814,21 @@ class TestApproveCharacter(_GameCharacterFixtures):
         )
 
         assert response.status_code == 409
+
+    async def test_nameless_character_rejected(
+        self, auth_as, client, db_session, game, gm, pending
+    ):
+        pending.name = None
+        await db_session.flush()
+        client = auth_as(gm)
+
+        response = await client.post(
+            f"/games/{game.id}/characters/{pending.id}/approve"
+        )
+
+        assert response.status_code == 400
+        await db_session.refresh(pending)
+        assert pending.approved is False
 
     async def test_approves_character(
         self, auth_as, client, db_session, game, gm, pending

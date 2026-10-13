@@ -42,6 +42,7 @@ export type Character = {
 export type CharacterListItem = {
 	id: number;
 	label: string;
+	name: string | null;
 	type: CharacterType;
 	in_library: boolean;
 	user: { id: number; username: string };

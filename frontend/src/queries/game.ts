@@ -7,7 +7,10 @@ export type GamePlayerState = "invited" | "applied" | "accepted";
 
 export type GamePlayerCharacter = {
 	id: number;
+	/** The owner's private handle. */
 	label: string;
+	/** The in-game name others see; null for characters without one. */
+	name: string | null;
 	type: CharacterType;
 	approved: boolean;
 	/** Whether the viewer may open the character's page. */
