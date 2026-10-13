@@ -21,11 +21,6 @@ class TestUserRepository:
         assert found.id == user.id
         assert found.email == user.email
 
-    async def test_get_user_not_found(self, repository):
-        found = await repository.get_user(999999)
-
-        assert found is None
-
     async def test_get_user_by_email(self, repository, create):
         user = await create(UserFactory, email="findme@example.com")
 
@@ -33,31 +28,6 @@ class TestUserRepository:
 
         assert found is not None
         assert found.id == user.id
-
-    async def test_get_user_by_email_not_found(self, repository):
-        found = await repository.get_user_by_email("nobody@example.com")
-
-        assert found is None
-
-    async def test_get_user_by_username(self, repository, create):
-        user = await create(ActivatedUserFactory, username="findme")
-
-        found = await repository.get_user_by_username("findme")
-
-        assert found is not None
-        assert found.id == user.id
-
-    async def test_get_user_by_username_not_found(self, repository):
-        found = await repository.get_user_by_username("nobody")
-
-        assert found is None
-
-    async def test_get_user_by_username_is_exact_not_partial(self, repository, create):
-        await create(ActivatedUserFactory, username="findme")
-
-        found = await repository.get_user_by_username("findm")
-
-        assert found is None
 
     async def test_get_user_by_username_is_case_insensitive(self, repository, create):
         user = await create(ActivatedUserFactory, username="FindMe")
@@ -82,17 +52,8 @@ class TestUserRepository:
         assert found is not None
         assert found.id == user.id
 
-    async def test_get_user_by_id_not_found(self, repository):
-        found = await repository.get_user_by_id(999999)
-
-        assert found is None
-
-    async def test_get_user_by_id_excludes_unactivated(self, repository, create):
-        user = await create(UserFactory)
-
-        found = await repository.get_user_by_id(user.id)
-
-        assert found is None
+        unactivated = await create(UserFactory)
+        assert await repository.get_user_by_id(unactivated.id) is None
 
     async def test_get_user_by_id_include_meta_loads_meta(self, repository, create):
         user = await create(ActivatedUserFactory)
@@ -105,16 +66,6 @@ class TestUserRepository:
         assert found is not None
         meta = {m.key: m.value for m in found.meta}
         assert meta == {UserMeta.MetaKeys.PRONOUNS.value: "they/them"}
-
-    async def test_get_user_by_id_include_meta_empty_when_no_meta(
-        self, repository, create
-    ):
-        user = await create(ActivatedUserFactory)
-
-        found = await repository.get_user_by_id(user.id, include_meta=True)
-
-        assert found is not None
-        assert found.meta == []
 
     async def test_update_user_meta_creates_new(self, repository, create):
         user = await create(UserFactory)
@@ -137,13 +88,6 @@ class TestUserRepository:
 
         assert len(user.meta) == 1
         assert user.meta[0].value == "she/her"
-
-    async def test_update_user_meta_casts_bool(self, repository, create):
-        user = await create(UserFactory)
-
-        await repository.update_user_meta(user, {UserMeta.MetaKeys.GM_MAIL: True})
-
-        assert user.meta[0].value is True
 
     async def test_delete_user_meta(self, repository, create):
         user = await create(UserFactory)

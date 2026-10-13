@@ -7,23 +7,16 @@ from app.schema_base import (
 )
 
 
-class TestPipelineFunctions:
-    def test_escape_html_escapes_special_characters(self):
-        assert escape_html("<script>&") == "&lt;script&gt;&amp;"
-
-    def test_nl2br_replaces_newlines(self):
-        assert nl2br("line1\nline2") == "line1<br>line2"
-
-    def test_strip_whitespace_trims_edges(self):
-        assert strip_whitespace("  hello  ") == "hello"
-
-
 class DefaultPipelineSchema(SchemaBase):
     text: str = filtered_str()
 
 
 class CustomPipelineSchema(SchemaBase):
-    text: str = filtered_str(pipelines=[strip_whitespace, escape_html])
+    text: str = filtered_str(pipelines=[nl2br, escape_html])
+
+
+class ReversedPipelineSchema(SchemaBase):
+    text: str = filtered_str(pipelines=[escape_html, nl2br])
 
 
 class NoPipelineSchema(SchemaBase):
@@ -41,9 +34,10 @@ class TestApplyPipelines:
         assert schema.text == "hello<br>world"
 
     def test_custom_pipeline_runs_in_declared_order(self):
-        schema = CustomPipelineSchema(text="  <b>hi</b>  ")
-
-        assert schema.text == "&lt;b&gt;hi&lt;/b&gt;"
+        # The same two steps in opposite orders differ: <br> is only escaped
+        # when nl2br runs first.
+        assert CustomPipelineSchema(text="a\nb").text == "a&lt;br&gt;b"
+        assert ReversedPipelineSchema(text="a\nb").text == "a<br>b"
 
     def test_field_without_pipelines_is_untouched(self):
         schema = NoPipelineSchema(text="  raw  ")

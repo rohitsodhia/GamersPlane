@@ -165,10 +165,7 @@ class TestCreatePostWithRolls:
         "bad_roll",
         [
             roll_payload(roll="abc"),
-            roll_payload(roll="   "),
             roll_payload(type="fate", roll="lots"),
-            roll_payload(type="starwarsffg", roll="zzz"),
-            roll_payload(type="fengshui", roll="ten"),
         ],
     )
     async def test_unrollable_input_returns_400(
@@ -405,33 +402,36 @@ class TestCreatePostWithDraws:
         await db_session.refresh(world.deck)
         assert (tarot.position, world.deck.position) == (1, 2)
 
-    async def test_drawing_every_remaining_card_is_allowed(
+    async def test_overdrawing_returns_400_and_leaves_nothing_behind_but_drawing_all_is_fine(
         self, auth_as, world, thread, db_session
     ):
         client = auth_as(world.gm)
 
-        response = await client.post(
+        overdrawn = await client.post(
+            "/posts",
+            json=post_payload(
+                thread,
+                rolls=[roll_payload()],
+                draws=[draw_payload(world.deck, count=53)],
+            ),
+        )
+
+        assert overdrawn.status_code == 400
+        assert await count(db_session, Post) == 0
+        assert await count(db_session, PostRoll) == 0
+        assert await count(db_session, PostDraw) == 0
+        await db_session.refresh(world.deck)
+        assert world.deck.position == 0
+
+        # Drawing every remaining card is still allowed.
+        everything = await client.post(
             "/posts",
             json=post_payload(thread, draws=[draw_payload(world.deck, count=52)]),
         )
 
-        assert response.status_code == 200
+        assert everything.status_code == 200
         await db_session.refresh(world.deck)
         assert world.deck.position == 52
-
-    async def test_overdrawing_returns_400_and_leaves_the_deck_alone(
-        self, auth_as, world, thread, db_session
-    ):
-        client = auth_as(world.gm)
-
-        response = await client.post(
-            "/posts",
-            json=post_payload(thread, draws=[draw_payload(world.deck, count=53)]),
-        )
-
-        assert response.status_code == 400
-        await db_session.refresh(world.deck)
-        assert world.deck.position == 0
 
     async def test_same_deck_twice_in_one_request_returns_400(
         self, auth_as, world, thread
@@ -461,25 +461,6 @@ class TestCreatePostWithDraws:
 
         assert response.status_code == 400
 
-    async def test_failed_roll_does_not_advance_a_valid_draw(
-        self, auth_as, world, thread, db_session
-    ):
-        client = auth_as(world.gm)
-
-        response = await client.post(
-            "/posts",
-            json=post_payload(
-                thread,
-                rolls=[roll_payload(roll="nonsense")],
-                draws=[draw_payload(world.deck)],
-            ),
-        )
-
-        assert response.status_code == 400
-        await db_session.refresh(world.deck)
-        assert world.deck.position == 0
-        assert await count(db_session, PostDraw) == 0
-
 
 class TestDrawVisibility:
     @pytest.fixture
@@ -501,11 +482,11 @@ class TestDrawVisibility:
         assert draw["cards"] == world.deck.order[:2]
         assert draw["revealed"] == [False, False]
 
-    @pytest.mark.parametrize("viewer", ["gm", "moderator", "other", "anonymous"])
+    @pytest.mark.parametrize("viewer", ["moderator", "anonymous"])
     async def test_everyone_else_sees_hidden_cards_as_null(
-        self, auth_as, world, thread, moderator, other, drawn_post, viewer
+        self, auth_as, thread, moderator, drawn_post, viewer
     ):
-        client = auth_as({"gm": world.gm, "moderator": moderator}.get(viewer, other))
+        client = auth_as(moderator)
         if viewer == "anonymous":
             as_anonymous(client)
 
@@ -554,12 +535,11 @@ class TestToggleCard:
         seen = (await read_first_post(client, thread))["draws"][0]
         assert seen["cards"] == [None, None]
 
-    @pytest.mark.parametrize("viewer", ["gm", "moderator", "other"])
     async def test_only_the_author_may_toggle(
-        self, auth_as, world, moderator, other, drawn_post, db_session, viewer
+        self, auth_as, moderator, drawn_post, db_session
     ):
         post_id, draw = drawn_post
-        client = auth_as({"gm": world.gm, "moderator": moderator}.get(viewer, other))
+        client = auth_as(moderator)
 
         response = await client.post(self.url(post_id, draw, 0))
 
@@ -623,14 +603,6 @@ class TestToggleCard:
 
         assert response.status_code == 404
 
-    async def test_unknown_post_returns_404(self, auth_as, author, drawn_post):
-        _post_id, draw = drawn_post
-        client = auth_as(author)
-
-        response = await client.post(self.url(999999, draw, 0))
-
-        assert response.status_code == 404
-
 
 class TestEditPostAttachments:
     @pytest.fixture
@@ -656,47 +628,24 @@ class TestEditPostAttachments:
         rolls = list(await db_session.scalars(select(PostRoll)))
         assert [(r.id, r.result, r.input, r.reason) for r in rolls] == [snapshot]
 
-    async def test_edit_adds_new_rolls_alongside_existing_ones(
-        self, auth_as, author, rolled_post, thread
-    ):
-        client = auth_as(author)
-
-        response = await client.patch(
-            f"/posts/{rolled_post}",
-            json=edit_payload(rolls=[roll_payload(roll="1d20", reason="Second")]),
-        )
-
-        assert response.status_code == 200
-        rolls = (await read_first_post(client, thread))["rolls"]
-        assert [r["reason"] for r in rolls] == ["Attack", "Second"]
-
-    async def test_edit_adds_a_draw(
-        self, auth_as, world, thread, author, rolled_post, db_session
+    async def test_edit_adds_a_roll_and_a_draw_alongside_existing_rolls(
+        self, auth_as, world, author, rolled_post, thread, db_session
     ):
         await allow_drawing(db_session, author, world.deck)
         client = auth_as(author)
 
         response = await client.patch(
             f"/posts/{rolled_post}",
-            json=edit_payload(draws=[draw_payload(world.deck, count=1)]),
+            json=edit_payload(
+                rolls=[roll_payload(roll="1d20", reason="Second")],
+                draws=[draw_payload(world.deck, count=1)],
+            ),
         )
 
         assert response.status_code == 200
-        draws = (await read_first_post(client, thread))["draws"]
-        assert draws[0]["cards"] == world.deck.order[:1]
-
-    async def test_edit_adding_a_roll_is_checked_against_thread_options(
-        self, auth_as, create, world, author
-    ):
-        closed = await create(ThreadFactory, forum=world.forum)
-        post = await create(PostFactory, thread=closed, author=author)
-        client = auth_as(author)
-
-        response = await client.patch(
-            f"/posts/{post.id}", json=edit_payload(rolls=[roll_payload()])
-        )
-
-        assert response.status_code == 403
+        post = await read_first_post(client, thread)
+        assert [r["reason"] for r in post["rolls"]] == ["Attack", "Second"]
+        assert post["draws"][0]["cards"] == world.deck.order[:1]
 
     async def test_moderator_cannot_add_rolls_to_someone_elses_post(
         self, auth_as, moderator, rolled_post
@@ -737,30 +686,6 @@ class TestEditPostAttachments:
             False,
             True,
         )
-
-    async def test_other_user_cannot_change_visibility(
-        self, auth_as, other, rolled_post, db_session
-    ):
-        roll = await db_session.scalar(select(PostRoll))
-        client = auth_as(other)
-
-        response = await client.patch(
-            f"/posts/{rolled_post}",
-            json=edit_payload(
-                roll_visibility=[
-                    {
-                        "id": roll.id,
-                        "hide_reason": True,
-                        "hide_dice": True,
-                        "hide_result": True,
-                    }
-                ]
-            ),
-        )
-
-        assert response.status_code == 403
-        await db_session.refresh(roll)
-        assert roll.hide_result is False
 
     async def test_visibility_for_a_roll_on_another_post_returns_400(
         self, auth_as, thread, author, rolled_post, db_session

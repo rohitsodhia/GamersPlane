@@ -56,8 +56,11 @@ async def validate_jwt(request: Request, db_session: DBSessionDependency):
                 configs.JWT_SECRET_KEY,
                 algorithms=[configs.JWT_ALGORITHM],
             )
+            user_id = jwt_body.get("user_id")
+            if user_id is None:
+                raise jwt.InvalidTokenError("Missing user_id")
             user_repository = UserRepository(db_session)
-            user = await user_repository.get_user(jwt_body["user_id"])
+            user = await user_repository.get_user(user_id)
             # Identity only — a banned/suspended user is still resolved here so
             # check_authorization can reject them with a specific reason.
             if user:
@@ -69,7 +72,7 @@ async def validate_jwt(request: Request, db_session: DBSessionDependency):
                 request.scope["auth"] = await user.awaitable_attrs.global_permissions
                 request.scope["user"] = user
                 return
-        except (jwt.InvalidSignatureError, jwt.ExpiredSignatureError, jwt.DecodeError):
+        except jwt.InvalidTokenError:
             pass
     request.scope["auth"] = await guest_permissions(db_session)
     request.scope["user"] = None

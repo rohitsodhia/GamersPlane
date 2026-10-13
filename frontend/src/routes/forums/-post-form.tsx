@@ -22,6 +22,7 @@ import type {
 	PostRoll,
 	RollVisibilityInput,
 } from "#/queries/posts";
+import type { ContentNpc } from "#/queries/quick-npcs";
 import type { PollData, PollInput, ThreadOptions } from "#/queries/threads";
 import {
 	type AttachmentAccess,
@@ -34,7 +35,7 @@ import {
 import { Breadcrumbs } from "./-breadcrumbs";
 import { PollEditor, pollHasErrors } from "./-poll-editor";
 import { type PollState, pollPayload, pollStateFromData } from "./-poll-editor-state";
-import { PLAYER, type PostAsValue } from "./-post-as";
+import { npcLibraryOf, PLAYER, type PostAsValue } from "./-post-as";
 import { PostAsPicker } from "./-post-as-picker";
 import { PostAttachmentsEditor } from "./-post-attachments";
 import styles from "./-post-form.module.css";
@@ -120,6 +121,7 @@ export function PostForm({
 	postAsThreadId,
 	defaultPostedAs = null,
 	defaultPostedNpc = null,
+	defaultContentNpcs = [],
 	submitLabel,
 	isSubmitting = false,
 	apiErrors,
@@ -156,6 +158,9 @@ export function PostForm({
 	defaultPostedAs?: Pick<PostedAs, "id" | "name" | "avatar" | "avatar_id"> | null;
 	// The quick NPC the post is written as (editing).
 	defaultPostedNpc?: PostedNpc | null;
+	// The quick NPCs the existing body's speech blocks name (editing), so one that
+	// has since been deleted still shows.
+	defaultContentNpcs?: ContentNpc[];
 	submitLabel: string;
 	isSubmitting?: boolean;
 	apiErrors: string[];
@@ -228,8 +233,7 @@ export function PostForm({
 	const { data: me } = useQuery({ ...meQueryOptions, enabled: showPostAs });
 	const postableCharacters = showPostAs ? (charactersData?.characters ?? []) : [];
 	const postableNpcs = showPostAs ? (charactersData?.npcs ?? []) : [];
-	const npcGameId =
-		showPostAs && charactersData?.can_manage_npcs ? charactersData.game_id : null;
+	const npcLibrary = showPostAs && charactersData ? npcLibraryOf(charactersData) : null;
 
 	const canSet = (permission: ForumPermission) =>
 		permissions.includes(permission) || permissions.includes("forum_moderate");
@@ -384,7 +388,7 @@ export function PostForm({
 					{showPostAs &&
 						(postableCharacters.length > 0 ||
 							postableNpcs.length > 0 ||
-							npcGameId !== null ||
+							npcLibrary !== null ||
 							defaultPostedAs ||
 							defaultPostedNpc) && (
 							<form.Field name="postedAs">
@@ -395,7 +399,7 @@ export function PostForm({
 											labelId="posted-as-label"
 											characters={postableCharacters}
 											npcs={postableNpcs}
-											npcGameId={npcGameId}
+											npcLibrary={npcLibrary}
 											viewer={me}
 											value={field.state.value}
 											onChange={(value) => field.handleChange(value)}
@@ -412,16 +416,27 @@ export function PostForm({
 						validators={{
 							onBlur: ({ value }) =>
 								isContentEmpty(value) ? "Message required!" : undefined,
+							onSubmit: ({ value }) =>
+								isContentEmpty(value) ? "Message required!" : undefined,
 						}}
 					>
 						{(field) => (
-							<Editor
-								id={field.name}
-								value={field.state.value}
-								onBlur={field.handleBlur}
-								onChange={(value) => field.handleChange(value)}
-								className={field.state.meta.isValid ? "" : "field-invalid"}
-							/>
+							<>
+								<Editor
+									id={field.name}
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(value) => field.handleChange(value)}
+									className={field.state.meta.isValid ? "" : "field-invalid"}
+									npcLibrary={npcLibrary}
+									contentNpcs={defaultContentNpcs}
+								/>
+								{field.state.meta.errors[0] && (
+									<div className="error" role="alert">
+										<FieldError message={field.state.meta.errors[0]} />
+									</div>
+								)}
+							</>
 						)}
 					</form.Field>
 

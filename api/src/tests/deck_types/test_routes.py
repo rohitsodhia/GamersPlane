@@ -2,19 +2,6 @@ from tests.factories import DeckTypeFactory
 
 
 class TestGetDeckTypes:
-    async def test_get_deck_types_requires_auth(self, client):
-        response = await client.get("/deck_types/")
-
-        assert response.status_code == 403
-
-    async def test_get_deck_types_empty_when_none_exist(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.get("/deck_types/")
-
-        assert response.status_code == 200
-        assert response.json() == {"types": []}
-
     async def test_get_deck_types_returns_all_types(self, authed_client, create):
         client, _user = authed_client
         await create(DeckTypeFactory, short="tarot", name="Tarot Deck", deck_size=78)

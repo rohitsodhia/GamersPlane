@@ -53,6 +53,14 @@ interface ButtonProps {
  * but does nothing.
  */
 export function Button({ label, on_click, className, style }: ButtonProps) {
+	// The backend doesn't require `on_click`, so guard against a missing or
+	// non-object value rather than crash the render.
+	if (typeof on_click !== "object" || on_click === null || Array.isArray(on_click)) {
+		if (import.meta.env.DEV) {
+			console.warn(`[sheet] button "${label}": on_click must be an object`);
+		}
+		return null;
+	}
 	// `on_click`'s shape is fixed per schema node, so this branch is stable across
 	// renders — each sub-component keeps its own consistent hook order.
 	return isRepeaterRowAction(on_click) ? (

@@ -35,9 +35,9 @@ describe("selectionFromKeys", () => {
 });
 
 describe("FilterableListBox multiple mode", () => {
-	it("keeps selections hidden by the filter when toggling a visible row", async () => {
+	it("keeps selections hidden by the filter when toggling a visible row, on or off", async () => {
 		const onChange = vi.fn();
-		render(
+		const { rerender } = render(
 			<FilterableListBox
 				{...baseProps}
 				selectionMode="multiple"
@@ -52,11 +52,9 @@ describe("FilterableListBox multiple mode", () => {
 
 		await userEvent.click(screen.getByRole("option", { name: /Pathfinder/ }));
 		expect(onChange).toHaveBeenLastCalledWith(["dnd", "pf"]);
-	});
 
-	it("keeps hidden selections when deselecting a visible row", async () => {
-		const onChange = vi.fn();
-		render(
+		// Same filter, now with Pathfinder selected too: deselecting keeps the hidden one.
+		rerender(
 			<FilterableListBox
 				{...baseProps}
 				selectionMode="multiple"
@@ -64,8 +62,6 @@ describe("FilterableListBox multiple mode", () => {
 				onChange={onChange}
 			/>,
 		);
-
-		await userEvent.type(screen.getByPlaceholderText("Filter systems..."), "path");
 		await userEvent.click(screen.getByRole("option", { name: /Pathfinder/ }));
 		expect(onChange).toHaveBeenLastCalledWith(["dnd"]);
 	});

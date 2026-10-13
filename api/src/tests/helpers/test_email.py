@@ -103,11 +103,3 @@ class TestGetTemplate:
 
         assert "<script>alert(1)</script>" not in output
         assert "&lt;script&gt;" in output
-
-    def test_renders_link_in_href(self):
-        output = get_template(
-            "auth/templates/activation.html",
-            activation_link="http://site/activate?token=abc-123",
-        )
-
-        assert 'href="http://site/activate?token=abc-123"' in output

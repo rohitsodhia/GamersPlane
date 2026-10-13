@@ -6,9 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import DBSessionDependency
 from app.exceptions import ValidationError
 from app.forums import acp_schemas as schemas
-from app.forums.functions import is_game_root_forum
+from app.forums.functions import get_forum_or_404, is_game_root_forum
 from app.forums.permissions import FORUM_VERBS_ORDERED, ForumPermissions, Verbs
-from app.forums.routes import get_forum_or_404
 from app.middleware import Principal
 from app.models import Forum, Game, User
 from app.repositories import ForumACPRepository, ForumRepository, RBACkRepository

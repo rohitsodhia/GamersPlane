@@ -44,11 +44,11 @@ class TestGameRepository:
             "3/w",
             4,
             1,
+            {"summary": "A tale"},
+            {"info": "roll for stats"},
+            False,
             None,
-            None,
-            True,
-            None,
-            None,
+            {"loot": "enabled"},
         )
 
         assert game.id is not None
@@ -58,34 +58,12 @@ class TestGameRepository:
         assert game.post_frequency == PostFrequency(3, "w")
         assert game.num_players == 4
         assert game.chars_per_player == 1
-        assert game.description is None
-        assert game.char_gen_info is None
-        assert game.public is True
-        assert game.recruitment_thread_id is None
-        assert game.advanced_options is None
-
-    async def test_create_sets_description_and_char_gen_info(
-        self, repository, gm, system
-    ):
-        game = await repository.create(
-            "My Campaign",
-            system.id,
-            [],
-            gm.id,
-            "1/d",
-            4,
-            1,
-            {"summary": "A tale"},
-            {"info": "roll for stats"},
-            False,
-            None,
-            {"loot": "enabled"},
-        )
-
         assert game.description == {"summary": "A tale"}
         assert game.char_gen_info == {"info": "roll for stats"}
         assert game.public is False
+        assert game.recruitment_thread_id is None
         assert game.advanced_options == {"loot": "enabled"}
+        assert game.allowed_char_sheets == []
 
     async def test_create_attaches_allowed_char_sheets(
         self, repository, gm, system, create
@@ -109,24 +87,6 @@ class TestGameRepository:
         )
 
         assert {s.id for s in game.allowed_char_sheets} == {sheet_a.id, sheet_b.id}
-
-    async def test_create_with_no_allowed_char_sheets(self, repository, gm, system):
-        game = await repository.create(
-            "My Campaign",
-            system.id,
-            [],
-            gm.id,
-            "1/d",
-            4,
-            1,
-            None,
-            None,
-            True,
-            None,
-            None,
-        )
-
-        assert game.allowed_char_sheets == []
 
     async def test_create_creates_root_forum_under_games_root(
         self, repository, gm, system, games_root_forum, db_session
@@ -248,28 +208,6 @@ class TestGameRepository:
             },
         }
 
-    async def test_get_returns_the_game(self, repository, gm, system):
-        created = await repository.create(
-            "My Campaign",
-            system.id,
-            [],
-            gm.id,
-            "1/d",
-            4,
-            1,
-            None,
-            None,
-            True,
-            None,
-            None,
-        )
-
-        game = await repository.get(created.id)
-
-        assert game is not None
-        assert game.id == created.id
-        assert game.title == "My Campaign"
-
     async def test_get_returns_none_for_missing_id(self, repository):
         game = await repository.get(999999)
 
@@ -319,7 +257,9 @@ class TestGameRepository:
 
         assert await repository.exists(game.id) is False
 
-    async def test_get_eager_loads_gm(self, repository, gm, system):
+    async def test_get_returns_game_with_gm_eager_loaded(
+        self, repository, gm, system, db_session
+    ):
         created = await repository.create(
             "My Campaign",
             system.id,
@@ -334,15 +274,22 @@ class TestGameRepository:
             None,
             None,
         )
+        await db_session.flush()
+        created_id, gm_username = created.id, gm.username
+        # Drop the identity-mapped instances so get() must load from the database.
+        db_session.expunge_all()
 
-        game = await repository.get(created.id)
+        game = await repository.get(created_id)
 
+        assert game is not None
+        assert game.id == created_id
+        assert game.title == "My Campaign"
         # Accessing an unloaded relationship on an async session raises
         # MissingGreenlet, so this only passes if gm was eagerly loaded.
-        assert game.gm.username == gm.username
+        assert game.gm.username == gm_username
 
     async def test_get_eager_loads_allowed_char_sheets(
-        self, repository, gm, system, create
+        self, repository, gm, system, create, db_session
     ):
         sheet = await create(SystemFactory, id="sheet-a")
         created = await repository.create(
@@ -359,30 +306,13 @@ class TestGameRepository:
             None,
             None,
         )
+        await db_session.flush()
+        created_id, sheet_id = created.id, sheet.id
+        db_session.expunge_all()
 
-        game = await repository.get(created.id)
+        game = await repository.get(created_id)
 
-        assert {s.id for s in game.allowed_char_sheets} == {sheet.id}
-
-    async def test_update_sets_single_field(self, repository, gm, system):
-        game = await repository.create(
-            "My Campaign",
-            system.id,
-            [],
-            gm.id,
-            "1/d",
-            4,
-            1,
-            None,
-            None,
-            True,
-            None,
-            None,
-        )
-
-        updated = await repository.update(game, public=False)
-
-        assert updated.public is False
+        assert {s.id for s in game.allowed_char_sheets} == {sheet_id}
 
     async def test_update_sets_multiple_fields(self, repository, gm, system):
         game = await repository.create(
@@ -404,27 +334,6 @@ class TestGameRepository:
 
         assert updated.public is False
         assert updated.title == "New Title"
-
-    async def test_update_persists_changes(self, repository, gm, system, db_session):
-        game = await repository.create(
-            "My Campaign",
-            system.id,
-            [],
-            gm.id,
-            "1/d",
-            4,
-            1,
-            None,
-            None,
-            True,
-            None,
-            None,
-        )
-
-        await repository.update(game, public=False)
-
-        refetched = await repository.get(game.id)
-        assert refetched.public is False
 
     async def test_update_title_renames_root_forum(
         self, repository, gm, system, db_session

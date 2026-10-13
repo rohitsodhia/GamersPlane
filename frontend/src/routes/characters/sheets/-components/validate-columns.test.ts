@@ -14,12 +14,11 @@ afterEach(() => {
 const ctx = 'grid "x"';
 
 describe("validateColumns — empty / nothing valid", () => {
-	it("returns undefined for undefined", () => {
-		expect(validateColumns(undefined, ctx)).toBeUndefined();
-	});
-
-	it("returns undefined for an empty array", () => {
-		expect(validateColumns([], ctx)).toBeUndefined();
+	it.each([
+		["undefined", undefined],
+		["an empty array", []],
+	])("returns undefined for %s", (_label, columns) => {
+		expect(validateColumns(columns, ctx)).toBeUndefined();
 	});
 
 	it("returns undefined when every entry is rejected", () => {
@@ -53,12 +52,6 @@ describe("validateColumns — accepted track tokens", () => {
 	it("keeps minmax() of two size tokens", () => {
 		expect(validateColumns(["minmax(4rem, 6rem)", "minmax(0, 1fr)"], ctx)).toBe(
 			"minmax(4rem, 6rem) minmax(0, 1fr)",
-		);
-	});
-
-	it("keeps repeat() with an integer count", () => {
-		expect(validateColumns(["repeat(3, max-content)"], ctx)).toBe(
-			"repeat(3, max-content)",
 		);
 	});
 

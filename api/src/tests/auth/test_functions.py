@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy import select
 
 from app.auth.functions import (
@@ -11,25 +12,26 @@ from tests.factories import AccountActivationTokenFactory, UserFactory
 
 
 class TestValidatePasswordChange:
-    def test_matching_valid_passwords_has_no_errors(self):
-        errors = validate_password_change("ValidPass1!", "ValidPass1!")
+    @pytest.mark.parametrize(
+        ("password", "confirm", "expected_codes"),
+        [
+            pytest.param("ValidPass1!", "ValidPass1!", [], id="matching_valid"),
+            pytest.param(
+                "ValidPass1!", "Different1!", ["password_mismatch"], id="mismatched"
+            ),
+            pytest.param("short", "short", ["invalid_password"], id="too_short"),
+            pytest.param(
+                "short",
+                "other",
+                ["password_mismatch", "invalid_password"],
+                id="mismatched_and_too_short",
+            ),
+        ],
+    )
+    def test_validate_password_change(self, password, confirm, expected_codes):
+        errors = validate_password_change(password, confirm)
 
-        assert errors == []
-
-    def test_mismatched_passwords_returns_error(self):
-        errors = validate_password_change("ValidPass1!", "Different1!")
-
-        assert [e.code for e in errors] == ["password_mismatch"]
-
-    def test_too_short_password_returns_error(self):
-        errors = validate_password_change("short", "short")
-
-        assert [e.code for e in errors] == ["invalid_password"]
-
-    def test_mismatched_and_too_short_returns_both_errors(self):
-        errors = validate_password_change("short", "other")
-
-        assert [e.code for e in errors] == ["password_mismatch", "invalid_password"]
+        assert [e.code for e in errors] == expected_codes
 
 
 class TestGetActivationLink:

@@ -116,6 +116,8 @@ describe("scopeKeysFor", () => {
 		const keys = scopeKeysFor(nodes([{ type: "input", name: "legacy" }]));
 		expect(storeKey(keys, "legacy")).toBe("legacy");
 		expect(warn).toHaveBeenCalledOnce();
+		// A name the scope doesn't know at all also falls back to itself.
+		expect(storeKey(keys, "unknown")).toBe("unknown");
 	});
 
 	it("keeps the first of two same-named fields, and warns", () => {
@@ -133,12 +135,5 @@ describe("scopeKeysFor", () => {
 	it("returns the same map for the same node array", () => {
 		const template = nodes([{ type: "input", name: "a", id: "i1" }]);
 		expect(scopeKeysFor(template)).toBe(scopeKeysFor(template));
-	});
-});
-
-describe("storeKey", () => {
-	it("uses the name itself for a name the scope doesn't know", () => {
-		const keys = scopeKeysFor(nodes([{ type: "input", name: "a", id: "i1" }]));
-		expect(storeKey(keys, "unknown")).toBe("unknown");
 	});
 });

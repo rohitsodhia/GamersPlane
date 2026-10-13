@@ -218,11 +218,9 @@ async def update_character(
     data: schemas.UpdateCharacterInput,
 ):
     character_repository = CharacterRepository(db_session, principal)
-    character = await character_repository.get(character_id)
-    if character is None:
-        raise NotFoundException("Character not found")
-    if character.user_id != principal.id:
-        raise ForbiddenException("Character not available")
+    character = await _get_owned_character(
+        character_repository, character_id, principal
+    )
 
     await character_repository.update(
         character, label=data.label, type=data.type, values=data.values
@@ -242,11 +240,9 @@ async def get_character_sheet_moves(
     """Where the character can move: newer versions of its sheet (upgrades)
     and copies of its sheet (changes)."""
     character_repository = CharacterRepository(db_session, principal)
-    character = await character_repository.get(character_id)
-    if character is None:
-        raise NotFoundException("Character not found")
-    if character.user_id != principal.id:
-        raise ForbiddenException("Character not available")
+    character = await _get_owned_character(
+        character_repository, character_id, principal
+    )
 
     sheet_repository = CharacterSheetRepository(db_session, principal)
     current_sheet = character.character_sheet
@@ -296,11 +292,9 @@ async def preview_character_sheet_move(
     """The layout the character would move to, and which of its values that
     layout won't show."""
     character_repository = CharacterRepository(db_session, principal)
-    character = await character_repository.get(character_id)
-    if character is None:
-        raise NotFoundException("Character not found")
-    if character.user_id != principal.id:
-        raise ForbiddenException("Character not available")
+    character = await _get_owned_character(
+        character_repository, character_id, principal
+    )
 
     sheet_repository = CharacterSheetRepository(db_session, principal)
     char_sheet, target = await _move_target(
@@ -328,11 +322,9 @@ async def delete_character(
     principal: Principal,
 ):
     character_repository = CharacterRepository(db_session, principal)
-    character = await character_repository.get(character_id)
-    if character is None:
-        raise NotFoundException("Character not found")
-    if character.user_id != principal.id:
-        raise ForbiddenException("Character not available")
+    character = await _get_owned_character(
+        character_repository, character_id, principal
+    )
 
     await character_repository.delete(character)
 
@@ -346,11 +338,9 @@ async def toggle_character_library(
     principal: Principal,
 ):
     character_repository = CharacterRepository(db_session, principal)
-    character = await character_repository.get(character_id)
-    if character is None:
-        raise NotFoundException("Character not found")
-    if character.user_id != principal.id:
-        raise ForbiddenException("Character not available")
+    character = await _get_owned_character(
+        character_repository, character_id, principal
+    )
 
     await character_repository.toggle_library(character)
 
@@ -387,11 +377,9 @@ async def add_character_avatar(
     avatar: UploadFile = File(...),
 ):
     character_repository = CharacterRepository(db_session, principal)
-    character = await character_repository.get(character_id)
-    if character is None:
-        raise NotFoundException("Character not found")
-    if character.user_id != principal.id:
-        raise ForbiddenException("Character not available")
+    character = await _get_owned_character(
+        character_repository, character_id, principal
+    )
     if len(character.avatars) >= AVATAR_MAX_COUNT:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -420,11 +408,9 @@ async def delete_character_avatar(
     principal: Principal,
 ):
     character_repository = CharacterRepository(db_session, principal)
-    character = await character_repository.get(character_id)
-    if character is None:
-        raise NotFoundException("Character not found")
-    if character.user_id != principal.id:
-        raise ForbiddenException("Character not available")
+    character = await _get_owned_character(
+        character_repository, character_id, principal
+    )
 
     deleted_avatar = await character_repository.delete_avatar(character, avatar_id)
     if deleted_avatar is None:
@@ -447,17 +433,31 @@ async def set_primary_character_avatar(
     principal: Principal,
 ):
     character_repository = CharacterRepository(db_session, principal)
-    character = await character_repository.get(character_id)
-    if character is None:
-        raise NotFoundException("Character not found")
-    if character.user_id != principal.id:
-        raise ForbiddenException("Character not available")
+    character = await _get_owned_character(
+        character_repository, character_id, principal
+    )
 
     avatar = await character_repository.set_primary_avatar(character, avatar_id)
     if avatar is None:
         raise NotFoundException("Avatar not found")
 
     return {"success": True, "avatar": _avatar_data(avatar)}
+
+
+async def _get_owned_character(
+    character_repository: CharacterRepository,
+    character_id: int,
+    principal: Principal,
+) -> Character:
+    """Load a character, 404ing if it's missing and 403ing unless the principal
+    owns it."""
+    character = await character_repository.get(character_id)
+    if character is None:
+        raise NotFoundException("Character not found")
+    if character.user_id != principal.id:
+        raise ForbiddenException("Character not available")
+
+    return character
 
 
 async def _move_target(

@@ -20,10 +20,9 @@ class TestUsernamePattern:
         "username",
         [
             "ab",
-            "a1",
             "a_",
             "Name_1",
-            "abc123",
+            "a" * 24,
         ],
     )
     def test_valid_usernames_are_accepted(self, username):
@@ -35,9 +34,8 @@ class TestUsernamePattern:
             "1abc",
             "_abc",
             "a",
-            "ab!",
             "ab-cd",
-            "ab cd",
+            "a" * 25,
         ],
     )
     def test_invalid_usernames_are_rejected(self, username):

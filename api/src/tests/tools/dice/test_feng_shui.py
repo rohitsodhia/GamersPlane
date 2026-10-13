@@ -10,12 +10,6 @@ class TestFengShuiRollParsing:
         with pytest.raises(ValueError):
             roll.new_roll("5", roll_type="nonsense")
 
-    def test_sets_action_value(self):
-        roll = FengShuiRoll()
-        roll.new_roll("8", roll_type="standard")
-
-        assert roll.action_value == 8
-
     def test_clamps_negative_action_value_to_zero(self):
         roll = FengShuiRoll()
         roll.new_roll("-8", roll_type="standard")
@@ -65,6 +59,7 @@ class TestFengShuiRollRolling:
         result = roll.roll()
 
         assert result.extra == 5
+        assert result.total == 5 + 3 - 2 + 5
 
     def test_closed_roll_does_not_explode_on_six(self, monkeypatch):
         monkeypatch.setattr("app.tools.dice.basic.random.randint", lambda a, b: 6)
@@ -74,14 +69,3 @@ class TestFengShuiRollRolling:
 
         assert result.positive == [6]
         assert result.negative == [6]
-
-    def test_total_combines_action_value_positive_negative_and_extra(self, monkeypatch):
-        values = iter([3, 2, 1])
-        monkeypatch.setattr(
-            "app.tools.dice.basic.random.randint", lambda a, b: next(values)
-        )
-        roll = FengShuiRoll()
-        roll.new_roll("5", roll_type="fortune")
-        result = roll.roll()
-
-        assert result.total == 5 + 3 - 2 + 1

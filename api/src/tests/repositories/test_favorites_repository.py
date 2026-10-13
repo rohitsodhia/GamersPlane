@@ -6,50 +6,55 @@ from app.repositories import FavoritesRepository, GameRepository
 from tests.factories import ActivatedUserFactory, ForumFactory, SystemFactory
 
 
+@pytest.fixture(autouse=True)
+async def games_root_forum(create, db_session):
+    forum = await create(ForumFactory, id=2, heritage=[])
+    # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
+    # later auto-generated forum id in this test could collide with it.
+    await db_session.execute(
+        text(
+            "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
+            "(SELECT MAX(id) FROM forums))"
+        )
+    )
+    return forum
+
+
+@pytest.fixture
+async def user(create):
+    return await create(ActivatedUserFactory)
+
+
+@pytest.fixture
+async def system(create):
+    return await create(SystemFactory, id="dnd5e")
+
+
+@pytest.fixture
+async def game(db_session, user, system):
+    game_repository = GameRepository(db_session, principal=user)
+    return await game_repository.create(
+        "My Campaign",
+        system.id,
+        [],
+        user.id,
+        "3/w",
+        4,
+        1,
+        None,
+        None,
+        True,
+        None,
+        None,
+    )
+
+
+@pytest.fixture
+def repository(db_session, user, wrap_in_savepoint):
+    return FavoritesRepository(db_session, user)
+
+
 class TestToggleGameFavorite:
-    @pytest.fixture(autouse=True)
-    async def games_root_forum(self, create, db_session):
-        forum = await create(ForumFactory, id=2, heritage=[])
-        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
-        # later auto-generated forum id in this test could collide with it.
-        await db_session.execute(
-            text(
-                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
-                "(SELECT MAX(id) FROM forums))"
-            )
-        )
-        return forum
-
-    @pytest.fixture
-    async def user(self, create):
-        return await create(ActivatedUserFactory)
-
-    @pytest.fixture
-    async def system(self, create):
-        return await create(SystemFactory, id="dnd5e")
-
-    @pytest.fixture
-    async def game(self, db_session, user, system):
-        game_repository = GameRepository(db_session, principal=user)
-        return await game_repository.create(
-            "My Campaign",
-            system.id,
-            [],
-            user.id,
-            "3/w",
-            4,
-            1,
-            None,
-            None,
-            True,
-            None,
-            None,
-        )
-
-    @pytest.fixture
-    def repository(self, db_session, user, wrap_in_savepoint):
-        return FavoritesRepository(db_session, user)
-
     async def test_toggle_creates_favorite_when_none_exists(
         self, repository, db_session, user, game
     ):
@@ -85,54 +90,6 @@ class TestToggleGameFavorite:
 
 
 class TestGetGameFavoriteStatus:
-    @pytest.fixture(autouse=True)
-    async def games_root_forum(self, create, db_session):
-        forum = await create(ForumFactory, id=2, heritage=[])
-        # Forcing an explicit id bypasses the "forums_id_seq" sequence, so any
-        # later auto-generated forum id in this test could collide with it.
-        await db_session.execute(
-            text(
-                "SELECT setval(pg_get_serial_sequence('forums', 'id'), "
-                "(SELECT MAX(id) FROM forums))"
-            )
-        )
-        return forum
-
-    @pytest.fixture
-    async def user(self, create):
-        return await create(ActivatedUserFactory)
-
-    @pytest.fixture
-    async def system(self, create):
-        return await create(SystemFactory, id="dnd5e")
-
-    @pytest.fixture
-    async def game(self, db_session, user, system):
-        game_repository = GameRepository(db_session, principal=user)
-        return await game_repository.create(
-            "My Campaign",
-            system.id,
-            [],
-            user.id,
-            "3/w",
-            4,
-            1,
-            None,
-            None,
-            True,
-            None,
-            None,
-        )
-
-    @pytest.fixture
-    def repository(self, db_session, user, wrap_in_savepoint):
-        return FavoritesRepository(db_session, user)
-
-    async def test_returns_false_when_not_favorited(self, repository, game):
-        result = await repository.get_game_favorite_status(game.id)
-
-        assert result is False
-
     async def test_returns_true_when_favorited(self, repository, game):
         await repository.toggle_game_favorite(game.id)
 

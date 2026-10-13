@@ -13,7 +13,7 @@ systems = APIRouter(prefix="/systems")
 async def get_systems(db_session: DBSessionDependency):
     system_repository = SystemRepository(db_session)
     systems_return = []
-    custom_dict = {}
+    custom_dict = None
     for system in await system_repository.get():
         system_dict = {
             "id": system.id,
@@ -35,7 +35,8 @@ async def get_systems(db_session: DBSessionDependency):
             custom_dict = system_dict
             continue
         systems_return.append(system_dict)
-    systems_return = [custom_dict] + systems_return
+    if custom_dict:
+        systems_return.insert(0, custom_dict)
 
     return {"systems": systems_return}
 
@@ -45,7 +46,7 @@ async def get_systems(db_session: DBSessionDependency):
 async def get_basic_systems(db_session: DBSessionDependency):
     system_repository = SystemRepository(db_session)
     systems_return = []
-    custom_dict = {}
+    custom_dict = None
     for system in await system_repository.get():
         system_dict = {
             "id": system.id,
@@ -59,6 +60,7 @@ async def get_basic_systems(db_session: DBSessionDependency):
             custom_dict = system_dict
             continue
         systems_return.append(system_dict)
-    systems_return = [custom_dict] + systems_return
+    if custom_dict:
+        systems_return.insert(0, custom_dict)
 
     return {"systems": systems_return}

@@ -21,9 +21,7 @@
 // store (from the current row), but `$index` (the nearest `loop`'s 0-based
 // iteration) and `$item.x` (its current `items` entry) are "magic": they never
 // touch the store. The evaluator does not special-case any of these —
-// resolution is entirely the caller's resolver's job — but `isMagicRef` and
-// the `collectRefs` skip below keep the (future) dependency graph from treating
-// magic refs as store fields.
+// resolution is entirely the caller's resolver's job.
 //
 // Not here (deferred, by design): the dependency graph / topological recompute
 // order / cycle detection that a full spreadsheet-style engine needs. This
@@ -44,7 +42,7 @@ export interface OpExpr {
 
 /**
  * Every operator / function the evaluator understands. Kept as a const array so
- * it doubles as the validation whitelist (`isOpName`).
+ * it doubles as the validation whitelist.
  */
 export const OP_NAMES = [
 	// arithmetic (binary)
@@ -80,23 +78,6 @@ export const OP_NAMES = [
 ] as const;
 
 export type OpName = (typeof OP_NAMES)[number];
-
-const OP_NAME_SET: ReadonlySet<string> = new Set(OP_NAMES);
-
-/** Is `op` a whitelisted operator name? For the (future) validation layer. */
-export function isOpName(op: string): op is OpName {
-	return OP_NAME_SET.has(op);
-}
-
-/**
- * A `$`-prefixed ref resolved from render context (loop position, current item),
- * not the value store — `$index` and `$item.…`, but not the store-backed
- * `$row.…` or a path starting with a dynamic `$(…)` segment. See the header
- * comment and `createRefResolver`.
- */
-export function isMagicRef(name: string): boolean {
-	return name === "$index" || name.startsWith("$item.");
-}
 
 /**
  * Resolves a `ref` to its value. Supplied by the caller (`createRefResolver`,
@@ -199,32 +180,6 @@ export function evaluate(expr: Expr, resolve: RefResolver): FormulaValue {
 		default:
 			throw new FormulaError(`unknown formula op: ${JSON.stringify(op)}`);
 	}
-}
-
-/**
- * Every distinct `ref` name in a formula, in first-encounter order. The
- * `computed` element subscribes to each so it recomputes when a dependency
- * changes; the validation layer uses it to build the dependency graph.
- */
-export function collectRefs(expr: Expr): string[] {
-	const out: string[] = [];
-	const seen = new Set<string>();
-	const walk = (e: Expr) => {
-		if (typeof e === "number" || typeof e === "boolean" || e === null) return;
-		if ("ref" in e) {
-			// Magic refs (`$index`, `$item.…`) come from render context, not the store, so
-			// they are not dependencies the graph layer needs to track.
-			if (isMagicRef(e.ref)) return;
-			if (!seen.has(e.ref)) {
-				seen.add(e.ref);
-				out.push(e.ref);
-			}
-			return;
-		}
-		if ("op" in e && Array.isArray(e.args)) for (const a of e.args) walk(a);
-	};
-	walk(expr);
-	return out;
 }
 
 // --- operator tables -------------------------------------------------------

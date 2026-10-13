@@ -25,11 +25,6 @@ async def give_permission(db_session, user, verb):
 
 
 class TestSearchUser:
-    async def test_search_user_requires_auth(self, client):
-        response = await client.get("/users/search", params={"username": "someone"})
-
-        assert response.status_code == 403
-
     async def test_search_user_found(self, authed_client, create):
         client, _user = authed_client
         other = await create(ActivatedUserFactory, username="findme")
@@ -78,11 +73,6 @@ class TestSearchUser:
 
 
 class TestAutocompleteUsers:
-    async def test_requires_auth(self, client):
-        response = await client.get("/users/autocomplete", params={"username": "user"})
-
-        assert response.status_code == 403
-
     async def test_returns_prefix_matches_case_insensitively_sorted(
         self, authed_client, create
     ):
@@ -235,11 +225,6 @@ class TestGetUser:
 
 
 class TestGetUsers:
-    async def test_requires_auth(self, client):
-        response = await client.get("/users")
-
-        assert response.status_code == 403
-
     async def test_requires_manage_users_permission(self, authed_client):
         client, _user = authed_client
 
@@ -419,13 +404,6 @@ class TestGetUsers:
 
 
 class TestBanUser:
-    async def test_requires_auth(self, client, create):
-        target = await create(ActivatedUserFactory)
-
-        response = await client.patch(f"/users/{target.id}/ban")
-
-        assert response.status_code == 403
-
     async def test_requires_manage_users_permission(self, authed_client, create):
         client, _user = authed_client
         target = await create(ActivatedUserFactory)

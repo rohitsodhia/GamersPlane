@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { DiceSystem, FengShuiRollType, RollDiceResult } from "#/queries/dice";
+import type { ContentNpc } from "#/queries/quick-npcs";
 import type { PollData, PollInput, ThreadOptionsUpdate } from "#/queries/threads";
 
 type Author = {
@@ -81,6 +82,8 @@ export type Post = {
 	// Set instead of posted_as.
 	posted_npc: PostedNpc | null;
 	body: JSONContent;
+	// The quick NPCs the body's speaker blocks name.
+	content_npcs: ContentNpc[];
 	rolls: PostRoll[];
 	draws: PostDraw[];
 };
@@ -111,6 +114,17 @@ export function postsQueryOptions(threadId: number, page = 1) {
 			return res.json();
 		},
 	});
+}
+
+// The page of the thread that `postId` is on (page 1 if it isn't in the thread),
+// for old site links that named a post rather than a page.
+export async function fetchPostsPageOf(
+	threadId: number,
+	postId: number,
+): Promise<PostsResponse> {
+	const res = await apiFetch(`/posts?thread_id=${threadId}&post_id=${postId}`);
+	if (!res.ok) throw new Error("Failed to fetch posts");
+	return res.json();
 }
 
 export function postQueryOptions(postId: number) {

@@ -6,24 +6,27 @@ from app.forums import schemas
 from app.forums.functions import (
     build_forum_tree,
     build_moderated_tree,
+    get_forum_or_404,
     get_heritage,
+    get_readable_forum,
     is_game_root_forum,
     prune_unreadable,
 )
 from app.forums.permissions import ForumPermissions, Verbs, moderated_roots
-from app.games.npcs import build_npc_data
 from app.helpers.decorators import public
 from app.middleware import Principal
-from app.models import Forum
+from app.models import Forum, Player
 from app.posts.functions import avatar_url, can_post_as
+from app.quick_npcs.functions import build_npc_data
 from app.repositories import (
     CharacterRepository,
     DeckRepository,
     ForumRepository,
-    GameNPCRepository,
     GameRepository,
+    NPCOwner,
     PlayerRepository,
     PostRepository,
+    QuickNPCRepository,
     ReadTrackingRepository,
     ThreadRepository,
 )
@@ -44,13 +47,6 @@ def build_heritage_data(
         )
         for heritage_forum in heritage_forums
     ]
-
-
-async def get_forum_or_404(forum_repository: ForumRepository, forum_id: int) -> Forum:
-    forum = await forum_repository.get(forum_id)
-    if forum is None:
-        raise NotFoundException("Forum not found")
-    return forum
 
 
 @forums.get("/moderated", response_model=list[schemas.ModeratedForumData])
@@ -98,9 +94,7 @@ async def get_forum_breadcrumbs(
     forum_id: int, db_session: DBSessionDependency, principal: Principal
 ):
     forum_repository = ForumRepository(db_session, principal=principal)
-    forum = await forum_repository.get(forum_id)
-    if forum is None:
-        raise NotFoundException("Forum not found")
+    forum = await get_forum_or_404(forum_repository, forum_id)
     heritage_forums = await get_heritage(forum_repository, forum.heritage)
     permissions = await ForumPermissions.load(
         db_session, principal, [forum, *heritage_forums]
@@ -122,12 +116,7 @@ async def get_forum_decks(
     """The decks the principal could draw from when posting in this forum: all
     of the game's decks for its GM, else those that list them. Empty outside
     game forums or without ``forum_add_draws``."""
-    forum = await get_forum_or_404(
-        ForumRepository(db_session, principal=principal), forum_id
-    )
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, forum, "Forum not found"
-    )
+    forum, permissions = await get_readable_forum(db_session, principal, forum_id)
     if forum.game_id is None or not permissions.has(forum, Verbs.FORUM_ADD_DRAWS):
         return schemas.GetForumDecksResponse(decks=[])
 
@@ -159,30 +148,48 @@ async def get_forum_characters(
     thread_id: int | None = None,
 ):
     """The characters the principal could post as in this forum: their own
-    approved, named ones in its game, plus everyone's for the game's GM. Empty
-    outside game forums or without the right to post.
+    approved, named ones in its game, plus everyone's for the game's GM. No
+    characters outside game forums; nothing at all without the right to post.
 
-    ``default_id`` is the one they last used in ``thread_id``, if still on offer.
+    ``npcs`` are the quick NPCs they could post as: the game's, for its accepted
+    players, or in a forum outside any game their own. ``default_id`` and
+    ``default_npc_id`` are the ones they last used in ``thread_id``, if still on
+    offer; outside game forums there's no default.
     """
-    forum = await get_forum_or_404(
-        ForumRepository(db_session, principal=principal), forum_id
-    )
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, forum, "Forum not found"
-    )
-    if forum.game_id is None or not (
+    forum, permissions = await get_readable_forum(db_session, principal, forum_id)
+    if not (
         permissions.has(forum, Verbs.FORUM_MODERATE)
         or permissions.has(forum, Verbs.FORUM_WRITE)
     ):
         return schemas.GetForumCharactersResponse(characters=[], game_id=forum.game_id)
 
-    is_gm = await PlayerRepository(db_session, principal=principal).is_gm(
+    npc_repository = QuickNPCRepository(db_session, principal=principal)
+    if forum.game_id is None:
+        # Posting as an NPC outside games is a one-off, so the default is always
+        # the user themselves, never their last NPC.
+        npcs = await npc_repository.get_npcs(NPCOwner.user(principal.id))
+        return schemas.GetForumCharactersResponse(
+            characters=[],
+            npcs=[build_npc_data(npc, principal) for npc in npcs],
+            can_manage_npcs=True,
+        )
+
+    post_repository = PostRepository(db_session, principal=principal)
+    last = None
+    if thread_id is not None:
+        thread = await ThreadRepository(db_session, principal=principal).get(thread_id)
+        if thread is not None and thread.forum_id == forum.id:
+            last = await post_repository.get_latest_by_author(thread.id, principal.id)
+
+    player = await PlayerRepository(db_session, principal=principal).get_player(
         forum.game_id, principal.id
     )
+    is_gm = player is not None and player.is_gm
+    is_member = player is not None and player.state is Player.States.ACCEPTED
     # Quick NPCs can only be made while the game is still active.
     game = (
         await GameRepository(db_session, principal=principal).get(forum.game_id)
-        if is_gm
+        if is_member
         else None
     )
     can_manage_npcs = game is not None and not game.retired
@@ -194,35 +201,25 @@ async def get_forum_characters(
         key=lambda c: (c.user_id != principal.id, c.name.strip().casefold(), c.id),
     )
 
-    post_repository = PostRepository(db_session, principal=principal)
     last_posts = await post_repository.get_last_posts_as(
         forum.game_id, principal.id, [c.id for c in options]
     )
 
     npcs = (
-        await GameNPCRepository(db_session, principal=principal).get_npcs(forum.game_id)
-        if is_gm
-        else []
+        await npc_repository.get_npcs(NPCOwner.game(forum.game_id)) if is_member else []
     )
 
     default_id = None
     default_avatar_id = None
     default_npc_id = None
-    if thread_id is not None:
-        thread = await ThreadRepository(db_session, principal=principal).get(thread_id)
-        if thread is not None and thread.forum_id == forum.id:
-            last = await post_repository.get_latest_by_author(thread.id, principal.id)
-            if last is not None and any(n.id == last.posted_npc_id for n in npcs):
-                default_npc_id = last.posted_npc_id
-            chosen = (
-                next((c for c in options if c.id == last.posted_as_id), None)
-                if last
-                else None
-            )
-            if last is not None and chosen is not None:
-                default_id = chosen.id
-                if any(a.id == last.posted_avatar_id for a in chosen.avatars):
-                    default_avatar_id = last.posted_avatar_id
+    if last is not None:
+        if any(n.id == last.posted_npc_id for n in npcs):
+            default_npc_id = last.posted_npc_id
+        chosen = next((c for c in options if c.id == last.posted_as_id), None)
+        if chosen is not None:
+            default_id = chosen.id
+            if any(a.id == last.posted_avatar_id for a in chosen.avatars):
+                default_avatar_id = last.posted_avatar_id
 
     return schemas.GetForumCharactersResponse(
         characters=[
@@ -251,7 +248,7 @@ async def get_forum_characters(
         ],
         default_id=default_id,
         default_avatar_id=default_avatar_id,
-        npcs=[build_npc_data(npc) for npc in npcs],
+        npcs=[build_npc_data(npc, principal, is_gm) for npc in npcs],
         default_npc_id=default_npc_id,
         game_id=forum.game_id,
         can_manage_npcs=can_manage_npcs,
@@ -264,9 +261,7 @@ async def get_forum(
     forum_id: int, db_session: DBSessionDependency, principal: Principal
 ):
     forum_repository = ForumRepository(db_session, principal=principal)
-    forum = await forum_repository.get(forum_id)
-    if forum is None:
-        raise NotFoundException("Forum not found")
+    forum = await get_forum_or_404(forum_repository, forum_id)
 
     heritage_forums = await get_heritage(forum_repository, forum.heritage)
 

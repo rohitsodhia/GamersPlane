@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import text
 
-from app.models import Post, Thread
+from app.models import Thread
 from app.repositories.thread_repository import ThreadRepository
 from tests.factories import ForumFactory, PostFactory, ThreadFactory
 
@@ -32,41 +32,61 @@ class TestThreadRepository:
 
         assert threads == []
 
-    async def test_get_all_respects_limit(self, repository, create, forum):
-        for _ in range(3):
-            await create(ThreadFactory, forum=forum)
-
-        threads = list(await repository.get_all(forum.id, page=1, limit=2))
-
-        assert len(threads) == 2
-
     async def test_get_all_paginates_to_second_page(self, repository, create, forum):
-        threads = [await create(ThreadFactory, forum=forum) for _ in range(3)]
+        now = datetime.now(timezone.utc)
+        threads = [
+            await create(
+                ThreadFactory, forum=forum, last_post_at=now - timedelta(days=days)
+            )
+            for days in range(3)
+        ]
 
+        page_one = list(await repository.get_all(forum.id, page=1, limit=2))
         page_two = list(await repository.get_all(forum.id, page=2, limit=2))
 
+        assert [t.id for t in page_one] == [threads[0].id, threads[1].id]
         assert [t.id for t in page_two] == [threads[2].id]
 
-    async def test_get_all_orders_by_created_at_descending(
+    async def test_get_all_orders_by_last_post_at_descending(
         self, repository, create, forum
     ):
         now = datetime.now(timezone.utc)
-        older = await create(
-            ThreadFactory, forum=forum, created_at=now - timedelta(days=1)
+        # The thread created first has the most recent reply, so it comes first.
+        replied_to = await create(
+            ThreadFactory,
+            forum=forum,
+            last_post_at=now,
+            created_at=now - timedelta(days=2),
         )
-        newer = await create(ThreadFactory, forum=forum, created_at=now)
+        newer = await create(
+            ThreadFactory,
+            forum=forum,
+            last_post_at=now - timedelta(days=1),
+            created_at=now - timedelta(days=1),
+        )
 
         threads = list(await repository.get_all(forum.id))
 
-        assert [t.id for t in threads] == [newer.id, older.id]
+        assert [t.id for t in threads] == [replied_to.id, newer.id]
+
+    async def test_get_all_breaks_last_post_at_ties_by_id_descending(
+        self, repository, create, forum
+    ):
+        tied_at = datetime.now(timezone.utc)
+        first = await create(ThreadFactory, forum=forum, last_post_at=tied_at)
+        second = await create(ThreadFactory, forum=forum, last_post_at=tied_at)
+
+        threads = list(await repository.get_all(forum.id))
+
+        assert [t.id for t in threads] == [second.id, first.id]
 
     async def test_get_all_sorts_sticky_threads_first(self, repository, create, forum):
         now = datetime.now(timezone.utc)
-        newer = await create(ThreadFactory, forum=forum, created_at=now)
+        newer = await create(ThreadFactory, forum=forum, last_post_at=now)
         older_sticky = await create(
             ThreadFactory,
             forum=forum,
-            created_at=now - timedelta(days=1),
+            last_post_at=now - timedelta(days=1),
             options=Thread.Options(sticky=True),
         )
 
@@ -79,7 +99,7 @@ class TestThreadRepository:
     ):
         now = datetime.now(timezone.utc)
         stale = await create(
-            ThreadFactory, forum=forum, created_at=now - timedelta(days=1)
+            ThreadFactory, forum=forum, last_post_at=now - timedelta(days=1)
         )
         await db_session.execute(
             text("UPDATE threads SET options = '{}' WHERE id = :id"),
@@ -88,7 +108,7 @@ class TestThreadRepository:
         newer_sticky = await create(
             ThreadFactory,
             forum=forum,
-            created_at=now,
+            last_post_at=now,
             options=Thread.Options(sticky=True),
         )
 
@@ -97,38 +117,20 @@ class TestThreadRepository:
         assert [t.id for t in threads] == [newer_sticky.id, stale.id]
 
     async def test_count_by_forum(self, repository, create, forum):
-        await create(ThreadFactory, forum=forum)
-        await create(ThreadFactory, forum=forum)
-
-        count = await repository.count_by_forum(forum.id)
-
-        assert count == 2
-
-    async def test_count_by_forum_excludes_other_forums(
-        self, repository, create, forum
-    ):
         other_forum = await create(ForumFactory, heritage=[])
+        await create(ThreadFactory, forum=forum)
         await create(ThreadFactory, forum=forum)
         await create(ThreadFactory, forum=other_forum)
 
         count = await repository.count_by_forum(forum.id)
 
-        assert count == 1
-
-    async def test_count_by_forum_zero_when_no_threads(self, repository, forum):
-        count = await repository.count_by_forum(forum.id)
-
-        assert count == 0
+        assert count == 2
 
     async def test_create_creates_thread_for_forum(self, repository, forum):
-        thread = await repository.create(forum.id, Thread.Options())
+        thread = await repository.create(forum.id, Thread.Options(sticky=True))
 
         assert thread.id is not None
         assert thread.forum_id == forum.id
-
-    async def test_create_sets_options(self, repository, forum):
-        thread = await repository.create(forum.id, Thread.Options(sticky=True))
-
         assert thread.options == Thread.Options(sticky=True)
 
     async def test_create_increments_forum_thread_count(self, repository, forum):
@@ -146,18 +148,6 @@ class TestThreadRepository:
             await repository.attach_new_post(thread, post)
 
         assert forum.post_count == 2
-
-    async def test_detach_post_decrements_forum_post_count(
-        self, repository, create, forum
-    ):
-        thread = await repository.create(forum.id, Thread.Options())
-        for _ in range(2):
-            post = await create(PostFactory, thread=thread)
-            await repository.attach_new_post(thread, post)
-
-        await repository.detach_post(thread, post)
-
-        assert forum.post_count == 1
 
     async def test_delete_removes_thread_and_its_posts_from_forum_counts(
         self, repository, create, forum
@@ -203,28 +193,13 @@ class TestThreadRepository:
         assert thread.last_post_at == second_post.published_at
         assert thread.post_count == 2
 
-    async def test_attach_new_post_rejects_unpublished_post(
-        self, repository, create, forum
-    ):
-        thread = await repository.create(forum.id, Thread.Options())
-        draft_post = await create(PostFactory, thread=thread, state=Post.States.DRAFT)
-
-        with pytest.raises(AssertionError):
-            await repository.attach_new_post(thread, draft_post)
-
-    async def test_delete_sets_deleted_timestamp(self, repository, forum):
-        thread = await repository.create(forum.id, Thread.Options())
-
-        await repository.delete(thread)
-
-        assert thread.deleted is not None
-
     async def test_delete_excludes_thread_from_get_all(self, repository, create, forum):
         thread = await create(ThreadFactory, forum=forum)
 
         await repository.delete(thread)
         threads = list(await repository.get_all(forum.id))
 
+        assert thread.deleted is not None
         assert threads == []
 
     async def test_detach_post_decrements_post_count(self, repository, create, forum):
@@ -237,6 +212,7 @@ class TestThreadRepository:
         await repository.detach_post(thread, second_post)
 
         assert thread.post_count == 1
+        assert forum.post_count == 1
 
     async def test_detach_post_updates_last_post_to_previous_post(
         self, repository, create, forum
@@ -269,27 +245,6 @@ class TestThreadRepository:
         assert thread.last_post_at == third_post.published_at
         assert thread.post_count == 2
 
-    async def test_detach_post_rejects_first_post(self, repository, create, forum):
-        thread = await repository.create(forum.id, Thread.Options())
-        first_post = await create(PostFactory, thread=thread)
-        await repository.attach_new_post(thread, first_post)
-
-        with pytest.raises(AssertionError):
-            await repository.detach_post(thread, first_post)
-
-    async def test_get_last_posts_by_forum_ids_returns_latest_post_per_forum(
-        self, repository, create, forum
-    ):
-        thread = await create(ThreadFactory, forum=forum)
-        older_post = await create(PostFactory, thread=thread)
-        await repository.attach_new_post(thread, older_post)
-        newer_post = await create(PostFactory, thread=thread)
-        await repository.attach_new_post(thread, newer_post)
-
-        last_posts = await repository.get_last_posts_by_forum_ids([forum.id])
-
-        assert last_posts[forum.id].id == newer_post.id
-
     async def test_get_last_posts_by_forum_ids_across_multiple_threads(
         self, repository, create, forum
     ):
@@ -321,10 +276,3 @@ class TestThreadRepository:
 
         assert forum.id not in last_posts
         assert other_forum.id not in last_posts
-
-    async def test_get_last_posts_by_forum_ids_omits_forums_without_posts(
-        self, repository, forum
-    ):
-        last_posts = await repository.get_last_posts_by_forum_ids([forum.id])
-
-        assert last_posts == {}

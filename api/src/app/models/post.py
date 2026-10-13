@@ -15,7 +15,7 @@ from app.helpers.enums import LabelEnum, LabelEnumType
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
-    from app.models import Character, GameNPC, Thread, User
+    from app.models import Character, QuickNPC, Thread, User
 
 
 class Post(Base, SoftDeleteMixin, TimestampMixin):
@@ -67,11 +67,11 @@ class Post(Base, SoftDeleteMixin, TimestampMixin):
     # Posted as a quick NPC instead of a character; never alongside posted_as_id.
     posted_npc_id: Mapped[int | None] = mapped_column(
         ForeignKey(
-            "game_npcs.id", ondelete="SET NULL", name="posts_posted_npc_id_fkey"
+            "quick_npcs.id", ondelete="SET NULL", name="posts_posted_npc_id_fkey"
         ),
         nullable=True,
     )
-    posted_npc: Mapped[GameNPC | None] = relationship(lazy="joined")
+    posted_npc: Mapped[QuickNPC | None] = relationship(lazy="joined")
 
     @validates("state")
     def _validate_state(self, key: str, state: States) -> States:

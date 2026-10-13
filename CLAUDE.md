@@ -53,7 +53,7 @@ uv run ruff format src/
 ../docker/api_tests tests/referral_links/test_routes.py::TestGetReferralLinks::test_get_referral_links_is_public
 ```
 
-`docker/api_tests` (at the repo root, not under `api/`) runs `pytest` inside the `gamersplane-api` container (`docker exec -i -w /app/src gamersplane-api pytest $@`), so the stack must be up (`./compose.sh -e dev up`) before running tests. Tests use a real PostgreSQL database named `{DATABASE_DATABASE}_test` (drops/recreates tables on each test function). There is no mocking of the database layer.
+`docker/api_tests` (at the repo root, not under `api/`) runs `pytest` inside the `gamersplane-api` container (`docker exec -i -w /app/src gamersplane-api pytest $@`), so the stack must be up (`./compose.sh -e dev up`) before running tests. Tests use a real PostgreSQL database named `{DATABASE_DATABASE}_test`. Migrations run once per session (downgrade to base, then upgrade to head), and each test runs inside a savepoint that is rolled back afterwards (`wrap_in_savepoint` in `tests/conftest.py`; the `client` fixture pulls it in, and tests that don't use `client` request it directly). There is no mocking of the database layer.
 
 **Alembic migrations** live in `api/src/alembic/`. Run via `api/alembic.sh` (from `api/`; it runs `docker compose exec`).
 
@@ -98,6 +98,15 @@ Any time you need to interact with the running frontend dev server — via Claud
 ## Testing Workflow
 
 After writing or substantially changing a suite of tests (a new test file, or a batch of new tests added to an existing one), spawn a subagent to audit the suite before considering the work done. Run the audit agent after tests are written or updated, but before running the tests. Ask it to flag tests that are low-value: ones that just re-assert a stdlib/framework guarantee rather than our code's behavior, trivial wrappers that don't exercise any real logic or branching, and redundant tests that cover the exact same code path as another test with no meaningfully different input or assertion. It should distinguish that from tests that look similar but exercise genuinely distinct branches (e.g. keep-highest vs. keep-lowest, or three variants of a type flag) — those should be kept. Have it report a verdict (KEEP/CUT/MERGE) per test rather than editing anything itself, then apply the agreed-on edits and re-run the suite.
+
+**End-of-feature test review.** When a feature is done, before it's merged, spawn a subagent (`model: "sonnet"`) to review every test file the feature touched, as whole files and not just the new tests. Have it read the code under test and grep the rest of the suite (including `tests/repositories/` and `test_middleware.py`) for coverage of the same paths. Flag, with a KEEP/CUT/MERGE verdict per test:
+
+- checks that middleware enforces globally, re-tested per endpoint (login is covered by `test_public_routes.py`);
+- shared-helper 404/403s re-tested on every route that uses the helper (keep one or two per helper; a route with its own copy of a check still gets a test);
+- repository behavior re-tested through a route that adds no logic of its own (keep the repository test);
+- plus the per-batch criteria above.
+
+It reports only; apply the agreed cuts, then re-run the suite.
 
 ## Implementation Workflow
 

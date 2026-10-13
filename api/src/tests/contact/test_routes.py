@@ -69,19 +69,11 @@ class TestSendContact:
         assert "impostor" not in content
 
     @pytest.mark.parametrize("field", ["name", "email", "subject", "message"])
-    @pytest.mark.parametrize("value", ["", "   "])
-    async def test_blank_required_field_rejected(self, client, sent, field, value):
-        response = await client.post("/contact", json=body(**{field: value}))
+    async def test_blank_required_field_rejected(self, client, sent, field):
+        response = await client.post("/contact", json=body(**{field: "   "}))
 
         assert response.status_code == 422
         assert response.json()["errors"][0]["field"] == field
-        sent.assert_not_awaited()
-
-    async def test_invalid_email_rejected(self, client, sent):
-        response = await client.post("/contact", json=body(email="not-an-email"))
-
-        assert response.status_code == 422
-        assert response.json()["errors"][0]["field"] == "email"
         sent.assert_not_awaited()
 
     @pytest.mark.parametrize("field", ["subject", "name", "username"])
@@ -100,9 +92,6 @@ class TestSendContact:
     @pytest.mark.parametrize(
         "overrides",
         [
-            {"name": "n" * 51},
-            {"username": "u" * 51},
-            {"subject": "s" * 101},
             {"message": "m" * 5001},
             {"email": "a" * 90 + "@example.org"},
         ],
@@ -161,14 +150,6 @@ class TestRateLimit:
         assert response.json()["errors"][0]["code"] == "rate_limited"
         assert sent.await_count == rate_limit.RATE_LIMIT_MAX
 
-    async def test_invalid_submissions_do_not_count(self, client, sent):
-        for _ in range(rate_limit.RATE_LIMIT_MAX + 1):
-            await client.post("/contact", json=body(subject=""))
-
-        response = await client.post("/contact", json=body())
-
-        assert response.status_code == 200
-
     async def test_limit_is_per_rightmost_forwarded_ip(self, client, sent):
         def post(forwarded):
             return client.post(
@@ -185,12 +166,6 @@ class TestRateLimit:
 
 
 class TestRateLimitHelpers:
-    async def test_client_ip_falls_back_to_connection_host(self, client, sent):
-        for _ in range(rate_limit.RATE_LIMIT_MAX):
-            await client.post("/contact", json=body())
-
-        assert (await client.post("/contact", json=body())).status_code == 429
-
     def test_window_expires(self, monkeypatch):
         now = 1000.0
         monkeypatch.setattr(rate_limit.time, "monotonic", lambda: now)

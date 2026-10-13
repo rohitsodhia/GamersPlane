@@ -1,6 +1,10 @@
-from app.exceptions import ForbiddenException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.exceptions import ForbiddenException, NotFoundException
 from app.forums.permissions import ForumPermissions, Verbs
+from app.middleware import Principal
 from app.models import Forum, Post, Thread
+from app.repositories import ThreadRepository
 from app.threads import schemas
 from app.threads.option_schemas import ThreadOptionsUpdate
 
@@ -14,6 +18,20 @@ OPTION_VERBS = {
     "allow_rolls": Verbs.FORUM_ADD_ROLLS,
     "allow_draws": Verbs.FORUM_ADD_DRAWS,
 }
+
+
+async def get_readable_thread(
+    db_session: AsyncSession, principal: Principal, thread_id: int
+) -> tuple[Thread, ForumPermissions]:
+    """The thread and the principal's permissions on its forum; a thread that's
+    missing or in a forum they can't read is the same 404."""
+    thread = await ThreadRepository(db_session, principal=principal).get(thread_id)
+    if thread is None:
+        raise NotFoundException("Thread not found")
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, thread.forum, "Thread not found"
+    )
+    return thread, permissions
 
 
 def build_post_data(post: Post) -> schemas.PostData:

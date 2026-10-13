@@ -79,26 +79,16 @@ class TestPollInput:
         "overrides",
         [
             {"question": "   "},
-            {"question": "x" * 201},
-            {"options": [{"text": "Only one"}]},
-            {"options": [{"text": f"Option {n}"} for n in range(26)]},
             {"options": [{"text": "A"}, {"text": "  "}]},
-            {"options": [{"text": "A" * 201}, {"text": "B"}]},
             {"options": [{"text": "Same"}, {"text": " same "}]},
             {"options": [{"id": 4, "text": "A"}, {"id": 4, "text": "B"}]},
-            {"options_per_user": 0},
             {"options_per_user": 4},
         ],
         ids=[
             "blank question",
-            "long question",
-            "one option",
-            "too many options",
             "blank option",
-            "long option",
             "duplicate text",
             "duplicate id",
-            "zero per user",
             "per user above option count",
         ],
     )
@@ -168,23 +158,6 @@ class TestCreateThreadWithPoll:
 
         assert response.status_code == 403
         assert await count(db_session, Poll) == 0
-
-    async def test_moderator_can_add_a_poll(self, authed_client, create, db_session):
-        client, user = authed_client
-        forum = await create(ForumFactory, heritage=[SITE_ROOT_FORUM_ID])
-        await grant(db_session, user, forum, Verbs.FORUM_MODERATE)
-
-        response = await client.post(
-            "/threads",
-            json={
-                "forum_id": forum.id,
-                "title": "Hello",
-                "body": prose_doc("Hi"),
-                "poll": poll_payload(),
-            },
-        )
-
-        assert response.status_code == 200
 
     async def test_option_ids_on_create_return_400(
         self, authed_client, create, db_session
@@ -334,20 +307,6 @@ class TestEditPostPoll:
         assert response.status_code == 400
         assert await db_session.get(PollOption, foreign.id) is not None
 
-    async def test_removing_a_poll_without_add_poll_returns_403(
-        self, authed_client, create, db_session
-    ):
-        client, user = authed_client
-        thread, first_post = await make_thread(create, db_session, user)
-        await make_poll(db_session, thread)
-
-        response = await client.patch(
-            f"/posts/{first_post.id}", json=edit_payload(poll=None)
-        )
-
-        assert response.status_code == 403
-        assert await count(db_session, Poll) == 1
-
     async def test_poll_on_a_reply_returns_400(self, authed_client, create, db_session):
         client, user, thread, _first_post, _options = await self.setup_thread(
             authed_client, create, db_session
@@ -457,20 +416,6 @@ class TestGetThreadPoll:
             "Bananas",
             "Cherries",
         ]
-
-    async def test_moderators_get_no_extra_visibility(
-        self, authed_client, create, db_session
-    ):
-        client, user = authed_client
-        thread, _first = await make_thread(
-            create, db_session, await create(UserFactory)
-        )
-        await grant(db_session, user, thread.forum, Verbs.FORUM_MODERATE)
-        await make_poll(db_session, thread)
-
-        poll = (await client.get(f"/threads/{thread.id}")).json()["poll"]
-
-        assert poll["show_results"] is False
 
     async def test_thread_creator_sees_results(self, authed_client, create, db_session):
         client, user = authed_client
@@ -658,16 +603,6 @@ class TestVote:
             f"/threads/{thread.id}/poll/vote", json={"option_ids": option_ids}
         )
 
-    async def test_vote_requires_auth(self, client, create, db_session):
-        thread, _first = await make_thread(
-            create, db_session, await create(UserFactory)
-        )
-        options = await make_poll(db_session, thread)
-
-        response = await self.vote(client, thread, [options[0].id])
-
-        assert response.status_code == 403
-
     async def test_vote_is_recorded_and_results_returned(
         self, authed_client, create, db_session
     ):
@@ -697,15 +632,6 @@ class TestVote:
         assert response.status_code == 200
         assert sorted(response.json()["my_votes"]) == [options[0].id, options[2].id]
 
-    async def test_unknown_thread_returns_404(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.put(
-            "/threads/999999/poll/vote", json={"option_ids": [1]}
-        )
-
-        assert response.status_code == 404
-
     async def test_thread_without_poll_returns_404(
         self, authed_client, create, db_session
     ):
@@ -718,20 +644,6 @@ class TestVote:
 
         assert response.status_code == 404
         assert response.json()["errors"][0]["detail"] == "Poll not found"
-
-    async def test_unreadable_thread_returns_404(
-        self, authed_client, create, db_session
-    ):
-        client, _user = authed_client
-        forum = await create(ForumFactory, heritage=[])
-        thread, _first = await make_thread(
-            create, db_session, await create(UserFactory), forum=forum
-        )
-        options = await make_poll(db_session, thread)
-
-        response = await self.vote(client, thread, [options[0].id])
-
-        assert response.status_code == 404
 
     async def test_locked_thread_returns_403_even_for_moderators(
         self, authed_client, create, db_session

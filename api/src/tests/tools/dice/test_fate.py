@@ -4,30 +4,12 @@ from app.tools.dice.fate import FateRoll
 
 
 class TestFateRollParsing:
-    def test_sets_num_dice(self):
-        roll = FateRoll()
-        roll.new_roll("4")
-
-        assert roll.num_dice == 4
-
-    @pytest.mark.parametrize("count", [0, -4])
-    def test_raises_for_fewer_than_one_die(self, count):
+    @pytest.mark.parametrize("count", [0, 101])
+    def test_rejects_a_dice_count_outside_1_to_100(self, count):
         roll = FateRoll()
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid dice count"):
             roll.new_roll(str(count))
-
-    def test_defaults_modifier_to_zero(self):
-        roll = FateRoll()
-        roll.new_roll("4")
-
-        assert roll.modifier == 0
-
-    def test_sets_modifier(self):
-        roll = FateRoll()
-        roll.new_roll("4", modifier=2)
-
-        assert roll.modifier == 2
 
 
 class TestFateRollRolling:

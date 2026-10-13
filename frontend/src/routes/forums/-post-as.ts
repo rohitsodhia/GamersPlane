@@ -1,14 +1,13 @@
 import type { PostableCharacter } from "#/queries/forums";
-import type { GameImage, GameNpc } from "#/queries/game";
 import type { PostedNpcInput } from "#/queries/posts";
+import type { NpcImage, NpcLibrary, QuickNpc } from "#/queries/quick-npcs";
 
 export type CharacterType = PostableCharacter["type"];
 
-// A quick NPC to post as: a name and an optional library image. `id` is set when
-// it's an existing name + image pair, null for one the server will find or make
-// when the post is saved.
+// A quick NPC to post as: an existing name + image pair from the library (an
+// image id is unknown for a post's own NPC until the list resolves it).
 export type QuickNpcValue = {
-	id: number | null;
+	id: number;
 	name: string;
 	imageId: number | null;
 };
@@ -31,7 +30,7 @@ export const RECENT_LIMIT = 5;
 // A type's list gets a filter box once it has more characters than this.
 export const FILTER_THRESHOLD = 8;
 
-export function npcValue(npc: GameNpc): PostAsValue {
+export function npcValue(npc: QuickNpc): PostAsValue {
 	return {
 		characterId: null,
 		avatarId: null,
@@ -39,11 +38,23 @@ export function npcValue(npc: GameNpc): PostAsValue {
 	};
 }
 
+// The library new quick NPCs go to: the game's, or the user's own outside games.
+// Null when they can't make any here.
+export function npcLibraryOf(data: {
+	can_manage_npcs: boolean;
+	game_id: number | null;
+}): NpcLibrary | null {
+	if (!data.can_manage_npcs) return null;
+	return data.game_id === null
+		? { kind: "me" }
+		: { kind: "game", gameId: data.game_id };
+}
+
 export function defaultPostAs(data: {
 	default_id: number | null;
 	default_avatar_id: number | null;
 	default_npc_id?: number | null;
-	npcs?: GameNpc[];
+	npcs?: QuickNpc[];
 }): PostAsValue {
 	const npc = data.npcs?.find((n) => n.id === data.default_npc_id);
 	if (npc) return npcValue(npc);
@@ -108,41 +119,43 @@ function orderRecent<T>(
 	};
 }
 
-// A row of the NPC list: an NPC character, a quick NPC, or the "create a quick
-// NPC named ..." row.
-export type NpcEntry =
+// A pickable row of a list: a character or a quick NPC.
+export type ListedEntry =
 	| { kind: "character"; key: string; character: PostableCharacter }
-	| { kind: "npc"; key: string; npc: GameNpc }
-	| { kind: "new"; key: string; name: string };
+	| { kind: "npc"; key: string; npc: QuickNpc };
+
+// A row of the NPC list: a pickable one, or the "create a quick NPC named ..."
+// row, which opens the quick NPC modal rather than picking anything.
+export type NpcEntry = ListedEntry | { kind: "new"; key: string; name: string };
 
 // The rows of a type's list: its characters, and for NPC the quick NPCs too.
 export function entriesOfType(
 	characters: PostableCharacter[],
-	npcs: GameNpc[],
+	npcs: QuickNpc[],
 	type: CharacterType,
-): NpcEntry[] {
+): ListedEntry[] {
 	return [
 		...charactersOfType(characters, type).map(
-			(character): NpcEntry => ({
+			(character): ListedEntry => ({
 				kind: "character",
 				key: `c${character.id}`,
 				character,
 			}),
 		),
 		...(type === "npc"
-			? npcs.map((npc): NpcEntry => ({ kind: "npc", key: `n${npc.id}`, npc }))
+			? npcs.map((npc): ListedEntry => ({ kind: "npc", key: `n${npc.id}`, npc }))
 			: []),
 	];
 }
 
-function entryLastUsed(entry: NpcEntry): string | null {
-	if (entry.kind === "character") return entry.character.last_used_at;
-	return entry.kind === "npc" ? entry.npc.last_used_at : null;
+function entryLastUsed(entry: ListedEntry): string | null {
+	return entry.kind === "character"
+		? entry.character.last_used_at
+		: entry.npc.last_used_at;
 }
 
-function entryMatches(entry: NpcEntry, query: string): boolean {
+function entryMatches(entry: ListedEntry, query: string): boolean {
 	if (entry.kind === "character") return matchesQuery(entry.character, query);
-	if (entry.kind === "new") return true;
 	const needle = query.trim().toLowerCase();
 	return needle === "" || entry.npc.name.toLowerCase().includes(needle);
 }
@@ -151,9 +164,9 @@ function entryMatches(entry: NpcEntry, query: string): boolean {
 // quick NPCs ranked together by when each was last used), then the rest in the
 // order given.
 export function orderEntries(
-	entries: NpcEntry[],
+	entries: ListedEntry[],
 	query = "",
-): { items: NpcEntry[]; recentCount: number } {
+): { items: ListedEntry[]; recentCount: number } {
 	return orderRecent(
 		entries,
 		(entry) => entry.key,
@@ -163,15 +176,9 @@ export function orderEntries(
 }
 
 // The "New quick NPC: <name>" row for what was typed, unless a quick NPC already
-// has exactly that name. With nothing typed, an unsaved NPC already chosen keeps
-// its row so it stays visible in the list.
-export function newNpcEntry(
-	query: string,
-	npcs: GameNpc[],
-	value: PostAsValue,
-): NpcEntry | null {
-	const typed = query.trim();
-	const name = typed || (value.npc && value.npc.id === null ? value.npc.name : "");
+// has exactly that name.
+export function newNpcEntry(query: string, npcs: QuickNpc[]): NpcEntry | null {
+	const name = query.trim();
 	if (name === "" || npcs.some((npc) => npc.name === name)) return null;
 	return { kind: "new", key: "new", name };
 }
@@ -181,10 +188,10 @@ export function showsFilter(entries: unknown[], canCreateNpc = false): boolean {
 }
 
 // Which type buttons show: PC / NPC only when there is someone of the type to
-// pick, except that a GM can always open NPC to make a quick NPC.
+// pick, except that anyone who can make quick NPCs can always open NPC to do so.
 export function visibleTypes(
 	characters: PostableCharacter[],
-	npcs: GameNpc[],
+	npcs: QuickNpc[],
 	canCreateNpc: boolean,
 ): { type: CharacterType; label: string }[] {
 	return CHARACTER_TYPES.filter(({ type }) =>
@@ -198,33 +205,23 @@ export function pickCharacter(character: PostableCharacter): PostAsValue {
 	return { characterId: character.id, avatarId: null };
 }
 
-export function pickEntry(entry: NpcEntry): PostAsValue {
-	if (entry.kind === "character") return pickCharacter(entry.character);
-	if (entry.kind === "npc") return npcValue(entry.npc);
-	return {
-		characterId: null,
-		avatarId: null,
-		npc: { id: null, name: entry.name, imageId: null },
-	};
+export function pickEntry(entry: ListedEntry): PostAsValue {
+	return entry.kind === "character"
+		? pickCharacter(entry.character)
+		: npcValue(entry.npc);
 }
 
-export function isEntrySelected(entry: NpcEntry, value: PostAsValue): boolean {
+export function isEntrySelected(entry: ListedEntry, value: PostAsValue): boolean {
 	if (entry.kind === "character") {
 		return !value.npc && value.characterId === entry.character.id;
 	}
-	if (!value.npc) return false;
-	if (entry.kind === "npc") return value.npc.id === entry.npc.id;
-	return value.npc.id === null && value.npc.name === entry.name;
+	return value.npc?.id === entry.npc.id;
 }
 
-// Matches the value to the list: an existing pair's image comes from it, so a
-// value built before the list loaded (a post being edited) still shows it, and a
-// new pair the server has since made takes its id.
-export function resolveNpc(npc: QuickNpcValue, npcs: GameNpc[]): QuickNpcValue {
-	const listed =
-		npc.id === null
-			? npcs.find((n) => n.name === npc.name && (n.image?.id ?? null) === npc.imageId)
-			: npcs.find((n) => n.id === npc.id);
+// Matches the value to the list: the pair's image comes from it, so a value built
+// before the list loaded (a post being edited) still shows it.
+export function resolveNpc(npc: QuickNpcValue, npcs: QuickNpc[]): QuickNpcValue {
+	const listed = npcs.find((n) => n.id === npc.id);
 	return listed
 		? { id: listed.id, name: npc.name, imageId: listed.image?.id ?? null }
 		: npc;
@@ -234,8 +231,8 @@ export function resolveNpc(npc: QuickNpcValue, npcs: GameNpc[]): QuickNpcValue {
 // post's own NPC.
 export function npcImageUrl(
 	npc: QuickNpcValue,
-	images: GameImage[],
-	npcs: GameNpc[],
+	images: NpcImage[],
+	npcs: QuickNpc[],
 	current: { id: number; image: string | null } | null = null,
 ): string | null {
 	if (npc.imageId === null) return null;
@@ -283,12 +280,12 @@ export function modeOf(
 
 // Opening a type's list picks its first entry unless one of the type is already
 // chosen. Null means leave the value as it is (also when the NPC list has nothing
-// to pick yet, so a GM can type a new name).
+// to pick yet, so a new name can be typed).
 export function selectOnOpen(
 	characters: PostableCharacter[],
 	type: CharacterType,
 	value: PostAsValue,
-	npcs: GameNpc[] = [],
+	npcs: QuickNpc[] = [],
 ): PostAsValue | null {
 	const entries = entriesOfType(characters, npcs, type);
 	if (value.npc ? type === "npc" : entries.some((e) => isEntrySelected(e, value))) {
@@ -310,13 +307,6 @@ export function postAsPayload(value: PostAsValue): {
 	return { posted_as_id: value.characterId, posted_avatar_id: value.avatarId };
 }
 
-// Whether two quick NPC values are the same pair. An existing pair is told by its
-// id (a post's NPC value doesn't know its image id), a new one by name and image.
-function sameNpc(a: QuickNpcValue, b: QuickNpcValue): boolean {
-	if (a.id !== null && b.id !== null) return a.id === b.id;
-	return a.name === b.name && a.imageId === b.imageId;
-}
-
 // The `posted_as_id` / `posted_avatar_id` / `posted_npc` part of an edit
 // request: only what moved off what the post had, so an unchanged or hidden
 // picker never clears anything. `initial.avatarId` is the avatar the post showed
@@ -334,7 +324,8 @@ export function changedPostedAs(
 	posted_npc?: PostedNpcInput | null;
 } {
 	if (current.npc) {
-		if (initial.npc && sameNpc(initial.npc, current.npc)) return {};
+		// Told by id: a post's NPC value doesn't know its image id.
+		if (initial.npc?.id === current.npc.id) return {};
 		return { posted_npc: { name: current.npc.name, image_id: current.npc.imageId } };
 	}
 	if (initial.npc) {

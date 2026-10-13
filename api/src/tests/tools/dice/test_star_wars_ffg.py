@@ -8,11 +8,6 @@ class TestStarWarsFFGDie:
         with pytest.raises(ValueError):
             StarWarsFFGDie("nonsense")
 
-    def test_sides_matches_face_count(self):
-        die = StarWarsFFGDie("proficiency")
-
-        assert die.sides == len(DICE_FACES["proficiency"])
-
     def test_roll_returns_face_at_rolled_index(self, monkeypatch):
         monkeypatch.setattr(
             "app.tools.dice.star_wars_ffg.random.randint", lambda a, b: 3
@@ -25,9 +20,15 @@ class TestStarWarsFFGDie:
 class TestStarWarsFFGRollParsing:
     def test_expands_shorthand_letters(self):
         roll = StarWarsFFGRoll()
-        roll.new_roll("a p b")
+        roll.new_roll("a p b a a")
 
-        assert roll._dice_names == ["ability", "proficiency", "boost"]
+        assert roll._dice_names == [
+            "ability",
+            "proficiency",
+            "boost",
+            "ability",
+            "ability",
+        ]
 
     def test_accepts_full_names_case_insensitively(self):
         roll = StarWarsFFGRoll()
@@ -35,29 +36,16 @@ class TestStarWarsFFGRollParsing:
 
         assert roll._dice_names == ["ability", "proficiency"]
 
-    def test_ignores_unrecognized_tokens(self):
+    @pytest.mark.parametrize(
+        ("expression", "expected"),
+        [("a xyz p", ["ability", "proficiency"]), ("aaa", [])],
+        ids=["unknown-token", "adjacent-letters-one-token"],
+    )
+    def test_ignores_unrecognized_tokens(self, expression, expected):
         roll = StarWarsFFGRoll()
-        roll.new_roll("a xyz p")
+        roll.new_roll(expression)
 
-        assert roll._dice_names == ["ability", "proficiency"]
-
-    def test_repeated_letters_produce_multiple_dice(self):
-        roll = StarWarsFFGRoll()
-        roll.new_roll("a a a")
-
-        assert roll._dice_names == ["ability", "ability", "ability"]
-
-    def test_adjacent_letters_with_no_separator_are_one_token_and_skipped(self):
-        roll = StarWarsFFGRoll()
-        roll.new_roll("aaa")
-
-        assert roll._dice_names == []
-
-    def test_reuses_die_instance_per_type(self):
-        roll = StarWarsFFGRoll()
-        roll.new_roll("a a")
-
-        assert len(roll._dice) == 1
+        assert roll._dice_names == expected
 
 
 class TestStarWarsFFGRollRolling:

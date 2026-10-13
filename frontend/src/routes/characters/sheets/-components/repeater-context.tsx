@@ -8,7 +8,7 @@
 // context, which `Repeater` publishes once per row.
 
 import { createContext, type ReactNode, useContext } from "react";
-import type { ClickAction, RepeaterRowAction, SheetElement } from "./types";
+import type { RepeaterRowAction, SheetElement } from "./types";
 
 export interface RepeaterRowActions {
 	/** Append a row (no-op at `max`). */
@@ -45,9 +45,13 @@ export function useRepeaterRowActions(): RepeaterRowActions | null {
 	return useContext(RepeaterRowActionsContext);
 }
 
-/** Narrows a `button`'s `on_click` to the add / remove-row variant. */
-export function isRepeaterRowAction(action: ClickAction): action is RepeaterRowAction {
-	return "row" in action;
+/**
+ * Narrows a `button`'s `on_click` to the add / remove-row variant. Takes
+ * `unknown` because the backend doesn't require `on_click`, so a malformed sheet
+ * can hand this `undefined` or a non-object.
+ */
+export function isRepeaterRowAction(action: unknown): action is RepeaterRowAction {
+	return typeof action === "object" && action !== null && "row" in action;
 }
 
 /**

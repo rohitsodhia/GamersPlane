@@ -108,7 +108,6 @@ class TestValidateCharacterValues:
     @pytest.mark.parametrize(
         ("values", "message"),
         [
-            ({"nope": 1}, "Unknown field id 'nope' in values"),
             ({"lvl1": 1}, "Unknown field id 'lvl1' in values"),
             ({"cls1": [{"hp1": 1}]}, "Unknown field id 'hp1' in values.cls1[0]"),
             ({"sts1": {"con1": {}}}, "Unknown grid row id 'con1' in values.sts1"),
@@ -117,7 +116,7 @@ class TestValidateCharacterValues:
                 "Unknown field id 'scr1' in values.svs1.frt1",
             ),
         ],
-        ids=["root", "row-field-at-root", "root-field-in-row", "grid-row", "grid"],
+        ids=["row-field-at-root", "root-field-in-row", "grid-row", "grid"],
     )
     def test_rejects_keys_the_sheet_doesnt_define_in_that_scope(self, values, message):
         with pytest.raises(ValidationError, match=re.escape(message)):

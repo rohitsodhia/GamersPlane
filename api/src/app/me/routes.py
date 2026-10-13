@@ -8,9 +8,23 @@ from app.database import DBSessionDependency
 from app.forums.permissions import moderated_roots
 from app.helpers.avatars import process_avatar_upload, save_avatar
 from app.helpers.functions import error_response
+from app.helpers.remote_image import fetch_remote_image
 from app.me import schemas
 from app.middleware import Principal
 from app.models import Forum, RolePermission, UserMeta
+from app.quick_npcs.functions import (
+    build_image_data,
+    build_npc_data,
+    require_npc_image,
+    store_npc_image,
+)
+from app.quick_npcs.schemas import (
+    LinkImageInput,
+    NPCData,
+    NPCImageData,
+    PostedNPCInput,
+)
+from app.repositories import NPCOwner, QuickNPCRepository
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 from app.repositories.pm_repository import PMRepository
 from app.repositories.rbac_repository import RBACkRepository
@@ -231,6 +245,67 @@ async def delete_current_user_avatar(
     return {
         "success": True,
     }
+
+
+@me.get("/images", response_model=list[NPCImageData])
+async def get_my_images(db_session: DBSessionDependency, principal: Principal):
+    npc_repository = QuickNPCRepository(db_session, principal=principal)
+    return [
+        build_image_data(image)
+        for image in await npc_repository.get_images(NPCOwner.user(principal.id))
+    ]
+
+
+@me.post("/images", response_model=NPCImageData)
+async def upload_my_image(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    image: UploadFile = File(...),
+):
+    return await store_npc_image(
+        QuickNPCRepository(db_session, principal=principal),
+        NPCOwner.user(principal.id),
+        await image.read(),
+    )
+
+
+@me.post("/images/link", response_model=NPCImageData)
+async def link_my_image(
+    data: LinkImageInput, db_session: DBSessionDependency, principal: Principal
+):
+    """Download the image at a URL once and keep our own copy of it."""
+    contents = await fetch_remote_image(data.url)
+    return await store_npc_image(
+        QuickNPCRepository(db_session, principal=principal),
+        NPCOwner.user(principal.id),
+        contents,
+    )
+
+
+@me.get("/npcs", response_model=list[NPCData])
+async def get_my_npcs(db_session: DBSessionDependency, principal: Principal):
+    npc_repository = QuickNPCRepository(db_session, principal=principal)
+    return [
+        build_npc_data(npc, principal)
+        for npc in await npc_repository.get_npcs(NPCOwner.user(principal.id))
+    ]
+
+
+@me.post("/npcs", response_model=NPCData)
+async def create_my_npc(
+    data: PostedNPCInput, db_session: DBSessionDependency, principal: Principal
+):
+    """Add a name + image pair to the principal's NPCs; an existing one is
+    returned."""
+    owner = NPCOwner.user(principal.id)
+    npc_repository = QuickNPCRepository(db_session, principal=principal)
+    image = (
+        await require_npc_image(npc_repository, owner, data.image_id)
+        if data.image_id is not None
+        else None
+    )
+    npc = await npc_repository.get_or_create(owner, data.name, image)
+    return build_npc_data(npc, principal)
 
 
 @me.post(

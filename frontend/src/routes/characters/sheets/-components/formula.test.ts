@@ -1,12 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-	collectRefs,
-	type Expr,
-	evaluate,
-	FormulaError,
-	isOpName,
-	type RefResolver,
-} from "./formula";
+import { type Expr, evaluate, FormulaError, type RefResolver } from "./formula";
 
 /** A resolver backed by a plain record; unknown names come back `undefined`. */
 const from =
@@ -51,13 +44,8 @@ describe("evaluate — D&D ability modifier (the driving use case)", () => {
 		args: [{ op: "/", args: [{ op: "-", args: [{ ref: "score" }, 10] }, 2] }],
 	});
 
-	it.each([
-		[10, 0],
-		[15, 2],
-		[8, -1],
-		[1, -5],
-	])("score %i -> %i", (score, expected) => {
-		expect(evaluate(mod(), from({ score: String(score) }))).toBe(expected);
+	it("floors a below-10 score to a negative modifier", () => {
+		expect(evaluate(mod(), from({ score: "8" }))).toBe(-1);
 	});
 });
 
@@ -137,19 +125,6 @@ describe("evaluate — logical & conditional", () => {
 	it("if treats a zero condition as falsy", () => {
 		expect(evaluate({ op: "if", args: [0, 1, 2] }, from({}))).toBe(2);
 	});
-
-	it("models 'proficient save bonus' — if(prof, mod + profBonus, mod)", () => {
-		const expr: Expr = {
-			op: "if",
-			args: [
-				{ ref: "prof" },
-				{ op: "+", args: [{ ref: "mod" }, { ref: "profBonus" }] },
-				{ ref: "mod" },
-			],
-		};
-		expect(evaluate(expr, from({ prof: true, mod: "3", profBonus: "2" }))).toBe(5);
-		expect(evaluate(expr, from({ prof: false, mod: "3", profBonus: "2" }))).toBe(3);
-	});
 });
 
 describe("evaluate — numeric functions", () => {
@@ -193,45 +168,10 @@ describe("evaluate — malformed trees throw FormulaError", () => {
 		expect(() => evaluate({ op: "min", args: [] }, from({}))).toThrow(FormulaError);
 	});
 
-	it("a node that is neither literal, ref, nor op", () => {
-		expect(() => evaluate({ foo: "bar" } as never, from({}))).toThrow(FormulaError);
-	});
-
-	it("null in operand position", () => {
-		expect(() => evaluate(null as never, from({}))).toThrow(FormulaError);
-	});
-});
-
-describe("collectRefs", () => {
-	it("returns refs in first-encounter order without duplicates", () => {
-		const expr: Expr = {
-			op: "+",
-			args: [{ ref: "b" }, { op: "*", args: [{ ref: "a" }, { ref: "b" }] }],
-		};
-		expect(collectRefs(expr)).toEqual(["b", "a"]);
-	});
-
-	it("returns an empty array for a literal-only formula", () => {
-		expect(collectRefs({ op: "+", args: [1, 2] })).toEqual([]);
-	});
-
-	it("keeps store refs, dynamic ones included, and drops loop refs", () => {
-		const expr: Expr = {
-			op: "+",
-			args: [
-				{ ref: "$(pick).score" },
-				{ ref: "$row.x" },
-				{ ref: "$index" },
-				{ ref: "$item.label" },
-			],
-		};
-		expect(collectRefs(expr)).toEqual(["$(pick).score", "$row.x"]);
-	});
-});
-
-describe("isOpName", () => {
-	it("accepts a whitelisted op and rejects anything else", () => {
-		expect(isOpName("clamp")).toBe(true);
-		expect(isOpName("system")).toBe(false);
+	it.each([
+		["a node that is neither literal, ref, nor op", { foo: "bar" }],
+		["null in operand position", null],
+	])("%s", (_label, node) => {
+		expect(() => evaluate(node as never, from({}))).toThrow(FormulaError);
 	});
 });

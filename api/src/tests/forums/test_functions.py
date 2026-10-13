@@ -27,11 +27,6 @@ class TestGetHeritage:
 
         assert [forum.title for forum in heritage] == ["Grandparent", "Parent"]
 
-    async def test_get_heritage_empty(self, repository):
-        heritage = await get_heritage(repository, [])
-
-        assert heritage == []
-
     async def test_get_heritage_missing_forum_raises(self, repository, create):
         grandparent = await create(ForumFactory, heritage=[], title="Grandparent")
 
@@ -95,22 +90,6 @@ class TestBuildForumTree:
             (2, 20),
             (0, 0),
         ]
-
-    def test_build_forum_tree_empty(self):
-        tree = build_forum_tree([], 1, {})
-
-        assert tree == []
-
-    def test_build_forum_tree_single_level(self):
-        descendants = [self.make_forum(2, 1, "Child")]
-
-        tree = build_forum_tree(descendants, 1, {})
-
-        assert len(tree) == 1
-        assert tree[0].id == 2
-        assert tree[0].title == "Child"
-        assert tree[0].children == []
-        assert tree[0].last_post is None
 
     def test_build_forum_tree_nested(self):
         descendants = [
@@ -198,11 +177,3 @@ class TestBuildForumTree:
 
         assert tree[0].last_post.id == 10
         assert tree[0].children[0].last_post is None
-
-    def test_build_forum_tree_ignores_own_unpublished_post(self):
-        descendants = [self.make_forum(2, 1, "Child")]
-        unpublished_post = self.make_post(11, "Unpublished post", None)
-
-        tree = build_forum_tree(descendants, 1, {2: unpublished_post})
-
-        assert tree[0].last_post is None

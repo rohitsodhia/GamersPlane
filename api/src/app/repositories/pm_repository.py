@@ -6,8 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.configs import configs
-from app.exceptions import ForbiddenException, NotFoundException
+from app.exceptions import NotFoundException
 from app.models import PM, User
+from app.repositories.user_repository import UserRepository
 
 Box = Literal["inbox", "outbox"]
 
@@ -88,8 +89,6 @@ class PMRepository:
         )
         if not pm:
             raise NotFoundException()
-        elif self.principal.id != pm.recipient.id and self.principal.id != pm.sender.id:
-            raise ForbiddenException()
 
         return pm
 
@@ -117,8 +116,12 @@ class PMRepository:
         reply_to_id: int | None = None,
         recipient_username: str | None = None,
     ) -> PM:
-        recipient = await self.db_session.scalar(
-            select(User).where(User.username == recipient_username).limit(1)
+        recipient = (
+            await UserRepository(self.db_session).get_user_by_username(
+                recipient_username
+            )
+            if recipient_username
+            else None
         )
         if not recipient:
             raise NoRecipientException()
@@ -167,12 +170,8 @@ class PMRepository:
 
     async def delete_pm(self, pm_id: int):
         pm = await self.get_pm(pm_id)
-        if not pm:
-            raise NotFoundException()
-        elif self.principal.id == pm.recipient.id:
+        if self.principal.id == pm.recipient.id:
             pm.recipient_deleted = datetime.now(timezone.utc)
-        elif self.principal.id == pm.sender.id:
-            pm.sender_deleted = datetime.now(timezone.utc)
         else:
-            raise ForbiddenException()
+            pm.sender_deleted = datetime.now(timezone.utc)
         await self.db_session.flush()

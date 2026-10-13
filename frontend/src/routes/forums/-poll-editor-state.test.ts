@@ -7,7 +7,6 @@ import {
 	MAX_POLL_TEXT_LENGTH,
 	moveRows,
 	newOptionRow,
-	newPollState,
 	type PollOptionRow,
 	type PollState,
 	pollErrors,
@@ -57,14 +56,6 @@ describe("pollStateFromData", () => {
 	});
 });
 
-describe("newPollState", () => {
-	it("starts with two empty options", () => {
-		const state = newPollState();
-		expect(state.options).toHaveLength(2);
-		expect(state.options.every((o) => o.text === "" && o.id === null)).toBe(true);
-	});
-});
-
 describe("pollErrors", () => {
 	it("passes a valid poll", () => {
 		expect(pollErrors(poll())).toEqual({ rows: {} });
@@ -106,16 +97,14 @@ describe("pollErrors", () => {
 });
 
 describe("clampOptionsPerUser and removeOption", () => {
-	it("leaves a valid value alone", () => {
-		const state = poll({ optionsPerUser: 2 });
-		expect(clampOptionsPerUser(state)).toBe(state);
-	});
-
 	it("lowers options per voter when options are removed below it", () => {
 		const state = poll({
 			optionsPerUser: 3,
 			options: [row("a"), row("b"), row("c")],
 		});
+		// A value already within range is returned untouched.
+		const valid = poll({ optionsPerUser: 2 });
+		expect(clampOptionsPerUser(valid)).toBe(valid);
 		const after = removeOption(state, state.options[0]?.key as string);
 		expect(after.options).toHaveLength(2);
 		expect(after.optionsPerUser).toBe(2);

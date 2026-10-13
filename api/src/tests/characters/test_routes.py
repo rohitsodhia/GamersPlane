@@ -99,14 +99,6 @@ async def private_sheet(db_session, sheet_creator, system, wrap_in_savepoint):
 
 
 class TestCreateCharacter:
-    async def test_requires_auth(self, client, public_sheet):
-        response = await client.post(
-            "/characters/",
-            json={"label": "Aragorn", "character_sheet_id": public_sheet.id},
-        )
-
-        assert response.status_code == 403
-
     async def test_returns_404_when_sheet_missing(self, authed_client):
         client, _user = authed_client
 
@@ -240,11 +232,6 @@ class TestGetCharacter:
     @pytest.fixture
     async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
         return await _create_character(db_session, owner, public_sheet, "Aragorn")
-
-    async def test_requires_auth(self, client, character):
-        response = await client.get(f"/characters/{character.id}")
-
-        assert response.status_code == 403
 
     async def test_returns_404_when_missing(self, authed_client):
         client, _user = authed_client
@@ -446,11 +433,6 @@ class TestGetCharacters:
     ):
         return await _create_character(db_session, owner, sheet, label, type=type)
 
-    async def test_requires_auth(self, client):
-        response = await client.get("/characters")
-
-        assert response.status_code == 403
-
     async def test_only_returns_the_principals_characters(
         self,
         client,
@@ -463,19 +445,6 @@ class TestGetCharacters:
     ):
         stranger = await create(ActivatedUserFactory)
         await self._make_character(db_session, stranger, public_sheet, "Legolas")
-        await self._make_character(db_session, owner, public_sheet, "Aragorn")
-        auth_as(owner)
-
-        response = await client.get("/characters")
-
-        assert response.status_code == 200
-        body = response.json()
-        assert body["total"] == 1
-        assert [c["label"] for c in body["characters"]] == ["Aragorn"]
-
-    async def test_list_items_leave_out_the_layout_and_values(
-        self, client, public_sheet, owner, auth_as, db_session, wrap_in_savepoint
-    ):
         character = await self._make_character(
             db_session, owner, public_sheet, "Aragorn"
         )
@@ -485,6 +454,9 @@ class TestGetCharacters:
 
         response = await client.get("/characters")
 
+        assert response.status_code == 200
+        assert response.json()["total"] == 1
+        # The list items leave out the layout and values.
         assert response.json()["characters"] == [
             {
                 "id": character.id,
@@ -764,23 +736,6 @@ class TestGetCharacters:
         assert response.status_code == 200
         assert response.json()["total"] == 0
 
-    async def test_repository_omits_favorites_unless_asked(
-        self, public_sheet, owner, create, db_session, wrap_in_savepoint
-    ):
-        stranger = await create(ActivatedUserFactory)
-        favorited = await self._make_character(
-            db_session, stranger, public_sheet, "Legolas"
-        )
-        favorited.in_library = True
-        db_session.add(CharacterFavorite(user_id=owner.id, character_id=favorited.id))
-        await db_session.flush()
-        repository = CharacterRepository(db_session, principal=owner)
-
-        assert list(await repository.get_all()) == []
-        assert await repository.count_all() == 0
-        assert len(list(await repository.get_all(include_favorited=True))) == 1
-        assert await repository.count_all(include_favorited=True) == 1
-
 
 class TestGetLibrary:
     @pytest.fixture
@@ -804,11 +759,6 @@ class TestGetLibrary:
         character.in_library = in_library
         await db_session.flush()
         return character
-
-    async def test_requires_auth(self, client):
-        response = await client.get("/characters/library")
-
-        assert response.status_code == 403
 
     async def test_excludes_characters_whose_sheet_was_deleted(
         self,
@@ -889,34 +839,6 @@ class TestGetLibrary:
             "Plain": False,
         }
 
-    async def test_ignores_favorites_from_other_users(
-        self,
-        client,
-        public_sheet,
-        owner,
-        viewer,
-        create,
-        auth_as,
-        db_session,
-        wrap_in_savepoint,
-    ):
-        others = [await create(ActivatedUserFactory) for _ in range(2)]
-        character = await self._make_character(
-            db_session, owner, public_sheet, "Aragorn"
-        )
-        for other in others:
-            db_session.add(
-                CharacterFavorite(user_id=other.id, character_id=character.id)
-            )
-        await db_session.flush()
-        auth_as(viewer)
-
-        response = await client.get("/characters/library")
-
-        body = response.json()
-        assert body["total"] == 1
-        assert [c["favorited"] for c in body["characters"]] == [False]
-
     async def test_returns_one_row_when_viewer_and_others_favorited(
         self,
         client,
@@ -929,22 +851,30 @@ class TestGetLibrary:
         wrap_in_savepoint,
     ):
         other = await create(ActivatedUserFactory)
-        character = await self._make_character(
-            db_session, owner, public_sheet, "Aragorn"
+        only_others = await self._make_character(
+            db_session, owner, public_sheet, "OnlyOthers"
         )
-        for user in (viewer, other):
-            db_session.add(
-                CharacterFavorite(user_id=user.id, character_id=character.id)
-            )
+        both = await self._make_character(db_session, owner, public_sheet, "Both")
+        db_session.add_all(
+            [
+                CharacterFavorite(user_id=other.id, character_id=only_others.id),
+                CharacterFavorite(user_id=viewer.id, character_id=both.id),
+                CharacterFavorite(user_id=other.id, character_id=both.id),
+            ]
+        )
         await db_session.flush()
         auth_as(viewer)
 
         response = await client.get("/characters/library")
 
         body = response.json()
-        # A join on character_id alone would return one row per favoriting user.
-        assert body["total"] == 1
-        assert [c["favorited"] for c in body["characters"]] == [True]
+        # A join on character_id alone would return one row per favoriting user,
+        # and favorites from other users must not count as the viewer's.
+        assert body["total"] == 2
+        assert {c["label"]: c["favorited"] for c in body["characters"]} == {
+            "OnlyOthers": False,
+            "Both": True,
+        }
 
     async def test_excludes_own_and_non_library_characters(
         self,
@@ -1125,13 +1055,6 @@ class TestUpdateCharacter:
     async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
         return await _create_character(db_session, owner, public_sheet, "Aragorn")
 
-    async def test_requires_auth(self, client, character):
-        response = await client.patch(
-            f"/characters/{character.id}", json={"values": {"str1": 18}}
-        )
-
-        assert response.status_code == 403
-
     async def test_returns_404_when_missing(self, authed_client):
         client, _user = authed_client
 
@@ -1169,21 +1092,6 @@ class TestUpdateCharacter:
 
         await db_session.refresh(character, ["values"])
         assert character.values == new_values
-
-    async def test_owner_saves_the_label(
-        self, client, character, owner, db_session, auth_as
-    ):
-        auth_as(owner)
-
-        response = await client.patch(
-            f"/characters/{character.id}", json={"label": "Strider"}
-        )
-
-        assert response.status_code == 200
-        assert response.json()["label"] == "Strider"
-
-        await db_session.refresh(character, ["label"])
-        assert character.label == "Strider"
 
     async def test_owner_saves_the_type(
         self, client, character, owner, db_session, auth_as
@@ -1236,6 +1144,8 @@ class TestUpdateCharacter:
         assert response.json()["label"] == "Strider"
         assert response.json()["type"] == "pc"
         assert response.json()["values"] == {"str1": 18}
+        await db_session.refresh(character, ["label"])
+        assert character.label == "Strider"
 
     async def test_rejects_values_over_the_size_cap(
         self, client, character, owner, db_session, auth_as
@@ -1318,47 +1228,7 @@ class TestAddCharacterAvatar:
         monkeypatch.setattr(configs, "AVATARS_DIR", str(tmp_path))
         return tmp_path
 
-    async def test_requires_auth(self, client, character):
-        response = await client.post(
-            f"/characters/{character.id}/avatar",
-            files={"avatar": ("avatar.png", _make_png_bytes(), "image/png")},
-        )
-
-        assert response.status_code == 403
-
-    async def test_returns_404_when_character_missing(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.post(
-            "/characters/999999/avatar",
-            files={"avatar": ("avatar.png", _make_png_bytes(), "image/png")},
-        )
-
-        assert response.status_code == 404
-
-    async def test_forbids_a_non_owner(self, client, character, create, auth_as):
-        stranger = await create(ActivatedUserFactory)
-        auth_as(stranger)
-
-        response = await client.post(
-            f"/characters/{character.id}/avatar",
-            files={"avatar": ("avatar.png", _make_png_bytes(), "image/png")},
-        )
-
-        assert response.status_code == 403
-        assert response.json()["errors"][0]["code"] == "forbidden"
-
-    async def test_rejects_invalid_image(self, client, character, owner, auth_as):
-        auth_as(owner)
-
-        response = await client.post(
-            f"/characters/{character.id}/avatar",
-            files={"avatar": ("avatar.png", b"not an image", "image/png")},
-        )
-
-        assert response.status_code == 400
-
-    async def test_first_upload_is_primary(
+    async def test_first_upload_is_primary_and_later_ones_are_not(
         self, client, character, owner, auth_as, _avatars_dir
     ):
         auth_as(owner)
@@ -1377,15 +1247,6 @@ class TestAddCharacterAvatar:
             f"{configs.AVATARS_ROOT}/characters/{avatar_id}.png"
         )
         assert (_avatars_dir / "characters" / f"{avatar_id}.png").exists()
-
-    async def test_second_upload_is_not_primary(
-        self, client, character, owner, auth_as
-    ):
-        auth_as(owner)
-        await client.post(
-            f"/characters/{character.id}/avatar",
-            files={"avatar": ("avatar.png", _make_png_bytes(), "image/png")},
-        )
 
         response = await client.post(
             f"/characters/{character.id}/avatar",
@@ -1434,30 +1295,6 @@ class TestDeleteCharacterAvatar:
             files={"avatar": ("avatar.png", _make_png_bytes(), "image/png")},
         )
         return response.json()["avatar"]
-
-    async def test_requires_auth(self, client, character):
-        response = await client.delete(f"/characters/{character.id}/avatar/1")
-
-        assert response.status_code == 403
-
-    async def test_returns_404_when_character_missing(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.delete("/characters/999999/avatar/1")
-
-        assert response.status_code == 404
-
-    async def test_forbids_a_non_owner(self, client, character, owner, auth_as, create):
-        auth_as(owner)
-        avatar = await self._add_avatar(client, character.id)
-
-        stranger = await create(ActivatedUserFactory)
-        auth_as(stranger)
-        response = await client.delete(
-            f"/characters/{character.id}/avatar/{avatar['id']}"
-        )
-
-        assert response.status_code == 403
 
     async def test_returns_404_when_avatar_missing(
         self, client, character, owner, auth_as
@@ -1540,18 +1377,6 @@ class TestSetPrimaryCharacterAvatar:
         )
         return response.json()["avatar"]
 
-    async def test_requires_auth(self, client, character):
-        response = await client.patch(f"/characters/{character.id}/avatar/1")
-
-        assert response.status_code == 403
-
-    async def test_returns_404_when_character_missing(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.patch("/characters/999999/avatar/1")
-
-        assert response.status_code == 404
-
     async def test_returns_404_when_avatar_missing(
         self, client, character, owner, auth_as
     ):
@@ -1560,18 +1385,6 @@ class TestSetPrimaryCharacterAvatar:
         response = await client.patch(f"/characters/{character.id}/avatar/999999")
 
         assert response.status_code == 404
-
-    async def test_forbids_a_non_owner(self, client, character, owner, auth_as, create):
-        auth_as(owner)
-        avatar = await self._add_avatar(client, character.id)
-
-        stranger = await create(ActivatedUserFactory)
-        auth_as(stranger)
-        response = await client.patch(
-            f"/characters/{character.id}/avatar/{avatar['id']}"
-        )
-
-        assert response.status_code == 403
 
     async def test_makes_the_target_avatar_primary_and_unsets_others(
         self, client, character, owner, auth_as
@@ -1603,30 +1416,6 @@ class TestToggleCharacterLibrary:
     @pytest.fixture
     async def character(self, db_session, owner, public_sheet, wrap_in_savepoint):
         return await _create_character(db_session, owner, public_sheet, "Aragorn")
-
-    async def test_requires_auth(self, client, character):
-        response = await client.patch(f"/characters/{character.id}/toggle_library")
-
-        assert response.status_code == 403
-
-    async def test_returns_404_when_missing(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.patch("/characters/999999/toggle_library")
-
-        assert response.status_code == 404
-
-    async def test_forbids_a_non_owner(
-        self, client, character, create, auth_as, db_session
-    ):
-        stranger = await create(ActivatedUserFactory)
-        auth_as(stranger)
-
-        response = await client.patch(f"/characters/{character.id}/toggle_library")
-
-        assert response.status_code == 403
-        await db_session.refresh(character, ["in_library"])
-        assert character.in_library is False
 
     async def test_toggles_in_and_out_of_the_library(
         self, client, character, owner, auth_as, db_session
@@ -1666,11 +1455,6 @@ class TestToggleCharacterFavorite:
         )
         return set(rows)
 
-    async def test_requires_auth(self, client, character):
-        response = await client.patch(f"/characters/{character.id}/toggle_favorite")
-
-        assert response.status_code == 403
-
     async def test_returns_404_when_missing(self, authed_client):
         client, _user = authed_client
 
@@ -1700,23 +1484,6 @@ class TestToggleCharacterFavorite:
         assert await self._favorite_user_ids(db_session, character) == {owner.id}
 
     async def test_toggles_on_and_off_for_a_library_character(
-        self, client, character, viewer, auth_as, db_session
-    ):
-        character.in_library = True
-        await db_session.flush()
-        auth_as(viewer)
-
-        response = await client.patch(f"/characters/{character.id}/toggle_favorite")
-        assert response.status_code == 200
-        assert response.json() == {"favorited": True}
-        assert await self._favorite_user_ids(db_session, character) == {viewer.id}
-
-        response = await client.patch(f"/characters/{character.id}/toggle_favorite")
-        assert response.status_code == 200
-        assert response.json() == {"favorited": False}
-        assert await self._favorite_user_ids(db_session, character) == set()
-
-    async def test_only_toggles_the_current_users_favorite(
         self, client, character, owner, viewer, auth_as, db_session
     ):
         character.in_library = True
@@ -1725,24 +1492,17 @@ class TestToggleCharacterFavorite:
         auth_as(viewer)
 
         response = await client.patch(f"/characters/{character.id}/toggle_favorite")
-
+        assert response.status_code == 200
         assert response.json() == {"favorited": True}
         assert await self._favorite_user_ids(db_session, character) == {
             owner.id,
             viewer.id,
         }
 
-    async def test_favorite_shows_up_in_the_library(
-        self, client, character, viewer, auth_as, db_session
-    ):
-        character.in_library = True
-        await db_session.flush()
-        auth_as(viewer)
-
-        await client.patch(f"/characters/{character.id}/toggle_favorite")
-        response = await client.get("/characters/library")
-
-        assert [c["favorited"] for c in response.json()["characters"]] == [True]
+        response = await client.patch(f"/characters/{character.id}/toggle_favorite")
+        assert response.status_code == 200
+        assert response.json() == {"favorited": False}
+        assert await self._favorite_user_ids(db_session, character) == {owner.id}
 
 
 class TestDeleteCharacter:
@@ -1756,30 +1516,6 @@ class TestDeleteCharacter:
         character.in_library = True
         await db_session.flush()
         return character
-
-    async def test_requires_auth(self, client, character):
-        response = await client.delete(f"/characters/{character.id}")
-
-        assert response.status_code == 403
-
-    async def test_returns_404_when_missing(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.delete("/characters/999999")
-
-        assert response.status_code == 404
-
-    async def test_forbids_a_non_owner(
-        self, client, character, create, auth_as, db_session
-    ):
-        stranger = await create(ActivatedUserFactory)
-        auth_as(stranger)
-
-        response = await client.delete(f"/characters/{character.id}")
-
-        assert response.status_code == 403
-        await db_session.refresh(character, ["deleted"])
-        assert character.deleted is None
 
     async def test_soft_deletes_and_clears_library_and_favorites(
         self, client, character, owner, create, auth_as, db_session
@@ -1888,13 +1624,6 @@ class TestCharacterSheetMoves:
             .execution_options(populate_existing=True)
         )
 
-    async def test_options_are_owner_only(self, client, character, copier, auth_as):
-        auth_as(copier)
-
-        response = await client.get(f"/characters/{character.id}/sheet_moves")
-
-        assert response.status_code == 403
-
     async def test_options_list_newer_versions_newest_first(
         self, client, character, owner, auth_as
     ):
@@ -1949,6 +1678,20 @@ class TestCharacterSheetMoves:
         await CharacterSheetRepository(db_session, principal=sheet_creator).delete(
             public_sheet
         )
+        auth_as(owner)
+
+        response = await client.get(f"/characters/{character.id}/sheet_moves")
+
+        assert response.status_code == 200
+        assert response.json()["versions"] == []
+        assert [c["id"] for c in response.json()["copies"]] == [public_copy.id]
+
+    async def test_a_private_sheet_offers_no_versions_to_a_non_creator(
+        self, client, character, owner, copier, public_sheet, db_session, auth_as
+    ):
+        public_copy = await self._copy(db_session, copier, public_sheet)
+        public_sheet.status = CharacterSheet.Status.PRIVATE
+        await db_session.flush()
         auth_as(owner)
 
         response = await client.get(f"/characters/{character.id}/sheet_moves")

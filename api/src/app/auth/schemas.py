@@ -34,7 +34,7 @@ class AuthResponse(SchemaBase):
 
 class RegisterInput(SchemaBase):
     email: EmailStr
-    username: str = Field(..., pattern=r"^[a-zA-Z]\w+$")
+    username: str = Field(..., pattern=r"^[a-zA-Z]\w+$", max_length=24)
     password: Password
 
 

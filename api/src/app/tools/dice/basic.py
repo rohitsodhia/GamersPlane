@@ -9,11 +9,15 @@ TERM_RE = re.compile(
 )
 
 
+MAX_DICE = 100
+MAX_SIDES = 1000
+
+
 class BasicDie(Die[int]):
     def __init__(self, sides: int):
-        if sides < 2:
+        if sides < 2 or sides > MAX_SIDES:
             raise ValueError(f"Invalid die sides: {sides}")
-        super().__init__(min(sides, 1000))
+        super().__init__(sides)
 
     def roll(self) -> int:
         return random.randint(1, self.sides)
@@ -69,7 +73,7 @@ class BasicRoll(Roll):
                 if match.group("sides") is not None:
                     sides = int(match.group("sides"))
                     count = int(match.group("count")) if match.group("count") else 1
-                    if count < 1:
+                    if count < 1 or count > MAX_DICE:
                         raise ValueError(f"Invalid dice count: {count}")
                     keep = match.group("keep")
                     keep_count = (

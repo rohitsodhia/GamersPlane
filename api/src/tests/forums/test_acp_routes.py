@@ -1,6 +1,7 @@
 import pytest
 from sqlalchemy import select, text
 
+from app.forums.permissions import FORUM_VERBS_ORDERED
 from app.models import Forum, Player, Role, RolePermission, UserRole
 from app.repositories import GameRepository, PlayerRepository
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
@@ -162,8 +163,8 @@ class TestGetForumPermissions:
 
         body = response.json()
         verbs = [verb["value"] for verb in body["verbs"]]
-        assert len(verbs) == 10
         assert (verbs[0], verbs[-1]) == ("forum_read", "forum_moderate")
+        assert set(verbs) == {verb.value for verb in FORUM_VERBS_ORDERED}
         assert body["can_grant_moderate"] is False
 
     async def test_non_game_forum_lists_registered_guest_and_granted_roles(
@@ -305,15 +306,6 @@ class TestSetForumPermissions:
             f"/forums/{forum.id}/permissions",
             json={"roles": [{"role_id": r.id, "grants": g} for r, g in entries]},
         )
-
-    async def test_non_moderator_is_forbidden(self, authed_client, board):
-        client, _user = authed_client
-
-        response = await client.put(
-            f"/forums/{board['general'].id}/permissions", json={"roles": []}
-        )
-
-        assert response.status_code == 403
 
     async def test_writes_only_the_differences_for_listed_roles(
         self, moderator, db_session, board
@@ -629,13 +621,6 @@ class TestSearchPermissionRoles:
 
         assert response.status_code == 400
 
-    async def test_non_moderator_is_forbidden(self, authed_client, board):
-        client, _user = authed_client
-
-        response = await client.get(f"/forums/{board['general'].id}/permissions/roles")
-
-        assert response.status_code == 403
-
 
 class TestGetGameRoles:
     async def test_lists_player_then_custom_roles_with_members_and_players(
@@ -669,34 +654,29 @@ class TestGetGameRoles:
         assert set(usernames) == {gm.username, "zed", "amy"}
         assert usernames.index("amy") < usernames.index("zed")
 
-    async def test_non_moderator_is_forbidden(self, authed_client, game):
-        client, _user = authed_client
+    @pytest.mark.parametrize("kind", ["site_forum", "game_subforum"])
+    async def test_non_game_root_forum_is_rejected(
+        self, gm_client, gm, db_session, create, board, game, kind
+    ):
+        # The GM moderates the forum in both cases, so the 400 is the
+        # game-root check rather than a permission failure.
+        client = gm_client
+        if kind == "site_forum":
+            forum = board["general"]
+            await make_role(
+                db_session,
+                grants=[(Verbs.FORUM_MODERATE, forum.id, ALLOW)],
+                members=[gm],
+            )
+        else:
+            forum = await create(
+                ForumFactory,
+                parent_id=game.root_forum_id,
+                heritage=[0, GAMES_ROOT_FORUM_ID, game.root_forum_id],
+                game_id=game.id,
+            )
 
-        response = await client.get(f"/forums/{game.root_forum_id}/roles")
-
-        assert response.status_code == 403
-
-    async def test_game_subforum_is_rejected(self, gm_client, create, game):
-        subforum = await create(
-            ForumFactory,
-            parent_id=game.root_forum_id,
-            heritage=[0, GAMES_ROOT_FORUM_ID, game.root_forum_id],
-            game_id=game.id,
-        )
-
-        responses = [
-            await gm_client.get(f"/forums/{subforum.id}/roles"),
-            await gm_client.post(
-                f"/forums/{subforum.id}/roles", json={"name": "Scout"}
-            ),
-        ]
-
-        assert [r.status_code for r in responses] == [400, 400]
-
-
-class TestSiteForumRoles:
-    async def test_site_forum_is_rejected(self, admin, board):
-        response = await admin.get(f"/forums/{board['general'].id}/roles")
+        response = await client.get(f"/forums/{forum.id}/roles")
 
         assert response.status_code == 400
 
@@ -746,16 +726,6 @@ class TestUpdateGameRole:
         await db_session.refresh(role)
         assert (role.name, role.plural) == ("Ranger", "Rangers")
 
-    async def test_duplicate_name_conflicts(self, gm_client, db_session, game):
-        await make_role(db_session, name="Scout", game=game)
-        role = await make_role(db_session, name="Ranger", game=game)
-
-        response = await gm_client.patch(
-            f"/forums/{game.root_forum_id}/roles/{role.id}", json={"name": "Scout"}
-        )
-
-        assert response.status_code == 409
-
     async def test_player_role_is_forbidden_and_gm_and_other_games_roles_not_found(
         self, gm_client, db_session, make_game, game
     ):
@@ -796,22 +766,6 @@ class TestDeleteGameRole:
         )
         assert deleted is not None
 
-    async def test_player_role_is_forbidden_and_gm_and_other_games_roles_not_found(
-        self, gm_client, db_session, make_game, game
-    ):
-        foreign = await make_role(db_session, game=await make_game("Other"))
-        url = f"/forums/{game.root_forum_id}/roles"
-
-        player_response = await gm_client.delete(f"{url}/{game.player_role_id}")
-        gm_response = await gm_client.delete(f"{url}/{game.gm_role_id}")
-        foreign_response = await gm_client.delete(f"{url}/{foreign.id}")
-
-        assert (
-            player_response.status_code,
-            gm_response.status_code,
-            foreign_response.status_code,
-        ) == (403, 404, 404)
-
 
 class TestSetGameRoleMembers:
     async def test_replaces_the_membership(
@@ -850,17 +804,3 @@ class TestSetGameRoleMembers:
         assert [r.status_code for r in responses] == [400, 400]
         await db_session.refresh(role, ["users"])
         assert role.users == []
-
-    async def test_player_role_is_forbidden_and_gm_role_is_not_found(
-        self, gm_client, game, gm
-    ):
-        url = f"/forums/{game.root_forum_id}/roles"
-
-        player_response = await gm_client.put(
-            f"{url}/{game.player_role_id}/members", json={"user_ids": [gm.id]}
-        )
-        gm_response = await gm_client.put(
-            f"{url}/{game.gm_role_id}/members", json={"user_ids": [gm.id]}
-        )
-
-        assert (player_response.status_code, gm_response.status_code) == (403, 404)

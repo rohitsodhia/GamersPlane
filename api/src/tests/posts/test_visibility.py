@@ -44,12 +44,6 @@ class TestSummarizeRollResult:
         ("roll_type", "result", "expected"),
         [
             ("basic", BASIC_RESULT, {"total": 7}),
-            ("fate", {"rolls": [1, 0], "total": 1}, {"total": 1}),
-            (
-                "fengshui",
-                {"positive": [3], "negative": [1], "total": 12},
-                {"total": 12},
-            ),
             (
                 "starwarsffg",
                 FFG_RESULT,

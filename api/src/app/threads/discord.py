@@ -6,11 +6,11 @@ import httpx
 from fastapi import BackgroundTasks
 
 from app.configs import configs
-from app.games.npcs import game_image_url
-from app.helpers.prose import prose_snippet
+from app.helpers.prose import prose_snippet, content_npc_ids
 from app.models import Post, User
 from app.posts.functions import displayable_posted_as, posted_avatar_url
-from app.repositories import PostRepository
+from app.quick_npcs.functions import npc_image_url
+from app.repositories import PostRepository, QuickNPCRepository
 from app.threads.option_schemas import DISCORD_WEBHOOK_PATTERN
 
 logger = logging.getLogger(__name__)
@@ -21,9 +21,16 @@ TIMEOUT_SECONDS = 5.0
 
 
 def build_post_payload(
-    post: Post, author: User, thread_id: int, page: int, *, edited: bool = False
+    post: Post,
+    author: User,
+    thread_id: int,
+    page: int,
+    *,
+    edited: bool = False,
+    npc_names: dict[int, str] | None = None,
 ) -> dict:
-    """The webhook body for a post, as plain data so it outlives the DB session."""
+    """The webhook body for a post, as plain data so it outlives the DB session.
+    ``npc_names`` names the quick NPCs of its speaker blocks."""
     title = post.title.removeprefix("Re: ")
     # A post made as a character goes out under its name and avatar; the footer
     # still names the author.
@@ -36,7 +43,7 @@ def build_post_payload(
     elif post.posted_npc is not None:
         username = post.posted_npc.name
         avatar_url = (
-            game_image_url(post.posted_npc.image)
+            npc_image_url(post.posted_npc.image)
             if post.posted_npc.image is not None
             else None
         )
@@ -48,7 +55,7 @@ def build_post_payload(
         {
             "title": title,
             "url": f"{configs.HOST_NAME}/forums/thread/{thread_id}?page={page}#post-{post.id}",
-            "description": prose_snippet(post.body, DESCRIPTION_LIMIT),
+            "description": prose_snippet(post.body, DESCRIPTION_LIMIT, npc_names),
             "color": EMBED_COLOR,
             "footer": {"text": author.username + (" ~ edited post" if edited else "")},
         }
@@ -91,5 +98,15 @@ async def queue_post_webhook(
     ):
         return
     page = await post_repository.get_page_number(post)
-    payload = build_post_payload(post, author, post.thread_id, page, edited=edited)
+    npcs = await QuickNPCRepository(
+        post_repository.db_session, principal=author
+    ).get_many(content_npc_ids(post.body))
+    payload = build_post_payload(
+        post,
+        author,
+        post.thread_id,
+        page,
+        edited=edited,
+        npc_names={npc.id: npc.name for npc in npcs},
+    )
     background_tasks.add_task(send_webhook, webhook, payload)

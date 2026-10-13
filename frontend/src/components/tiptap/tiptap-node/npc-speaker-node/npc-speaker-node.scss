@@ -1,0 +1,140 @@
+/* =====================
+     NPC SPEAKER
+     A speech bubble spoken by a quick NPC: its avatar beside the bubble, with a tail
+     pointing at the avatar. Echoes a post's own bubble (thread page) at a smaller
+     scale. Shared by the editor's node view and the read-only render, so both
+     are scoped to .ProseMirror rather than the editor-only .tiptap.
+     ===================== */
+.ProseMirror .npc-speaker {
+  --npc-avatar-size: 3rem;
+  --npc-tail-size: 0.6rem;
+  --npc-border: var(--text);
+  /* A little off the post bubble it sits in, so it reads as a bubble in a bubble. */
+  --npc-bg: color-mix(in srgb, var(--text) 7%, var(--bubble-bg, var(--bg)));
+
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--npc-tail-size) + 0.5rem);
+  margin: 1rem 0;
+
+  .npc-speaker-avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: var(--npc-avatar-size);
+    height: var(--npc-avatar-size);
+    overflow: hidden;
+    border: 2px solid var(--npc-border);
+    border-radius: 6px;
+    background-color: var(--npc-bg);
+    font-weight: 700;
+    line-height: 1;
+
+    img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      object-fit: cover;
+    }
+  }
+
+  .npc-speaker-bubble {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 0.5rem 0.75rem;
+    border: 2px solid var(--npc-border);
+    border-radius: 0.5rem;
+    background-color: var(--npc-bg);
+    overflow-wrap: anywhere;
+
+    /* The tail: a rotated square whose left and bottom borders form the point. */
+    &::before {
+      content: "";
+      position: absolute;
+      top: 0.9rem;
+      left: calc(var(--npc-tail-size) / -2 - 2px);
+      width: var(--npc-tail-size);
+      height: var(--npc-tail-size);
+      box-sizing: border-box;
+      border-left: 2px solid var(--npc-border);
+      border-bottom: 2px solid var(--npc-border);
+      background-color: var(--npc-bg);
+      transform: rotate(45deg);
+    }
+  }
+
+  .npc-speaker-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+    padding-bottom: 0.15rem;
+    border-bottom: 1px solid var(--gp-red);
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  .npc-speaker-name-button {
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    text-decoration: underline dotted;
+    text-underline-offset: 0.2em;
+  }
+
+  .npc-speaker-delete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-left: auto;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background-color: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    opacity: 0.6;
+
+    &:hover {
+      background-color: var(--gp-red);
+      color: #fff;
+      opacity: 1;
+    }
+  }
+
+  .npc-speaker-content {
+    > *:first-child {
+      margin-top: 0;
+    }
+
+    > *:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  @media (max-width: 600px) {
+    --npc-avatar-size: 2.25rem;
+
+    gap: calc(var(--npc-tail-size) + 0.25rem);
+
+    .npc-speaker-bubble {
+      padding: 0.4rem 0.6rem;
+
+      &::before {
+        top: 0.6rem;
+      }
+    }
+  }
+}

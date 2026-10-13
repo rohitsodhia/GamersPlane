@@ -10,8 +10,7 @@
 	display: contents;
 }
 
-.list-area,
-.npc-image {
+.list-area {
 	grid-column: 2;
 }
 
@@ -176,13 +175,6 @@
 	height: var(--post-as-thumb-size);
 	object-fit: cover;
 	border-radius: var(--rac-radius);
-}
-
-.npc-image {
-	display: flex;
-	flex-direction: column;
-	gap: 0.3em;
-	width: min(100%, 28em);
 }
 
 .thumb {

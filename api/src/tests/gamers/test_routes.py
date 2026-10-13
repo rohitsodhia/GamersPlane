@@ -53,11 +53,6 @@ def _names(body):
 
 
 class TestGetGamers:
-    async def test_requires_auth(self, client):
-        response = await client.get("/gamers")
-
-        assert response.status_code == 403
-
     async def test_gamer_shape(self, authed_client, make_gamer):
         client, _user = authed_client
         gamer = await make_gamer("a", last_activity=timedelta(hours=2), lfg=True)

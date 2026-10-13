@@ -3,7 +3,6 @@ import type { PollData } from "#/queries/threads";
 import {
 	canSubmitVote,
 	percentOfVoters,
-	plainNote,
 	pollView,
 	toggleSelection,
 } from "./-thread-poll-state";
@@ -32,11 +31,6 @@ describe("pollView", () => {
 		);
 	});
 
-	it("shows results after voting", () => {
-		const voted = poll({ can_vote: true, voted: true, show_results: true });
-		expect(pollView(voted, false)).toBe("results");
-	});
-
 	it("returns to the form when changing a vote", () => {
 		const voted = poll({ can_vote: true, voted: true, show_results: true });
 		expect(pollView(voted, true)).toBe("voting");
@@ -49,13 +43,6 @@ describe("pollView", () => {
 
 	it("shows plain options when neither voting nor results are available", () => {
 		expect(pollView(poll(), false)).toBe("plain");
-	});
-});
-
-describe("plainNote", () => {
-	it("asks guests to log in and tells members they lack permission", () => {
-		expect(plainNote(false)).toBe("Log in to vote.");
-		expect(plainNote(true)).toBe("You can't vote in this forum.");
 	});
 });
 

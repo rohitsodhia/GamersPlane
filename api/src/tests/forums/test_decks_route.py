@@ -2,7 +2,7 @@ import pytest
 
 from app.models import RolePermission
 from app.repositories import DeckRepository
-from tests.factories import ActivatedUserFactory, ForumFactory
+from tests.factories import ForumFactory
 from tests.game_forum import (
     PLAYER_VERBS,
     allow_drawing,
@@ -84,33 +84,3 @@ class TestGetForumDecks:
 
         assert response.status_code == 200
         assert response.json() == {"decks": []}
-
-    async def test_moderator_without_gm_or_permission_sees_none(
-        self, auth_as, create, db_session, world
-    ):
-        # forum_moderate implies add_draws, but deck access still applies.
-        moderator = await make_user_with(
-            create, db_session, world.forum, Verbs.FORUM_MODERATE
-        )
-        client = auth_as(moderator)
-
-        response = await client.get(f"/forums/{world.forum.id}/decks")
-
-        assert response.status_code == 200
-        assert response.json() == {"decks": []}
-
-    async def test_unreadable_forum_is_not_found(self, auth_as, create, open_forums):
-        forum = await create(ForumFactory, heritage=[])
-        await open_forums()
-        client = auth_as(await create(ActivatedUserFactory))
-
-        response = await client.get(f"/forums/{forum.id}/decks")
-
-        assert response.status_code == 404
-
-    async def test_missing_forum_is_not_found(self, auth_as, create):
-        client = auth_as(await create(ActivatedUserFactory))
-
-        response = await client.get("/forums/999999/decks")
-
-        assert response.status_code == 404

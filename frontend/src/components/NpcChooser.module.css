@@ -1,0 +1,73 @@
+.popover {
+	--speaker-thumb-size: 1.8em;
+
+	width: min(22em, calc(100vw - 2em));
+	/* It opens over the editor's text, so it needs a surface that stands apart
+	   from it, not the shared popover fill. */
+	background-color: light-dark(#fff, #555);
+	box-shadow: 0 4px 16px rgb(0 0 0 / 0.5);
+}
+
+.dialog {
+	outline: none;
+}
+
+.body {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4em;
+	padding: 0.5em;
+}
+
+.search {
+	display: flex;
+	flex-direction: column;
+
+	input {
+		width: 100%;
+		box-sizing: border-box;
+	}
+}
+
+.status {
+	padding: var(--rac-item-padding-block) var(--rac-item-padding-inline);
+}
+
+.list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	max-height: 14em;
+	overflow-y: auto;
+	outline: none;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: 0.6em;
+	padding: 0.25em var(--rac-item-padding-inline);
+	border-radius: var(--rac-radius);
+	cursor: pointer;
+	outline: none;
+
+	&[data-hovered],
+	&[data-focused] {
+		background-color: var(--gp-red);
+		color: #fff;
+	}
+}
+
+.thumb {
+	flex: none;
+	width: var(--speaker-thumb-size);
+	height: var(--speaker-thumb-size);
+	object-fit: cover;
+	border-radius: var(--rac-radius);
+	background-color: light-dark(#ddd, #444);
+}
+
+.name {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}

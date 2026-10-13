@@ -1,0 +1,150 @@
+/* =====================
+     NPC ROSTER
+     A titled, wrapping grid of quick NPC portraits with their names underneath.
+     Shared by the editor's node view and the read-only render, so both are scoped
+     to .ProseMirror rather than the editor-only .tiptap.
+     ===================== */
+.ProseMirror .npc-roster {
+  --npc-portrait-size: 5rem;
+  --npc-border: var(--text);
+  --npc-bg: color-mix(in srgb, var(--text) 7%, var(--bubble-bg, var(--bg)));
+
+  margin: 1rem 0;
+
+  .npc-roster-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .npc-roster-title {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.15rem;
+    border-bottom: 1px solid var(--gp-red);
+    font-size: 0.95rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  .npc-roster-title-input {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    margin-bottom: 0.5rem;
+    padding: 0.2rem 0.4rem;
+    border: 1px solid var(--npc-border);
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .npc-roster-delete,
+  .npc-roster-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background-color: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    opacity: 0.6;
+
+    &:hover {
+      background-color: var(--gp-red);
+      color: #fff;
+      opacity: 1;
+    }
+  }
+
+  .npc-roster-delete {
+    margin-bottom: 0.5rem;
+  }
+
+  .npc-roster-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .npc-roster-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    width: var(--npc-portrait-size);
+    text-align: center;
+  }
+
+  .npc-roster-portrait {
+    position: relative;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: var(--npc-portrait-size);
+    height: var(--npc-portrait-size);
+    overflow: hidden;
+    border: 2px solid var(--npc-border);
+    border-radius: 6px;
+    background-color: var(--npc-bg);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+
+    img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      object-fit: cover;
+    }
+
+    .npc-roster-remove {
+      position: absolute;
+      top: 0.15rem;
+      right: 0.15rem;
+      background-color: color-mix(in srgb, var(--bg, #fff) 80%, transparent);
+    }
+  }
+
+  .npc-roster-add {
+    padding: 0;
+    border-style: dashed;
+    color: inherit;
+    cursor: pointer;
+    font-family: inherit;
+
+    &:hover {
+      border-color: var(--gp-red);
+    }
+  }
+
+  .npc-roster-name {
+    max-width: 100%;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .npc-roster-hint {
+    margin-top: 0.4rem;
+    font-size: 0.8rem;
+    opacity: 0.7;
+  }
+
+  @media (max-width: 600px) {
+    --npc-portrait-size: 3.75rem;
+
+    .npc-roster-grid {
+      gap: 0.5rem;
+    }
+  }
+}

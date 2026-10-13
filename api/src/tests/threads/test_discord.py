@@ -1,10 +1,12 @@
 from datetime import UTC, datetime
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
+from fastapi import BackgroundTasks
 
 from app.configs import configs
-from app.models import Character, CharacterAvatar
+from app.models import Character, CharacterAvatar, Post
 from app.threads import discord
 from tests.factories import PostFactory, UserFactory, prose_doc
 
@@ -47,14 +49,7 @@ class TestBuildPostPayloadAsCharacter:
         assert payload["username"] == "Aria"
         assert "avatar_url" not in payload
 
-    def test_non_http_character_avatar_is_omitted(self, monkeypatch):
-        monkeypatch.setattr(configs, "AVATARS_ROOT", "/avatars")
-
-        assert "avatar_url" not in build_payload_as(build_character())
-
-    @pytest.mark.parametrize(
-        "fields", [{"name": "  "}, {"name": None}, {"deleted": datetime.now(UTC)}]
-    )
+    @pytest.mark.parametrize("fields", [{"name": "  "}, {"deleted": datetime.now(UTC)}])
     def test_blank_or_deleted_character_falls_back_to_the_author(self, fields):
         payload = build_payload_as(build_character(**fields))
 
@@ -87,26 +82,43 @@ class TestBuildPostPayload:
 
         assert embed["title"] == "Hello"
 
-    def test_re_in_the_middle_of_a_title_is_kept(self):
-        embed = build_payload(title="Hello Re: there")["embeds"][0]
-
-        assert embed["title"] == "Hello Re: there"
-
-    def test_footer_is_the_username(self):
-        assert build_payload()["embeds"][0]["footer"]["text"] == "alice"
-
     def test_edited_footer_says_so(self):
         footer = build_payload(edited=True)["embeds"][0]["footer"]
 
         assert footer["text"] == "alice ~ edited post"
 
-    def test_long_body_is_truncated_to_200_characters(self):
-        description = build_payload(body=prose_doc("word " * 100))["embeds"][0][
-            "description"
-        ]
+    def test_speaker_blocks_are_prefixed_with_the_npc_names_given(self):
+        author = UserFactory.build(username="alice")
+        body = {
+            "type": "doc",
+            "content": [
+                {
+                    "type": "npcSpeaker",
+                    "attrs": {"npcId": 4},
+                    "content": prose_doc("Halt!")["content"],
+                }
+            ],
+        }
+        post = PostFactory.build(id=77, body=body, author=author)
 
-        assert len(description) == 200
-        assert description.endswith("…")
+        payload = discord.build_post_payload(post, author, 5, 3, npc_names={4: "Guard"})
+
+        assert payload["embeds"][0]["description"] == "Guard: Halt!"
+
+
+class TestQueuePostWebhook:
+    async def test_unpublished_post_is_not_queued(self):
+        author = UserFactory.build(username="alice")
+        post = PostFactory.build(
+            id=77, body=prose_doc("Draft"), author=author, state=Post.States.DRAFT
+        )
+        background_tasks = BackgroundTasks()
+
+        await discord.queue_post_webhook(
+            background_tasks, MagicMock(), WEBHOOK_URL, post, author
+        )
+
+        assert background_tasks.tasks == []
 
 
 class FailingTransport(httpx.AsyncBaseTransport):

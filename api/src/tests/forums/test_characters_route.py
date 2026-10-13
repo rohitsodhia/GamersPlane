@@ -3,8 +3,8 @@ from datetime import UTC, datetime
 import pytest
 
 from app.configs import configs
-from app.models import Character, RolePermission
-from app.repositories import CharacterRepository, GameRepository
+from app.models import Character, Player, RolePermission
+from app.repositories import CharacterRepository, GameRepository, PlayerRepository
 from tests.factories import ForumFactory, PostFactory, ThreadFactory
 from tests.game_forum import (
     PLAYER_VERBS,
@@ -13,6 +13,8 @@ from tests.game_forum import (
     make_game_forum,
     make_game_image,
     make_npc,
+    make_user_image,
+    make_user_npc,
     make_user_with,
 )
 
@@ -25,8 +27,19 @@ async def world(create, db_session):
 
 
 @pytest.fixture
-async def player(create, db_session, world):
+async def outsider(create, db_session, world):
+    """Can write in the game's forum but isn't a player of the game."""
     return await make_user_with(create, db_session, world.forum, *PLAYER_VERBS)
+
+
+@pytest.fixture
+async def player(create, db_session, world):
+    """An accepted, non-GM player of the game."""
+    user = await make_user_with(create, db_session, world.forum, *PLAYER_VERBS)
+    await PlayerRepository(db_session, principal=user).attach_player_to_game(
+        world.game.id, user.id, state=Player.States.ACCEPTED
+    )
+    return user
 
 
 def names(response):
@@ -50,8 +63,34 @@ class TestGetForumCharacters:
             "npcs": [],
             "default_npc_id": None,
             "game_id": None,
-            "can_manage_npcs": False,
+            "can_manage_npcs": True,
         }
+
+    @pytest.mark.parametrize("in_game", [False, True], ids=["non_game", "game"])
+    async def test_without_write_access_nothing_is_offered(
+        self, auth_as, create, db_session, in_game
+    ):
+        if in_game:
+            world = await make_game_forum(create, db_session)
+            forum = world.forum
+            user = await make_user_with(create, db_session, forum, Verbs.FORUM_READ)
+            await PlayerRepository(db_session, principal=user).attach_player_to_game(
+                world.game.id, user.id, state=Player.States.ACCEPTED
+            )
+            await make_character(db_session, user, world.game, name="Aria")
+            await make_npc(db_session, world.game, world.gm, "Guard")
+        else:
+            forum = await create(ForumFactory, heritage=[])
+            user = await make_user_with(create, db_session, forum, Verbs.FORUM_READ)
+            await make_user_npc(db_session, user, "Guard")
+        client = auth_as(user)
+
+        response = await client.get(f"/forums/{forum.id}/characters")
+
+        assert response.status_code == 200
+        assert response.json()["characters"] == []
+        assert response.json()["npcs"] == []
+        assert response.json()["can_manage_npcs"] is False
 
     async def test_player_sees_only_own_approved_named_characters_in_the_game(
         self, auth_as, create, db_session, world, player
@@ -100,18 +139,6 @@ class TestGetForumCharacters:
         assert names(response) == ["Bob", "Zed", "Aria"]
         owners = [c["owner"]["id"] for c in response.json()["characters"]]
         assert owners == [world.gm.id, world.gm.id, player.id]
-
-    async def test_without_write_has_no_characters(
-        self, auth_as, create, db_session, world
-    ):
-        reader = await make_user_with(create, db_session, world.forum, Verbs.FORUM_READ)
-        await make_character(db_session, reader, world.game, name="Aria")
-        client = auth_as(reader)
-
-        response = await client.get(f"/forums/{world.forum.id}/characters")
-
-        assert response.status_code == 200
-        assert response.json()["characters"] == []
 
     async def test_moderator_without_write_still_gets_characters(
         self, auth_as, create, db_session, world
@@ -323,6 +350,18 @@ class TestDefaultCharacter:
         assert response.json()["default_id"] is None
         assert names(response) == ["First"]
 
+    async def test_unknown_thread_is_ignored(self, auth_as, db_session, world, player):
+        await make_character(db_session, player, world.game, name="First")
+        client = auth_as(player)
+
+        response = await client.get(
+            f"/forums/{world.forum.id}/characters", params={"thread_id": 999999}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["default_id"] is None
+        assert names(response) == ["First"]
+
     async def test_other_users_posts_dont_set_the_default(
         self, auth_as, create, db_session, world, player
     ):
@@ -346,6 +385,8 @@ class TestDefaultCharacter:
 
 class TestQuickNPCOptions:
     async def test_gm_gets_the_games_live_npcs(self, auth_as, db_session, world):
+        # Personal NPCs never show up in a game forum.
+        await make_user_npc(db_session, world.gm, "Personal")
         other = await world.make_game("Other Campaign")
         image = await make_game_image(db_session, world.game, world.gm)
         guard = await make_npc(db_session, world.game, world.gm, "Guard", image)
@@ -366,35 +407,37 @@ class TestQuickNPCOptions:
                     "url": f"{configs.AVATARS_ROOT}/npcs/{image.id}.png",
                 },
                 "last_used_at": None,
+                "can_edit": True,
             }
         ]
+        assert response.json()["game_id"] == world.game.id
+        assert response.json()["can_manage_npcs"] is True
 
-    async def test_a_player_who_is_not_gm_gets_none(
+    async def test_a_player_who_is_not_gm_gets_the_games_npcs(
         self, auth_as, db_session, world, player
     ):
-        await make_npc(db_session, world.game, world.gm, "Guard")
+        await make_npc(db_session, world.game, world.gm, "GMs")
+        await make_npc(db_session, world.game, player, "Mine")
         client = auth_as(player)
+
+        response = await client.get(f"/forums/{world.forum.id}/characters")
+
+        assert {n["name"]: n["can_edit"] for n in response.json()["npcs"]} == {
+            "GMs": False,
+            "Mine": True,
+        }
+        assert response.json()["game_id"] == world.game.id
+        assert response.json()["can_manage_npcs"] is True
+
+    async def test_someone_who_is_not_an_accepted_player_gets_none(
+        self, auth_as, db_session, world, outsider
+    ):
+        await make_npc(db_session, world.game, world.gm, "Guard")
+        client = auth_as(outsider)
 
         response = await client.get(f"/forums/{world.forum.id}/characters")
 
         assert response.json()["npcs"] == []
-
-    async def test_gm_can_manage_npcs_and_gets_the_game_id(self, auth_as, world):
-        client = auth_as(world.gm)
-
-        response = await client.get(f"/forums/{world.forum.id}/characters")
-
-        assert response.json()["game_id"] == world.game.id
-        assert response.json()["can_manage_npcs"] is True
-
-    async def test_a_player_who_is_not_gm_cannot_manage_npcs(
-        self, auth_as, world, player
-    ):
-        client = auth_as(player)
-
-        response = await client.get(f"/forums/{world.forum.id}/characters")
-
-        assert response.json()["game_id"] == world.game.id
         assert response.json()["can_manage_npcs"] is False
 
     async def test_nobody_can_manage_npcs_in_a_retired_game(
@@ -406,6 +449,59 @@ class TestQuickNPCOptions:
         response = await client.get(f"/forums/{world.forum.id}/characters")
 
         assert response.json()["can_manage_npcs"] is False
+
+    async def test_a_non_game_forum_offers_the_principals_personal_npcs(
+        self, auth_as, create, db_session
+    ):
+        forum = await create(ForumFactory, heritage=[])
+        user = await make_user_with(create, db_session, forum, *PLAYER_VERBS)
+        stranger = await make_user_with(create, db_session, forum, *PLAYER_VERBS)
+        image = await make_user_image(db_session, user)
+        mine = await make_user_npc(db_session, user, "Guard", image)
+        gone = await make_user_npc(db_session, user, "Gone")
+        gone.deleted = datetime.now(UTC)
+        await make_user_npc(db_session, stranger, "Theirs")
+        await db_session.flush()
+        client = auth_as(user)
+
+        response = await client.get(f"/forums/{forum.id}/characters")
+
+        assert response.json()["game_id"] is None
+        assert response.json()["can_manage_npcs"] is True
+        assert response.json()["npcs"] == [
+            {
+                "id": mine.id,
+                "name": "Guard",
+                "image": {
+                    "id": image.id,
+                    "url": f"{configs.AVATARS_ROOT}/npcs/{image.id}.png",
+                },
+                "last_used_at": None,
+                "can_edit": False,
+            }
+        ]
+
+    async def test_a_non_game_forum_has_no_default_npc_even_after_posting_as_one(
+        self, auth_as, create, db_session
+    ):
+        forum = await create(ForumFactory, heritage=[])
+        user = await make_user_with(create, db_session, forum, *PLAYER_VERBS)
+        npc = await make_user_npc(db_session, user, "Guard")
+        thread = await create(ThreadFactory, forum=forum)
+        await create(
+            PostFactory,
+            thread=thread,
+            author=user,
+            posted_npc=npc,
+            posted_npc_id=npc.id,
+        )
+        client = auth_as(user)
+
+        response = await client.get(
+            f"/forums/{forum.id}/characters", params={"thread_id": thread.id}
+        )
+
+        assert response.json()["default_npc_id"] is None
 
     async def test_default_is_the_npc_the_user_last_posted_as_in_the_thread(
         self, auth_as, create, db_session, world

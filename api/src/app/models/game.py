@@ -14,7 +14,7 @@ from app.models.base import Base, SoftDeleteMixin, TimestampMixin
 if TYPE_CHECKING:
     from app.models import Forum, Role, System, User
 
-POST_FREQUENCY_PATTERN = re.compile(r"^([1-9]\d?)/([dw])$")
+POST_FREQUENCY_PATTERN = re.compile(r"([1-9]\d?)/([dw])")
 
 
 @dataclass(frozen=True)
@@ -79,7 +79,7 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
 
     @property
     def post_frequency(self) -> PostFrequency:
-        match = POST_FREQUENCY_PATTERN.match(self._post_frequency)
+        match = POST_FREQUENCY_PATTERN.fullmatch(self._post_frequency)
         if not match:
             raise ValueError(
                 f"invalid post_frequency in database: {self._post_frequency!r}"
@@ -90,7 +90,7 @@ class Game(Base, SoftDeleteMixin, TimestampMixin):
     @post_frequency.setter
     def post_frequency(self, value: PostFrequency | str) -> None:
         value = str(value)
-        if not POST_FREQUENCY_PATTERN.match(value):
+        if not POST_FREQUENCY_PATTERN.fullmatch(value):
             raise ValueError(
                 f"post_frequency must match ##/[dw] (e.g. '3/w'), got {value!r}"
             )

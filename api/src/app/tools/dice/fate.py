@@ -2,6 +2,8 @@ import random
 
 from .base import Roll, RollResult
 
+MAX_DICE = 100
+
 
 class FateRollResult(RollResult):
     rolls: list[int]
@@ -20,7 +22,7 @@ class FateRoll(Roll):
 
     def new_roll(self, roll_string: str, modifier: int = 0, **options) -> None:
         num_dice = int(roll_string)
-        if num_dice < 1:
+        if num_dice < 1 or num_dice > MAX_DICE:
             raise ValueError(f"Invalid dice count: {num_dice}")
         self.num_dice = num_dice
         self.modifier = modifier

@@ -1,14 +1,18 @@
+import pytest
+
 from tests.factories import GenreFactory, PublisherFactory, SystemFactory
 
 
+@pytest.mark.parametrize("path", ["/systems/", "/systems/basic"])
+async def test_no_empty_entry_when_there_is_no_custom_system(client, create, path):
+    await create(SystemFactory, id="dnd5e")
+
+    response = await client.get(path)
+
+    assert [system["id"] for system in response.json()["systems"]] == ["dnd5e"]
+
+
 class TestGetSystems:
-    async def test_get_systems_is_public(self, client, create):
-        await create(SystemFactory, id="custom")
-
-        response = await client.get("/systems/")
-
-        assert response.status_code == 200
-
     async def test_get_systems(self, client, create):
         publisher = await create(
             PublisherFactory, name="Wizards of the Coast", website="https://wizards.com"
@@ -58,13 +62,6 @@ class TestGetSystems:
 
 
 class TestGetBasicSystems:
-    async def test_get_basic_systems_is_public(self, client, create):
-        await create(SystemFactory, id="custom")
-
-        response = await client.get("/systems/basic")
-
-        assert response.status_code == 200
-
     async def test_get_basic_systems(self, client, create):
         genre = await create(GenreFactory, genre="Fantasy")
         await create(SystemFactory, id="custom")

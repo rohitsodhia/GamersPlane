@@ -42,11 +42,6 @@ class ReadTrackingRepository:
 
     # Reads
 
-    async def forum_cutoff(self, forum: Forum) -> datetime | None:
-        """The latest read marker on the forum or any of its ancestors."""
-        forum_reads = await self._forum_reads()
-        return _cutoff(forum_reads, forum.id, forum.heritage)
-
     async def thread_read_point(self, thread: Thread) -> datetime | None:
         """Posts published up to this moment are read; None means nothing is."""
         thread_read = await self._thread_read(thread.id)
