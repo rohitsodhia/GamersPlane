@@ -6,6 +6,7 @@
 *.ods
 *.csv
 *.txt
+!frontend/SHEET_AUTHORING.txt
 *.psd
 *.ai
 *.doc

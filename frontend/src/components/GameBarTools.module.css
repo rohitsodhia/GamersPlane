@@ -1,0 +1,149 @@
+/* Shared by the dice and card popovers. Width is capped to the viewport so they
+   fit a phone. */
+.tool {
+	width: 20rem;
+	max-width: calc(100vw - 2rem);
+	padding: 0.5em 0.75em;
+	outline: none;
+}
+
+.quick-dice {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+}
+
+.small-btn {
+	text-box-trim: trim-both;
+	padding: 0.6em;
+	font: inherit;
+	cursor: pointer;
+	border: 1px solid var(--gp-red);
+	border-radius: 3px;
+	background: none;
+	color: inherit;
+
+	&[data-hovered] {
+		text-decoration: underline;
+	}
+
+	&[data-focus-visible] {
+		outline: 2px solid var(--gp-light-blue);
+	}
+
+	&[data-disabled] {
+		opacity: 0.5;
+		cursor: default;
+	}
+}
+
+.custom-roll {
+	display: flex;
+	gap: 0.35rem;
+	margin-block: 0.5rem;
+
+	input {
+		flex: 1;
+		min-width: 0;
+	}
+}
+
+.error {
+	margin: 0.25em 0;
+	color: var(--gp-red);
+	font-weight: bold;
+}
+
+/* Opens the results group: the separating line sits above Clear, not between it
+   and the first roll. */
+.rolls-actions {
+	display: flex;
+	justify-content: flex-end;
+	border-top: 1px solid #7777;
+}
+
+.clear {
+	background: none;
+	border: none;
+	padding: 0;
+	font: inherit;
+	font-size: 0.85em;
+	color: inherit;
+	cursor: pointer;
+
+	&[data-hovered],
+	&[data-focus-visible] {
+		text-decoration: underline;
+	}
+}
+
+.rolls {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.roll {
+	& + & {
+		border-top: 1px solid #7777;
+	}
+
+	/* The result's own padding is sized for the tools page. */
+	> * {
+		padding-block: 0.25em;
+		font-size: 1em;
+	}
+}
+
+.more-dice {
+	display: block;
+	font-size: var(--font-size-sm);
+}
+
+.deck-name {
+	margin: 0 0 0.25em;
+	font-weight: bold;
+}
+
+.cards-left {
+	margin: 0 0 0.5em;
+}
+
+.deck-choices {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.5rem;
+}
+
+.draw-form {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+
+	input {
+		width: 2.5rem;
+		text-align: center;
+	}
+}
+
+.draw-actions {
+	flex-basis: 100%;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+}
+
+/* The tools page's buttons are sized for a full page. */
+.skew {
+	font-size: 1em;
+}
+
+.drawn {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	margin-top: 0.75rem;
+}

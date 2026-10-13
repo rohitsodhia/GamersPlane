@@ -40,6 +40,10 @@ class Field:
     rows: dict[str, GridRow] | None = None
     # Select only: its non-blank option values.
     options: tuple[str, ...] | None = None
+    # Scalar fields only: editable from the display page (`live: true`).
+    live: bool = False
+    # Textarea only: stores a rich-text document rather than a string.
+    richtext: bool = False
 
 
 def scope_for(nodes: object) -> Scope:
@@ -64,9 +68,21 @@ def _field_for(node: dict, name: str) -> Field | None:
     node_type = node.get("type")
     node_id = _id_or(node, name)
     if node_type == "select":
-        return Field("value", node_id, node_type, options=_select_options(node))
+        return Field(
+            "value",
+            node_id,
+            node_type,
+            options=_select_options(node),
+            live=node.get("live") is True,
+        )
     if node_type in SCALAR_FIELD_TYPES:
-        return Field("value", node_id, node_type)
+        return Field(
+            "value",
+            node_id,
+            node_type,
+            live=node.get("live") is True,
+            richtext=node_type == "textarea" and node.get("richtext") is True,
+        )
     if node_type == "text" and node.get("formula") is not None:
         return Field("value", node_id, node_type)
     if node_type == "repeater":

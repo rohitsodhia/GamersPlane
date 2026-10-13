@@ -31,6 +31,7 @@ import {
 	attachmentErrors,
 	buildAttachmentPayload,
 	emptyAttachments,
+	rollsBlockedReason,
 } from "./-attachment-rows";
 import { Breadcrumbs } from "./-breadcrumbs";
 import { PollEditor, pollHasErrors } from "./-poll-editor";
@@ -42,6 +43,7 @@ import styles from "./-post-form.module.css";
 import { changedRollVisibility, initialVisibility } from "./-post-rolls";
 import { RollVisibilityEditor } from "./-roll-visibility-editor";
 import type { ThreadOptionsValues } from "./-thread-options";
+import { useSheetRollTarget } from "./-use-sheet-roll-target";
 
 // Each option needs a forum permission to set; mirrors OPTION_VERBS in the API.
 const optionCheckboxes = [
@@ -114,6 +116,7 @@ export function PostForm({
 	permissions = [],
 	threadOptions,
 	canAddAttachments = true,
+	acceptSheetRolls = false,
 	existingRolls = [],
 	existingPoll = null,
 	showMinorEdit = false,
@@ -144,6 +147,9 @@ export function PostForm({
 	threadOptions?: Pick<ThreadOptions, "allow_rolls" | "allow_draws">;
 	// False when the user can't add rolls or draws to this post (not its author).
 	canAddAttachments?: boolean;
+	// Takes rolls clicked on the game bar's character sheet, as new rows (an edit
+	// adds rolls; the ones already posted can't be changed or removed).
+	acceptSheetRolls?: boolean;
 	// The rolls already on the post (editing); their visibility can be changed here.
 	existingRolls?: PostRoll[];
 	// The thread's poll, when editing its first post.
@@ -217,9 +223,16 @@ export function PostForm({
 				setOptionsState(pollProblems ? "poll" : "dice_decks");
 				return;
 			}
+			// From the options being sent, so rows can't go out with their option off.
+			const submitAccess: AttachmentAccess = canAddAttachments
+				? attachmentAccess(
+						showThreadOptions ? value.options : attachmentOptions,
+						permissions,
+					)
+				: { rolls: false, draws: false };
 			await onSubmit({
 				...value,
-				...buildAttachmentPayload(attachments, attachmentAccessNow),
+				...buildAttachmentPayload(attachments, submitAccess),
 				rollVisibility: changedRollVisibility(existingRolls, rollVisibility),
 				poll: canAddPoll ? pollPayload(initialPoll, poll) : undefined,
 			});
@@ -257,6 +270,20 @@ export function PostForm({
 	const attachmentRowErrors = attachmentErrors(attachments, attachmentAccessNow, decks);
 	const hasAttachmentUI =
 		attachmentAccessNow.rolls || (attachmentAccessNow.draws && decks.length > 0);
+	// A new thread's Rolls and Decks tab only shows once one of its options is on.
+	const showAttachmentsTab =
+		attachmentOptions.allow_rolls || attachmentOptions.allow_draws;
+	const rollHighlight = useSheetRollTarget({
+		enabled: acceptSheetRolls,
+		attachments,
+		onAttachmentsChange: setAttachments,
+		blockedReason: rollsBlockedReason(
+			attachmentOptions,
+			permissions,
+			'Turn on "Allow adding rolls to posts" under Options to add rolls.',
+		),
+		reveal: () => setOptionsState("dice_decks"),
+	});
 
 	// Inline JSX rather than components: a component defined in this body would be
 	// a new type every render and remount (losing focus) on each keystroke.
@@ -271,7 +298,15 @@ export function PostForm({
 								<Checkbox
 									id={field.name}
 									checked={field.state.value}
-									onChange={(checked) => field.handleChange(checked)}
+									onChange={(checked) => {
+										field.handleChange(checked);
+										// Turning rolls or draws off drops the rows already added.
+										if (checked) return;
+										if (name === "options.allow_rolls")
+											setAttachments((current) => ({ ...current, rolls: [] }));
+										if (name === "options.allow_draws")
+											setAttachments((current) => ({ ...current, draws: [] }));
+									}}
 								/>
 								<label htmlFor={field.name}>{label}</label>
 							</div>
@@ -490,13 +525,15 @@ export function PostForm({
 								Poll
 							</button>
 						)}
-						<button
-							type="button"
-							onClick={() => setOptionsState("dice_decks")}
-							className={optionsState === "dice_decks" ? "current" : ""}
-						>
-							Rolls and Decks
-						</button>
+						{showAttachmentsTab && (
+							<button
+								type="button"
+								onClick={() => setOptionsState("dice_decks")}
+								className={optionsState === "dice_decks" ? "current" : ""}
+							>
+								Rolls and Decks
+							</button>
+						)}
 					</div>
 				</div>
 			)}
@@ -511,6 +548,7 @@ export function PostForm({
 							<PollEditor value={poll} onChange={setPoll} showErrors={showPollErrors} />
 						)}
 						{optionsState === "dice_decks" &&
+							showAttachmentsTab &&
 							(hasAttachmentUI ? (
 								<PostAttachmentsEditor
 									value={attachments}
@@ -518,6 +556,7 @@ export function PostForm({
 									access={attachmentAccessNow}
 									decks={decks}
 									showErrors={showAttachmentErrors}
+									highlight={rollHighlight}
 								/>
 							) : (
 								<div>{attachmentsHint()}</div>
@@ -525,21 +564,24 @@ export function PostForm({
 					</div>
 				</>
 			)}
-			{/* Belongs with Rolls and Decks; that's always the tab on a reply. */}
-			{existingRolls.length > 0 && optionsState === "dice_decks" && (
-				<>
-					<h2 className="headerbar hb-dark has-topper" ref={hbMarginedVisibility.ref}>
-						Roll Visibility
-					</h2>
-					<div style={{ marginInline: `${hbMarginedVisibility.margin}px` }}>
-						<RollVisibilityEditor
-							rolls={existingRolls}
-							value={rollVisibility}
-							onChange={setRollVisibility}
-						/>
-					</div>
-				</>
-			)}
+			{/* Belongs with Rolls and Decks; that's always the tab on a reply. Once
+			    the thread's roll and draw options are off there's no such tab, but the
+			    rolls already posted still need it. */}
+			{existingRolls.length > 0 &&
+				(optionsState === "dice_decks" || !showAttachmentsTab) && (
+					<>
+						<h2 className="headerbar hb-dark has-topper" ref={hbMarginedVisibility.ref}>
+							Roll Visibility
+						</h2>
+						<div style={{ marginInline: `${hbMarginedVisibility.margin}px` }}>
+							<RollVisibilityEditor
+								rolls={existingRolls}
+								value={rollVisibility}
+								onChange={setRollVisibility}
+							/>
+						</div>
+					</>
+				)}
 		</div>
 	);
 }

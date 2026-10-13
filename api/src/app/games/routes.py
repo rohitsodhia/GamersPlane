@@ -2,6 +2,7 @@ from typing import Literal
 
 from fastapi import APIRouter, File, Query, UploadFile, status
 
+from app.characters.functions import can_view_character
 from app.database import DBSessionDependency
 from app.exceptions import (
     ConflictException,
@@ -239,8 +240,10 @@ async def get_game(game_id: int, db_session: DBSessionDependency, principal: Pri
             schemas.PlayerCharacterData(
                 id=character.id,
                 label=character.label,
+                name=character.name,
                 type=character.type,
                 approved=character.approved,
+                can_view=can_view_character(character, principal, viewer_is_gm),
             )
         )
 
@@ -540,6 +543,8 @@ async def submit_character(
     allowed_systems = {system.id for system in game.allowed_char_sheets}
     if character.character_sheet.system_id not in allowed_systems:
         raise ValidationError("Character sheet isn't allowed in this game")
+    if not (character.name or "").strip():
+        raise ValidationError("Give your character a name before submitting it")
     # Only approved characters count toward the limit, so a player can put up
     # several for the GM to pick from. GMs aren't held to it, so they can bring
     # in NPCs.
@@ -550,7 +555,8 @@ async def submit_character(
     ):
         raise ForbiddenException("You cannot submit any more characters to this game")
 
-    await character_repository.submit_to_game(character, game_id)
+    # A GM would only be approving their own submission, so it skips the queue.
+    await character_repository.submit_to_game(character, game_id, approved=player.is_gm)
 
 
 @games.post(
@@ -580,6 +586,8 @@ async def approve_character(
     )
     if character.approved:
         raise ConflictException("Character already approved")
+    if not (character.name or "").strip():
+        raise ValidationError("This character needs a name before it can be approved")
 
     await character_repository.approve(character)
 

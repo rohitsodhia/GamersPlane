@@ -53,12 +53,14 @@ import {
 	updateThread,
 } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
+import { useGameBarGame } from "#/stores/game-bar";
 import {
 	type Attachments,
 	attachmentAccess,
 	attachmentErrors,
 	buildAttachmentPayload,
 	emptyAttachments,
+	rollsBlockedReason,
 } from "./-attachment-rows";
 import { Breadcrumbs } from "./-breadcrumbs";
 import ChatPoint from "./-chat-point";
@@ -75,6 +77,7 @@ import { PostAttachmentsEditor } from "./-post-attachments";
 import { PostDrawList } from "./-post-draw-list";
 import { PostRollList } from "./-post-roll-list";
 import { ThreadPoll } from "./-thread-poll";
+import { useSheetRollTarget } from "./-use-sheet-roll-target";
 import styles from "./thread.$threadId.module.css";
 
 export const Route = createFileRoute("/forums/thread/$threadId")({
@@ -359,6 +362,7 @@ function RouteComponent() {
 	const { data: breadcrumbs } = useSuspenseQuery(
 		forumBreadcrumbsQueryOptions(thread.forum_id),
 	);
+	useGameBarGame(breadcrumbs.game_id);
 	const [page, setPage] = useState(searchPage ?? 1);
 	// The search param can change without a remount (e.g. a redirect or a post
 	// link on this same thread), so follow it.
@@ -484,6 +488,14 @@ function RouteComponent() {
 	const attachmentRowErrors = attachmentErrors(attachments, access, decks);
 	const hasAttachmentUI = access.rolls || (access.draws && decks.length > 0);
 	const attachmentCount = attachments.rolls.length + attachments.draws.length;
+	// Rolls clicked on the game bar's character sheet land here as prefilled rows.
+	const rollHighlight = useSheetRollTarget({
+		enabled: userCanWrite,
+		attachments,
+		onAttachmentsChange: setAttachments,
+		blockedReason: rollsBlockedReason(thread.options, thread.permissions),
+		reveal: () => setAttachmentsOpen(true),
+	});
 
 	// Undefined until the user picks, so the thread's default applies until then.
 	// Kept after a post (the form's reset doesn't touch it).
@@ -745,6 +757,7 @@ function RouteComponent() {
 										access={access}
 										decks={decks}
 										showErrors={showAttachmentErrors}
+										highlight={rollHighlight}
 									/>
 								)}
 							</div>

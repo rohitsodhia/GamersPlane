@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { useEffect, useRef } from "react";
 import { Checkbox } from "#/components/Checkbox";
 import { Select } from "#/components/Select";
 import type { DiceSystem, FengShuiRollType } from "#/queries/dice";
@@ -15,6 +16,7 @@ import {
 	type RollRow,
 } from "./-attachment-rows";
 import styles from "./-post-attachments.module.css";
+import type { RollHighlight } from "./-use-sheet-roll-target";
 
 const SYSTEMS: { value: DiceSystem; label: string; placeholder: string }[] = [
 	{ value: "basic", label: "Basic Dice", placeholder: "2d6+1, 1d20" },
@@ -55,17 +57,40 @@ export function LabelledCheckbox({
 function RollEditor({
 	row,
 	error,
+	pulse,
 	onChange,
 	onRemove,
 }: {
 	row: RollRow;
 	error: string | undefined;
+	// Set while a sheet roll has just landed in this row; the row flashes and, if
+	// it's offscreen, scrolls into view.
+	pulse: number | null;
 	onChange: (patch: Partial<RollRow>) => void;
 	onRemove: () => void;
 }) {
 	const system = SYSTEMS.find((candidate) => candidate.value === row.system);
+	const ref = useRef<HTMLLIElement>(null);
+	useEffect(() => {
+		if (pulse == null) return;
+		const reduceMotion = window.matchMedia?.(
+			"(prefers-reduced-motion: reduce)",
+		).matches;
+		// jsdom has no scrollIntoView. "nearest" leaves a row that's already visible alone.
+		ref.current?.scrollIntoView?.({
+			block: "nearest",
+			behavior: reduceMotion ? "auto" : "smooth",
+		});
+	}, [pulse]);
 	return (
-		<li className={styles["row"]}>
+		<li
+			ref={ref}
+			// Alternating names restart the animation when the same row is hit again.
+			className={clsx(
+				styles["row"],
+				pulse != null && styles[pulse % 2 ? "flash-a" : "flash-b"],
+			)}
+		>
 			<div className={styles["row-main"]}>
 				<Select
 					id={`roll-system-${row.key}`}
@@ -220,6 +245,7 @@ export function PostAttachmentsEditor({
 	access,
 	decks,
 	showErrors,
+	highlight = null,
 }: {
 	value: Attachments;
 	onChange: (value: Attachments) => void;
@@ -227,6 +253,8 @@ export function PostAttachmentsEditor({
 	decks: DrawableDeck[];
 	// Row errors stay hidden until a submit has been attempted.
 	showErrors: boolean;
+	// The roll row a sheet roll just landed in.
+	highlight?: RollHighlight | null;
 }) {
 	const errors = showErrors ? attachmentErrors(value, access, decks) : {};
 	const showDraws = access.draws && decks.length > 0;
@@ -254,6 +282,7 @@ export function PostAttachmentsEditor({
 									key={row.key}
 									row={row}
 									error={errors[row.key]}
+									pulse={highlight?.key === row.key ? highlight.pulse : null}
 									onChange={(patch) => updateRoll(row.key, patch)}
 									onRemove={() =>
 										onChange({

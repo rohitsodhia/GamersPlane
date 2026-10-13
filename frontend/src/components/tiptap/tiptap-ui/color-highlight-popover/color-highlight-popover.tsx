@@ -1,4 +1,4 @@
-import { type Editor } from "@tiptap/react";
+import type { Editor } from "@tiptap/react";
 import { forwardRef, useMemo, useRef, useState } from "react";
 // --- Icons ---
 import { BanIcon } from "#/components/tiptap/tiptap-icons/ban-icon";

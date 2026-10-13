@@ -42,7 +42,6 @@ import { NpcChooser } from "#/components/NpcChooser";
 // --- Icons ---
 import { ArrowLeftIcon } from "#/components/tiptap/tiptap-icons/arrow-left-icon";
 import { CaseSensitiveIcon } from "#/components/tiptap/tiptap-icons/case-sensitive-icon";
-import { CornerDownLeftIcon } from "#/components/tiptap/tiptap-icons/corner-down-left-icon";
 import { HorizontalRuleIcon } from "#/components/tiptap/tiptap-icons/horizontal-rule-icon";
 import { ImagePlusIcon } from "#/components/tiptap/tiptap-icons/image-plus-icon";
 import { LinkIcon } from "#/components/tiptap/tiptap-icons/link-icon";
@@ -135,25 +134,6 @@ export function trimTrailingEmptyParagraph(content: JSONContent): JSONContent {
 const SEARCH_AND_REPLACE_SCROLL_OPTIONS: ScrollIntoViewOptions = {
 	block: "center",
 };
-
-// No dedicated "insert line break" button ships with the tiptap templates
-// (Shift+Enter covers it), but markItUp had one, so wire the existing
-// StarterKit HardBreak command up to a toolbar button.
-function LineBreakButton({ editor }: { editor: TiptapEditor | null }) {
-	if (!editor) return null;
-
-	return (
-		<Button
-			type="button"
-			variant="ghost"
-			tooltip="Line break"
-			aria-label="Line break"
-			onClick={() => editor.chain().focus().setHardBreak().run()}
-		>
-			<CornerDownLeftIcon className="tiptap-button-icon" />
-		</Button>
-	);
-}
 
 // No dedicated horizontal rule button ships with the tiptap templates either;
 // wire up the custom HorizontalRule extension's command directly.

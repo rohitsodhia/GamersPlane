@@ -202,3 +202,125 @@ class TestValidateSheetLayoutRejects:
 
         with pytest.raises(ValidationError, match="nests too deeply"):
             validate_sheet_layout({"schema_version": 1, "elements": [root]})
+
+
+class TestValidateLive:
+    @pytest.mark.parametrize("node_type", ["input", "textarea", "select", "checkbox"])
+    def test_accepts_live_on_value_controls(self, node_type):
+        validate_sheet_layout(
+            _layout({"type": node_type, "name": "x", "values": ["a"], "live": True})
+        )
+
+    def test_accepts_an_explicit_false_even_where_true_is_rejected(self):
+        validate_sheet_layout(
+            _layout({"type": "textarea", "name": "x", "richtext": True, "live": False})
+        )
+
+    def test_rejects_live_on_other_types(self):
+        with pytest.raises(ValidationError, match="isn't allowed on a 'text'"):
+            validate_sheet_layout(_layout({"type": "text", "content": [], "live": True}))
+
+    def test_rejects_a_non_boolean(self):
+        with pytest.raises(ValidationError, match="'live'.* must be a boolean"):
+            validate_sheet_layout(
+                _layout({"type": "input", "name": "x", "live": "yes"})
+            )
+
+    def test_rejects_live_on_a_richtext_textarea(self):
+        with pytest.raises(ValidationError, match="richtext"):
+            validate_sheet_layout(
+                _layout(
+                    {"type": "textarea", "name": "x", "richtext": True, "live": True}
+                )
+            )
+
+
+def _roll_layout(roll, node_type="text"):
+    return _layout({"type": node_type, "text": "Athletics", "roll": roll})
+
+
+class TestValidateRoll:
+    @pytest.mark.parametrize("node_type", ["text", "label", "group"])
+    def test_accepts_a_roll_on_rollable_types(self, node_type):
+        node = {"type": node_type, "roll": {"dice": "1d20"}}
+        if node_type == "group":
+            node["content"] = []
+        validate_sheet_layout(_layout(node))
+
+    def test_accepts_a_full_roll(self):
+        validate_sheet_layout(
+            _roll_layout(
+                {
+                    "dice": "1d20+${str_mod}+${$row.prof}, ${n}d6",
+                    "reason": "Check ${name}",
+                    "advantage": True,
+                    "mode": "add",
+                    "icon": {"x": "end", "y": "start"},
+                }
+            )
+        )
+
+    @pytest.mark.parametrize(
+        "roll",
+        [
+            {"dice": "1d20+${a}"},
+            {"dice": "${n}d6"},
+            {"dice": "1d${die}"},
+            {"dice": "${a}d${b}h${c}"},
+            {"dice": "1d20+-${m}"},
+            {"dice": "1d20 + ${m}"},
+            {"dice": "1d20+${stats.$(pick).mod}"},
+            {"dice": "1d8,1d6"},
+            # Advantage only needs one d20 term somewhere in the expression.
+            {"dice": "1D20", "advantage": True},
+            {"dice": "d20+${m}", "advantage": True},
+            {"dice": "${a}d6,1d20", "advantage": True},
+        ],
+    )
+    def test_accepts_dice_templates_whose_shape_is_valid(self, roll):
+        validate_sheet_layout(_roll_layout(roll))
+
+    def test_rejects_a_roll_on_another_type(self):
+        with pytest.raises(ValidationError, match="isn't allowed on a 'input'"):
+            validate_sheet_layout(
+                _layout({"type": "input", "name": "x", "roll": {"dice": "1d20"}})
+            )
+
+    @pytest.mark.parametrize(
+        ("roll", "match"),
+        [
+            ("1d20", "must be an object"),
+            ({}, "'roll.dice'.* must be a string"),
+            ({"dice": "1d20", "modifier": "+3"}, "unknown key 'modifier'"),
+            ({"dice": "1d${x"}, "unterminated"),
+            ({"dice": "1d${}"}, "empty"),
+            ({"dice": "1d20+${a}x"}, "may only contain digits"),
+            ({"dice": "1d"}, "valid dice expression"),
+            ({"dice": ""}, "has no dice"),
+            ({"dice": "0d6"}, "rolls 0 dice"),
+            ({"dice": "101d6"}, "rolls 101 dice"),
+            ({"dice": "1d1"}, "has a d1"),
+            ({"dice": "1d1001"}, "has a d1001"),
+            ({"dice": "1d20+"}, "valid dice expression"),
+            ({"dice": "1d20", "reason": ["x"]}, "'roll.reason'.* must be a string"),
+            ({"dice": "1d20", "reason": "oops ${x"}, "'roll.reason'.* unterminated"),
+            ({"dice": "1d20", "reason": "${}"}, "'roll.reason'.* empty"),
+            ({"dice": "1d20", "advantage": "yes"}, "must be a boolean"),
+            ({"dice": "1d8", "advantage": True}, "needs a single d20"),
+            ({"dice": "${n}d20", "advantage": True}, "needs a single d20"),
+            ({"dice": "1d20", "mode": "append"}, "'new' or 'add'"),
+            ({"dice": "1d20", "mode": []}, "'new' or 'add'"),
+            ({"dice": "1d20", "icon": {"y": {}}}, "start, middle or end"),
+            ({"dice": "1d20", "icon": "start"}, "must be an object"),
+            ({"dice": "1d20", "icon": {"x": "left"}}, "start, middle or end"),
+            ({"dice": "1d20", "icon": {"z": "start"}}, "unknown key 'z'"),
+            (
+                {"dice": "1d20", "icon": {"x": "middle", "y": "middle"}},
+                "middle/middle",
+            ),
+            ({"dice": "1d20", "icon": {"x": "middle"}}, "middle/middle"),
+        ],
+    )
+    def test_rejects_a_malformed_roll(self, roll, match):
+        with pytest.raises(ValidationError, match=match):
+            validate_sheet_layout(_roll_layout(roll))

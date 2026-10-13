@@ -1,10 +1,9 @@
 .roll {
 	margin: 0;
-	padding: 0.5em 1em;
-	font-size: 1.15em;
+	padding: 0.5em;
 	line-height: 1.3em;
 
-	p {
+	p:last-of-type {
 		margin: 0.3em 0 0;
 	}
 }

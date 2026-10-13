@@ -32,7 +32,8 @@
 // re-renders only the field that changed, and so the future reactivity engine
 // can subscribe to the same slices and write computed values back. The same
 // store backs display mode: it is seeded from the character's stored values and
-// simply never written to.
+// written to only by `live` fields (see `useLiveField`), which save through the
+// provider's `onLiveSave` as they change; nothing else touches it.
 
 import {
 	createContext,
@@ -43,6 +44,7 @@ import {
 	useLayoutEffect,
 	useMemo,
 	useRef,
+	useState,
 	useSyncExternalStore,
 } from "react";
 import { type ScopeKeys, scopeKeysFor, storeKey } from "./scope-keys";
@@ -136,9 +138,20 @@ export function createSheetStore(initial: ScopeValues = {}): SheetStore {
 	};
 }
 
+/** The scalar a live field saves. */
+export type LiveValue = string | number | boolean;
+
+/**
+ * Saves one live field's new value (`path` is its address in the value
+ * document). Rejects with an `Error` whose message is fit to show the user.
+ */
+export type LiveSave = (path: Path, value: LiveValue) => Promise<void>;
+
 interface SheetValuesContext {
 	store: SheetStore;
 	mode: SheetMode;
+	/** Set only in display mode, when the viewer may change live fields. */
+	liveSave: LiveSave | undefined;
 }
 
 const ValuesContext = createContext<SheetValuesContext | null>(null);
@@ -163,23 +176,32 @@ const ScopeContext = createContext<Scope>(EMPTY_SCOPE);
  * inside. `SheetRenderer` must be rendered under this provider. Read the store
  * back out with `useSheetStore()` to seed `initialValues` or to `snapshot()` on
  * submit. `mode` is the render mode every element component branches on.
+ *
+ * `onLiveSave` + `canEditLive` make `live: true` fields editable in display
+ * mode: they save through the handler as they change. Without both (or outside
+ * display mode) live fields render like any other, as plain text.
  */
 export function SheetValuesProvider({
 	initialValues,
 	mode = "edit",
+	onLiveSave,
+	canEditLive = false,
 	children,
 }: {
 	initialValues?: ScopeValues;
 	mode?: SheetMode;
+	onLiveSave?: LiveSave;
+	canEditLive?: boolean;
 	children: ReactNode;
 }) {
 	const storeRef = useRef<SheetStore>(null);
 	if (storeRef.current === null) {
 		storeRef.current = createSheetStore(initialValues ?? {});
 	}
+	const liveSave = mode === "display" && canEditLive ? onLiveSave : undefined;
 	const value = useMemo<SheetValuesContext>(
-		() => ({ store: storeRef.current as SheetStore, mode }),
-		[mode],
+		() => ({ store: storeRef.current as SheetStore, mode, liveSave }),
+		[mode, liveSave],
 	);
 	return (
 		<ValuesContext.Provider value={value}>
@@ -418,12 +440,12 @@ const EMPTY_PATH: Path = [];
 /**
  * Two-way binding for a scalar field. `value` is whatever is stored, falling back
  * to `defaultValue` while nothing is stored; `setValue` writes it back and
- * notifies subscribers. In display mode nothing calls `setValue`, but the read
- * path is identical.
+ * notifies subscribers. In display mode only a `live` field calls `setValue`
+ * (see `useLiveField`), but the read path is identical.
  *
  * When `defaultValue` is given and nothing is stored yet, it is also seeded into
- * the store (edit mode only — the display store is authoritative and never
- * mutated) so an untouched-but-defaulted field still round-trips through
+ * the store (edit mode only — the display store is authoritative and isn't
+ * seeded, even for live fields) so an untouched-but-defaulted field still round-trips through
  * `snapshot()`. The seed runs in a layout effect so dependent `computed`s see it
  * before the first paint. An explicit stored `null` or `""` is left alone.
  */
@@ -473,6 +495,77 @@ export function useControlBinding<T = unknown>(
 	const ariaLabelledBy = useCellAriaLabelledBy();
 	const [value, setValue] = useField<T>(name, defaultValue);
 	return { domId, mode, ariaLabelledBy, value, setValue };
+}
+
+export interface LiveField {
+	/** Whether this field is `live` and the viewer can change it in display mode. */
+	editable: boolean;
+	saving: boolean;
+	/** Why the last save failed, until the next edit. */
+	error: string | null;
+	/**
+	 * Call when an edit starts or changes, BEFORE writing the new value to the
+	 * store: it remembers the last saved value to compare against and revert to.
+	 */
+	begin: () => void;
+	/** Save `value` unless it's what was last saved. A failure reverts the store. */
+	commit: (value: LiveValue) => void;
+}
+
+// Unset, "" and false are the same "empty" to a live field, so focusing and
+// leaving a blank control (or ticking a box on and off) never saves.
+const isBlank = (v: unknown) => v == null || v === "" || v === false;
+const sameLiveValue = (a: unknown, b: unknown) => a === b || (isBlank(a) && isBlank(b));
+
+/**
+ * Display-mode saving for a `live` scalar field, bound to the field `name` in
+ * the current scope. `current` is the value the control is showing (the stored
+ * value, or its default while nothing is stored). The control writes edits to the
+ * store as normal; `commit` then saves them through the provider's `onLiveSave`,
+ * and puts the last saved value back if that fails.
+ */
+export function useLiveField(
+	name: string,
+	live: boolean | undefined,
+	current: unknown,
+): LiveField {
+	const { store, liveSave } = useValuesContext();
+	const path = useScopedPath(name);
+	const saved = useRef<{ value: unknown } | null>(null);
+	const inFlight = useRef<{ value: unknown } | null>(null);
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const begin = () => {
+		saved.current ??= { value: store.get(path) ?? current };
+		if (error !== null) setError(null);
+	};
+
+	const commit = async (value: LiveValue) => {
+		if (liveSave == null) return;
+		saved.current ??= { value: store.get(path) ?? current };
+		if (sameLiveValue(value, saved.current.value)) return;
+		if (inFlight.current && sameLiveValue(value, inFlight.current.value)) return;
+
+		const mine = { value };
+		inFlight.current = mine;
+		setSaving(true);
+		setError(null);
+		try {
+			await liveSave(path, value);
+			saved.current = mine;
+		} catch (err) {
+			store.set(path, saved.current?.value);
+			setError(err instanceof Error ? err.message : "Couldn't save this change.");
+		} finally {
+			if (inFlight.current === mine) {
+				inFlight.current = null;
+				setSaving(false);
+			}
+		}
+	};
+
+	return { editable: live === true && liveSave != null, saving, error, begin, commit };
 }
 
 /**

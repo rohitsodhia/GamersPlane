@@ -49,7 +49,8 @@ The sheet renders in one of two modes:
   fields and defaults are written back into the store.
 - **display** — every control renders its stored value as static text
   (`input`/`textarea`/`select` → a `<span>`, `checkbox` → `✓` / `—`). Buttons
-  render but do nothing. The store is never mutated.
+  render but do nothing. The store is never mutated, except by `live` fields
+  (§4.5), which stay editable.
 
 You author one sheet; the mode is chosen at render time. You don't need to do
 anything special for display mode, but keep it in mind: a sheet that only makes
@@ -325,6 +326,39 @@ Single boolean. Renders a box in edit mode, `✓` / `—` in display mode.
 ```jsonc
 { "type": "checkbox", "name": "save_prof" }
 ```
+
+### 4.5 `live` — editable during play
+
+Add `"live": true` to a value field that changes while the character is being
+played — hit points, inspiration, spell slots, ammo — so it can be changed
+without going to the edit page. It is the only thing `live` does: a live field
+is a normal field that also stays an editable control in display mode (the
+character page and the game bar's sheet panel). Computed values that read it
+update immediately.
+
+| Key | Type | Notes |
+|---|---|---|
+| `live` | boolean | Optional. Allowed on `input`, `textarea`, `select` and `checkbox` only (any other element type is rejected, as is a non-boolean value), and not on a `richtext` textarea. Works anywhere those do, including inside `grid` rows and `repeater` rows. |
+
+```jsonc
+{ "type": "input", "name": "hp", "maxlength": 3, "live": true }
+{ "type": "checkbox", "name": "inspiration", "live": true }
+```
+
+- **Who can edit:** the character's owner, and any GM of the game the character
+  is *approved* in (not one where it is only pending). Everyone else sees the
+  field as plain text, like any other display-mode field.
+- **When it saves:** a `checkbox` or `select` saves the moment it changes. An
+  `input` saves when it loses focus or Enter is pressed; a `textarea` when it
+  loses focus. Nothing is sent if the value is the same as the last saved one.
+  The field dims while the save is in flight.
+- **If a save fails** an error message appears beside the field and the field
+  goes back to its last saved value.
+- **Repeaters:** rows still can't be added or removed in display mode, and a
+  live field in a repeater can only change a row that already exists.
+- **Edit mode** is unchanged; it saves the whole sheet with the Save button.
+  Changes made on the display page overwrite the stored value for that field
+  only; the last write wins against an edit page that was already open.
 
 ---
 
@@ -880,6 +914,88 @@ independently.
 ] }
 ```
 
+### 9.3 `roll` — rollable text, labels and rows
+
+`text`, `label` and `group` elements can carry a `roll`. In **display mode** the
+element gets a small dice icon; clicking the icon (or anywhere on the element)
+hands the roll to the post composer, which **prefills** it — nothing ever rolls
+by itself. `roll` does nothing in edit mode (no icon, no click). A `group` with
+a `roll` makes the whole row clickable; clicks on its inputs, buttons and links
+do their own thing instead.
+
+| Key | Type | Notes |
+|---|---|---|
+| `dice` | string | Required. A dice template: dice text with `${ref}` placeholders, e.g. `"1d20+${str_mod}"`. See below. |
+| `reason` | string | Optional. A template with the same `${ref}` syntax; a ref may read a **text** field (a missing or empty one adds nothing), e.g. `"${$row.name} check"`. Defaults to the element's own text (a group uses its first `label` / `text` child). Trimmed and cut to 100 characters. |
+| `advantage` | boolean | Optional. Offers Advantage / Normal / Disadvantage when rolled (see below). |
+| `mode` | `"new"` \| `"add"` | Optional. Default `"new"`. `"add"` asks the composer to append these dice to its latest unposted roll instead of starting a new one. |
+| `icon` | object | Optional. `{ "x": "start"\|"middle"\|"end", "y": "start"\|"middle"\|"end" }`. Default `{ "x": "start", "y": "middle" }`. |
+
+**Templates.** `${…}` holds a **ref path only** — anything a formula `ref` accepts
+(`str_mod`, `$row.bonus`, `$index`, `$item.x`, dynamic `stats.$(pick).mod`). There
+are no formulas inside `${}`: put arithmetic in a named computed `text` field
+(§3.4) and reference it by name (`"1d20+${attack_bonus}"`). Each ref becomes an
+integer: numbers are truncated, `true`/`false` are `1`/`0`, a missing or empty
+value is `0`, numeric text (an `input`'s value) is parsed, and any other text is
+an error (`${x} is 'abc', not a number`).
+
+**Sign tidy-up.** After substitution, spaces are removed, `+-` and `-+` become
+`-`, `--` and `++` become `+` (repeated until stable), a bare `+0` / `-0`
+modifier term is dropped (not `+0d6`, and not the 0 in `10`), and a `+` at the
+start of a group is dropped. So `"1d20+${mod}"` with `mod` = `-2` rolls `1d20-2`,
+and with `mod` = `0` rolls `1d20`.
+
+The result must be something the dice roller accepts: `NdS` / `dS` terms
+(1–100 dice, 2–1000 sides), optional keep-highest/lowest (`4d6h3`, `2d20l1`),
+whole-number modifiers, and comma-separated groups (`1d8,1d6`). If it isn't valid
+(say `${n}d6` with `n` = `0`), the icon turns red and its tooltip says why — fix
+the sheet; the click does nothing. Publishing also checks the *shape* with every
+`${…}` standing in as `2`, and that every ref resolves.
+
+**Icon placement.** The icon's *center* sits on the point of the element's box
+given by `icon`: `x` is the left edge (`start`), center (`middle`) or right edge
+(`end`); `y` is the top, middle or bottom. It straddles the edge so it doesn't
+cover text. `middle` / `middle` is not allowed. The icon is faint until the row
+is hovered or focused (always visible on touch screens); the whole element gets a
+dice cursor.
+
+**Advantage.** With `"advantage": true` the dice must contain a single-die d20
+term (`1d20` or `d20`) — checked at publish, and again with the real values. Rolling
+opens a small Advantage / Normal / Disadvantage choice; the *first* d20 term
+becomes `2d20h1` (advantage) or `2d20l1` (disadvantage), or stays as-is for
+Normal. If the built dice have no single d20 (say `${n}d20` with `n` = `2`), the
+icon shows an error.
+
+```jsonc
+// Simplest: 1d20 + a modifier from another field.
+{ "type": "text", "text": "Athletics",
+  "roll": { "dice": "1d20+${str_mod}" } }
+
+// Dice count from a field (arithmetic lives in a computed text named
+// "sneak_dice"; the roll just references it).
+{ "type": "label", "text": "Sneak Attack",
+  "roll": { "dice": "${sneak_dice}d6", "reason": "Sneak attack" } }
+
+// Die size from a field.
+{ "type": "text", "text": "Hit die",
+  "roll": { "dice": "1d${hit_die}" } }
+
+// A repeater row: the whole row rolls, with the row's name in the reason.
+{ "type": "repeater", "name": "attacks", "content": [
+  { "type": "group", "class": "char-sheet-group--inline",
+    "roll": { "dice": "1d20+${$row.bonus}",
+              "reason": "${$row.name} check",
+              "advantage": true, "icon": { "x": "end", "y": "middle" } },
+    "content": [
+      { "type": "input", "name": "name" },
+      { "type": "input", "name": "bonus", "maxlength": 3 }
+    ] }
+] }
+```
+
+Refs in `dice` and `reason` are checked at publish like any other ref (`$row.*`,
+`$index`, `$item.*` work wherever they would in a formula).
+
 ---
 
 ## 10. Defaults and seeding
@@ -1207,6 +1323,8 @@ actually reach for while authoring are marked **author knob**.
 | Class | Applied to | Notes |
 |---|---|---|
 | `char-sheet-value` | the `<span>` a control renders in display mode (auto) | No rules of its own in the stylesheet today — a stable hook for display-mode styling. |
+| `char-sheet-live--saving` | a `live` control while its save is in flight (auto) | Dims the control. |
+| `char-sheet-live-error` | the message after a `live` control whose save failed (auto) | Error colour, small text. |
 
 ### From outside `char-sheet.css`
 

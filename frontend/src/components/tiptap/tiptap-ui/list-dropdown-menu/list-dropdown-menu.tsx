@@ -1,4 +1,4 @@
-import { type Editor } from "@tiptap/react";
+import type { Editor } from "@tiptap/react";
 import { type ForwardedRef, forwardRef, useCallback, useState } from "react";
 // --- Icons ---
 import { ChevronDownIcon } from "#/components/tiptap/tiptap-icons/chevron-down-icon";

@@ -46,8 +46,12 @@ PlayerState = Literal["invited", "applied", "accepted"]
 class PlayerCharacterData(SchemaBase):
     id: int
     label: str
+    # The in-game name others should see; None for characters without one.
+    name: str | None
     type: Character.Type
     approved: bool
+    # Whether the viewer may open the character's page.
+    can_view: bool
 
 
 class PlayerData(SchemaBase):

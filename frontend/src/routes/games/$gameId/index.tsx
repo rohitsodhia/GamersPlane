@@ -9,6 +9,7 @@ import { useState } from "react";
 import { ActionsMenu, type MenuAction } from "#/components/ActionsMenu";
 import { Autocomplete } from "#/components/Autocomplete";
 import GMBadge from "#/components/GMBadge";
+import { characterDisplayName, ownerLabelHint } from "#/components/game-bar";
 import { QuickNpcList } from "#/components/QuickNpcList";
 import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
@@ -40,6 +41,7 @@ import { meQueryOptions } from "#/queries/me";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { searchUserByUsername } from "#/queries/users";
 import { useAuthStore } from "#/stores/auth";
+import { useGameBarGame } from "#/stores/game-bar";
 import DeckFormPopover from "./-deck-form-popover";
 import styles from "./index.module.css";
 
@@ -106,6 +108,7 @@ function RouteComponent() {
 	const { gameId } = Route.useParams();
 	const queryClient = useQueryClient();
 	const { data: game } = useSuspenseQuery(gameDetailsQueryOptions(gameId));
+	useGameBarGame(gameId);
 	const { data: systems } = useSuspenseQuery(systemsQueryOptions({ basic: true }));
 	const token = useAuthStore((state) => state.token);
 	const { data: me } = useQuery({ ...meQueryOptions, enabled: !!token });
@@ -341,7 +344,9 @@ function RouteComponent() {
 		onSuccess: (_data, character) => {
 			if (me) {
 				updatePlayerCharacters(me.id, (characters) =>
-					[...characters, character].sort((a, b) => a.label.localeCompare(b.label)),
+					[...characters, character].sort((a, b) =>
+						characterDisplayName(a).localeCompare(characterDisplayName(b)),
+					),
 				);
 			}
 			setSelectedCharacterId(null);
@@ -366,8 +371,12 @@ function RouteComponent() {
 		submitCharacterMutation.mutate({
 			id: character.id,
 			label: character.label,
+			name: character.name,
 			type: character.type,
-			approved: false,
+			// The API approves a GM's own submission straight away.
+			approved: isGM,
+			// The submitter owns it.
+			can_view: true,
 		});
 	};
 
@@ -385,7 +394,12 @@ function RouteComponent() {
 				queryKey: gameDetailsQueryOptions(gameId).queryKey,
 			});
 		},
-		onError: () => setCharacterActionError("Failed to approve character"),
+		onError: (error: unknown) =>
+			setCharacterActionError(
+				error instanceof ApiError && error.errors[0]?.detail
+					? error.errors[0].detail
+					: "Failed to approve character",
+			),
 	});
 	const removeCharacterMutation = useMutation({
 		mutationFn: (args: { userId: number; characterId: number }) =>
@@ -678,6 +692,7 @@ function RouteComponent() {
 											<ul className={styles["characters"]}>
 												{player.characters.map((character) => {
 													const ownsCharacter = player.id === me?.id;
+													const ownerLabel = ownerLabelHint(character, ownsCharacter);
 													const characterArgs = {
 														userId: player.id,
 														characterId: character.id,
@@ -690,10 +705,15 @@ function RouteComponent() {
 																		to="/characters/$characterId"
 																		params={{ characterId: character.id }}
 																	>
-																		{character.label}
+																		{characterDisplayName(character)}
 																	</Link>
 																) : (
-																	<span>{character.label}</span>
+																	<span>{characterDisplayName(character)}</span>
+																)}
+																{ownerLabel && (
+																	<span className={styles["owner-label"]}>
+																		({ownerLabel})
+																	</span>
 																)}
 																{character.type === "npc" && " (NPC)"}
 																{!character.approved && (
@@ -718,7 +738,7 @@ function RouteComponent() {
 																</button>
 															)}
 															<ActionsMenu
-																label={`Actions for ${character.label}`}
+																label={`Actions for ${characterDisplayName(character)}`}
 																actions={
 																	isGM || ownsCharacter
 																		? [

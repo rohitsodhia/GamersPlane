@@ -69,6 +69,7 @@ ModeratedForumData.model_rebuild()
 class GetForumBreadcrumbsResponse(SchemaBase):
     id: int
     title: str
+    game_id: int | None
     heritage: list[HeritageForumData]
 
 

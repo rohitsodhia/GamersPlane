@@ -194,6 +194,12 @@
 	background: light-dark(#dcdcdc, #333);
 }
 
+.owner-label {
+	margin-inline-start: 0.4em;
+	font-size: 0.85em;
+	opacity: 0.7;
+}
+
 .pending-badge {
 	padding: 0.1em 0.5em;
 	border: 1px solid currentColor;

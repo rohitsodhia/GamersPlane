@@ -1,13 +1,16 @@
 import clsx from "clsx";
 import type { CSSProperties } from "react";
 import { Select as RACSelect } from "#/components/Select";
-import { useControlBinding } from "./sheet-values";
+import { LiveError } from "./LiveError";
+import { useControlBinding, useLiveField } from "./sheet-values";
 import type { SelectOption } from "./types";
 
 interface SelectProps {
 	name: string;
 	values: SelectOption[];
 	default?: string;
+	/** Editable in display mode too, saving on change (see `useLiveField`). */
+	live?: boolean;
 	className?: string;
 	style?: CSSProperties;
 }
@@ -42,12 +45,14 @@ export function Select({
 	name,
 	values,
 	default: defaultValue,
+	live: liveField,
 	className,
 	style,
 }: SelectProps) {
 	const { domId, mode, ariaLabelledBy, value, setValue } = useControlBinding<
 		string | undefined
 	>(name, defaultValue);
+	const live = useLiveField(name, liveField, value);
 
 	const options = values.map(normalize);
 
@@ -62,7 +67,7 @@ export function Select({
 		);
 	}
 
-	if (mode === "display") {
+	if (mode === "display" && !live.editable) {
 		const label = options.find((o) => o.value === value)?.label ?? "";
 		return (
 			<span id={domId} className={clsx("char-sheet-value", className)} style={style}>
@@ -77,16 +82,28 @@ export function Select({
 			: options;
 
 	return (
-		<RACSelect
-			id={domId}
-			className={clsx("char-sheet-select", className)}
-			style={style}
-			items={items}
-			getId={(o) => o.value}
-			getLabel={(o) => o.label}
-			selectedId={value == null || value === "" ? BLANK : value}
-			onChange={(id) => setValue(id === BLANK ? "" : id)}
-			ariaLabelledBy={ariaLabelledBy}
-		/>
+		<>
+			<RACSelect
+				id={domId}
+				className={clsx(
+					"char-sheet-select",
+					live.saving && "char-sheet-live--saving",
+					className,
+				)}
+				style={style}
+				items={items}
+				getId={(o) => o.value}
+				getLabel={(o) => o.label}
+				selectedId={value == null || value === "" ? BLANK : value}
+				onChange={(id) => {
+					const next = id === BLANK ? "" : id;
+					if (live.editable) live.begin();
+					setValue(next);
+					if (live.editable) live.commit(next);
+				}}
+				ariaLabelledBy={ariaLabelledBy}
+			/>
+			<LiveError error={live.error} />
+		</>
 	);
 }

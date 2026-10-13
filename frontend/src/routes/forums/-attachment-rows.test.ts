@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { DrawableDeck } from "#/queries/forums";
+import { MAX_ROLLS_PER_POST } from "#/queries/posts";
 import {
 	type AttachmentAccess,
+	addSheetRoll,
 	attachmentAccess,
 	attachmentErrors,
 	availableDecks,
@@ -9,6 +11,8 @@ import {
 	type DrawRow,
 	newDrawRow,
 	newRollRow,
+	type RollRow,
+	rollsBlockedReason,
 } from "./-attachment-rows";
 
 const decks: DrawableDeck[] = [
@@ -174,5 +178,104 @@ describe("buildAttachmentPayload", () => {
 			buildAttachmentPayload(attachments, { rolls: true, draws: false }).draws,
 		).toEqual([]);
 		expect(buildAttachmentPayload(attachments, everything).draws).toHaveLength(1);
+	});
+});
+
+describe("addSheetRoll", () => {
+	const roll = (dice: string, reason = "Athletics", mode: "new" | "add" = "new") => ({
+		dice,
+		reason,
+		mode,
+	});
+	const rowWith = (overrides: Partial<RollRow>): RollRow => ({
+		...newRollRow(),
+		...overrides,
+	});
+
+	it("starts a new row for a `new` roll even when rows exist, with dice and reason prefilled", () => {
+		const existing = rowWith({ roll: "1d6" });
+		const added = addSheetRoll({ rolls: [existing], draws: [] }, roll("1d20"));
+		if ("error" in added) throw new Error(added.error);
+
+		expect(added.attachments.rolls.map((row) => row.roll)).toEqual(["1d6", "1d20"]);
+		expect(added.rowKey).not.toBe(existing.key);
+		expect(added.attachments.rolls[1]).toMatchObject({
+			key: added.rowKey,
+			system: "basic",
+			roll: "1d20",
+			reason: "Athletics",
+		});
+	});
+
+	it("appends an `add` roll to the latest basic row as another comma group", () => {
+		const first = rowWith({ roll: "1d6" });
+		const last = rowWith({ roll: "2d6", reason: "Fireball" });
+		const added = addSheetRoll(
+			{ rolls: [first, last], draws: [] },
+			roll("1d8", "Burn", "add"),
+		);
+		if ("error" in added) throw new Error(added.error);
+
+		expect(added.rowKey).toBe(last.key);
+		expect(added.attachments.rolls.map((row) => row.roll)).toEqual(["1d6", "2d6,1d8"]);
+		// The row's own reason wins.
+		expect(added.attachments.rolls[1]?.reason).toBe("Fireball");
+	});
+
+	it("fills an empty reason and an empty roll when appending", () => {
+		const added = addSheetRoll(
+			{ rolls: [rowWith({ roll: "  ", reason: " " })], draws: [] },
+			roll("1d8", "Burn", "add"),
+		);
+		if ("error" in added) throw new Error(added.error);
+
+		expect(added.attachments.rolls[0]).toMatchObject({ roll: "1d8", reason: "Burn" });
+	});
+
+	it("skips rows of another dice system when appending, starting a new row", () => {
+		const fate = rowWith({ system: "fate", roll: "4" });
+		const added = addSheetRoll(
+			{ rolls: [fate], draws: [] },
+			roll("1d8", "Burn", "add"),
+		);
+		if ("error" in added) throw new Error(added.error);
+
+		expect(added.attachments.rolls).toHaveLength(2);
+		expect(added.attachments.rolls[0]).toBe(fate);
+	});
+
+	it("refuses a new row when the post is full, but still appends to one", () => {
+		const full = {
+			rolls: Array.from({ length: MAX_ROLLS_PER_POST }, () => rowWith({ roll: "1d6" })),
+			draws: [],
+		};
+
+		expect(addSheetRoll(full, roll("1d20"))).toEqual({
+			error: `A post can have at most ${MAX_ROLLS_PER_POST} rolls.`,
+		});
+		const appended = addSheetRoll(full, roll("1d8", "Burn", "add"));
+		expect("error" in appended).toBe(false);
+	});
+});
+
+describe("rollsBlockedReason", () => {
+	it("is null when the thread allows rolls and the user may add them", () => {
+		expect(rollsBlockedReason({ allow_rolls: true }, ["forum_add_rolls"])).toBeNull();
+		expect(rollsBlockedReason({ allow_rolls: true }, ["forum_moderate"])).toBeNull();
+	});
+
+	it("says rolls are off, with the caller's wording", () => {
+		expect(rollsBlockedReason({ allow_rolls: false }, ["forum_add_rolls"])).toBe(
+			"Rolls are turned off in this thread.",
+		);
+		expect(
+			rollsBlockedReason({ allow_rolls: false }, ["forum_add_rolls"], "Off."),
+		).toBe("Off.");
+	});
+
+	it("reports a missing permission before the thread option", () => {
+		expect(rollsBlockedReason({ allow_rolls: false }, [])).toBe(
+			"You can't add rolls in this forum.",
+		);
 	});
 });

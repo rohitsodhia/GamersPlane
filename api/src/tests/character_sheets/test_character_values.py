@@ -5,6 +5,7 @@ import pytest
 from app.character_sheets.character_values import (
     character_name,
     hidden_values,
+    set_live_value,
     validate_character_values,
 )
 from app.exceptions import ValidationError
@@ -159,6 +160,104 @@ class TestValidateCharacterValues:
             validate_character_values(
                 {"cls1": [{"old1": 1}]}, LAYOUT, stored={"old1": 1}
             )
+
+
+class TestSetLiveValue:
+    LAYOUT = {
+        "elements": [
+            {"type": "input", "name": "hp", "id": "hp1", "live": True},
+            {"type": "input", "name": "ac", "id": "ac1"},
+            {"type": "checkbox", "name": "luck", "id": "lck1", "live": True},
+            {
+                "type": "select",
+                "name": "mood",
+                "id": "md1",
+                "live": True,
+                "values": ["calm", {"value": "angry", "label": "Angry"}],
+            },
+            {
+                "type": "repeater",
+                "name": "items",
+                "id": "itm1",
+                "content": [
+                    {"type": "input", "name": "qty", "id": "qty1", "live": True}
+                ],
+            },
+            {
+                "type": "grid",
+                "name": "stats",
+                "id": "sts1",
+                "items": [{"key": "str", "label": "STR", "id": "str1"}],
+                "row": [{"type": "input", "name": "score", "id": "scr1", "live": True}],
+            },
+        ]
+    }
+
+    def test_writes_into_a_copy_creating_missing_containers(self):
+        stored = {"hp1": "5"}
+
+        updated = set_live_value(stored, self.LAYOUT, ["sts1", "str1", "scr1"], "16")
+
+        assert updated == {"hp1": "5", "sts1": {"str1": {"scr1": "16"}}}
+        assert stored == {"hp1": "5"}
+
+    def test_writes_into_an_existing_repeater_row(self):
+        updated = set_live_value(
+            {"itm1": [{"qty1": "1"}, {}]}, self.LAYOUT, ["itm1", 1, "qty1"], "4"
+        )
+
+        assert updated == {"itm1": [{"qty1": "1"}, {"qty1": "4"}]}
+
+    @pytest.mark.parametrize(
+        ("path", "message"),
+        [
+            (["itm1", "qty1"], "needs a row index"),
+            (["itm1", 0], "ends at the container"),
+            (["itm1"], "ends at the container"),
+            (["sts1", "nope", "scr1"], "Unknown grid row 'nope'"),
+            (["hp1", "extra"], "continues past a value field"),
+            ([0], "Unknown field '0'"),
+            (["itm1", 1, "qty1"], "repeater row doesn't exist"),
+        ],
+    )
+    def test_rejects_a_path_that_doesnt_name_a_field(self, path, message):
+        with pytest.raises(ValidationError, match=message):
+            set_live_value({"itm1": [{}]}, self.LAYOUT, path, "1")
+
+    @pytest.mark.parametrize(
+        ("stored", "path"),
+        [
+            ({"itm1": {}}, ["itm1", 0, "qty1"]),
+            ({"sts1": []}, ["sts1", "str1", "scr1"]),
+        ],
+    )
+    def test_rejects_stored_values_of_the_wrong_shape(self, stored, path):
+        with pytest.raises(ValidationError, match="doesn't exist|doesn't match"):
+            set_live_value(stored, self.LAYOUT, path, "1")
+
+    @pytest.mark.parametrize(
+        ("path", "value"),
+        [
+            (["lck1"], "yes"),
+            (["md1"], "furious"),
+            (["hp1"], True),
+        ],
+        ids=["checkbox-not-bool", "select-not-an-option", "input-bool"],
+    )
+    def test_rejects_a_value_the_field_cant_hold(self, path, value):
+        with pytest.raises(ValidationError, match="Invalid value"):
+            set_live_value({}, self.LAYOUT, path, value)
+
+    @pytest.mark.parametrize("value", ["calm", "angry", ""])
+    def test_accepts_a_select_option_or_blank(self, value):
+        assert set_live_value({}, self.LAYOUT, ["md1"], value) == {"md1": value}
+
+    @pytest.mark.parametrize("value", [12, 2.5])
+    def test_accepts_a_number_for_an_input(self, value):
+        assert set_live_value({}, self.LAYOUT, ["hp1"], value) == {"hp1": value}
+
+    def test_writes_when_nothing_is_stored_yet(self):
+        assert set_live_value(None, self.LAYOUT, ["hp1"], "5") == {"hp1": "5"}
 
 
 class TestHiddenValues:

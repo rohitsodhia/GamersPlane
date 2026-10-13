@@ -1,4 +1,4 @@
-import { notFound } from "@tanstack/react-router";
+import { notFound, redirect } from "@tanstack/react-router";
 import { ApiError } from "#/lib/api";
 
 /**
@@ -12,6 +12,21 @@ export function notFoundOnMissing<T>(promise: Promise<T>): Promise<T> {
 	return promise.catch((error) => {
 		if (error instanceof ApiError && error.status === 404) {
 			throw notFound();
+		}
+		throw error;
+	});
+}
+
+/**
+ * Loader guard for a record the API decides who may see: rethrows an API 403
+ * as a redirect to the site's 403 page. Wrap it around
+ * `redirectToLoginOnAuthFailure`, so a 403 from a missing login still goes to
+ * the login page first.
+ */
+export function forbiddenOnDenied<T>(promise: Promise<T>): Promise<T> {
+	return promise.catch((error) => {
+		if (error instanceof ApiError && error.status === 403) {
+			throw redirect({ to: "/403", replace: true });
 		}
 		throw error;
 	});

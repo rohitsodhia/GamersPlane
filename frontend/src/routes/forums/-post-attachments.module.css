@@ -38,6 +38,36 @@
 	}
 }
 
+/* A roll that just arrived from the character sheet. Two identically-animated
+   names so a second roll into the same row restarts the flash. */
+@keyframes row-flash-a {
+	from {
+		background-color: light-dark(oklch(0.92 0.12 95), oklch(0.4 0.1 95));
+	}
+}
+
+@keyframes row-flash-b {
+	from {
+		background-color: light-dark(oklch(0.92 0.12 95), oklch(0.4 0.1 95));
+	}
+}
+
+.flash-a {
+	animation: row-flash-a 1.6s ease-out;
+}
+
+.flash-b {
+	animation: row-flash-b 1.6s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.flash-a,
+	.flash-b {
+		animation: none;
+		outline: 2px solid var(--gp-light-blue);
+	}
+}
+
 .row-main {
 	display: flex;
 	flex-wrap: wrap;

@@ -124,6 +124,55 @@ export interface BaseElement {
 	style_when?: StyleWhen[];
 }
 
+/**
+ * Keys of the value-bearing controls (`input`, `textarea`, `select`, `checkbox`)
+ * that can be marked `live`.
+ */
+export interface LiveCapable {
+	/**
+	 * Editable in display mode as well as edit mode, for values that change during
+	 * play (HP, spell slots). Saves on its own: a `select` / `checkbox` on change,
+	 * an `input` / `textarea` on blur (or Enter, for an `input`). Only the
+	 * character's owner and the GMs of the game it's approved in can edit it; for
+	 * everyone else it renders as text. Not allowed on a `richtext` textarea.
+	 */
+	live?: boolean;
+}
+
+/** Where the roll icon's centre sits along one axis of its element's box. */
+export type RollIconAnchor = "start" | "middle" | "end";
+
+/**
+ * Makes a `text`, `label` or `group` rollable (display mode only): a small dice
+ * icon sits on the element, and activating it hands a roll to the host (the post
+ * composer prefills it — nothing ever rolls automatically). Data, not code.
+ */
+export interface RollSpec {
+	/**
+	 * Required. A dice template: literal dice text with `${ref}` placeholders
+	 * (ref paths only, no formulas), e.g. `"1d20+${str_mod}"`, `"${n}d6"`. Each
+	 * ref becomes an integer (truncated; booleans 0/1; missing 0; non-numeric text
+	 * is an error). Signs are tidied afterwards (`+-` to `-`, `+0` dropped).
+	 */
+	dice: string;
+	/**
+	 * Reason template, same `${ref}` syntax; refs may read text values (missing
+	 * is ""). Defaults to the element's own text (a group's first `label` /
+	 * `text` child). Trimmed and capped at 100 characters.
+	 */
+	reason?: string;
+	/**
+	 * Offer advantage / normal / disadvantage when rolling. The built dice must
+	 * contain a single-die d20 term (`1d20` / `d20`); the first one is rewritten to
+	 * `2d20h1` (advantage) or `2d20l1` (disadvantage).
+	 */
+	advantage?: boolean;
+	/** `"add"` appends to the latest unposted roll instead of starting one. Default `"new"`. */
+	mode?: "new" | "add";
+	/** Anchor of the icon's centre on the element's box. Default `{ x: "start", y: "middle" }`; middle/middle is invalid. */
+	icon?: { x?: RollIconAnchor; y?: RollIconAnchor };
+}
+
 export interface SectionElement extends BaseElement {
 	type: "section";
 	content: SheetElement[];
@@ -140,6 +189,8 @@ export interface SectionElement extends BaseElement {
 export interface GroupElement extends BaseElement {
 	type: "group";
 	content: SheetElement[];
+	/** Makes the whole group a rollable row (see `RollSpec`). */
+	roll?: RollSpec;
 }
 
 /**
@@ -149,9 +200,10 @@ export interface GroupElement extends BaseElement {
 export interface LabelElement extends BaseElement {
 	type: "label";
 	text: string;
+	roll?: RollSpec;
 }
 
-export interface InputElement extends BaseElement {
+export interface InputElement extends BaseElement, LiveCapable {
 	type: "input";
 	/** Form-field name; the key this field's value lives under in sheet state. */
 	name: string;
@@ -175,7 +227,7 @@ export interface InputElement extends BaseElement {
  * own — a sibling `label` in the enclosing `group` binds to it. Value doc:
  * `name -> "<text>"`, or `name -> <Tiptap JSON document>` when `richtext` is set.
  */
-export interface TextareaElement extends BaseElement {
+export interface TextareaElement extends BaseElement, LiveCapable {
 	type: "textarea";
 	/** Form-field name; the key this field's value lives under in sheet state. */
 	name: string;
@@ -294,6 +346,7 @@ export interface TextElement extends BaseElement {
 	 * `+`. Ignored for a literal.
 	 */
 	format?: ComputedFormat;
+	roll?: RollSpec;
 }
 
 /**
@@ -414,7 +467,7 @@ export interface HeaderElement extends BaseElement {
 	headerbar?: boolean;
 }
 
-export interface CheckboxElement extends BaseElement {
+export interface CheckboxElement extends BaseElement, LiveCapable {
 	type: "checkbox";
 	/** Form-field name; the key this checkbox's boolean lives under. */
 	name: string;
@@ -444,7 +497,7 @@ export type SelectOption = string | { value: string; label: string };
  * enclosing `group` binds to it. A blank choice is offered unless `default`
  * picks one. Value doc: `name -> "<chosen value>"`.
  */
-export interface SelectElement extends BaseElement {
+export interface SelectElement extends BaseElement, LiveCapable {
 	type: "select";
 	/** Form-field name; the key this field's value lives under in sheet state. */
 	name: string;

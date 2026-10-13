@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 
 from sqlalchemy import ScalarResult, and_, delete, func, or_, select, update
@@ -6,9 +7,12 @@ from sqlalchemy.orm import selectinload, undefer
 
 from app.character_sheets.character_values import (
     character_name,
+    set_live_value,
     validate_character_values,
 )
+from app.characters.schemas import MAX_VALUES_SIZE
 from app.configs import configs
+from app.exceptions import ValidationError
 from app.models import (
     Character,
     CharacterAvatar,
@@ -68,6 +72,26 @@ class CharacterRepository:
 
         return character
 
+    async def set_live_value(
+        self, character: Character, path: list[str | int], value: object
+    ) -> Character:
+        """Write one `live: true` field's value, leaving the rest of the
+        character's values as they are. Raises ``ValidationError`` unless `path`
+        names a live field of the pinned layout (see ``set_live_value`` in
+        ``character_values``)."""
+        layout = character.character_sheet_version.layout
+        values = set_live_value(character.values, layout, path, value)
+        if len(json.dumps(values)) > MAX_VALUES_SIZE:
+            raise ValidationError(
+                f"Character values can't exceed {MAX_VALUES_SIZE // 1024} KB"
+            )
+        # A new dict, so SQLAlchemy sees the JSON column change.
+        character.values = values
+        character.name = character_name(values, layout)
+        await self.db_session.flush()
+
+        return character
+
     async def move_sheet(
         self,
         character: Character,
@@ -85,10 +109,13 @@ class CharacterRepository:
 
         return character
 
-    async def submit_to_game(self, character: Character, game_id: int) -> None:
-        """Attach the character to the game, pending the GM's approval."""
+    async def submit_to_game(
+        self, character: Character, game_id: int, *, approved: bool = False
+    ) -> None:
+        """Attach the character to the game, pending the GM's approval unless
+        ``approved`` (a GM's own submission needs no approval)."""
         character.game_id = game_id
-        character.approved = False
+        character.approved = approved
         await self.db_session.flush()
 
     async def approve(self, character: Character) -> None:
