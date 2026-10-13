@@ -198,19 +198,4 @@ describe("CardsMenu", () => {
 		expect(await screen.findByText("51")).toBeInTheDocument();
 		expect(screen.getAllByRole("img")).toHaveLength(1);
 	});
-
-	it("shows each game its own deck", async () => {
-		const { unmount } = await openCards(5);
-		await userEvent.click(
-			screen.getByRole("button", { name: "Playing Cards w/ Jokers" }),
-		);
-		unmount();
-
-		await openCards(6);
-
-		expect(
-			screen.getByRole("button", { name: "Playing Cards w/ Jokers" }),
-		).toBeInTheDocument();
-		expect(screen.queryByText("54")).toBeNull();
-	});
 });

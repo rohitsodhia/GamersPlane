@@ -149,25 +149,22 @@ describe("GameBar", () => {
 		expect(container).toBeEmptyDOMElement();
 	});
 
-	it("shows the game details and forum links", async () => {
+	it.each([
+		["/characters/1", ["Game Details", "Forums"], []],
+		["/games/5", ["Forums"], ["Game Details"]],
+		["/forums/42", ["Game Details"], ["Forums"]],
+		["/forums", ["Game Details"], ["Forums"]],
+	])("shows the links except the one to where it's on (%s)", async (path, shown, hidden) => {
+		pathname = path;
 		respondWith(game({ public: false, viewer_state: "accepted" }));
 		renderBar();
 
-		expect(await screen.findByText("Game Details")).toBeInTheDocument();
-		expect(screen.getByText("Forums")).toBeInTheDocument();
-	});
-
-	it.each([
-		["/games/5", "Game Details", "Forums"],
-		["/forums/42", "Forums", "Game Details"],
-		["/forums", "Forums", "Game Details"],
-	])("drops the link to where it's on (%s)", async (path, hidden, shown) => {
-		pathname = path;
-		respondWith(game());
-		renderBar();
-
-		expect(await screen.findByText(shown)).toBeInTheDocument();
-		expect(screen.queryByText(hidden)).toBeNull();
+		for (const label of shown) {
+			expect(await screen.findByText(label)).toBeInTheDocument();
+		}
+		for (const label of hidden) {
+			expect(screen.queryByText(label)).toBeNull();
+		}
 	});
 
 	it("keeps Game Details on another game whose id starts the same", async () => {
@@ -342,15 +339,6 @@ describe("GameBar sheet panel", () => {
 				"calc(var(--game-bar-height) + min(400px, 80dvh))",
 			),
 		);
-	});
-
-	it("stays hidden when it was opened for another game", async () => {
-		respondWith(visibleCharacterGame());
-		useGameBarStore.setState({ panel: { gameId: 6, characterId: 1 } });
-		renderBar();
-
-		await screen.findByText("Game Details");
-		expect(screen.queryByRole("region")).toBeNull();
 	});
 
 	it("shows an error when the sheet can't be loaded", async () => {

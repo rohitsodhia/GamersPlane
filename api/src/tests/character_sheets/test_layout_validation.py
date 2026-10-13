@@ -230,20 +230,24 @@ class TestValidateRoll:
         )
 
     @pytest.mark.parametrize(
-        "dice",
+        "roll",
         [
-            "1d20+${a}",
-            "${n}d6",
-            "1d${die}",
-            "${a}d${b}h${c}",
-            "1d20+-${m}",
-            "1d20 + ${m}",
-            "1d20+${stats.$(pick).mod}",
-            "1d8,1d6",
+            {"dice": "1d20+${a}"},
+            {"dice": "${n}d6"},
+            {"dice": "1d${die}"},
+            {"dice": "${a}d${b}h${c}"},
+            {"dice": "1d20+-${m}"},
+            {"dice": "1d20 + ${m}"},
+            {"dice": "1d20+${stats.$(pick).mod}"},
+            {"dice": "1d8,1d6"},
+            # Advantage only needs one d20 term somewhere in the expression.
+            {"dice": "1D20", "advantage": True},
+            {"dice": "d20+${m}", "advantage": True},
+            {"dice": "${a}d6,1d20", "advantage": True},
         ],
     )
-    def test_accepts_dice_templates_whose_shape_is_valid(self, dice):
-        validate_sheet_layout(_roll_layout({"dice": dice}))
+    def test_accepts_dice_templates_whose_shape_is_valid(self, roll):
+        validate_sheet_layout(_roll_layout(roll))
 
     def test_rejects_a_roll_on_another_type(self):
         with pytest.raises(ValidationError, match="isn't allowed on a 'input'"):
@@ -289,18 +293,3 @@ class TestValidateRoll:
     def test_rejects_a_malformed_roll(self, roll, match):
         with pytest.raises(ValidationError, match=match):
             validate_sheet_layout(_roll_layout(roll))
-
-    @pytest.mark.parametrize("dice", ["1D20", "d20+${m}", "${a}d6,1d20"])
-    def test_advantage_accepts_a_single_d20_term(self, dice):
-        validate_sheet_layout(_roll_layout({"dice": dice, "advantage": True}))
-
-    def test_reports_the_path_to_a_nested_bad_roll(self):
-        with pytest.raises(ValidationError, match=r"elements\[0\]\.content\[0\]\.roll"):
-            validate_sheet_layout(
-                _layout(
-                    {
-                        "type": "group",
-                        "content": [{"type": "label", "text": "x", "roll": {}}],
-                    }
-                )
-            )

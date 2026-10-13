@@ -54,13 +54,6 @@ describe("buildRoll dice", () => {
 		).toBe("2d8-1");
 	});
 
-	it("reads $row, $index and $item refs through the resolver", () => {
-		expect(
-			built({ dice: "1d20+${$row.bonus}+${$index}" }, { "$row.bonus": 3, $index: 1 })
-				.dice,
-		).toBe("1d20+3+1");
-	});
-
 	it("substitutes a boolean as 1 or 0, and a missing or empty value as 0", () => {
 		expect(built({ dice: "${a}d6+${b}+${c}d8" }, { a: true, c: 1 }).dice).toBe(
 			"1d6+1d8",

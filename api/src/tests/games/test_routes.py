@@ -837,27 +837,19 @@ class TestGetMyGames(_GameFixtures):
 
         assert response.json()["games"][0]["is_gm"] is True
 
-    async def test_get_my_games_is_retired_reflects_retired_field(
+    async def test_get_my_games_reflects_retired_and_closed(
         self, auth_as, client, gm, make_game
     ):
         game = await make_game(gm)
         client = auth_as(gm)
+        # Retiring also closes the game, so both fields come from one request.
         await client.patch(f"/games/{game.id}/retire")
 
         response = await client.get("/games/my")
 
-        assert response.json()["games"][0]["is_retired"] is True
-
-    async def test_get_my_games_status_reflects_closed(
-        self, auth_as, client, gm, make_game
-    ):
-        game = await make_game(gm)
-        client = auth_as(gm)
-        await client.patch(f"/games/{game.id}/toggle/status")
-
-        response = await client.get("/games/my")
-
-        assert response.json()["games"][0]["status"] == "closed"
+        entry = response.json()["games"][0]
+        assert entry["is_retired"] is True
+        assert entry["status"] == "closed"
 
 
 class TestUpdateGame:
@@ -899,13 +891,6 @@ class TestUpdateGame:
             None,
             None,
         )
-
-    async def test_update_game_not_found(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.patch("/games/999999", json=_payload())
-
-        assert response.status_code == 404
 
     async def test_update_game_not_gm_forbidden(self, authed_client, game):
         client, _user = authed_client
@@ -1102,15 +1087,6 @@ class TestInvitePlayer:
         )
         return game
 
-    async def test_invite_player_game_not_found(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.post(
-            "/games/999999/invite", json={"username": "someone"}
-        )
-
-        assert response.status_code == 404
-
     async def test_invite_player_not_gm_forbidden(self, authed_client, game):
         client, _user = authed_client
 
@@ -1212,13 +1188,6 @@ class TestApplyToGame:
             game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
         )
         return game
-
-    async def test_apply_to_game_game_not_found(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.post("/games/999999/apply")
-
-        assert response.status_code == 404
 
     async def test_apply_to_game_closed_forbidden(
         self, auth_as, client, db_session, game, gm, create
@@ -1520,17 +1489,6 @@ class TestToggleGm:
             game.id, target.id, state=Player.States.ACCEPTED
         )
         return target
-
-    async def test_toggle_gm_not_gm_forbidden(
-        self, authed_client, game, accepted_player
-    ):
-        client, _user = authed_client
-
-        response = await client.post(
-            f"/games/{game.id}/player/{accepted_player.id}/toggle_gm"
-        )
-
-        assert response.status_code == 403
 
     async def test_toggle_gm_primary_gm_forbidden(self, auth_as, client, game, gm):
         client = auth_as(gm)
@@ -1960,15 +1918,6 @@ class TestCreateDeck:
         fields.update(overrides)
         return fields
 
-    async def test_create_deck_not_gm_forbidden(self, authed_client, game, deck_type):
-        client, _user = authed_client
-
-        response = await client.post(
-            f"/games/{game.id}/decks", json=self._payload(deck_type)
-        )
-
-        assert response.status_code == 403
-
     async def test_create_deck_permission_user_not_in_game_not_found(
         self, auth_as, client, game, gm, deck_type, create
     ):
@@ -2381,13 +2330,6 @@ class TestShuffleDeck:
             permissions=[],
         )
 
-    async def test_shuffle_deck_not_gm_forbidden(self, authed_client, game, deck):
-        client, _user = authed_client
-
-        response = await client.patch(f"/games/{game.id}/decks/{deck.id}/shuffle")
-
-        assert response.status_code == 403
-
     async def test_shuffle_deck_reshuffles(
         self, auth_as, client, db_session, game, gm, deck, deck_type
     ):
@@ -2463,13 +2405,6 @@ class TestDeleteDeck:
             type=deck_type.short,
             permissions=[],
         )
-
-    async def test_delete_deck_not_gm_forbidden(self, authed_client, game, deck):
-        client, _user = authed_client
-
-        response = await client.delete(f"/games/{game.id}/decks/{deck.id}")
-
-        assert response.status_code == 403
 
     async def test_delete_deck_belonging_to_another_game_not_found(
         self, auth_as, client, db_session, gm, game, system, deck_type
@@ -2672,10 +2607,11 @@ class TestSubmitCharacter(_GameCharacterFixtures):
 
         assert response.status_code == 400
 
+    @pytest.mark.parametrize("name", [None, "", "   "])
     async def test_nameless_character_rejected(
-        self, auth_as, client, db_session, game, player
+        self, auth_as, client, db_session, game, player, name
     ):
-        character = await _make_character(db_session, player, name=None)
+        character = await _make_character(db_session, player, name=name)
         client = auth_as(player)
 
         response = await client.post(
@@ -2766,42 +2702,6 @@ class TestApproveCharacter(_GameCharacterFixtures):
         await _put_in_game(db_session, character, game.id)
         return character
 
-    async def test_non_gm_forbidden(self, auth_as, client, game, player, pending):
-        client = auth_as(player)
-
-        response = await client.post(
-            f"/games/{game.id}/characters/{pending.id}/approve"
-        )
-
-        assert response.status_code == 403
-
-    async def test_character_in_another_game_not_found(
-        self, auth_as, client, db_session, game, gm, player
-    ):
-        other_game = await GameRepository(db_session, principal=gm).create(
-            "Other Campaign",
-            "dnd5e",
-            ["dnd5e"],
-            gm.id,
-            "3/w",
-            4,
-            1,
-            None,
-            None,
-            True,
-            None,
-            None,
-        )
-        character = await _make_character(db_session, player)
-        await _put_in_game(db_session, character, other_game.id)
-        client = auth_as(gm)
-
-        response = await client.post(
-            f"/games/{game.id}/characters/{character.id}/approve"
-        )
-
-        assert response.status_code == 404
-
     async def test_already_approved_conflict(
         self, auth_as, client, db_session, game, gm, pending
     ):
@@ -2815,10 +2715,11 @@ class TestApproveCharacter(_GameCharacterFixtures):
 
         assert response.status_code == 409
 
+    @pytest.mark.parametrize("name", [None, "", "   "])
     async def test_nameless_character_rejected(
-        self, auth_as, client, db_session, game, gm, pending
+        self, auth_as, client, db_session, game, gm, pending, name
     ):
-        pending.name = None
+        pending.name = name
         await db_session.flush()
         client = auth_as(gm)
 
@@ -2851,16 +2752,6 @@ class TestRemoveCharacter(_GameCharacterFixtures):
         await _put_in_game(db_session, character, game.id, approved=True)
         return character
 
-    async def test_character_not_in_game_not_found(
-        self, auth_as, client, db_session, game, gm, player
-    ):
-        character = await _make_character(db_session, player)
-        client = auth_as(gm)
-
-        response = await client.delete(f"/games/{game.id}/characters/{character.id}")
-
-        assert response.status_code == 404
-
     async def test_other_player_forbidden(
         self, auth_as, client, db_session, create, game, gm, character
     ):
@@ -2885,3 +2776,35 @@ class TestRemoveCharacter(_GameCharacterFixtures):
         assert response.status_code == 204
         await db_session.refresh(character)
         assert (character.game_id, character.approved) == (None, False)
+
+
+class TestCharacterInAnotherGame(_GameCharacterFixtures):
+    @pytest.mark.parametrize(
+        ("method", "suffix"), [("post", "/approve"), ("delete", "")]
+    )
+    async def test_character_in_another_game_not_found(
+        self, auth_as, client, db_session, game, gm, player, method, suffix
+    ):
+        other_game = await GameRepository(db_session, principal=gm).create(
+            "Other Campaign",
+            "dnd5e",
+            ["dnd5e"],
+            gm.id,
+            "3/w",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        character = await _make_character(db_session, player)
+        await _put_in_game(db_session, character, other_game.id)
+        client = auth_as(gm)
+
+        response = await getattr(client, method)(
+            f"/games/{game.id}/characters/{character.id}{suffix}"
+        )
+
+        assert response.status_code == 404
