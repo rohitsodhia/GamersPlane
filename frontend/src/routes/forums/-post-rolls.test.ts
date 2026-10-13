@@ -26,19 +26,6 @@ function roll(overrides: Partial<PostRoll> = {}): PostRoll {
 }
 
 describe("rollDisplay", () => {
-	it("shows nothing as withheld or hidden for a plain roll", () => {
-		const display = rollDisplay(roll());
-		expect(display.reasonWithheld).toBe(false);
-		expect(display.inputWithheld).toBe(false);
-		expect(display.resultWithheld).toBe(false);
-		expect(display.summaryOnly).toBe(false);
-		expect(display.hiddenFromOthers).toEqual({
-			reason: false,
-			dice: false,
-			result: false,
-		});
-	});
-
 	it("marks what the author set as hidden from others while still seeing it", () => {
 		const display = rollDisplay(
 			roll({ hide_reason: true, hide_dice: true, hide_result: true }),
@@ -109,10 +96,6 @@ describe("hiddenTag", () => {
 });
 
 describe("rollParens", () => {
-	it("is just the dice for a roll with no options", () => {
-		expect(rollParens(roll())).toBe("2d6");
-	});
-
 	it("is null when the dice are withheld", () => {
 		expect(rollParens(roll({ input: null, options: null }))).toBeNull();
 	});

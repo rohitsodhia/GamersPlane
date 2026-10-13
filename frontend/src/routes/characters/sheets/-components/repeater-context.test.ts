@@ -1,19 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-	isRepeaterRowAction,
 	type RepeaterRowActions,
 	shouldRenderRowAction,
 	templatePlacesAddButton,
 } from "./repeater-context";
 import type { SheetElement } from "./types";
-
-describe("isRepeaterRowAction", () => {
-	it("is true for a row action, false for a set-value action", () => {
-		expect(isRepeaterRowAction({ row: "add" })).toBe(true);
-		expect(isRepeaterRowAction({ row: "remove" })).toBe(true);
-		expect(isRepeaterRowAction({ set: "harm", to: 0 })).toBe(false);
-	});
-});
 
 describe("shouldRenderRowAction", () => {
 	const actions = (over: Partial<RepeaterRowActions>): RepeaterRowActions => ({
@@ -68,14 +59,17 @@ describe("templatePlacesAddButton", () => {
 			{ type: "button", label: "Reset", on_click: { set: "harm", to: 0 } },
 		];
 		expect(templatePlacesAddButton(template)).toBe(false);
-	});
-
-	it("is false for a template with no button", () => {
+		// ...and a template with no button at all.
 		expect(
 			templatePlacesAddButton([
 				{ type: "input", name: "x" },
 				{ type: "group", content: [{ type: "input", name: "y" }] },
 			]),
 		).toBe(false);
+	});
+
+	it("is false for a button with no on_click (the backend doesn't require it)", () => {
+		const template = [{ type: "button", label: "Oops" }] as unknown as SheetElement[];
+		expect(templatePlacesAddButton(template)).toBe(false);
 	});
 });

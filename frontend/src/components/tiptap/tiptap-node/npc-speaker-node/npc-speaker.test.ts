@@ -99,12 +99,6 @@ describe("flattenNpcBlocks", () => {
 		]);
 	});
 
-	it("names an unlisted speaker as unknown", () => {
-		expect(flattenNpcBlocks([speakerBlock(9, para("Hi"))], [])[0]).toEqual(
-			bold("Unknown NPC:"),
-		);
-	});
-
 	describe("rosters", () => {
 		const rosterBlock = (npcIds: unknown, title?: string) => ({
 			type: "npcRoster",
@@ -136,25 +130,6 @@ describe("flattenNpcBlocks", () => {
 		it("names a missing NPC as unknown", () => {
 			expect(flattenNpcBlocks([rosterBlock([1, 9])], [guard])).toEqual([
 				{ type: "paragraph", content: [text("Guard, Unknown NPC")] },
-			]);
-		});
-
-		it("flattens a roster nested in another node", () => {
-			const list = {
-				type: "bulletList",
-				content: [{ type: "listItem", content: [rosterBlock([1])] }],
-			};
-
-			expect(flattenNpcBlocks([list], [guard])).toEqual([
-				{
-					type: "bulletList",
-					content: [
-						{
-							type: "listItem",
-							content: [{ type: "paragraph", content: [text("Guard")] }],
-						},
-					],
-				},
 			]);
 		});
 

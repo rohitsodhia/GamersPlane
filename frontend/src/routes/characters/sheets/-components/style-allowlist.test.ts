@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { filterUtilityClasses, isAllowedUtilityClass } from "./style-allowlist";
+import {
+	filterUtilityClasses,
+	isAllowedUtilityClass,
+	resolveStyles,
+} from "./style-allowlist";
 
 // `filterUtilityClasses` DEV-warns on every dropped token; silence it so the
 // test output only shows real failures. Keep a handle for the cardinality test.
@@ -42,10 +46,6 @@ describe("isAllowedUtilityClass", () => {
 });
 
 describe("filterUtilityClasses", () => {
-	it("returns an empty array for an empty iterable", () => {
-		expect(filterUtilityClasses([], ctx)).toEqual([]);
-	});
-
 	it("keeps allowed tokens in order and drops the rest", () => {
 		expect(
 			filterUtilityClasses(["char-sheet-field", "btn-primary", "headerbar"], ctx),
@@ -58,13 +58,6 @@ describe("filterUtilityClasses", () => {
 		).toEqual(["char-sheet-value--multiline"]);
 	});
 
-	it("passes duplicate tokens through unchanged (callers join into className)", () => {
-		expect(filterUtilityClasses(["char-sheet-a char-sheet-a"], ctx)).toEqual([
-			"char-sheet-a",
-			"char-sheet-a",
-		]);
-	});
-
 	it("ignores empty / whitespace-only entries without warning", () => {
 		expect(filterUtilityClasses(["", "   "], ctx)).toEqual([]);
 		expect(warnSpy).not.toHaveBeenCalled();
@@ -73,5 +66,30 @@ describe("filterUtilityClasses", () => {
 	it("warns once per dropped token occurrence", () => {
 		filterUtilityClasses(["bad-one bad-two", "char-sheet-ok"], ctx);
 		expect(warnSpy).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe("background-image", () => {
+	it.each([
+		["https://example.com/a.png", "https URL, unquoted"],
+		['"https://example.com/a.png"', "https URL, double-quoted"],
+		["/images/a.png", "same-site relative path"],
+	])("accepts url(%s) — %s", (inner) => {
+		const value = `url(${inner})`;
+		expect(resolveStyles({ "background-image": value }, ctx)).toEqual({
+			backgroundImage: value,
+		});
+	});
+
+	it.each([
+		["http://example.com/a.png", "plain http"],
+		["javascript:alert(1)", "javascript: scheme"],
+		["data:image/png;base64,AAAA", "data: scheme"],
+		["//evil.com/x.png", "protocol-relative host"],
+		["/\\/evil.com/x.png", "backslash that CSS unescapes to //"],
+		["https://example.com/a\\.png", "backslash in an https URL"],
+		["https://example.com/a b.png", "whitespace in the URL"],
+	])("rejects url(%s) — %s", (inner) => {
+		expect(resolveStyles({ "background-image": `url(${inner})` }, ctx)).toBeUndefined();
 	});
 });

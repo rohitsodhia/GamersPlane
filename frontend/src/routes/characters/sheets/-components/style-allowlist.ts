@@ -54,8 +54,11 @@ const isBackgroundPosition = isSpaceSeparated(
 // `background-image` is the one property that reaches out to a URL, so beyond
 // syntax it's scheme-checked: only https and same-site-relative paths, never
 // `data:`/`javascript:`/anything else — a sheet shouldn't be able to turn into
-// a tracking pixel (or worse) via an author-supplied image.
-const BG_IMAGE_RE = /^url\((['"]?)(https:\/\/[^'")]+|\/[^'")]+)\1\)$/;
+// a tracking pixel (or worse) via an author-supplied image. A relative path
+// must not start with `//` (protocol-relative, i.e. another host), and no
+// backslash or whitespace is allowed anywhere (CSS unescapes `/\/host` to
+// `//host`).
+const BG_IMAGE_RE = /^url\((['"]?)(https:\/\/[^'")\\\s]+|\/(?!\/)[^'")\\\s]+)\1\)$/;
 const isBackgroundImage = (v: string) => BG_IMAGE_RE.test(v.trim());
 
 interface StyleRule {

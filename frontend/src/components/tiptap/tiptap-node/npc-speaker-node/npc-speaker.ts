@@ -48,11 +48,12 @@ function rosterParagraph(
 	return content.length > 0 ? { type: "paragraph", content } : { type: "paragraph" };
 }
 
-// The well-formed ids of a roster's `npcIds` attr, in order.
+// The well-formed ids of a roster's `npcIds` attr, in order, each kept once
+// (a repeated id would render duplicate tiles and React keys).
 export function rosterIds(value: unknown): number[] {
-	return Array.isArray(value)
-		? value.filter((id): id is number => Number.isInteger(id) && id > 0)
-		: [];
+	if (!Array.isArray(value)) return [];
+	const valid = value.filter((id): id is number => Number.isInteger(id) && id > 0);
+	return [...new Set(valid)];
 }
 
 const INITIAL_PATTERN = /\p{L}|\p{N}/u;

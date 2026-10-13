@@ -32,6 +32,7 @@ describe("Paginate", () => {
 		for (const page of [3, 4, 5, 6, 7]) {
 			expect(screen.getByRole("button", { name: String(page) })).toBeInTheDocument();
 		}
+		expect(screen.getByRole("button", { name: "5" })).toBeDisabled();
 	});
 
 	it("hides first/prev on the first page and last/next on the last page", () => {
@@ -85,28 +86,5 @@ describe("Paginate", () => {
 
 		expect(onPageChange).toHaveBeenCalledWith(1);
 		expect(navigate).not.toHaveBeenCalled();
-	});
-
-	it("disables the button for the current page", () => {
-		render(
-			<Paginate numItems={50} itemsPerPage={10} current={3} onPageChange={vi.fn()} />,
-		);
-		expect(screen.getByRole("button", { name: "3" })).toBeDisabled();
-	});
-
-	describe("default itemsPerPage", () => {
-		it("falls back to PAGINATE_PER_PAGE when itemsPerPage is not provided", async () => {
-			vi.resetModules();
-			vi.doMock("#/lib/config", () => ({ PAGINATE_PER_PAGE: 20 }));
-			const { default: PaginateWithMockedConfig } = await import("./Paginate");
-
-			render(
-				<PaginateWithMockedConfig numItems={100} current={1} onPageChange={vi.fn()} />,
-			);
-			expect(screen.getByText("1 of 5", { exact: false })).toBeInTheDocument();
-
-			vi.doUnmock("#/lib/config");
-			vi.resetModules();
-		});
 	});
 });

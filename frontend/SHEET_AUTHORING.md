@@ -704,7 +704,7 @@ dropped (dev-warned), never sent to the DOM.
 | `padding` | 1–4 space-separated lengths |
 | `margin` | 1–4 space-separated lengths (each may be `auto`) |
 | `background-color` `color` `border-color` | `#rgb`–`#rrggbbaa` hex, `rgb()/rgba()`, `hsl()/hsla()`, or a bare CSS color name. **No `var()` / `oklch()`.** |
-| `background-image` | `url(...)` — **https:// or a root-relative `/path` only**. No `data:` / other schemes. |
+| `background-image` | `url(...)` — **https:// or a root-relative `/path` only**. No `data:` / other schemes, no protocol-relative `//host` URLs, and no backslashes or spaces in the URL. |
 | `background-size` | 1–2 tokens of `cover` \| `contain` \| `auto` \| length |
 | `background-position` | 1–2 tokens of `left` \| `right` \| `center` \| `top` \| `bottom` \| length |
 | `background-repeat` | `repeat` \| `repeat-x` \| `repeat-y` \| `no-repeat` \| `space` \| `round` |

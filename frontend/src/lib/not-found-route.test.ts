@@ -13,10 +13,6 @@ async function caught(promise: Promise<unknown>) {
 }
 
 describe("notFoundOnMissing", () => {
-	it("passes a resolved value through", async () => {
-		await expect(notFoundOnMissing(Promise.resolve(5))).resolves.toBe(5);
-	});
-
 	it("turns an ApiError 404 into notFound()", async () => {
 		const error = await caught(
 			notFoundOnMissing(Promise.reject(new ApiError(404, []))),

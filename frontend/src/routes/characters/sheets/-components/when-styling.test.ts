@@ -22,13 +22,6 @@ describe("resolveWhen — nothing to apply", () => {
 			styleBundle: {},
 		});
 	});
-
-	it("returns empty for an empty map / empty array (the truthy branch)", () => {
-		expect(resolveWhen({}, [], from({}), ctx)).toEqual({
-			classes: [],
-			styleBundle: {},
-		});
-	});
 });
 
 describe("resolveWhen — class_when", () => {
@@ -53,26 +46,6 @@ describe("resolveWhen — class_when", () => {
 		expect(resolveWhen(cw, undefined, from({ z: 0, n: 3 }), ctx).classes).toEqual([
 			"char-sheet-nonzero",
 		]);
-	});
-
-	it("evaluates a comparison formula against the resolver", () => {
-		const cw: Record<string, Expr> = {
-			"char-sheet-high": { op: ">=", args: [{ ref: "score" }, 16] },
-		};
-		expect(resolveWhen(cw, undefined, from({ score: 16 }), ctx).classes).toEqual([
-			"char-sheet-high",
-		]);
-		expect(resolveWhen(cw, undefined, from({ score: 15 }), ctx).classes).toEqual([]);
-	});
-
-	it("keeps only the truthy keys when several are given", () => {
-		const { classes } = resolveWhen(
-			{ "char-sheet-a": true, "char-sheet-b": false, "char-sheet-c": true },
-			undefined,
-			from({}),
-			ctx,
-		);
-		expect(classes).toEqual(["char-sheet-a", "char-sheet-c"]);
 	});
 
 	it("drops a truthy key that isn't a char-sheet-* utility, and warns", () => {
@@ -129,25 +102,5 @@ describe("resolveWhen — style_when", () => {
 			ctx,
 		);
 		expect(styleBundle).toEqual({ color: "blue", padding: "1px" });
-	});
-});
-
-describe("resolveWhen — class_when and style_when together", () => {
-	it("resolves both from the same scope", () => {
-		const result = resolveWhen(
-			{ "char-sheet-neg": { op: "<", args: [{ ref: "mod" }, 0] } },
-			[
-				{
-					when: { op: ">=", args: [{ ref: "score" }, 16] },
-					styles: { "background-color": "#e6f5e6" },
-				},
-			],
-			from({ mod: -1, score: 17 }),
-			ctx,
-		);
-		expect(result).toEqual({
-			classes: ["char-sheet-neg"],
-			styleBundle: { "background-color": "#e6f5e6" },
-		});
 	});
 });

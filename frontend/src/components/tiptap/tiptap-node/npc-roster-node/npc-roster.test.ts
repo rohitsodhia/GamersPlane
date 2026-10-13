@@ -19,6 +19,10 @@ describe("rosterIds", () => {
 		expect(rosterIds([3, "4", 0, 1.5, null, 2])).toEqual([3, 2]);
 	});
 
+	it("drops repeated ids, keeping the first occurrence's position", () => {
+		expect(rosterIds([2, 1, 2, 1, 3])).toEqual([2, 1, 3]);
+	});
+
 	it("is empty for anything but a list", () => {
 		expect(rosterIds(undefined)).toEqual([]);
 		expect(rosterIds("1,2")).toEqual([]);
