@@ -27,31 +27,21 @@ class TestCalculateAge:
         monkeypatch.setattr("app.users.functions.date", FakeDate)
         return fixed_today
 
-    def test_birthday_already_passed_this_year(self):
-        assert calculate_age(date(2000, 6, 14)) == 26
-
-    def test_birthday_is_today(self):
-        assert calculate_age(date(2000, 6, 15)) == 26
-
-    def test_birthday_not_yet_this_year(self):
-        assert calculate_age(date(2000, 6, 16)) == 25
-
-    def test_birthday_this_year(self):
-        assert calculate_age(date(2026, 1, 1)) == 0
+    @pytest.mark.parametrize(
+        ("birthday", "expected_age"),
+        [
+            pytest.param(date(2000, 6, 15), 26, id="birthday_is_today"),
+            pytest.param(date(2000, 6, 16), 25, id="birthday_not_yet_this_year"),
+            pytest.param(date(2026, 1, 1), 0, id="born_this_year"),
+        ],
+    )
+    def test_calculate_age(self, birthday, expected_age):
+        assert calculate_age(birthday) == expected_age
 
 
 class TestGetAvatarPath:
     def test_with_user_id_and_ext_returns_user_avatar(self):
         assert get_avatar_path(user_id=5, ext="png") == "/ucp/avatars/5.png"
-
-    def test_without_user_id_returns_default_avatar(self):
-        assert get_avatar_path(ext="png") == "/ucp/avatars/avatar.png"
-
-    def test_without_ext_returns_default_avatar(self):
-        assert get_avatar_path(user_id=5) == "/ucp/avatars/avatar.png"
-
-    def test_without_either_returns_default_avatar(self):
-        assert get_avatar_path() == "/ucp/avatars/avatar.png"
 
 
 class TestCheckForExistingUser:

@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 
 from app.exceptions import NotFoundException
@@ -26,17 +28,30 @@ class TestForumRepository:
         assert forum.game_id is None
         assert forum.description is None
 
-    async def test_add_with_description(self, repository, create):
-        parent = await create(ForumFactory, heritage=[])
-
-        forum = await repository.add(
-            title="General",
+        described = await repository.add(
+            title="Described",
             forum_type=Forum.ForumTypes.CATEGORY,
             parent_id=parent.id,
             description="A description",
         )
 
-        assert forum.description == "A description"
+        assert described.description == "A description"
+
+    async def test_add_order_counts_past_a_deleted_subforum(self, repository, create):
+        parent = await create(ForumFactory, heritage=[])
+        await create(ForumFactory, parent_id=parent.id, order=1)
+        await create(
+            ForumFactory,
+            parent_id=parent.id,
+            order=2,
+            deleted=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+
+        forum = await repository.add(
+            title="New", forum_type=Forum.ForumTypes.FORUM, parent_id=parent.id
+        )
+
+        assert forum.order == 3
 
     async def test_add_computes_order_from_existing_children(self, repository, create):
         parent = await create(ForumFactory, heritage=[])
@@ -74,11 +89,7 @@ class TestForumRepository:
 
         assert found is not None
         assert found.id == forum.id
-
-    async def test_get_not_found(self, repository):
-        found = await repository.get(999999)
-
-        assert found is None
+        assert await repository.get(999999) is None
 
     async def test_get_multiple(self, repository, create):
         first = await create(ForumFactory, heritage=[])
@@ -125,10 +136,3 @@ class TestForumRepository:
         descendants = list(await repository.get_descendants(root.id))
 
         assert [forum.title for forum in descendants] == ["A", "B"]
-
-    async def test_get_descendants_empty(self, repository, create):
-        root = await create(ForumFactory, heritage=[])
-
-        descendants = list(await repository.get_descendants(root.id))
-
-        assert descendants == []

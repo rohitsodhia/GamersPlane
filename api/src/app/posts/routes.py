@@ -18,6 +18,7 @@ from app.posts.functions import (
     require_one_poster,
     resolve_posted_npc,
     validate_posted_as,
+    validate_poster,
     validate_posted_avatar,
     validate_roll_visibility,
     validate_content_npcs,
@@ -32,7 +33,7 @@ from app.repositories import (
     ThreadRepository,
 )
 from app.threads.discord import queue_post_webhook
-from app.threads.functions import merge_thread_options
+from app.threads.functions import get_readable_thread, merge_thread_options
 from app.threads.poll_functions import (
     build_poll_data,
     check_poll_input,
@@ -40,6 +41,23 @@ from app.threads.poll_functions import (
 )
 
 posts = APIRouter(prefix="/posts")
+
+
+async def _get_readable_post(
+    post_repository: PostRepository,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    post_id: int,
+):
+    """The post and the principal's permissions on its forum; a post that's missing
+    or in a forum they can't read is the same 404."""
+    post = await post_repository.get(post_id)
+    if post is None:
+        raise NotFoundException("Post not found")
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, post.thread.forum, "Post not found"
+    )
+    return post, permissions
 
 
 @posts.get("", response_model=schemas.GetPostsResponse)
@@ -120,15 +138,16 @@ async def get_posts(
 @posts.get("/{post_id}", response_model=schemas.GetPostResponse)
 async def get_post(db_session: DBSessionDependency, principal: Principal, post_id: int):
     post_repository = PostRepository(db_session, principal=principal)
-    post = await post_repository.get(post_id)
-    if post is None:
-        raise NotFoundException("Post not found")
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, post.thread.forum, "Post not found"
+    post, permissions = await _get_readable_post(
+        post_repository, db_session, principal, post_id
     )
     full_view = principal.id == post.author_id or permissions.has(
         post.thread.forum, Verbs.FORUM_MODERATE
     )
+    # Drafts and revisions are only for their author and moderators; a 404 keeps
+    # their existence private.
+    if post.state != Post.States.PUBLISHED and not full_view:
+        raise NotFoundException("Post not found")
     rolls = (await post_repository.get_rolls([post.id]))[post.id]
     draws = (await post_repository.get_draws([post.id]))[post.id]
     is_first_post = post.thread.first_post_id == post.id
@@ -191,30 +210,22 @@ async def create_post(
     principal: Principal,
     post_data: schemas.NewPostInput,
 ):
-    thread_repository = ThreadRepository(db_session, principal=principal)
-    thread = await thread_repository.get(post_data.thread_id)
-    if thread is None:
-        raise NotFoundException("Thread not found")
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, thread.forum, "Thread not found"
+    thread, permissions = await get_readable_thread(
+        db_session, principal, post_data.thread_id
     )
     if not permissions.has(thread.forum, Verbs.FORUM_MODERATE):
         if thread.options.locked:
             raise ForbiddenException("Thread is locked")
         if not permissions.has(thread.forum, Verbs.FORUM_WRITE):
             raise ForbiddenException("You can't post in this forum")
-    require_one_poster(post_data.posted_as_id, post_data.posted_npc)
-    character = None
-    if post_data.posted_as_id is not None:
-        character = await validate_posted_as(
-            db_session, principal, thread.forum, post_data.posted_as_id
-        )
-    validate_posted_avatar(character, post_data.posted_avatar_id)
-    npc = None
-    if post_data.posted_npc is not None:
-        npc = await resolve_posted_npc(
-            db_session, principal, thread.forum, post_data.posted_npc
-        )
+    _, npc = await validate_poster(
+        db_session,
+        principal,
+        thread.forum,
+        post_data.posted_as_id,
+        post_data.posted_avatar_id,
+        post_data.posted_npc,
+    )
 
     await validate_content_npcs(db_session, principal, thread.forum, post_data.body)
 
@@ -242,7 +253,9 @@ async def create_post(
     if npc is not None:
         await QuickNPCRepository(db_session, principal=principal).mark_used(npc)
     await save_attachments(db_session, principal, post, attachments)
-    await thread_repository.attach_new_post(thread, post)
+    await ThreadRepository(db_session, principal=principal).attach_new_post(
+        thread, post
+    )
     assert post.published_at is not None
     await ReadTrackingRepository(db_session, principal=principal).mark_viewed(
         thread, post.published_at
@@ -267,11 +280,8 @@ async def edit_post(
     post_data: schemas.EditPostInput,
 ):
     post_repository = PostRepository(db_session, principal=principal)
-    post = await post_repository.get(post_id)
-    if post is None:
-        raise NotFoundException("Post not found")
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, post.thread.forum, "Post not found"
+    post, permissions = await _get_readable_post(
+        post_repository, db_session, principal, post_id
     )
     check_post_change(permissions, post, principal, Verbs.FORUM_EDIT)
 
@@ -427,13 +437,10 @@ async def toggle_draw_card(
     needs to moderate the forum, as with any other change to a post.
     """
     post_repository = PostRepository(db_session, principal=principal)
-    post = await post_repository.get(post_id)
-    if post is None:
-        raise NotFoundException("Post not found")
-    forum = post.thread.forum
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, forum, "Post not found"
+    post, permissions = await _get_readable_post(
+        post_repository, db_session, principal, post_id
     )
+    forum = post.thread.forum
     if post.author_id != principal.id:
         raise ForbiddenException("Only the author can reveal or hide cards")
     if post.thread.options.locked and not permissions.has(forum, Verbs.FORUM_MODERATE):
@@ -458,11 +465,8 @@ async def delete_post(
     post_id: int,
 ):
     post_repository = PostRepository(db_session, principal=principal)
-    post = await post_repository.get(post_id)
-    if post is None:
-        raise NotFoundException("Post not found")
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, post.thread.forum, "Post not found"
+    post, permissions = await _get_readable_post(
+        post_repository, db_session, principal, post_id
     )
     # Deleting the first post deletes the whole thread.
     check_post_change(

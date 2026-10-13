@@ -45,70 +45,61 @@ def guest_with(db_session, monkeypatch):
     return system_role_with(db_session, monkeypatch, "GUEST_ID")
 
 
+def _future() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(weeks=1)
+
+
+def _signed(payload: dict, key=None, algorithm=None) -> str:
+    return jwt.encode(
+        payload,
+        key or configs.JWT_SECRET_KEY,
+        algorithm=algorithm or configs.JWT_ALGORITHM,
+    )
+
+
+# Each case builds the request headers for a request that must fall through to
+# guest; the factory receives a real (persisted) user for the expired-token case.
+UNAUTHENTICATED_HEADERS = {
+    "no_authorization_header": lambda user: {},
+    "non_bearer_header": lambda user: {"Authorization": "Basic somevalue"},
+    "garbage_token": lambda user: {"Authorization": "Bearer not-a-real-token"},
+    "wrong_signature": lambda user: {
+        "Authorization": "Bearer "
+        + _signed({"user_id": 1}, key="wrong-secret", algorithm=configs.JWT_ALGORITHM)
+    },
+    "expired_token": lambda user: {
+        "Authorization": f"Bearer {user.generate_jwt(exp_len={'seconds': -10})}"
+    },
+    "unknown_user_id": lambda user: {
+        "Authorization": "Bearer " + _signed({"user_id": 0, "exp": _future()})
+    },
+    "disallowed_algorithm": lambda user: {
+        "Authorization": "Bearer "
+        + _signed({"user_id": user.id, "exp": _future()}, algorithm="HS512")
+    },
+    "missing_user_id": lambda user: {
+        "Authorization": "Bearer " + _signed({"exp": _future()})
+    },
+}
+
+
 class TestValidateJwt:
-    async def test_no_authorization_header_defaults_to_unauthenticated(
-        self, db_session
+    @pytest.mark.parametrize(
+        "make_headers",
+        UNAUTHENTICATED_HEADERS.values(),
+        ids=UNAUTHENTICATED_HEADERS.keys(),
+    )
+    async def test_defaults_to_unauthenticated_guest(
+        self, db_session, create, guest_with, make_headers
     ):
-        request = make_request()
-
-        await validate_jwt(request, db_session)
-
-        assert request.scope["auth"] == set()
-        assert request.scope["user"] is None
-
-    async def test_non_bearer_header_defaults_to_unauthenticated(self, db_session):
-        request = make_request({"Authorization": "Basic somevalue"})
-
-        await validate_jwt(request, db_session)
-
-        assert request.scope["auth"] == set()
-        assert request.scope["user"] is None
-
-    async def test_garbage_token_defaults_to_unauthenticated(self, db_session):
-        request = make_request({"Authorization": "Bearer not-a-real-token"})
-
-        await validate_jwt(request, db_session)
-
-        assert request.scope["auth"] == set()
-        assert request.scope["user"] is None
-
-    async def test_wrong_signature_defaults_to_unauthenticated(self, db_session):
-        token = jwt.encode(
-            {"user_id": 1}, "wrong-secret", algorithm=configs.JWT_ALGORITHM
-        )
-        request = make_request({"Authorization": f"Bearer {token}"})
-
-        await validate_jwt(request, db_session)
-
-        assert request.scope["auth"] == set()
-        assert request.scope["user"] is None
-
-    async def test_expired_token_defaults_to_unauthenticated(self, db_session, create):
+        await guest_with(RolePermission.ValidPermissions.ROLE_ADMIN)
         user = await create(UserFactory)
-        token = user.generate_jwt(exp_len={"seconds": -10})
-        request = make_request({"Authorization": f"Bearer {token}"})
+        request = make_request(make_headers(user))
 
         await validate_jwt(request, db_session)
 
-        assert request.scope["auth"] == set()
         assert request.scope["user"] is None
-
-    async def test_unknown_user_id_defaults_to_unauthenticated(self, db_session):
-        token = jwt.encode(
-            {
-                "user_id": 0,
-                "exp": datetime.datetime.now(datetime.timezone.utc)
-                + datetime.timedelta(weeks=1),
-            },
-            configs.JWT_SECRET_KEY,
-            algorithm=configs.JWT_ALGORITHM,
-        )
-        request = make_request({"Authorization": f"Bearer {token}"})
-
-        await validate_jwt(request, db_session)
-
-        assert request.scope["auth"] == set()
-        assert request.scope["user"] is None
+        assert request.scope["auth"] == {"role_admin"}
 
     async def test_valid_token_sets_user_and_global_permissions(
         self, db_session, create, wrap_in_savepoint
@@ -164,19 +155,6 @@ class TestValidateJwt:
         await registered_with(RolePermission.ValidPermissions.ACP_ACCESS)
         await guest_with(RolePermission.ValidPermissions.ROLE_ADMIN)
         request = make_request()
-
-        await validate_jwt(request, db_session)
-
-        assert request.scope["user"] is None
-        assert request.scope["auth"] == {"role_admin"}
-
-    async def test_expired_token_gets_guest_global_grants(
-        self, db_session, create, guest_with
-    ):
-        await guest_with(RolePermission.ValidPermissions.ROLE_ADMIN)
-        user = await create(UserFactory)
-        token = user.generate_jwt(exp_len={"seconds": -10})
-        request = make_request({"Authorization": f"Bearer {token}"})
 
         await validate_jwt(request, db_session)
 
@@ -241,59 +219,32 @@ class TestCheckAuthorization:
 
         await self.authorize(request)
 
-    async def test_required_permission_held_is_allowed(self):
+    @pytest.mark.parametrize(
+        ("required", "auth", "expect_forbidden"),
+        [
+            pytest.param(["access_acp"], ["access_acp"], False, id="held"),
+            pytest.param(["access_acp"], ["forum_moderate"], True, id="missing"),
+            pytest.param(
+                ["access_acp", "forum_moderate"],
+                ["forum_moderate"],
+                False,
+                id="any_one_suffices",
+            ),
+            pytest.param(["access_acp"], ["admin"], False, id="admin_overrides"),
+            pytest.param(["access_acp"], _OMIT, True, id="no_auth_in_scope"),
+            pytest.param([], [], False, id="empty_requires_ignored"),
+        ],
+    )
+    async def test_required_permissions(self, required, auth, expect_forbidden):
         request = make_request(
-            scope=self.route_scope(
-                user=fake_user(), required=["access_acp"], auth=["access_acp"]
-            )
+            scope=self.route_scope(user=fake_user(), required=required, auth=auth)
         )
 
-        await self.authorize(request)
-
-    async def test_required_permission_missing_is_forbidden(self):
-        request = make_request(
-            scope=self.route_scope(
-                user=fake_user(), required=["access_acp"], auth=["forum_moderate"]
-            )
-        )
-
-        with pytest.raises(ForbiddenException):
+        if expect_forbidden:
+            with pytest.raises(ForbiddenException):
+                await self.authorize(request)
+        else:
             await self.authorize(request)
-
-    async def test_any_one_of_the_required_permissions_suffices(self):
-        request = make_request(
-            scope=self.route_scope(
-                user=fake_user(),
-                required=["access_acp", "forum_moderate"],
-                auth=["forum_moderate"],
-            )
-        )
-
-        await self.authorize(request)
-
-    async def test_admin_verb_overrides_missing_required_permission(self):
-        request = make_request(
-            scope=self.route_scope(
-                user=fake_user(), required=["access_acp"], auth=["admin"]
-            )
-        )
-
-        await self.authorize(request)
-
-    async def test_required_permission_with_no_auth_in_scope_is_forbidden(self):
-        request = make_request(
-            scope=self.route_scope(user=fake_user(), required=["access_acp"])
-        )
-
-        with pytest.raises(ForbiddenException):
-            await self.authorize(request)
-
-    async def test_empty_requires_is_ignored(self):
-        request = make_request(
-            scope=self.route_scope(user=fake_user(), required=[], auth=[])
-        )
-
-        await self.authorize(request)
 
     async def test_banned_user_on_private_route_raises_banned(self):
         request = make_request(scope=self.route_scope(user=fake_user(block="banned")))

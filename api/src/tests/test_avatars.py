@@ -25,6 +25,7 @@ class TestProcessAvatarUpload:
             process_avatar_upload(oversized)
 
         assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "Avatar must be smaller than 10MB"
 
     def test_rejects_bytes_that_are_not_an_image(self):
         with pytest.raises(HTTPException) as exc_info:
@@ -40,13 +41,15 @@ class TestProcessAvatarUpload:
 
         assert exc_info.value.status_code == 400
 
-    def test_accepts_jpeg_png_and_webp(self):
-        for format, expected_ext in [("JPEG", "jpg"), ("PNG", "png"), ("WEBP", "webp")]:
-            contents = _make_image_bytes(format=format)
+    @pytest.mark.parametrize(
+        ("format", "expected_ext"), [("JPEG", "jpg"), ("PNG", "png"), ("WEBP", "webp")]
+    )
+    def test_accepts_jpeg_png_and_webp(self, format, expected_ext):
+        contents = _make_image_bytes(format=format)
 
-            _image, ext = process_avatar_upload(contents)
+        _image, ext = process_avatar_upload(contents)
 
-            assert ext == expected_ext
+        assert ext == expected_ext
 
     def test_resizes_images_larger_than_the_max_dimension(self):
         contents = _make_image_bytes(size=(AVATAR_MAX_DIMENSION * 3, 10))
@@ -62,7 +65,7 @@ class TestProcessAvatarUpload:
 
         assert image.size == (10, 20)
 
-    def test_converts_rgba_to_rgb_when_saving_as_jpg(self):
+    def test_png_with_alpha_keeps_its_alpha_channel(self):
         contents = _make_image_bytes(format="PNG", mode="RGBA")
 
         image, ext = process_avatar_upload(contents)

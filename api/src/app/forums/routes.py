@@ -6,7 +6,9 @@ from app.forums import schemas
 from app.forums.functions import (
     build_forum_tree,
     build_moderated_tree,
+    get_forum_or_404,
     get_heritage,
+    get_readable_forum,
     is_game_root_forum,
     prune_unreadable,
 )
@@ -45,13 +47,6 @@ def build_heritage_data(
         )
         for heritage_forum in heritage_forums
     ]
-
-
-async def get_forum_or_404(forum_repository: ForumRepository, forum_id: int) -> Forum:
-    forum = await forum_repository.get(forum_id)
-    if forum is None:
-        raise NotFoundException("Forum not found")
-    return forum
 
 
 @forums.get("/moderated", response_model=list[schemas.ModeratedForumData])
@@ -99,9 +94,7 @@ async def get_forum_breadcrumbs(
     forum_id: int, db_session: DBSessionDependency, principal: Principal
 ):
     forum_repository = ForumRepository(db_session, principal=principal)
-    forum = await forum_repository.get(forum_id)
-    if forum is None:
-        raise NotFoundException("Forum not found")
+    forum = await get_forum_or_404(forum_repository, forum_id)
     heritage_forums = await get_heritage(forum_repository, forum.heritage)
     permissions = await ForumPermissions.load(
         db_session, principal, [forum, *heritage_forums]
@@ -123,12 +116,7 @@ async def get_forum_decks(
     """The decks the principal could draw from when posting in this forum: all
     of the game's decks for its GM, else those that list them. Empty outside
     game forums or without ``forum_add_draws``."""
-    forum = await get_forum_or_404(
-        ForumRepository(db_session, principal=principal), forum_id
-    )
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, forum, "Forum not found"
-    )
+    forum, permissions = await get_readable_forum(db_session, principal, forum_id)
     if forum.game_id is None or not permissions.has(forum, Verbs.FORUM_ADD_DRAWS):
         return schemas.GetForumDecksResponse(decks=[])
 
@@ -168,12 +156,7 @@ async def get_forum_characters(
     ``default_npc_id`` are the ones they last used in ``thread_id``, if still on
     offer; outside game forums there's no default.
     """
-    forum = await get_forum_or_404(
-        ForumRepository(db_session, principal=principal), forum_id
-    )
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, forum, "Forum not found"
-    )
+    forum, permissions = await get_readable_forum(db_session, principal, forum_id)
     if not (
         permissions.has(forum, Verbs.FORUM_MODERATE)
         or permissions.has(forum, Verbs.FORUM_WRITE)
@@ -278,9 +261,7 @@ async def get_forum(
     forum_id: int, db_session: DBSessionDependency, principal: Principal
 ):
     forum_repository = ForumRepository(db_session, principal=principal)
-    forum = await forum_repository.get(forum_id)
-    if forum is None:
-        raise NotFoundException("Forum not found")
+    forum = await get_forum_or_404(forum_repository, forum_id)
 
     heritage_forums = await get_heritage(forum_repository, forum.heritage)
 

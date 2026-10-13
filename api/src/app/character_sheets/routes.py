@@ -61,6 +61,37 @@ def _char_sheet_response(
     )
 
 
+async def _get_visible_sheet(
+    char_sheet_repository: CharacterSheetRepository,
+    char_sheet_id: int,
+    principal: Principal,
+) -> CharacterSheet:
+    """The sheet, if the caller can view it: public, or their own."""
+    char_sheet = await char_sheet_repository.get(char_sheet_id)
+    if char_sheet is None:
+        raise NotFoundException("Character sheet not found")
+    if not char_sheet.is_public and char_sheet.creator_id != principal.id:
+        raise ForbiddenException("Character sheet not available")
+
+    return char_sheet
+
+
+async def _get_own_sheet(
+    char_sheet_repository: CharacterSheetRepository,
+    char_sheet_id: int,
+    principal: Principal,
+    message: str,
+) -> CharacterSheet:
+    """The sheet, if the caller created it; `message` is the 403 otherwise."""
+    char_sheet = await char_sheet_repository.get(char_sheet_id)
+    if char_sheet is None:
+        raise NotFoundException("Character sheet not found")
+    if char_sheet.creator_id != principal.id:
+        raise ForbiddenException(message)
+
+    return char_sheet
+
+
 @character_sheets.post("/", response_model=schemas.CreateCharSheetResponse)
 async def create_char_sheet(
     db_session: DBSessionDependency,
@@ -206,13 +237,10 @@ async def get_char_sheet(
     `"draft"` (creator only). Left out, the caller gets the latest they can see.
     """
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
-    char_sheet = await char_sheet_repository.get(char_sheet_id)
-    if char_sheet is None:
-        raise NotFoundException("Character sheet not found")
-
+    char_sheet = await _get_visible_sheet(
+        char_sheet_repository, char_sheet_id, principal
+    )
     is_creator = char_sheet.creator_id == principal.id
-    if not char_sheet.is_public and not is_creator:
-        raise ForbiddenException("Character sheet not available")
 
     if version == "draft":
         if not is_creator:
@@ -261,12 +289,9 @@ async def get_char_sheet_versions(
     principal: Principal,
 ):
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
-    char_sheet = await char_sheet_repository.get(char_sheet_id)
-    if char_sheet is None:
-        raise NotFoundException("Character sheet not found")
-
-    if not char_sheet.is_public and char_sheet.creator_id != principal.id:
-        raise ForbiddenException("Character sheet not available")
+    char_sheet = await _get_visible_sheet(
+        char_sheet_repository, char_sheet_id, principal
+    )
 
     versions = await char_sheet_repository.get_published_versions(char_sheet.id)
 
@@ -355,12 +380,12 @@ async def update_char_sheet(
     data: schemas.UpdateCharSheetInput,
 ):
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
-    char_sheet = await char_sheet_repository.get(char_sheet_id)
-    if char_sheet is None:
-        raise NotFoundException("Character sheet not found")
-
-    if char_sheet.creator_id != principal.id:
-        raise ForbiddenException("Only the creator can edit this character sheet")
+    char_sheet = await _get_own_sheet(
+        char_sheet_repository,
+        char_sheet_id,
+        principal,
+        "Only the creator can edit this character sheet",
+    )
 
     validate_sheet_layout(data.layout)
 
@@ -389,12 +414,12 @@ async def publish_char_sheet(
     principal: Principal,
 ):
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
-    char_sheet = await char_sheet_repository.get(char_sheet_id)
-    if char_sheet is None:
-        raise NotFoundException("Character sheet not found")
-
-    if char_sheet.creator_id != principal.id:
-        raise ForbiddenException("Only the creator can publish this character sheet")
+    char_sheet = await _get_own_sheet(
+        char_sheet_repository,
+        char_sheet_id,
+        principal,
+        "Only the creator can publish this character sheet",
+    )
 
     version, id_diff = await char_sheet_repository.publish_draft(char_sheet)
 
@@ -418,12 +443,12 @@ async def discard_char_sheet_draft(
     """Throw away the unpublished changes. Returns the latest published
     version, which the sheet now shows again."""
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
-    char_sheet = await char_sheet_repository.get(char_sheet_id)
-    if char_sheet is None:
-        raise NotFoundException("Character sheet not found")
-
-    if char_sheet.creator_id != principal.id:
-        raise ForbiddenException("Only the creator can discard this sheet's draft")
+    char_sheet = await _get_own_sheet(
+        char_sheet_repository,
+        char_sheet_id,
+        principal,
+        "Only the creator can discard this sheet's draft",
+    )
 
     version = await char_sheet_repository.discard_draft(char_sheet)
 
@@ -435,11 +460,12 @@ async def delete_char_sheet(
     char_sheet_id: int, db_session: DBSessionDependency, principal: Principal
 ):
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
-    char_sheet = await char_sheet_repository.get(char_sheet_id)
-    if char_sheet is None:
-        raise NotFoundException("Character sheet not found")
-    if char_sheet.creator_id != principal.id:
-        raise ForbiddenException("Only the creator can delete this character sheet")
+    char_sheet = await _get_own_sheet(
+        char_sheet_repository,
+        char_sheet_id,
+        principal,
+        "Only the creator can delete this character sheet",
+    )
 
     await char_sheet_repository.delete(char_sheet)
 
@@ -473,11 +499,9 @@ async def toggle_char_sheet_favorite(
     char_sheet_id: int, db_session: DBSessionDependency, principal: Principal
 ):
     char_sheet_repository = CharacterSheetRepository(db_session, principal=principal)
-    char_sheet = await char_sheet_repository.get(char_sheet_id)
-    if char_sheet is None:
-        raise NotFoundException("Character sheet not found")
-    if not char_sheet.is_public and char_sheet.creator_id != principal.id:
-        raise ForbiddenException("Character sheet not available")
+    char_sheet = await _get_visible_sheet(
+        char_sheet_repository, char_sheet_id, principal
+    )
 
     favorited = await char_sheet_repository.toggle_favorite(char_sheet)
 

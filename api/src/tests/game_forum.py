@@ -9,9 +9,9 @@ from app.models import (
     DeckPermission,
     Forum,
     Game,
-    GameImage,
-    GameNPC,
+    NPCImage,
     Player,
+    QuickNPC,
     RolePermission,
     System,
     User,
@@ -20,9 +20,10 @@ from app.repositories import (
     CharacterRepository,
     CharacterSheetRepository,
     DeckRepository,
-    GameNPCRepository,
     GameRepository,
+    NPCOwner,
     PlayerRepository,
+    QuickNPCRepository,
 )
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 from tests.factories import (
@@ -115,19 +116,35 @@ async def add_avatar(db_session, character, ext="png"):
     return avatar.id
 
 
-async def make_game_image(db_session, game, uploader, ext="png") -> GameImage:
+async def make_game_image(db_session, game, uploader, ext="png") -> NPCImage:
     """An image in ``game``'s quick NPC library."""
-    return await GameNPCRepository(db_session, principal=uploader).create_image(
-        game.id, ext
+    return await QuickNPCRepository(db_session, principal=uploader).create_image(
+        NPCOwner.game(game.id), ext
     )
 
 
 async def make_npc(
-    db_session, game, creator, name="Henchman", image: GameImage | None = None
-) -> GameNPC:
+    db_session, game, creator, name="Henchman", image: NPCImage | None = None
+) -> QuickNPC:
     """A live quick NPC of ``game`` with the given name and image."""
-    return await GameNPCRepository(db_session, principal=creator).get_or_create(
-        game.id, name, image
+    return await QuickNPCRepository(db_session, principal=creator).get_or_create(
+        NPCOwner.game(game.id), name, image
+    )
+
+
+async def make_user_image(db_session, user, ext="png") -> NPCImage:
+    """An image in ``user``'s personal quick NPC library."""
+    return await QuickNPCRepository(db_session, principal=user).create_image(
+        NPCOwner.user(user.id), ext
+    )
+
+
+async def make_user_npc(
+    db_session, user, name="Henchman", image: NPCImage | None = None
+) -> QuickNPC:
+    """A live quick NPC in ``user``'s personal library."""
+    return await QuickNPCRepository(db_session, principal=user).get_or_create(
+        NPCOwner.user(user.id), name, image
     )
 
 

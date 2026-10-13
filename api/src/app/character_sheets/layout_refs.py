@@ -221,6 +221,8 @@ def _resolve(ref: str, context: _Context, *, target: bool) -> Field | None:
         if len(segments) == 1:
             raise _Unresolved("name a field after '$row' (e.g. '$row.score')")
         scope, segments, where = context.row, segments[1:], "in this row"
+    elif head == "$item":
+        raise _Unresolved("name a key after '$item' (e.g. '$item.value')")
     elif isinstance(head, str) and head.startswith("$"):
         raise _Unresolved(f"'{head}' isn't a known '$' ref ($row, $item, $index)")
     else:

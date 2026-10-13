@@ -314,3 +314,45 @@ class TestPlayerRepository:
         user = await create(ActivatedUserFactory)
 
         assert await repository.is_gm(game.id, user.id) is False
+
+    @pytest.mark.parametrize(
+        ("state", "expected"),
+        [
+            (Player.States.ACCEPTED, True),
+            (Player.States.APPLIED, False),
+            (Player.States.INVITED, False),
+            (None, False),
+        ],
+    )
+    async def test_is_member_only_for_accepted_players(
+        self, repository, game, create, state, expected
+    ):
+        user = await create(ActivatedUserFactory)
+        if state is not None:
+            await repository.attach_player_to_game(game.id, user.id, state=state)
+
+        assert await repository.is_member(game.id, user.id) is expected
+
+    async def test_is_member_false_when_accepted_in_another_game(
+        self, repository, game, gm, system, create, db_session
+    ):
+        other_game = await GameRepository(db_session, principal=gm).create(
+            "Other Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+        user = await create(ActivatedUserFactory)
+        await repository.attach_player_to_game(
+            other_game.id, user.id, state=Player.States.ACCEPTED
+        )
+
+        assert await repository.is_member(game.id, user.id) is False

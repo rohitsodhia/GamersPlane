@@ -103,8 +103,10 @@ async def wrap_in_savepoint(db_connection, db_session):
     db_session.expunge_all()
 
 
-@pytest.fixture(scope="function")
-async def client(db_session, wrap_in_savepoint):
+@pytest.fixture(scope="session")
+def app(db_session):
+    """Built once: create_app() re-includes every router (~150ms), which per
+    test was most of the suite's runtime."""
     app = create_app(init_db=False)
 
     async def override_get_db_session():
@@ -115,7 +117,11 @@ async def client(db_session, wrap_in_savepoint):
 
     app.dependency_overrides[get_db_session] = override_get_db_session
     app.dependency_overrides[get_legacy_db_session] = override_get_legacy_db_session
+    return app
 
+
+@pytest.fixture(scope="function")
+async def client(app, wrap_in_savepoint):
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:

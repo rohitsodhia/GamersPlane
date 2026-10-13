@@ -42,13 +42,19 @@ class TestCreate:
         assert sheet.name == "Fighter"
         assert sheet.system_id == system.id
 
+        sheet_id, principal_id = sheet.id, principal.id
+        db_session.expire_all()
         stored = await db_session.scalar(
-            select(CharacterSheet).where(CharacterSheet.id == sheet.id)
+            select(CharacterSheet).where(CharacterSheet.id == sheet_id)
         )
-        assert stored is sheet
+        assert stored.name == "Fighter"
+        assert stored.creator_id == principal_id
 
     async def test_create_stores_the_given_layout_in_a_draft(self, repository, system):
-        layout = {"version": 1, "elements": [{"type": "section", "content": []}]}
+        layout = {
+            "schema_version": 1,
+            "elements": [{"type": "section", "content": []}],
+        }
 
         sheet = await repository.create(
             name="Fighter", system_id=system.id, layout=layout

@@ -86,7 +86,6 @@ class TestValidateLayoutRefs:
             ("stats.con.score", "grid 'stats' has no row 'con'"),
             ("stats.str.nope", "no field named 'nope' in row 'str' of grid 'stats'"),
             ("classes", "'classes' is a repeater"),
-            ("classes.0.level", "'classes' is a repeater"),
             ("hp.x", "'hp' is a single field"),
             ("stats..score", "empty segment"),
             ("$foo", "'$foo' isn't a known '$' ref"),
@@ -182,9 +181,50 @@ class TestValidateLayoutRefs:
                 )
             )
 
+    @pytest.mark.parametrize(
+        "layout",
+        [
+            _layout(
+                {
+                    "type": "grid",
+                    "name": "stats",
+                    "items": [{"key": "str", "label": "STR"}],
+                    "header": [_computed("$row.score")],
+                    "row": [{"type": "input", "name": "score"}],
+                }
+            ),
+            _layout(
+                {
+                    "type": "grid",
+                    "name": "saves",
+                    "content": [
+                        {"type": "grid_header", "content": [_computed("$row.bonus")]},
+                        {
+                            "type": "grid_row",
+                            "key": "fort",
+                            "content": [{"type": "input", "name": "bonus"}],
+                        },
+                    ],
+                }
+            ),
+        ],
+        ids=["compact", "explicit"],
+    )
+    def test_grid_header_is_outside_the_row(self, layout):
+        with pytest.raises(ValidationError, match="only available inside a repeater"):
+            validate_layout_refs(layout)
+
     def test_rejects_bare_row(self):
         with pytest.raises(ValidationError, match="name a field after"):
             validate_layout_refs(_in_repeater_row(_computed("$row")))
+
+    def test_rejects_bare_item(self):
+        with pytest.raises(ValidationError, match="name a key after '\\$item'"):
+            validate_layout_refs(
+                _in_loop(
+                    {"type": "loop", "items": [{"label": "A"}]}, _computed("$item")
+                )
+            )
 
     def test_accepts_index_and_item_keys_inside_a_loop(self):
         validate_layout_refs(
@@ -237,17 +277,20 @@ class TestValidateLayoutRefs:
         with pytest.raises(ValidationError, match=reason):
             validate_layout_refs(layout)
 
-    def test_checks_conditional_styling(self):
-        with pytest.raises(ValidationError, match=r"style_when\[0\]\.when"):
-            validate_layout_refs(
-                _layout(
-                    {
-                        "type": "section",
-                        "style_when": [{"when": {"ref": "nope"}, "styles": {}}],
-                        "content": [],
-                    }
-                )
-            )
+    @pytest.mark.parametrize(
+        ("styling", "where"),
+        [
+            ({"class_when": {"char-sheet-filled": {"ref": "nope"}}}, r"class_when\."),
+            (
+                {"style_when": [{"when": {"ref": "nope"}, "styles": {}}]},
+                r"style_when\[0\]\.when",
+            ),
+        ],
+        ids=["class_when", "style_when"],
+    )
+    def test_checks_conditional_styling(self, styling, where):
+        with pytest.raises(ValidationError, match=where):
+            validate_layout_refs(_layout({"type": "section", **styling, "content": []}))
 
     def test_checks_both_halves_of_a_set_button(self):
         def button(set_ref, to):
@@ -354,17 +397,7 @@ class TestDynamicRefs:
 
         validate_layout_refs(in_row(["level"], "$row.$($row.which)"))
         validate_layout_refs(in_row(["a"], "$row.sub.$($row.which).x"))
-
-        # `hp` is a root field, not one of the row's.
-        with pytest.raises(
-            ValidationError,
-            match=re.escape(
-                "when '$row.which' is 'hp': there's no field named 'hp' in this row"
-            ),
-        ):
-            validate_layout_refs(in_row(["hp"], "$row.$($row.which)"))
-
-    def test_resolves_the_inner_ref_from_the_current_row(self):
+        # The inner ref is read from the current row, not the sheet root.
         validate_layout_refs(
             _layout(
                 *_ROOT_FIELDS,
@@ -378,6 +411,15 @@ class TestDynamicRefs:
                 },
             )
         )
+
+        # `hp` is a root field, not one of the row's.
+        with pytest.raises(
+            ValidationError,
+            match=re.escape(
+                "when '$row.which' is 'hp': there's no field named 'hp' in this row"
+            ),
+        ):
+            validate_layout_refs(in_row(["hp"], "$row.$($row.which)"))
 
     def test_uses_each_loop_items_value(self):
         def loop_over(*stats):

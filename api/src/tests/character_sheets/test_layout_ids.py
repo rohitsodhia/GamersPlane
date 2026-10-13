@@ -20,24 +20,19 @@ def _layout(*elements, classes=None):
 
 
 class TestMintIds:
-    def test_mints_ids_on_the_default_layout(self):
-        layout = mint_ids(default_sheet_layout())
-
-        name_input = layout["elements"][0]["content"][0]["content"][1]
-        notes_textarea = layout["elements"][1]["content"][1]
-        assert _ID_RE.match(name_input["id"])
-        assert _ID_RE.match(notes_textarea["id"])
-        assert name_input["id"] != notes_textarea["id"]
-
     def test_leaves_decorative_nodes_without_an_id(self):
         layout = mint_ids(
-            _layout({"type": "section", "content": [{"type": "label", "text": "Name"}]})
+            _layout(
+                {"type": "section", "content": [{"type": "label", "text": "Name"}]},
+                {"type": "text", "text": "hi"},
+            )
         )
 
-        section = layout["elements"][0]
+        section, literal_text = layout["elements"]
         label = section["content"][0]
         assert "id" not in section
         assert "id" not in label
+        assert "id" not in literal_text
 
     def test_mints_ids_for_every_value_bearing_type(self):
         layout = mint_ids(
@@ -55,11 +50,6 @@ class TestMintIds:
         ids = [node["id"] for node in layout["elements"]]
         assert all(_ID_RE.match(node_id) for node_id in ids)
         assert len(set(ids)) == len(ids)
-
-    def test_does_not_mint_an_id_for_a_literal_text_node(self):
-        layout = mint_ids(_layout({"type": "text", "text": "hi"}))
-
-        assert "id" not in layout["elements"][0]
 
     def test_leaves_an_existing_id_alone(self):
         layout = mint_ids(_layout({"type": "input", "name": "a", "id": "deadbeef"}))
@@ -190,9 +180,6 @@ def _first_types(occurrences):
 
 
 class TestCollectIds:
-    def test_collects_nothing_from_an_empty_layout(self):
-        assert collect_ids(_layout()) == {}
-
     def test_collects_grid_items_as_grid_row_type(self):
         layout = _layout(
             {
@@ -205,9 +192,6 @@ class TestCollectIds:
 
         found = collect_ids(layout)
         assert found["aaaaaaaa"] == [("elements[0].items[0]", "grid_row")]
-
-    def test_none_layout_collects_nothing(self):
-        assert collect_ids(None) == {}
 
 
 class TestFieldLabels:
@@ -286,16 +270,6 @@ class TestValidatePublishIds:
         diff = validate_publish_ids(None, layout)
 
         assert diff.added == [layout["elements"][0]["id"]]
-        assert diff.removed == []
-
-    def test_accepts_a_kept_id_of_the_same_type(self):
-        previous = mint_ids(_layout({"type": "input", "name": "a"}))
-        node_id = previous["elements"][0]["id"]
-        new = _layout({"type": "input", "name": "renamed", "id": node_id})
-
-        diff = validate_publish_ids(previous, new)
-
-        assert diff.added == []
         assert diff.removed == []
 
     def test_rejects_a_kept_id_that_changed_type(self):

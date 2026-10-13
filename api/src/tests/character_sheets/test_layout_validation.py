@@ -58,15 +58,17 @@ class TestValidatePublishableLayout:
         with pytest.raises(ValidationError, match="must be a"):
             validate_publishable_layout(_layout(*elements))
 
-    def test_rejects_a_duplicate_required_field(self):
-        with pytest.raises(ValidationError, match="more than one 'name'"):
-            validate_publishable_layout(_layout(NAME, NAME, NOTES))
-
-    def test_rejects_a_duplicate_split_across_nesting(self):
-        with pytest.raises(ValidationError, match="more than one 'notes'"):
-            validate_publishable_layout(
-                _layout(NAME, NOTES, {"type": "section", "content": [NOTES]})
-            )
+    @pytest.mark.parametrize(
+        "elements, duplicated",
+        [
+            ([NAME, NAME, NOTES], "name"),
+            ([NAME, NOTES, {"type": "section", "content": [NOTES]}], "notes"),
+        ],
+        ids=["flat", "nested"],
+    )
+    def test_rejects_a_duplicate_required_field(self, elements, duplicated):
+        with pytest.raises(ValidationError, match=f"more than one '{duplicated}'"):
+            validate_publishable_layout(_layout(*elements))
 
     @pytest.mark.parametrize("container", ["repeater", "grid", "loop"])
     def test_ignores_required_fields_inside_per_row_or_repeating_containers(
@@ -79,11 +81,8 @@ class TestValidatePublishableLayout:
 
 
 class TestValidateSheetLayoutAccepts:
-    @pytest.mark.parametrize(
-        "factory", [default_sheet_layout, empty_sheet_layout], ids=["default", "empty"]
-    )
-    def test_accepts_the_canned_layouts(self, factory):
-        validate_sheet_layout(factory())
+    def test_accepts_the_empty_layout(self):
+        validate_sheet_layout(empty_sheet_layout())
 
     def test_accepts_deeply_nested_containers_and_child_array_keys(self):
         layout = {

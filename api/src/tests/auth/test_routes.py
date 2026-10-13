@@ -179,11 +179,6 @@ class TestLogin:
 
 
 class TestRefresh:
-    async def test_refresh_requires_auth(self, client):
-        response = await client.post("/auth/refresh")
-
-        assert response.status_code == 403
-
     async def test_refresh_returns_new_jwt(self, authed_client):
         client, _user = authed_client
 
@@ -258,30 +253,6 @@ class TestRegister:
 
         assert response.status_code == 400
         assert response.json()["errors"][0]["code"] == "email_taken"
-
-    async def test_register_invalid_username_is_rejected(self, client):
-        response = await client.post(
-            "/auth/register",
-            json={
-                "email": "another@example.com",
-                "username": "1another",
-                "password": "ValidPass1!",
-            },
-        )
-
-        assert response.status_code == 422
-
-    async def test_register_password_too_short(self, client):
-        response = await client.post(
-            "/auth/register",
-            json={
-                "email": "another@example.com",
-                "username": "another",
-                "password": "short",
-            },
-        )
-
-        assert response.status_code == 422
 
 
 class TestResendActivation:

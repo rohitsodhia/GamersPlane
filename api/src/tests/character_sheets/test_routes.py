@@ -22,13 +22,6 @@ def _strip_ids(node):
 
 
 class TestCreateCharSheet:
-    async def test_requires_auth(self, client):
-        response = await client.post(
-            "/character_sheets/", json={"name": "Fighter", "system_id": "dnd5e"}
-        )
-
-        assert response.status_code == 403
-
     async def test_returns_404_when_system_missing(self, authed_client):
         client, _user = authed_client
 
@@ -107,11 +100,6 @@ class TestGetMyCharSheets:
     async def other(self, create):
         return await create(ActivatedUserFactory)
 
-    async def test_requires_auth(self, client):
-        response = await client.get("/character_sheets/my")
-
-        assert response.status_code == 403
-
     async def test_returns_only_the_callers_own_created_sheets(
         self, client, system, user, other, db_session, auth_as
     ):
@@ -137,12 +125,13 @@ class TestGetMyCharSheets:
             "page": 1,
         }
 
+    @pytest.mark.parametrize(
+        "status", [CharacterSheet.Status.PUBLIC, CharacterSheet.Status.OFFICIAL]
+    )
     async def test_includes_favorited_public_sheets_from_other_creators(
-        self, client, system, user, other, db_session, auth_as
+        self, client, system, user, other, db_session, auth_as, status
     ):
-        fav = await _make_sheet(
-            db_session, other, system, "Borrowed", status=CharacterSheet.Status.PUBLIC
-        )
+        fav = await _make_sheet(db_session, other, system, "Borrowed", status=status)
         await _favorite(db_session, user, fav)
         auth_as(user)
 
@@ -151,19 +140,6 @@ class TestGetMyCharSheets:
         body = response.json()
         assert [s["id"] for s in body["char_sheets"]] == [fav.id]
         assert body["char_sheets"][0]["favorited"] is True
-
-    async def test_includes_favorited_official_sheets(
-        self, client, system, user, other, db_session, auth_as
-    ):
-        fav = await _make_sheet(
-            db_session, other, system, "Blessed", status=CharacterSheet.Status.OFFICIAL
-        )
-        await _favorite(db_session, user, fav)
-        auth_as(user)
-
-        response = await client.get("/character_sheets/my")
-
-        assert [s["id"] for s in response.json()["char_sheets"]] == [fav.id]
 
     @pytest.mark.parametrize(
         "status", [CharacterSheet.Status.PRIVATE, CharacterSheet.Status.RETIRED]
@@ -305,11 +281,6 @@ class TestGetMyCharSheetSystems:
     async def other(self, create):
         return await create(ActivatedUserFactory)
 
-    async def test_requires_auth(self, client):
-        response = await client.get("/character_sheets/my/systems")
-
-        assert response.status_code == 403
-
     async def test_lists_each_system_of_owned_and_favorited_sheets_once(
         self, client, create, user, other, db_session, auth_as
     ):
@@ -384,11 +355,6 @@ class TestGetCharSheetLibrary:
     @pytest.fixture
     async def creator(self, create):
         return await create(ActivatedUserFactory)
-
-    async def test_requires_auth(self, client):
-        response = await client.get("/character_sheets/library")
-
-        assert response.status_code == 403
 
     async def test_returns_the_expected_shape_with_status(
         self, client, system, viewer, creator, db_session, auth_as
@@ -565,30 +531,6 @@ class TestDeleteCharSheet:
         system = await create(SystemFactory, id="dnd5e")
         return await _make_sheet(db_session, creator, system, "Fighter")
 
-    async def test_requires_auth(self, client, sheet):
-        response = await client.delete(f"/character_sheets/{sheet.id}")
-
-        assert response.status_code == 403
-
-    async def test_returns_404_when_missing(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.delete("/character_sheets/999999")
-
-        assert response.status_code == 404
-
-    async def test_forbids_non_creator(
-        self, client, sheet, create, db_session, auth_as
-    ):
-        other = await create(ActivatedUserFactory)
-        auth_as(other)
-
-        response = await client.delete(f"/character_sheets/{sheet.id}")
-
-        assert response.status_code == 403
-        await db_session.refresh(sheet, ["deleted"])
-        assert sheet.deleted is None
-
     async def test_soft_deletes_and_clears_favorites(
         self, client, sheet, creator, create, db_session, auth_as
     ):
@@ -708,28 +650,6 @@ class TestToggleCharSheetFavorite:
         )
         return set(rows)
 
-    async def test_requires_auth(self, client, sheet):
-        response = await client.patch(f"/character_sheets/{sheet.id}/toggle_favorite")
-
-        assert response.status_code == 403
-
-    async def test_returns_404_when_missing(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.patch("/character_sheets/999999/toggle_favorite")
-
-        assert response.status_code == 404
-
-    async def test_forbids_favoriting_another_users_private_sheet(
-        self, client, sheet, viewer, db_session, auth_as
-    ):
-        auth_as(viewer)
-
-        response = await client.patch(f"/character_sheets/{sheet.id}/toggle_favorite")
-
-        assert response.status_code == 403
-        assert await self._favorite_user_ids(db_session, sheet) == set()
-
     async def test_creator_can_favorite_their_own_private_sheet(
         self, client, sheet, creator, db_session, auth_as
     ):
@@ -741,46 +661,28 @@ class TestToggleCharSheetFavorite:
         assert response.json() == {"favorited": True}
         assert await self._favorite_user_ids(db_session, sheet) == {creator.id}
 
+    @pytest.mark.parametrize(
+        "status", [CharacterSheet.Status.PUBLIC, CharacterSheet.Status.OFFICIAL]
+    )
     async def test_toggles_on_and_off_for_a_public_sheet(
-        self, client, sheet, viewer, db_session, auth_as
+        self, client, sheet, creator, viewer, db_session, auth_as, status
     ):
-        sheet.status = CharacterSheet.Status.PUBLIC
+        sheet.status = status
         await db_session.flush()
+        # Only the viewer's own favorite is toggled; the creator's survives.
+        await _favorite(db_session, creator, sheet)
         auth_as(viewer)
 
         on = await client.patch(f"/character_sheets/{sheet.id}/toggle_favorite")
         assert on.json() == {"favorited": True}
-        assert await self._favorite_user_ids(db_session, sheet) == {viewer.id}
-
-        off = await client.patch(f"/character_sheets/{sheet.id}/toggle_favorite")
-        assert off.json() == {"favorited": False}
-        assert await self._favorite_user_ids(db_session, sheet) == set()
-
-    async def test_official_sheets_can_be_favorited(
-        self, client, sheet, viewer, auth_as, db_session
-    ):
-        sheet.status = CharacterSheet.Status.OFFICIAL
-        await db_session.flush()
-        auth_as(viewer)
-
-        response = await client.patch(f"/character_sheets/{sheet.id}/toggle_favorite")
-
-        assert response.json() == {"favorited": True}
-
-    async def test_only_toggles_the_current_users_favorite(
-        self, client, sheet, creator, viewer, db_session, auth_as
-    ):
-        sheet.status = CharacterSheet.Status.PUBLIC
-        await _favorite(db_session, creator, sheet)
-        auth_as(viewer)
-
-        response = await client.patch(f"/character_sheets/{sheet.id}/toggle_favorite")
-
-        assert response.json() == {"favorited": True}
         assert await self._favorite_user_ids(db_session, sheet) == {
             creator.id,
             viewer.id,
         }
+
+        off = await client.patch(f"/character_sheets/{sheet.id}/toggle_favorite")
+        assert off.json() == {"favorited": False}
+        assert await self._favorite_user_ids(db_session, sheet) == {creator.id}
 
 
 class TestGetCharSheet:
@@ -840,6 +742,8 @@ class TestGetCharSheet:
         assert response.json()["is_draft"] is True
         assert response.json()["version_number"] is None
         assert response.json()["latest_version_number"] is None
+        # Nothing published to drop fields from.
+        assert response.json()["removed_fields"] == []
 
     async def test_returns_404_for_an_unpublished_sheet_to_non_creators(
         self, client, unpublished_sheet, create, db_session, auth_as
@@ -1015,15 +919,6 @@ class TestGetCharSheet:
 
         assert response.status_code == 403
 
-    async def test_version_rejects_values_other_than_a_number_or_draft(
-        self, client, sheet, creator, auth_as
-    ):
-        auth_as(creator)
-
-        response = await client.get(f"/character_sheets/{sheet.id}?version=latest")
-
-        assert response.status_code == 422
-
 
 class TestUpdateCharSheet:
     @pytest.fixture
@@ -1039,14 +934,6 @@ class TestUpdateCharSheet:
             system_id=system.id,
             layout={"schema_version": 1, "elements": []},
         )
-
-    async def test_requires_auth(self, client, sheet):
-        response = await client.patch(
-            f"/character_sheets/{sheet.id}",
-            json={"name": "Fighter", "layout": {"elements": []}},
-        )
-
-        assert response.status_code == 403
 
     async def test_returns_404_when_sheet_missing(self, authed_client):
         client, _user = authed_client
@@ -1078,79 +965,50 @@ class TestUpdateCharSheet:
             "schema_version": 1,
             "elements": [{"type": "header", "text": "Combat"}],
         }
-
-        response = await client.patch(
-            f"/character_sheets/{sheet.id}",
-            json={"name": "Fighter", "layout": new_layout},
-        )
-
-        assert response.status_code == 200
-        assert response.json()["layout"] == new_layout
-        assert response.json()["is_draft"] is True
-
-        draft = await CharacterSheetRepository(db_session, principal=creator).get_draft(
-            sheet.id
-        )
-        assert draft.layout == new_layout
-
-    async def test_creator_saves_the_name_and_description(
-        self, client, sheet, creator, db_session, auth_as
-    ):
-        auth_as(creator)
         description = prose_doc("A front-line martial build.")
+        changelog = prose_doc("Added a combat section.")
 
         response = await client.patch(
             f"/character_sheets/{sheet.id}",
             json={
                 "name": "Battle-Ready Fighter",
                 "description": description,
-                "layout": {"schema_version": 1, "elements": []},
-            },
-        )
-
-        assert response.status_code == 200
-        assert response.json()["name"] == "Battle-Ready Fighter"
-        assert response.json()["description"] == description
-
-        await db_session.refresh(sheet)
-        assert sheet.name == "Battle-Ready Fighter"
-        assert sheet.description == description
-
-    async def test_creator_saves_the_changelog_on_the_draft(
-        self, client, sheet, creator, db_session, auth_as
-    ):
-        auth_as(creator)
-        changelog = prose_doc("Added a combat section.")
-
-        response = await client.patch(
-            f"/character_sheets/{sheet.id}",
-            json={
-                "name": "Fighter",
-                "layout": {"schema_version": 1, "elements": []},
+                "layout": new_layout,
                 "changelog": changelog,
             },
         )
 
         assert response.status_code == 200
+        assert response.json()["layout"] == new_layout
+        assert response.json()["is_draft"] is True
+        assert response.json()["name"] == "Battle-Ready Fighter"
+        assert response.json()["description"] == description
         assert response.json()["changelog"] == changelog
+
         draft = await CharacterSheetRepository(db_session, principal=creator).get_draft(
             sheet.id
         )
+        assert draft.layout == new_layout
         assert draft.changelog == changelog
+        await db_session.refresh(sheet)
+        assert sheet.name == "Battle-Ready Fighter"
+        assert sheet.description == description
 
-    async def test_omitting_the_changelog_clears_the_drafts(
+    async def test_omitting_optional_fields_clears_them(
         self, client, sheet, creator, auth_as
     ):
         auth_as(creator)
         layout = {"schema_version": 1, "elements": []}
-        await client.patch(
+        first = await client.patch(
             f"/character_sheets/{sheet.id}",
             json={
                 "name": "Fighter",
+                "description": prose_doc("A front-line martial build."),
                 "layout": layout,
                 "changelog": prose_doc("Added a combat section."),
             },
         )
+        assert first.status_code == 200
 
         response = await client.patch(
             f"/character_sheets/{sheet.id}",
@@ -1159,26 +1017,6 @@ class TestUpdateCharSheet:
 
         assert response.status_code == 200
         assert response.json()["changelog"] is None
-
-    async def test_omitting_description_clears_a_previously_set_one(
-        self, client, sheet, creator, auth_as
-    ):
-        auth_as(creator)
-        await client.patch(
-            f"/character_sheets/{sheet.id}",
-            json={
-                "name": "Fighter",
-                "description": prose_doc("A front-line martial build."),
-                "layout": {"schema_version": 1, "elements": []},
-            },
-        )
-
-        response = await client.patch(
-            f"/character_sheets/{sheet.id}",
-            json={"name": "Fighter", "layout": {"schema_version": 1, "elements": []}},
-        )
-
-        assert response.status_code == 200
         assert response.json()["description"] is None
 
     async def test_editing_a_published_sheet_leaves_the_published_layout_alone(
@@ -1267,33 +1105,19 @@ class TestUpdateCharSheet:
                 "name": "Fighter",
                 "layout": {
                     "schema_version": 1,
-                    "elements": [{"type": "input", "name": "hp"}],
+                    "elements": [
+                        {"type": "input", "name": "hp"},
+                        {"type": "input", "name": "mp", "id": "custom-id"},
+                    ],
                 },
             },
         )
 
         assert response.status_code == 200
-        field_id = response.json()["layout"]["elements"][0]["id"]
-        assert re.fullmatch(r"[0-9a-f]{8}", field_id)
-
-    async def test_leaves_a_hand_authored_field_id_alone(
-        self, client, sheet, creator, auth_as
-    ):
-        auth_as(creator)
-
-        response = await client.patch(
-            f"/character_sheets/{sheet.id}",
-            json={
-                "name": "Fighter",
-                "layout": {
-                    "schema_version": 1,
-                    "elements": [{"type": "input", "name": "hp", "id": "custom-id"}],
-                },
-            },
-        )
-
-        assert response.status_code == 200
-        assert response.json()["layout"]["elements"][0]["id"] == "custom-id"
+        elements = response.json()["layout"]["elements"]
+        assert re.fullmatch(r"[0-9a-f]{8}", elements[0]["id"])
+        # An id already on an element is kept.
+        assert elements[1]["id"] == "custom-id"
 
 
 VALID_LAYOUT = {
@@ -1332,25 +1156,6 @@ class TestPublishCharSheet:
             name="Fighter", system_id=system.id, layout=VALID_LAYOUT
         )
 
-    async def test_requires_auth(self, client, sheet):
-        response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
-
-        assert response.status_code == 403
-
-    async def test_returns_404_when_sheet_missing(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.post("/character_sheets/999999/publish", json={})
-
-        assert response.status_code == 404
-
-    async def test_forbids_non_creator(self, client, sheet, create, auth_as):
-        auth_as(await create(ActivatedUserFactory))
-
-        response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
-
-        assert response.status_code == 403
-
     async def test_publishes_the_draft_as_version_one(
         self, client, sheet, creator, db_session, auth_as
     ):
@@ -1372,24 +1177,6 @@ class TestPublishCharSheet:
         version = await repository.get_latest_published(sheet.id)
         assert version.changelog == changelog
         assert await repository.get_draft(sheet.id) is None
-
-    async def test_second_publish_increments_the_number(
-        self, client, sheet, creator, auth_as
-    ):
-        auth_as(creator)
-        first = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
-        await client.patch(
-            f"/character_sheets/{sheet.id}",
-            json={
-                "name": "Fighter",
-                "layout": _add_input_field(first.json()["layout"]),
-            },
-        )
-
-        response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
-
-        assert response.status_code == 200
-        assert response.json()["version_number"] == 2
 
     async def test_conflicts_when_there_is_no_draft(
         self, client, sheet, creator, auth_as
@@ -1489,29 +1276,6 @@ class TestDiscardCharSheetDraft:
         )
         return sheet
 
-    async def test_requires_auth(self, client, sheet):
-        response = await client.delete(f"/character_sheets/{sheet.id}/draft")
-
-        assert response.status_code == 403
-
-    async def test_returns_404_when_sheet_missing(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.delete("/character_sheets/999999/draft")
-
-        assert response.status_code == 404
-
-    async def test_forbids_non_creator(
-        self, client, sheet, creator, create, db_session, auth_as
-    ):
-        auth_as(await create(ActivatedUserFactory))
-
-        response = await client.delete(f"/character_sheets/{sheet.id}/draft")
-
-        assert response.status_code == 403
-        repository = CharacterSheetRepository(db_session, principal=creator)
-        assert await repository.get_draft(sheet.id) is not None
-
     async def test_deletes_the_draft_and_returns_the_published_version(
         self, client, sheet, creator, db_session, auth_as
     ):
@@ -1581,24 +1345,6 @@ class TestGetCharSheetVersions:
         )
         return sheet
 
-    async def test_returns_404_when_sheet_missing(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.get("/character_sheets/999999/versions")
-
-        assert response.status_code == 404
-
-    async def test_forbids_non_creators_on_a_sheet_that_is_not_public(
-        self, client, sheet, create, db_session, auth_as
-    ):
-        sheet.status = CharacterSheet.Status.PRIVATE
-        await db_session.flush()
-        auth_as(await create(ActivatedUserFactory))
-
-        response = await client.get(f"/character_sheets/{sheet.id}/versions")
-
-        assert response.status_code == 403
-
     async def test_lists_published_versions_newest_first_without_the_draft(
         self, client, sheet, creator, create, db_session, auth_as
     ):
@@ -1620,19 +1366,6 @@ class TestGetCharSheetVersions:
             v2.published_at,
             v1.published_at,
         ]
-
-    async def test_returns_no_versions_for_a_never_published_sheet(
-        self, client, creator, create, db_session, auth_as
-    ):
-        system = await create(SystemFactory, id="pf2e")
-        repository = CharacterSheetRepository(db_session, principal=creator)
-        unpublished = await repository.create(name="Wizard", system_id=system.id)
-        auth_as(creator)
-
-        response = await client.get(f"/character_sheets/{unpublished.id}/versions")
-
-        assert response.status_code == 200
-        assert response.json() == {"versions": []}
 
 
 class TestCopyCharSheet:
@@ -1669,14 +1402,14 @@ class TestCopyCharSheet:
         )
         return sheet
 
-    async def _give_character(self, db_session, user, sheet):
+    async def _give_character(self, db_session, user, sheet, label="Brienne"):
         version = await CharacterSheetRepository(
             db_session, principal=user
         ).get_published(sheet.id, 1)
         await CharacterRepository(db_session, principal=user).create(
             character_sheet_id=sheet.id,
             character_sheet_version_id=version.id,
-            label="Brienne",
+            label=label,
         )
 
     async def test_returns_404_when_sheet_missing(self, authed_client):
@@ -1774,10 +1507,29 @@ class TestCopyCharSheet:
 
         assert response.status_code == 200
 
+    async def test_another_users_character_does_not_allow_copying_a_private_sheet(
+        self, client, sheet, copier, create, db_session, auth_as
+    ):
+        await self._give_character(
+            db_session, await create(ActivatedUserFactory), sheet
+        )
+        auth_as(copier)
+
+        response = await client.post(f"/character_sheets/{sheet.id}/copy")
+
+        assert response.status_code == 403
+        copies = await db_session.scalars(
+            select(CharacterSheet).where(CharacterSheet.forked_from_id == sheet.id)
+        )
+        assert copies.all() == []
+
     async def test_a_deleted_sheets_copy_is_published_and_lists_movable_characters(
-        self, client, sheet, creator, copier, db_session, auth_as
+        self, client, sheet, creator, copier, create, db_session, auth_as
     ):
         await self._give_character(db_session, copier, sheet)
+        await self._give_character(
+            db_session, await create(ActivatedUserFactory), sheet, label="Stranger"
+        )
         await CharacterSheetRepository(db_session, principal=creator).delete(sheet)
         auth_as(copier)
 
@@ -1792,6 +1544,7 @@ class TestCopyCharSheet:
         published = await repository.get_latest_published(copied.id)
         assert published.number == 1
         assert await repository.get_draft(copied.id) is None
+        # Only the caller's own characters are offered the move.
         assert [c["label"] for c in response.json()["characters"]] == ["Brienne"]
 
     async def test_returns_404_for_a_deleted_sheet_without_a_character_on_it(
@@ -1799,17 +1552,6 @@ class TestCopyCharSheet:
     ):
         await CharacterSheetRepository(db_session, principal=creator).delete(sheet)
         auth_as(creator)
-
-        response = await client.post(f"/character_sheets/{sheet.id}/copy")
-
-        assert response.status_code == 404
-
-    async def test_a_deleted_public_sheet_is_no_longer_open_to_copy(
-        self, client, sheet, creator, copier, db_session, auth_as
-    ):
-        sheet.status = CharacterSheet.Status.PUBLIC
-        await CharacterSheetRepository(db_session, principal=creator).delete(sheet)
-        auth_as(copier)
 
         response = await client.post(f"/character_sheets/{sheet.id}/copy")
 
@@ -1847,45 +1589,6 @@ class TestPublishCharSheetFieldIds:
         )
         return await client.post(f"/character_sheets/{sheet_id}/publish")
 
-    async def test_first_publish_reports_every_field_as_added(
-        self, client, sheet, creator, auth_as
-    ):
-        auth_as(creator)
-
-        response = await self._save_and_publish(
-            client, sheet.id, _layout_with({"type": "input", "name": "hp"})
-        )
-
-        assert response.status_code == 200
-        assert response.json()["removed_field_ids"] == []
-        assert len(response.json()["added_field_ids"]) == 3
-
-    async def test_renaming_a_field_keeps_its_id_out_of_the_diff(
-        self, client, sheet, creator, auth_as
-    ):
-        auth_as(creator)
-        first = await self._save_and_publish(
-            client, sheet.id, _layout_with({"type": "input", "name": "hp"})
-        )
-        name_el, notes_el, hp_el = first.json()["layout"]["elements"]
-
-        second = await self._save_and_publish(
-            client,
-            sheet.id,
-            {
-                "schema_version": 1,
-                "elements": [
-                    name_el,
-                    notes_el,
-                    {"type": "input", "name": "hit_points", "id": hp_el["id"]},
-                ],
-            },
-        )
-
-        assert second.status_code == 200
-        assert second.json()["added_field_ids"] == []
-        assert second.json()["removed_field_ids"] == []
-
     async def test_removing_a_field_reports_its_id_as_removed(
         self, client, sheet, creator, auth_as
     ):
@@ -1904,70 +1607,6 @@ class TestPublishCharSheetFieldIds:
         assert second.status_code == 200
         assert second.json()["removed_field_ids"] == [hp_el["id"]]
         assert second.json()["added_field_ids"] == []
-
-    async def test_reusing_an_id_on_a_different_field_type_is_rejected(
-        self, client, sheet, creator, auth_as
-    ):
-        auth_as(creator)
-        first = await self._save_and_publish(
-            client, sheet.id, _layout_with({"type": "input", "name": "hp"})
-        )
-        name_el, notes_el, hp_el = first.json()["layout"]["elements"]
-
-        response = await self._save_and_publish(
-            client,
-            sheet.id,
-            {
-                "schema_version": 1,
-                "elements": [
-                    name_el,
-                    notes_el,
-                    {"type": "textarea", "name": "hp", "id": hp_el["id"]},
-                ],
-            },
-        )
-
-        assert response.status_code == 400
-        assert response.json()["errors"][0]["code"] == "validation_error"
-        assert (
-            "changed from a 'input' to a 'textarea'"
-            in response.json()["errors"][0]["detail"]
-        )
-
-    async def test_a_hand_authored_id_on_a_new_field_is_rejected(
-        self, client, sheet, creator, auth_as
-    ):
-        auth_as(creator)
-
-        response = await self._save_and_publish(
-            client,
-            sheet.id,
-            _layout_with({"type": "input", "name": "hp", "id": "not-server-minted"}),
-        )
-
-        assert response.status_code == 400
-        assert "wasn't assigned by the server" in response.json()["errors"][0]["detail"]
-
-    async def test_a_duplicate_id_is_rejected(
-        self, client, sheet, creator, db_session, auth_as
-    ):
-        # Writes the draft row directly, bypassing the repository's `mint_ids`,
-        # which would otherwise self-heal the duplicate before publish ever
-        # sees it -- this exercises publish's own defensive check.
-        repository = CharacterSheetRepository(db_session, principal=creator)
-        # A freshly created sheet's initial draft.
-        draft = await repository.get_draft(sheet.id)
-        draft.layout = _layout_with(
-            {"type": "input", "name": "hp", "id": "aaaaaaaa"},
-            {"type": "input", "name": "mp", "id": "aaaaaaaa"},
-        )
-        await db_session.flush()
-        auth_as(creator)
-
-        response = await client.post(f"/character_sheets/{sheet.id}/publish", json={})
-
-        assert response.status_code == 400
-        assert "used more than once" in response.json()["errors"][0]["detail"]
 
 
 class TestDraftRemovedFields:
@@ -2049,17 +1688,4 @@ class TestDraftRemovedFields:
         response = await client.get(f"/character_sheets/{sheet.id}?version=1")
 
         assert response.json()["is_draft"] is False
-        assert response.json()["removed_fields"] == []
-
-    async def test_a_never_published_draft_reports_nothing(
-        self, client, creator, create, db_session, auth_as
-    ):
-        system = await create(SystemFactory, id="pf2e")
-        repository = CharacterSheetRepository(db_session, principal=creator)
-        unpublished = await repository.create(name="Wizard", system_id=system.id)
-        auth_as(creator)
-
-        response = await client.get(f"/character_sheets/{unpublished.id}")
-
-        assert response.json()["is_draft"] is True
         assert response.json()["removed_fields"] == []

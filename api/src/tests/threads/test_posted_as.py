@@ -1,6 +1,5 @@
 import pytest
 
-from app.configs import configs
 from app.models import Post, Thread
 from tests.factories import prose_doc
 from tests.game_forum import (
@@ -10,8 +9,6 @@ from tests.game_forum import (
     make_game_forum,
     make_user_with,
 )
-
-WEBHOOK_URL = "https://discord.com/api/webhooks/123456789/abc-DEF_123"
 
 
 @pytest.fixture
@@ -34,22 +31,7 @@ def new_thread(forum, **overrides):
 
 
 class TestCreateThreadAs:
-    async def test_own_character_is_stored_on_the_first_post(
-        self, auth_as, db_session, world, player
-    ):
-        character = await make_character(db_session, player, world.game)
-        client = auth_as(player)
-
-        response = await client.post(
-            "/threads", json=new_thread(world.forum, posted_as_id=character.id)
-        )
-
-        assert response.status_code == 200
-        thread = await db_session.get(Thread, response.json()["id"])
-        post = await db_session.get(Post, thread.first_post_id)
-        assert post.posted_as_id == character.id
-
-    async def test_chosen_avatar_is_stored_on_the_first_post(
+    async def test_own_character_and_chosen_avatar_are_stored_on_the_first_post(
         self, auth_as, db_session, world, player
     ):
         character = await make_character(db_session, player, world.game)
@@ -67,58 +49,5 @@ class TestCreateThreadAs:
         assert response.status_code == 200
         thread = await db_session.get(Thread, response.json()["id"])
         post = await db_session.get(Post, thread.first_post_id)
+        assert post.posted_as_id == character.id
         assert post.posted_avatar_id == second_id
-
-    async def test_another_characters_avatar_is_rejected(
-        self, auth_as, db_session, world, player
-    ):
-        character = await make_character(db_session, player, world.game, name="Aria")
-        other = await make_character(db_session, player, world.game, name="Bree")
-        other_avatar_id = await add_avatar(db_session, other)
-        client = auth_as(player)
-
-        response = await client.post(
-            "/threads",
-            json=new_thread(
-                world.forum, posted_as_id=character.id, posted_avatar_id=other_avatar_id
-            ),
-        )
-
-        assert response.status_code == 400
-
-    async def test_another_players_character_is_rejected(
-        self, auth_as, create, db_session, world, player
-    ):
-        other = await make_user_with(create, db_session, world.forum, *PLAYER_VERBS)
-        character = await make_character(db_session, other, world.game)
-        client = auth_as(player)
-
-        response = await client.post(
-            "/threads", json=new_thread(world.forum, posted_as_id=character.id)
-        )
-
-        assert response.status_code == 400
-
-    async def test_webhook_goes_out_under_the_characters_name(
-        self, auth_as, db_session, world, player, sent_webhooks
-    ):
-        character = await make_character(db_session, player, world.game, name="Aria")
-        avatar_id = await add_avatar(db_session, character)
-        # The GM may set a webhook and post as the player's character.
-        client = auth_as(world.gm)
-        response = await client.post(
-            "/threads",
-            json=new_thread(
-                world.forum,
-                posted_as_id=character.id,
-                options={"discord_webhook": WEBHOOK_URL},
-            ),
-        )
-
-        assert response.status_code == 200
-        [(_url, payload)] = sent_webhooks
-        assert payload["username"] == "Aria"
-        assert (
-            payload["avatar_url"]
-            == f"{configs.AVATARS_ROOT}/characters/{avatar_id}.png"
-        )

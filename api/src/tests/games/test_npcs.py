@@ -22,6 +22,7 @@ from tests.game_forum import (
     make_game_image,
     make_npc,
     make_user_image,
+    make_user_npc,
 )
 
 
@@ -225,6 +226,15 @@ class TestCreateNPC:
 
         assert from_game.status_code == 400
         assert from_user.status_code == 400
+
+    async def test_an_unknown_image_is_rejected(self, auth_as, world, player):
+        client = auth_as(player)
+
+        response = await client.post(
+            f"/games/{world.game.id}/npcs", json={"name": "X", "image_id": 999999}
+        )
+
+        assert response.status_code == 400
 
     async def test_blank_name_is_rejected(self, auth_as, world, player):
         client = auth_as(player)
@@ -453,6 +463,19 @@ class TestUniqueness:
         new = await make_npc(db_session, world.game, world.gm, "Guard")
 
         assert new.id != old.id
+
+    async def test_a_game_owner_does_not_reuse_a_personal_npc_of_the_same_name(
+        self, db_session, world
+    ):
+        personal = await make_user_npc(db_session, world.gm, "Guard")
+
+        in_game = await QuickNPCRepository(
+            db_session, principal=world.gm
+        ).get_or_create(NPCOwner.game(world.game.id), "Guard", None)
+
+        assert in_game.id != personal.id
+        assert in_game.game_id == world.game.id
+        assert in_game.user_id is None
 
 
 class TestUpdateNPC:

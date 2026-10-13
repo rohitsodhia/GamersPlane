@@ -66,16 +66,29 @@ class TestGetForumCharacters:
             "can_manage_npcs": True,
         }
 
+    @pytest.mark.parametrize("in_game", [False, True], ids=["non_game", "game"])
     async def test_without_write_access_nothing_is_offered(
-        self, auth_as, create, db_session
+        self, auth_as, create, db_session, in_game
     ):
-        forum = await create(ForumFactory, heritage=[])
-        user = await make_user_with(create, db_session, forum, Verbs.FORUM_READ)
-        await make_user_npc(db_session, user, "Guard")
+        if in_game:
+            world = await make_game_forum(create, db_session)
+            forum = world.forum
+            user = await make_user_with(create, db_session, forum, Verbs.FORUM_READ)
+            await PlayerRepository(db_session, principal=user).attach_player_to_game(
+                world.game.id, user.id, state=Player.States.ACCEPTED
+            )
+            await make_character(db_session, user, world.game, name="Aria")
+            await make_npc(db_session, world.game, world.gm, "Guard")
+        else:
+            forum = await create(ForumFactory, heritage=[])
+            user = await make_user_with(create, db_session, forum, Verbs.FORUM_READ)
+            await make_user_npc(db_session, user, "Guard")
         client = auth_as(user)
 
         response = await client.get(f"/forums/{forum.id}/characters")
 
+        assert response.status_code == 200
+        assert response.json()["characters"] == []
         assert response.json()["npcs"] == []
         assert response.json()["can_manage_npcs"] is False
 
@@ -126,18 +139,6 @@ class TestGetForumCharacters:
         assert names(response) == ["Bob", "Zed", "Aria"]
         owners = [c["owner"]["id"] for c in response.json()["characters"]]
         assert owners == [world.gm.id, world.gm.id, player.id]
-
-    async def test_without_write_has_no_characters(
-        self, auth_as, create, db_session, world
-    ):
-        reader = await make_user_with(create, db_session, world.forum, Verbs.FORUM_READ)
-        await make_character(db_session, reader, world.game, name="Aria")
-        client = auth_as(reader)
-
-        response = await client.get(f"/forums/{world.forum.id}/characters")
-
-        assert response.status_code == 200
-        assert response.json()["characters"] == []
 
     async def test_moderator_without_write_still_gets_characters(
         self, auth_as, create, db_session, world
@@ -349,6 +350,18 @@ class TestDefaultCharacter:
         assert response.json()["default_id"] is None
         assert names(response) == ["First"]
 
+    async def test_unknown_thread_is_ignored(self, auth_as, db_session, world, player):
+        await make_character(db_session, player, world.game, name="First")
+        client = auth_as(player)
+
+        response = await client.get(
+            f"/forums/{world.forum.id}/characters", params={"thread_id": 999999}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["default_id"] is None
+        assert names(response) == ["First"]
+
     async def test_other_users_posts_dont_set_the_default(
         self, auth_as, create, db_session, world, player
     ):
@@ -397,6 +410,8 @@ class TestQuickNPCOptions:
                 "can_edit": True,
             }
         ]
+        assert response.json()["game_id"] == world.game.id
+        assert response.json()["can_manage_npcs"] is True
 
     async def test_a_player_who_is_not_gm_gets_the_games_npcs(
         self, auth_as, db_session, world, player
@@ -411,6 +426,8 @@ class TestQuickNPCOptions:
             "GMs": False,
             "Mine": True,
         }
+        assert response.json()["game_id"] == world.game.id
+        assert response.json()["can_manage_npcs"] is True
 
     async def test_someone_who_is_not_an_accepted_player_gets_none(
         self, auth_as, db_session, world, outsider
@@ -422,15 +439,6 @@ class TestQuickNPCOptions:
 
         assert response.json()["npcs"] == []
         assert response.json()["can_manage_npcs"] is False
-
-    async def test_a_player_can_manage_npcs_and_gets_the_game_id(
-        self, auth_as, world, player
-    ):
-        for user in (world.gm, player):
-            response = await auth_as(user).get(f"/forums/{world.forum.id}/characters")
-
-            assert response.json()["game_id"] == world.game.id
-            assert response.json()["can_manage_npcs"] is True
 
     async def test_nobody_can_manage_npcs_in_a_retired_game(
         self, auth_as, db_session, world

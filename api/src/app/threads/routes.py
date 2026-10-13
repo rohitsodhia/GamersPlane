@@ -2,21 +2,18 @@ from fastapi import APIRouter, BackgroundTasks, status
 
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException, ValidationError
-from app.forums.permissions import ForumPermissions, Verbs
+from app.forums.functions import get_readable_forum
+from app.forums.permissions import Verbs
 from app.helpers.decorators import public
 from app.middleware import Principal
-from app.models import Post, Thread, User
+from app.models import Post
 from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import (
     check_post_change,
-    require_one_poster,
-    resolve_posted_npc,
-    validate_posted_as,
-    validate_posted_avatar,
     validate_content_npcs,
+    validate_poster,
 )
 from app.repositories import (
-    ForumRepository,
     PollRepository,
     PostRepository,
     QuickNPCRepository,
@@ -28,6 +25,7 @@ from app.threads.discord import queue_post_webhook
 from app.threads.functions import (
     build_post_data,
     check_thread_options,
+    get_readable_thread,
     merge_thread_options,
 )
 from app.threads.poll_functions import (
@@ -48,11 +46,7 @@ async def get_threads(
     if page < 1:
         page = 1
 
-    forum_repository = ForumRepository(db_session, principal=principal)
-    forum = await forum_repository.get(forum_id)
-    if forum is None:
-        raise NotFoundException("Forum not found")
-    await ForumPermissions.require_read(db_session, principal, forum, "Forum not found")
+    await get_readable_forum(db_session, principal, forum_id)
 
     thread_repository = ThreadRepository(db_session, principal=principal)
     threads = list(await thread_repository.get_all(forum_id, page=page) or [])
@@ -92,13 +86,7 @@ async def get_threads(
 async def get_thread(
     db_session: DBSessionDependency, principal: Principal, thread_id: int
 ):
-    thread_repository = ThreadRepository(db_session, principal=principal)
-    thread = await thread_repository.get(thread_id)
-    if thread is None:
-        raise NotFoundException("Thread not found")
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, thread.forum, "Thread not found"
-    )
+    thread, permissions = await get_readable_thread(db_session, principal, thread_id)
     assert thread.first_post is not None
 
     first_unread_post = None
@@ -138,12 +126,8 @@ async def create_thread(
     principal: Principal,
     thread_data: schemas.NewThreadInput,
 ):
-    forum_repository = ForumRepository(db_session, principal=principal)
-    forum = await forum_repository.get(thread_data.forum_id)
-    if forum is None:
-        raise NotFoundException("Forum not found")
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, forum, "Forum not found"
+    forum, permissions = await get_readable_forum(
+        db_session, principal, thread_data.forum_id
     )
     if not permissions.has(forum, Verbs.FORUM_CREATE_THREAD):
         raise ForbiddenException("You can't create threads in this forum")
@@ -153,18 +137,14 @@ async def create_thread(
         await check_poll_input(
             PollRepository(db_session, principal=principal), None, thread_data.poll
         )
-    require_one_poster(thread_data.posted_as_id, thread_data.posted_npc)
-    character = None
-    if thread_data.posted_as_id is not None:
-        character = await validate_posted_as(
-            db_session, principal, forum, thread_data.posted_as_id
-        )
-    validate_posted_avatar(character, thread_data.posted_avatar_id)
-    npc = None
-    if thread_data.posted_npc is not None:
-        npc = await resolve_posted_npc(
-            db_session, principal, forum, thread_data.posted_npc
-        )
+    _, npc = await validate_poster(
+        db_session,
+        principal,
+        forum,
+        thread_data.posted_as_id,
+        thread_data.posted_avatar_id,
+        thread_data.posted_npc,
+    )
     await validate_content_npcs(db_session, principal, forum, thread_data.body)
     attachments = await plan_attachments(
         db_session,
@@ -225,33 +205,17 @@ async def update_thread(
 ):
     """Change a thread's options. Only the thread's author (while it is unlocked)
     or a moderator may, and each option needs its own verb."""
-    thread_repository = ThreadRepository(db_session, principal=principal)
-    thread = await thread_repository.get(thread_id)
-    if thread is None:
-        raise NotFoundException("Thread not found")
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, thread.forum, "Thread not found"
-    )
+    thread, permissions = await get_readable_thread(db_session, principal, thread_id)
     assert thread.first_post is not None
     check_post_change(permissions, thread.first_post, principal, Verbs.FORUM_EDIT)
 
     options = merge_thread_options(
         permissions, thread.forum, thread.options, data.options
     )
-    await thread_repository.update_options(thread, options)
-    return schemas.ThreadOptionsData.model_validate(options)
-
-
-async def get_readable_thread(
-    db_session: DBSessionDependency, principal: User, thread_id: int
-) -> Thread:
-    thread = await ThreadRepository(db_session, principal=principal).get(thread_id)
-    if thread is None:
-        raise NotFoundException("Thread not found")
-    await ForumPermissions.require_read(
-        db_session, principal, thread.forum, "Thread not found"
+    await ThreadRepository(db_session, principal=principal).update_options(
+        thread, options
     )
-    return thread
+    return schemas.ThreadOptionsData.model_validate(options)
 
 
 @threads.post("/{thread_id}/read", status_code=status.HTTP_204_NO_CONTENT)
@@ -262,7 +226,7 @@ async def mark_thread_viewed(
     data: schemas.MarkThreadViewedInput,
 ):
     """Record that the principal has seen the thread up to the given post."""
-    thread = await get_readable_thread(db_session, principal, thread_id)
+    thread, _ = await get_readable_thread(db_session, principal, thread_id)
     post = await PostRepository(db_session, principal=principal).get(data.post_id)
     if (
         post is None
@@ -281,7 +245,7 @@ async def mark_thread_viewed(
 async def mark_thread_read(
     db_session: DBSessionDependency, principal: Principal, thread_id: int
 ):
-    thread = await get_readable_thread(db_session, principal, thread_id)
+    thread, _ = await get_readable_thread(db_session, principal, thread_id)
     await ReadTrackingRepository(db_session, principal=principal).mark_thread_read(
         thread
     )
@@ -291,7 +255,7 @@ async def mark_thread_read(
 async def mark_thread_unread(
     db_session: DBSessionDependency, principal: Principal, thread_id: int
 ):
-    thread = await get_readable_thread(db_session, principal, thread_id)
+    thread, _ = await get_readable_thread(db_session, principal, thread_id)
     await ReadTrackingRepository(db_session, principal=principal).mark_thread_unread(
         thread
     )
@@ -308,12 +272,7 @@ async def vote_in_poll(
 
     Nobody votes in a locked thread, moderators included.
     """
-    thread = await ThreadRepository(db_session, principal=principal).get(thread_id)
-    if thread is None:
-        raise NotFoundException("Thread not found")
-    permissions = await ForumPermissions.require_read(
-        db_session, principal, thread.forum, "Thread not found"
-    )
+    thread, permissions = await get_readable_thread(db_session, principal, thread_id)
     poll_repository = PollRepository(db_session, principal=principal)
     poll = await poll_repository.get(thread.id)
     if poll is None:

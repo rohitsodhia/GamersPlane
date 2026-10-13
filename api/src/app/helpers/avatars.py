@@ -18,7 +18,8 @@ def process_avatar_upload(contents: bytes) -> tuple[Image.Image, str]:
     """
     if len(contents) > AVATAR_MAX_BYTES:
         raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Avatar must be smaller than 5MB"
+            status.HTTP_400_BAD_REQUEST,
+            f"Avatar must be smaller than {AVATAR_MAX_BYTES // (1024 * 1024)}MB",
         )
 
     try:

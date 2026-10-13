@@ -53,7 +53,8 @@ class ThreadRepository:
             .where(Thread.forum_id == forum_id)
             .order_by(
                 func.coalesce(Thread.options["sticky"].as_boolean(), false()).desc(),
-                Thread.created_at.desc(),
+                Thread.last_post_at.desc().nulls_last(),
+                Thread.id.desc(),
             )
             .limit(limit)
             .offset((page - 1) * limit)

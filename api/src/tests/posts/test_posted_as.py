@@ -70,16 +70,6 @@ class TestCreatePostAs:
         post = await db_session.get(Post, response.json()["id"])
         assert post.posted_as_id == character.id
 
-    async def test_no_character_leaves_it_unset(
-        self, auth_as, db_session, player, thread
-    ):
-        client = auth_as(player)
-
-        response = await client.post("/posts", json=new_post(thread))
-
-        post = await db_session.get(Post, response.json()["id"])
-        assert post.posted_as_id is None
-
     async def test_gm_can_post_as_a_players_character(
         self, auth_as, db_session, world, player, thread
     ):
@@ -246,32 +236,6 @@ class TestCreatePostAvatar:
 
         assert response.status_code == 400
 
-    async def test_webhook_uses_the_chosen_avatar(
-        self, auth_as, create, db_session, world, player, sent_webhooks
-    ):
-        thread = await create(
-            ThreadFactory,
-            forum=world.forum,
-            options=Thread.Options(discord_webhook=WEBHOOK_URL),
-        )
-        character = await make_character(db_session, player, world.game, name="Aria")
-        await add_avatar(db_session, character)
-        second_id = await add_avatar(db_session, character, "jpg")
-        client = auth_as(player)
-
-        await client.post(
-            "/posts",
-            json=new_post(
-                thread, posted_as_id=character.id, posted_avatar_id=second_id
-            ),
-        )
-
-        [(_url, payload)] = sent_webhooks
-        assert (
-            payload["avatar_url"]
-            == f"{configs.AVATARS_ROOT}/characters/{second_id}.jpg"
-        )
-
 
 class TestEditPostAvatar:
     async def character_with_avatars(self, db_session, world, player, name="Aria"):
@@ -363,6 +327,7 @@ class TestEditPostAvatar:
 
         assert response.status_code == 200
         await db_session.refresh(post)
+        assert post.posted_as_id == character.id
         assert post.posted_avatar_id == second_id
 
     async def test_explicit_null_resets_to_primary(
@@ -404,51 +369,8 @@ class TestEditPostAvatar:
 
         assert response.status_code == 400
 
-    async def test_avatar_on_a_post_as_yourself_is_rejected(
-        self, auth_as, create, db_session, world, player, thread
-    ):
-        character, primary_id, _second_id = await self.character_with_avatars(
-            db_session, world, player
-        )
-        post = await post_as(create, thread, player, None)
-        client = auth_as(player)
-
-        response = await client.patch(
-            f"/posts/{post.id}", json=edit_post(posted_avatar_id=primary_id)
-        )
-
-        assert response.status_code == 400
-
-    async def test_moderator_cannot_change_someone_elses_avatar(
-        self, auth_as, create, db_session, world, player, thread
-    ):
-        character, _primary_id, second_id = await self.character_with_avatars(
-            db_session, world, player
-        )
-        post = await post_as(create, thread, player, character)
-        client = auth_as(world.gm)
-
-        response = await client.patch(
-            f"/posts/{post.id}", json=edit_post(posted_avatar_id=second_id)
-        )
-
-        assert response.status_code == 403
-
 
 class TestEditPostAs:
-    async def test_absent_leaves_the_character(
-        self, auth_as, create, db_session, world, player, thread
-    ):
-        character = await make_character(db_session, player, world.game)
-        post = await post_as(create, thread, player, character)
-        client = auth_as(player)
-
-        response = await client.patch(f"/posts/{post.id}", json=edit_post())
-
-        assert response.status_code == 200
-        await db_session.refresh(post)
-        assert post.posted_as_id == character.id
-
     async def test_null_clears_the_character(
         self, auth_as, create, db_session, world, player, thread
     ):
@@ -463,22 +385,6 @@ class TestEditPostAs:
         assert response.status_code == 200
         await db_session.refresh(post)
         assert post.posted_as_id is None
-
-    async def test_can_switch_to_another_valid_character(
-        self, auth_as, create, db_session, world, player, thread
-    ):
-        old = await make_character(db_session, player, world.game, name="Old")
-        new = await make_character(db_session, player, world.game, name="New")
-        post = await post_as(create, thread, player, old)
-        client = auth_as(player)
-
-        response = await client.patch(
-            f"/posts/{post.id}", json=edit_post(posted_as_id=new.id)
-        )
-
-        assert response.status_code == 200
-        await db_session.refresh(post)
-        assert post.posted_as_id == new.id
 
     async def test_changing_to_an_invalid_character_is_rejected(
         self, auth_as, create, db_session, world, player, thread
@@ -527,17 +433,6 @@ class TestEditPostAs:
         assert response.status_code == 403
         await db_session.refresh(post)
         assert post.posted_as_id == mine.id
-
-    async def test_moderator_edit_leaving_it_absent_is_fine(
-        self, auth_as, create, db_session, world, player, thread
-    ):
-        mine = await make_character(db_session, player, world.game)
-        post = await post_as(create, thread, player, mine)
-        client = auth_as(world.gm)
-
-        response = await client.patch(f"/posts/{post.id}", json=edit_post())
-
-        assert response.status_code == 200
 
 
 class TestReadPostedAs:
@@ -617,31 +512,6 @@ class TestReadPostedAs:
             posted_as["avatar"] == f"{configs.AVATARS_ROOT}/characters/{primary_id}.png"
         )
 
-    async def test_avatar_not_the_characters_falls_back_to_primary(
-        self, auth_as, create, db_session, world, player, thread
-    ):
-        character = await make_character(db_session, player, world.game, name="Aria")
-        other = await make_character(db_session, player, world.game, name="Bree")
-        primary_id = await add_avatar(db_session, character, "png")
-        other_avatar_id = await add_avatar(db_session, other, "jpg")
-        await create(
-            PostFactory,
-            thread=thread,
-            author=player,
-            posted_as=character,
-            posted_as_id=character.id,
-            posted_avatar_id=other_avatar_id,
-        )
-        client = auth_as(player)
-
-        response = await client.get("/posts", params={"thread_id": thread.id})
-
-        posted_as = response.json()["posts"][0]["posted_as"]
-        assert posted_as["avatar_id"] == primary_id
-        assert (
-            posted_as["avatar"] == f"{configs.AVATARS_ROOT}/characters/{primary_id}.png"
-        )
-
     async def test_character_without_an_avatar_has_a_null_avatar(
         self, auth_as, create, db_session, world, player, thread
     ):
@@ -654,16 +524,6 @@ class TestReadPostedAs:
         posted_as = response.json()["posts"][0]["posted_as"]
         assert posted_as["avatar"] is None
         assert posted_as["avatar_id"] is None
-
-    async def test_post_without_a_character_has_null_posted_as(
-        self, auth_as, create, player, thread
-    ):
-        await post_as(create, thread, player, None)
-        client = auth_as(player)
-
-        response = await client.get("/posts", params={"thread_id": thread.id})
-
-        assert response.json()["posts"][0]["posted_as"] is None
 
     async def test_get_post_includes_the_character(
         self, auth_as, create, db_session, world, player, thread

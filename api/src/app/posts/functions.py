@@ -108,6 +108,29 @@ async def resolve_posted_npc(
     return await npc_repository.get_or_create(owner, posted_npc.name, image)
 
 
+async def validate_poster(
+    db_session: AsyncSession,
+    principal: User,
+    forum: Forum,
+    posted_as_id: int | None,
+    posted_avatar_id: int | None,
+    posted_npc: PostedNPCInput | None,
+) -> tuple[Character | None, QuickNPC | None]:
+    """Check who a new post is as and return the character and quick NPC to post
+    as (both ``None`` for as the author): at most one of the two, the character
+    one the principal may use here, the avatar one of its, the NPC from the
+    right library."""
+    require_one_poster(posted_as_id, posted_npc)
+    character = None
+    if posted_as_id is not None:
+        character = await validate_posted_as(db_session, principal, forum, posted_as_id)
+    validate_posted_avatar(character, posted_avatar_id)
+    npc = None
+    if posted_npc is not None:
+        npc = await resolve_posted_npc(db_session, principal, forum, posted_npc)
+    return character, npc
+
+
 def validate_roster(attrs: dict) -> None:
     """Raise ``ValidationError`` unless a roster block's attrs are well-formed: a
     short (or no) title and a non-empty list of distinct NPC ids. Whether the NPCs

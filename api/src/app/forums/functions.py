@@ -1,11 +1,35 @@
 from collections.abc import Collection
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.exceptions import NotFoundException
 from app.forums import schemas
-from app.models import Forum, Post
+from app.forums.permissions import ForumPermissions
+from app.models import Forum, Post, User
 from app.repositories import ForumRepository
 from app.repositories.forum_repository import SITE_ROOT_FORUM_ID
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
+
+
+async def get_forum_or_404(forum_repository: ForumRepository, forum_id: int) -> Forum:
+    forum = await forum_repository.get(forum_id)
+    if forum is None:
+        raise NotFoundException("Forum not found")
+    return forum
+
+
+async def get_readable_forum(
+    db_session: AsyncSession, principal: User | None, forum_id: int
+) -> tuple[Forum, ForumPermissions]:
+    """The forum and the principal's permissions on it; one that's missing or
+    unreadable is the same 404."""
+    forum = await get_forum_or_404(
+        ForumRepository(db_session, principal=principal), forum_id
+    )
+    permissions = await ForumPermissions.require_read(
+        db_session, principal, forum, "Forum not found"
+    )
+    return forum, permissions
 
 
 def is_game_root_forum(forum: Forum) -> bool:

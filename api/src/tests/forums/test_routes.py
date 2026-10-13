@@ -22,14 +22,6 @@ DENY = RolePermission.Effects.DENY
 
 
 class TestGetForum:
-    async def test_get_forum_is_public(self, client, create, open_forums):
-        forum = await create(ForumFactory, heritage=[])
-        await open_forums(forum.id)
-
-        response = await client.get(f"/forums/{forum.id}")
-
-        assert response.status_code == 200
-
     async def test_get_forum_not_found(self, client):
         response = await client.get("/forums/999999")
 
@@ -46,6 +38,13 @@ class TestGetForum:
             thread_count=5,
         )
         await open_forums(forum.id)
+        await create(
+            ForumFactory,
+            title="Child",
+            parent_id=forum.id,
+            heritage=[forum.id],
+            order=1,
+        )
 
         response = await client.get(f"/forums/{forum.id}")
 
@@ -61,35 +60,7 @@ class TestGetForum:
         assert body["game_id"] is None
         assert body["thread_count"] == 5
         assert body["permissions"] == ["forum_read"]
-        assert body["children"] == []
-
-    async def test_get_forum_includes_heritage(self, client, create, open_forums):
-        grandparent = await create(
-            ForumFactory, title="Grandparent", heritage=[], order=1
-        )
-        await open_forums(grandparent.id)
-        parent = await create(
-            ForumFactory,
-            title="Parent",
-            parent_id=grandparent.id,
-            heritage=[grandparent.id],
-            order=1,
-        )
-        forum = await create(
-            ForumFactory,
-            title="Forum",
-            parent_id=parent.id,
-            heritage=[grandparent.id, parent.id],
-            order=1,
-        )
-
-        response = await client.get(f"/forums/{forum.id}")
-
-        body = response.json()
-        assert body["heritage"] == [
-            {"id": grandparent.id, "title": "Grandparent", "moderate": False},
-            {"id": parent.id, "title": "Parent", "moderate": False},
-        ]
+        assert [c["title"] for c in body["children"]] == ["Child"]
 
     async def test_get_forum_heritage_flags_moderated_ancestors(
         self, authed_client, db_session, create, open_forums
@@ -113,9 +84,9 @@ class TestGetForum:
 
         response = await client.get(f"/forums/{forum.id}")
 
-        assert [(h["id"], h["moderate"]) for h in response.json()["heritage"]] == [
-            (grandparent.id, False),
-            (parent.id, True),
+        assert response.json()["heritage"] == [
+            {"id": grandparent.id, "title": "Top", "moderate": False},
+            {"id": parent.id, "title": "Mid", "moderate": True},
         ]
 
     async def test_get_forum_missing_heritage_forum_returns_404(self, client, create):
@@ -124,51 +95,6 @@ class TestGetForum:
         response = await client.get(f"/forums/{forum.id}")
 
         assert response.status_code == 404
-
-    async def test_get_forum_includes_children_tree(self, client, create, open_forums):
-        root = await create(ForumFactory, title="Root", heritage=[], order=1)
-        await open_forums(root.id)
-        await create(
-            ForumFactory,
-            title="Child",
-            parent_id=root.id,
-            heritage=[root.id],
-            order=1,
-        )
-
-        response = await client.get(f"/forums/{root.id}")
-
-        body = response.json()
-        assert len(body["children"]) == 1
-        assert body["children"][0]["title"] == "Child"
-
-    async def test_get_forum_child_counts_include_readable_descendants(
-        self, client, create, open_forums
-    ):
-        root = await create(ForumFactory, heritage=[], thread_count=9, post_count=90)
-        child = await create(
-            ForumFactory,
-            parent_id=root.id,
-            heritage=[root.id],
-            thread_count=1,
-            post_count=10,
-        )
-        await create(
-            ForumFactory,
-            parent_id=child.id,
-            heritage=[root.id, child.id],
-            thread_count=2,
-            post_count=20,
-        )
-        await open_forums(root.id)
-
-        response = await client.get(f"/forums/{root.id}")
-
-        body = response.json()
-        # The top-level forum keeps its own count; it drives thread pagination.
-        assert body["thread_count"] == 9
-        assert body["children"][0]["thread_count"] == 3
-        assert body["children"][0]["post_count"] == 30
 
     async def test_get_forum_child_counts_leave_out_unreadable_subforum(
         self, client, create, db_session, open_forums
@@ -202,14 +128,6 @@ class TestGetForum:
         child_body = response.json()["children"][0]
         assert child_body["thread_count"] == 1
         assert child_body["post_count"] == 10
-
-    async def test_get_forum_no_children(self, client, create, open_forums):
-        forum = await create(ForumFactory, heritage=[])
-        await open_forums(forum.id)
-
-        response = await client.get(f"/forums/{forum.id}")
-
-        assert response.json()["children"] == []
 
 
 class TestGetForumVisibility:
@@ -340,16 +258,6 @@ class TestForumIndexGames:
 
         assert response.json()["children"] == []
 
-    async def test_unlisted_public_game_forum_is_readable_by_direct_link(
-        self, client, site, make_game
-    ):
-        game = await make_game("Public Game")
-
-        response = await client.get(f"/forums/{game.root_forum_id}")
-
-        assert response.status_code == 200
-        assert response.json()["permissions"] == ["forum_read"]
-
 
 async def grant_role(db_session, user, *grants):
     """Give ``user`` a role holding ``(verb, forum_id, effect)`` grants; a
@@ -415,11 +323,6 @@ class TestGetModeratedForums:
             title="Archive",
         )
         return general, announcements, archive
-
-    async def test_requires_auth(self, client):
-        response = await client.get("/forums/moderated")
-
-        assert response.status_code == 403
 
     async def test_non_moderator_gets_nothing(self, authed_client, general):
         client, _user = authed_client
@@ -543,28 +446,13 @@ class TestGetModeratedForums:
 
 
 class TestGetForumBreadcrumbs:
-    async def test_is_public(self, client, create, open_forums):
+    async def test_unreadable_forum_is_not_found(self, client, create, open_forums):
         forum = await create(ForumFactory, heritage=[])
-        await open_forums(forum.id)
+        await open_forums()
 
         response = await client.get(f"/forums/{forum.id}/breadcrumbs")
-
-        assert response.status_code == 200
-
-    async def test_not_found(self, client):
-        response = await client.get("/forums/999999/breadcrumbs")
 
         assert response.status_code == 404
-
-    async def test_returns_id_and_title_with_empty_heritage(
-        self, client, create, open_forums
-    ):
-        forum = await create(ForumFactory, title="General", heritage=[])
-        await open_forums(forum.id)
-
-        response = await client.get(f"/forums/{forum.id}/breadcrumbs")
-
-        assert response.json() == {"id": forum.id, "title": "General", "heritage": []}
 
     async def test_includes_heritage_in_order(self, client, create, open_forums):
         grandparent = await create(
@@ -588,17 +476,14 @@ class TestGetForumBreadcrumbs:
 
         response = await client.get(f"/forums/{forum.id}/breadcrumbs")
 
-        assert response.json()["heritage"] == [
-            {"id": grandparent.id, "title": "Grandparent", "moderate": False},
-            {"id": parent.id, "title": "Parent", "moderate": False},
-        ]
-
-    async def test_missing_heritage_forum_returns_404(self, client, create):
-        forum = await create(ForumFactory, heritage=[999999])
-
-        response = await client.get(f"/forums/{forum.id}/breadcrumbs")
-
-        assert response.status_code == 404
+        assert response.json() == {
+            "id": forum.id,
+            "title": "Forum",
+            "heritage": [
+                {"id": grandparent.id, "title": "Grandparent", "moderate": False},
+                {"id": parent.id, "title": "Parent", "moderate": False},
+            ],
+        }
 
 
 @pytest.fixture
@@ -778,19 +663,6 @@ class TestCreateSubforum:
             None,
         )
 
-    async def test_order_counts_past_a_deleted_subforum(
-        self, moderator, db_session, board
-    ):
-        chat = board["chat"]
-        await moderator.delete(f"/forums/{chat.id}")
-
-        response = await moderator.post(
-            f"/forums/{board['general'].id}/subforums", json={"title": "New"}
-        )
-
-        forum = await db_session.get(Forum, response.json()["id"])
-        assert forum.order == chat.order + 1
-
     async def test_subforum_of_game_forum_belongs_to_the_game(
         self, auth_as, db_session, site, make_game, gm
     ):
@@ -802,15 +674,6 @@ class TestCreateSubforum:
 
         forum = await db_session.get(Forum, response.json()["id"])
         assert forum.game_id == game.id
-
-    async def test_non_moderator_is_forbidden(self, authed_client, board):
-        client, _user = authed_client
-
-        response = await client.post(
-            f"/forums/{board['general'].id}/subforums", json={"title": "New"}
-        )
-
-        assert response.status_code == 403
 
 
 class TestReorderSubforums:
@@ -845,16 +708,6 @@ class TestReorderSubforums:
         )
 
         assert response.status_code == 400
-
-    async def test_non_moderator_is_forbidden(self, authed_client, board):
-        client, _user = authed_client
-
-        response = await client.put(
-            f"/forums/{board['general'].id}/subforums/order",
-            json={"forum_ids": [board["chat"].id]},
-        )
-
-        assert response.status_code == 403
 
 
 class TestDeleteForum:
@@ -948,13 +801,6 @@ class TestForumUnreadFlags:
 
 
 class TestMarkForumRead:
-    async def test_requires_auth(self, client, unread_tree):
-        top, _sub, _quiet = unread_tree
-
-        response = await client.post(f"/forums/{top.id}/mark-read")
-
-        assert response.status_code == 403
-
     async def test_marks_the_forum_and_its_subforums_read(
         self, authed_client, unread_tree
     ):

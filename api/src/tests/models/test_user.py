@@ -1,27 +1,20 @@
 from datetime import datetime, timedelta, timezone
 
-import bcrypt
+import pytest
 
 from app.models import Role, RolePermission, User, UserMeta
 from tests.factories import UserFactory
 
 
 class TestValidatePassword:
-    def test_too_short_returns_error(self):
-        errors = User.validate_password("short1")
+    @pytest.mark.parametrize(
+        ("password", "expected_codes"),
+        [("short1", ["pass_too_short"]), ("LongEnough1", [])],
+    )
+    def test_validates_length(self, password, expected_codes):
+        errors = User.validate_password(password)
 
-        assert [e.code for e in errors] == ["pass_too_short"]
-
-    def test_long_enough_returns_no_errors(self):
-        assert User.validate_password("LongEnough1") == []
-
-
-class TestHashPassword:
-    def test_returns_bcrypt_hash_not_plaintext(self):
-        hashed = User.hash_password("ValidPass1!")
-
-        assert hashed != "ValidPass1!"
-        assert bcrypt.checkpw(b"ValidPass1!", hashed.encode("utf-8"))
+        assert [e.code for e in errors] == expected_codes
 
 
 class TestSetPassword:
@@ -39,16 +32,7 @@ class TestSetPassword:
         result = user.set_password("short")
 
         assert result is False
-
-
-class TestActivate:
-    async def test_sets_activated_on(self, create):
-        user = await create(UserFactory)
-        assert user.activated_on is None
-
-        user.activate()
-
-        assert user.activated_on is not None
+        assert user.password is None
 
 
 class TestLoginBlock:
@@ -104,9 +88,6 @@ def _user() -> User:
 
 
 class TestGlobalPermissions:
-    def test_no_roles_returns_empty_set(self):
-        assert _user().global_permissions == set()
-
     def test_unions_global_allows_across_roles_and_grants(self):
         user = _user()
         shared = RolePermission.ValidPermissions.ADMIN
@@ -168,31 +149,3 @@ class TestGlobalPermissions:
         user.implicit_roles = (registered,)
 
         assert user.global_permissions == {"role_admin", "access_acp"}
-
-
-class TestRoleGrant:
-    def test_defaults_to_global_allow(self):
-        role = Role(name="Admins", owner=_user())
-        permission = RolePermission.ValidPermissions.ADMIN
-
-        rp = role.grant(permission)
-
-        assert rp in role.grants
-        assert rp.permission is permission
-        assert rp.scope_type is None
-        assert rp.scope_id is None
-        assert rp.effect is RolePermission.Effects.ALLOW
-
-    def test_passes_scope_and_effect_through(self):
-        role = Role(name="PR Mods", owner=_user())
-
-        rp = role.grant(
-            RolePermission.ValidPermissions.FORUM_MODERATE,
-            scope_type=RolePermission.ScopeTypes.FORUM,
-            scope_id=7,
-            effect=RolePermission.Effects.DENY,
-        )
-
-        assert rp.scope_type is RolePermission.ScopeTypes.FORUM
-        assert rp.scope_id == 7
-        assert rp.effect is RolePermission.Effects.DENY

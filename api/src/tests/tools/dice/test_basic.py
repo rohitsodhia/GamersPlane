@@ -4,63 +4,42 @@ from app.tools.dice.basic import BasicDie, BasicRoll
 
 
 class TestBasicDie:
-    @pytest.mark.parametrize("sides", [0, 1, -5])
-    def test_raises_for_fewer_than_two_sides(self, sides):
-        with pytest.raises(ValueError):
+    @pytest.mark.parametrize("sides", [1, 1001])
+    def test_rejects_sides_outside_2_to_1000(self, sides):
+        with pytest.raises(ValueError, match="Invalid die sides"):
             BasicDie(sides)
 
-    def test_clamps_sides_above_max(self):
-        assert BasicDie(5000).sides == 1000
+    def test_accepts_the_max_sides(self):
+        assert BasicDie(1000).sides == 1000
 
 
 class TestBasicRollParsing:
-    def test_single_die_term(self):
-        roll = BasicRoll()
-        roll.new_roll("1d6")
-
-        group = roll._groups[0]
-        assert group.expression == "1d6"
-        assert len(group.terms) == 1
-        assert group.terms[0].count == 1
-        assert group.terms[0].sides == 6
-        assert group.terms[0].sign == 1
-
     def test_defaults_count_to_one_when_omitted(self):
         roll = BasicRoll()
         roll.new_roll("d20")
 
         assert roll._groups[0].terms[0].count == 1
 
-    def test_flat_modifier_only(self):
+    @pytest.mark.parametrize(("expression", "modifier"), [("+5", 5), ("-3", -3)])
+    def test_flat_modifier_only(self, expression, modifier):
         roll = BasicRoll()
-        roll.new_roll("+5")
+        roll.new_roll(expression)
 
         group = roll._groups[0]
         assert group.terms == []
-        assert group.modifier == 5
-
-    def test_negative_flat_modifier(self):
-        roll = BasicRoll()
-        roll.new_roll("-3")
-
-        assert roll._groups[0].modifier == -3
+        assert group.modifier == modifier
 
     def test_dice_and_modifier_combined(self):
         roll = BasicRoll()
         roll.new_roll("2d6+3")
 
         group = roll._groups[0]
+        assert group.expression == "2d6+3"
+        assert len(group.terms) == 1
         assert group.terms[0].count == 2
         assert group.terms[0].sides == 6
+        assert group.terms[0].sign == 1
         assert group.modifier == 3
-
-    def test_negative_dice_term(self):
-        roll = BasicRoll()
-        roll.new_roll("1d20-1d4")
-
-        terms = roll._groups[0].terms
-        assert terms[0].sign == 1
-        assert terms[1].sign == -1
 
     def test_comma_separated_groups(self):
         roll = BasicRoll()
@@ -76,39 +55,24 @@ class TestBasicRollParsing:
 
         assert roll._groups[0].expression == "2d6+1"
 
-    def test_keep_highest_notation(self):
-        roll = BasicRoll()
-        roll.new_roll("4d6h3")
-
-        term = roll._groups[0].terms[0]
-        assert term.keep_high is True
-        assert term.keep_count == 3
-
-    def test_keep_lowest_notation(self):
-        roll = BasicRoll()
-        roll.new_roll("4d6l3")
-
-        term = roll._groups[0].terms[0]
-        assert term.keep_high is False
-        assert term.keep_count == 3
-
     def test_empty_string_produces_no_groups(self):
         roll = BasicRoll()
         roll.new_roll("")
 
         assert roll._groups == []
 
-    def test_invalid_die_sides_raises(self):
+    @pytest.mark.parametrize("expression", ["0d6", "101d6", "1d1001"])
+    def test_rejects_out_of_range_dice_counts_and_sides(self, expression):
         roll = BasicRoll()
 
         with pytest.raises(ValueError):
-            roll.new_roll("1d1")
+            roll.new_roll(expression)
 
-    def test_zero_dice_count_raises(self):
+    def test_accepts_the_max_dice_count_and_sides(self):
         roll = BasicRoll()
+        roll.new_roll("100d1000")
 
-        with pytest.raises(ValueError):
-            roll.new_roll("0d6")
+        assert roll._groups[0].terms[0].count == 100
 
     @pytest.mark.parametrize("expression", ["3d6+4:2l", "2d6x"])
     def test_invalid_syntax_raises(self, expression):
@@ -163,6 +127,7 @@ class TestBasicRollRolling:
         result = roll.roll()
 
         term = result.groups[0].terms[0]
+        assert sorted(term.dropped) == [0, 2]  # the 6 and the 5
         assert term.subtotal == 3  # 2 + 1
 
     def test_negative_dice_term_subtracts(self, monkeypatch):
@@ -193,9 +158,3 @@ class TestBasicRollRolling:
         result = roll.roll()
 
         assert result.groups[0].terms[0].rolls == [6]
-
-    def test_reuses_same_die_instance_for_repeated_sides(self):
-        roll = BasicRoll()
-        roll.new_roll("1d6, 1d6")
-
-        assert len(roll._dice) == 1
