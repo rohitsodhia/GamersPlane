@@ -29,6 +29,7 @@ from app.exceptions import (
     SuspendedException,
     ValidationError,
 )
+from app.faqs.routes import faqs
 from app.forums.acp_routes import forums_acp
 from app.forums.routes import forums
 from app.gamers.legacy_routes import gamers as legacy_gamers
@@ -221,5 +222,6 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(character_sheets)
     app.include_router(characters)
     app.include_router(contact)
+    app.include_router(faqs)
 
     return app

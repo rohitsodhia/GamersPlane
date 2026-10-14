@@ -45,6 +45,11 @@ function RouteComponent() {
 								<Link to="/acp/users">Users</Link>
 							</li>
 						)}
+						{hasPermission(me, "manage_faqs") && (
+							<li>
+								<Link to="/acp/faqs">FAQs</Link>
+							</li>
+						)}
 						{me.forumModerate && (
 							<li>
 								<Link to="/acp/forums">Forums</Link>
