@@ -1,13 +1,15 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { useHbMargined } from "#/lib/use-hb-margined";
+import { moderatorsQueryOptions } from "#/queries/users";
 
 export const Route = createFileRoute("/community-guidelines")({
 	component: RouteComponent,
 });
 
 function RouteComponent() {
-	const [mods] = useState<{ id: number; username: string }[]>([]);
+	// A failed fetch just leaves the list at the site owner; the page still renders.
+	const { data: mods = [] } = useQuery(moderatorsQueryOptions);
 
 	const hbMarginedHeader = useHbMargined<HTMLHeadingElement>();
 	const hbMarginedMods = useHbMargined<HTMLHeadingElement>();

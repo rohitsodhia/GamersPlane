@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.configs import configs
-from app.models import Role, System, User, UserLFGSystem, UserMeta
+from app.models import Role, System, User, UserLFGSystem, UserMeta, UserRole
 
 GamerSort = Literal["name", "newest", "oldest"]
 GAMERS_PER_PAGE = 25
@@ -54,6 +54,23 @@ class UserRepository:
             )
             .limit(1)
         )
+
+    async def get_role_members(self, role_id: int) -> Sequence[User]:
+        """Active, unbanned users explicitly in the role, by username (A-Z, any
+        case). A soft-deleted role has no members (its join is filtered out)."""
+        return (
+            await self.db_session.scalars(
+                select(User)
+                .join(UserRole, UserRole.user_id == User.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .where(
+                    Role.id == role_id,
+                    User.activated_on.is_not(None),
+                    User.banned.is_(None),
+                )
+                .order_by(func.lower(User.username), User.id)
+            )
+        ).all()
 
     async def search_users_by_username_prefix(
         self, prefix: str, limit: int = 10

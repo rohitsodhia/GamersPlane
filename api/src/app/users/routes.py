@@ -7,7 +7,7 @@ from app.database import DBSessionDependency
 from app.helpers.decorators import public, requires
 from app.helpers.functions import error_response
 from app.middleware import Principal
-from app.models import RolePermission, UserMeta
+from app.models import Role, RolePermission, UserMeta
 from app.repositories import PostRepository, UserRepository
 from app.schemas import ErrorItem
 from app.users import schemas
@@ -69,6 +69,22 @@ async def autocomplete_users(
         username, limit=min(limit, 25)
     )
     return {"users": [{"id": user.id, "username": user.username} for user in users]}
+
+
+# Declared before "/{id}" so the literal path wins.
+@users.get(
+    "/moderators",
+    response_model=schemas.ModeratorsResponse,
+)
+@public
+async def get_moderators(db_session: DBSessionDependency):
+    user_repository = UserRepository(db_session)
+    moderators = await user_repository.get_role_members(Role.MODERATOR_ID)
+    return {
+        "moderators": [
+            {"id": user.id, "username": user.username} for user in moderators
+        ]
+    }
 
 
 @users.get(

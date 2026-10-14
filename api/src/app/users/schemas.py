@@ -68,6 +68,10 @@ class SearchUsersResponse(SchemaBase):
     users: list[SearchUserDict]
 
 
+class ModeratorsResponse(SchemaBase):
+    moderators: list[SearchUserDict]
+
+
 class GetUsersResponse(SchemaBase):
     users: list[UserDict]
     count: int

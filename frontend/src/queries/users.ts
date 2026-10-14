@@ -125,6 +125,16 @@ export const toggleUserBan = async (userId: number): Promise<void> => {
 	}
 };
 
+export const moderatorsQueryOptions = queryOptions({
+	queryKey: ["users", "moderators"],
+	queryFn: async (): Promise<SearchUser[]> => {
+		const res = await apiFetch("/users/moderators");
+		if (!res.ok) throw new Error("Failed to fetch moderators");
+		return ((await res.json()) as { moderators: SearchUser[] }).moderators;
+	},
+	staleTime: 1000 * 60 * 5,
+});
+
 export const searchUsers = async (username: string): Promise<SearchUser[]> => {
 	const res = await apiFetch(
 		`/users/autocomplete?username=${encodeURIComponent(username)}`,

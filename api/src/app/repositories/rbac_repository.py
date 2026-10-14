@@ -25,6 +25,16 @@ PROTECTED_ROLE_MEMBER_ID = 1
 # member lists can't be edited. Their names, owners and grants stay editable —
 # grants on them are how site-wide forum defaults are set.
 IMPLICIT_ROLE_IDS = frozenset({Role.REGISTERED_ID, Role.GUEST_ID})
+
+
+def _undeletable_role_ids() -> frozenset[int]:
+    """Default roles that can't be deleted or have their ownership released.
+
+    Moderators is one of them, but unlike Admin its members and grants stay
+    editable and, unlike Registered/Guest, its membership is explicit."""
+    return frozenset({PROTECTED_ROLE_ID, Role.MODERATOR_ID, *IMPLICIT_ROLE_IDS})
+
+
 # A game's GM role is fixed (moderate on the game's forum, set at creation), and
 # both the GM and Player roles take their members from the game's player list.
 GM_GRANTS_LOCKED = "A game's GM role's grants can't be changed"
@@ -227,7 +237,7 @@ class RBACkRepository:
             select(Role).where(
                 Role.owner_id.in_(user_ids),
                 Role.game_role.is_(None),
-                Role.id.not_in({PROTECTED_ROLE_ID, *IMPLICIT_ROLE_IDS}),
+                Role.id.not_in(_undeletable_role_ids()),
             )
         )
         for role in roles:
@@ -475,7 +485,7 @@ class RBACkRepository:
 
     async def delete_role(self, role: Role) -> None:
         """Soft-delete a role. Refuses if the role is a game's GM or player role."""
-        if role.id == PROTECTED_ROLE_ID or role.id in IMPLICIT_ROLE_IDS:
+        if role.id in _undeletable_role_ids():
             raise ForbiddenException("This role is protected and can't be deleted")
         backing_game = await self.db_session.execute(
             select(Game.id)
