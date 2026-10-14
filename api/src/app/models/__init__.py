@@ -5,6 +5,7 @@ from .character_sheet import CharacterSheet
 from .character_sheet_favorite import CharacterSheetFavorite
 from .character_sheet_version import CharacterSheetVersion
 from .decks import Deck, DeckPermission, DeckType
+from .faq import FAQ
 from .favorites import FavoriteCharacter, FavoriteGame
 from .forum import Forum
 from .forum_read import ForumRead

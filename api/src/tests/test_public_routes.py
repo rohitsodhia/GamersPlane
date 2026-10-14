@@ -14,6 +14,7 @@ EXPECTED_PUBLIC_ROUTES = {
     ("POST", "/auth/password_reset"),
     ("PATCH", "/auth/password_reset"),
     ("POST", "/contact"),
+    ("GET", "/faqs"),
     ("GET", "/forums/{forum_id}"),
     ("GET", "/forums/{forum_id}/breadcrumbs"),
     ("GET", "/games/"),

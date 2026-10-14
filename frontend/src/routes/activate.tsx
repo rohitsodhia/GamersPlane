@@ -44,7 +44,7 @@ function RouteComponent() {
 			<div style={{ marginInline: `${hbMargined.margin}px` }}>
 				<p>Congratulations! Your account has been activated. You can now log in.</p>
 				<p>
-					We recommend you check out the <Link to="/faqs/">FAQs</Link> and our{" "}
+					We recommend you check out the <Link to="/faqs">FAQs</Link> and our{" "}
 					<Link to="/forums/thread/$threadId" params={{ threadId: 2461 }}>
 						New Player Guide
 					</Link>{" "}

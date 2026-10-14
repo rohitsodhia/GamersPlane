@@ -15,12 +15,14 @@ import { Route as AcpRouteRouteImport } from './routes/acp/route'
 import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as CommunityGuidelinesRouteImport } from './routes/community-guidelines'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as FaqsRouteImport } from './routes/faqs'
 import { Route as GamersRouteImport } from './routes/gamers'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SystemsRouteImport } from './routes/systems'
 import { Route as AcpIndexRouteImport } from './routes/acp/index'
+import { Route as AcpFaqsRouteImport } from './routes/acp/faqs'
 import { Route as AcpRbacRouteImport } from './routes/acp/rbac'
 import { Route as AcpUsersRouteImport } from './routes/acp/users'
 import { Route as CharactersIndexRouteImport } from './routes/characters/index'
@@ -92,6 +94,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FaqsRoute = FaqsRouteImport.update({
+  id: '/faqs',
+  path: '/faqs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GamersRoute = GamersRouteImport.update({
   id: '/gamers',
   path: '/gamers',
@@ -120,6 +127,11 @@ const SystemsRoute = SystemsRouteImport.update({
 const AcpIndexRoute = AcpIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AcpRouteRoute,
+} as any)
+const AcpFaqsRoute = AcpFaqsRouteImport.update({
+  id: '/faqs',
+  path: '/faqs',
   getParentRoute: () => AcpRouteRoute,
 } as any)
 const AcpRbacRoute = AcpRbacRouteImport.update({
@@ -339,11 +351,13 @@ export interface FileRoutesByFullPath {
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/contact': typeof ContactRoute
+  '/faqs': typeof FaqsRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
+  '/acp/faqs': typeof AcpFaqsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
   '/characters/library': typeof CharactersLibraryRoute
@@ -392,11 +406,13 @@ export interface FileRoutesByTo {
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/contact': typeof ContactRoute
+  '/faqs': typeof FaqsRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
+  '/acp/faqs': typeof AcpFaqsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
   '/characters/library': typeof CharactersLibraryRoute
@@ -445,11 +461,13 @@ export interface FileRoutesById {
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/contact': typeof ContactRoute
+  '/faqs': typeof FaqsRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
+  '/acp/faqs': typeof AcpFaqsRoute
   '/acp/rbac': typeof AcpRbacRoute
   '/acp/users': typeof AcpUsersRoute
   '/characters/library': typeof CharactersLibraryRoute
@@ -501,11 +519,13 @@ export interface FileRouteTypes {
     | '/activate'
     | '/community-guidelines'
     | '/contact'
+    | '/faqs'
     | '/gamers'
     | '/login'
     | '/privacy-policy'
     | '/profile'
     | '/systems'
+    | '/acp/faqs'
     | '/acp/rbac'
     | '/acp/users'
     | '/characters/library'
@@ -554,11 +574,13 @@ export interface FileRouteTypes {
     | '/activate'
     | '/community-guidelines'
     | '/contact'
+    | '/faqs'
     | '/gamers'
     | '/login'
     | '/privacy-policy'
     | '/profile'
     | '/systems'
+    | '/acp/faqs'
     | '/acp/rbac'
     | '/acp/users'
     | '/characters/library'
@@ -606,11 +628,13 @@ export interface FileRouteTypes {
     | '/activate'
     | '/community-guidelines'
     | '/contact'
+    | '/faqs'
     | '/gamers'
     | '/login'
     | '/privacy-policy'
     | '/profile'
     | '/systems'
+    | '/acp/faqs'
     | '/acp/rbac'
     | '/acp/users'
     | '/characters/library'
@@ -661,6 +685,7 @@ export interface RootRouteChildren {
   ActivateRoute: typeof ActivateRoute
   CommunityGuidelinesRoute: typeof CommunityGuidelinesRoute
   ContactRoute: typeof ContactRoute
+  FaqsRoute: typeof FaqsRoute
   GamersRoute: typeof GamersRoute
   LoginRoute: typeof LoginRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
@@ -741,6 +766,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/faqs': {
+      id: '/faqs'
+      path: '/faqs'
+      fullPath: '/faqs'
+      preLoaderRoute: typeof FaqsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gamers': {
       id: '/gamers'
       path: '/gamers'
@@ -781,6 +813,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/acp/'
       preLoaderRoute: typeof AcpIndexRouteImport
+      parentRoute: typeof AcpRouteRoute
+    }
+    '/acp/faqs': {
+      id: '/acp/faqs'
+      path: '/faqs'
+      fullPath: '/acp/faqs'
+      preLoaderRoute: typeof AcpFaqsRouteImport
       parentRoute: typeof AcpRouteRoute
     }
     '/acp/rbac': {
@@ -1086,6 +1125,7 @@ const AcpForumsForumIdRouteWithChildren =
   AcpForumsForumIdRoute._addFileChildren(AcpForumsForumIdRouteChildren)
 
 interface AcpRouteRouteChildren {
+  AcpFaqsRoute: typeof AcpFaqsRoute
   AcpRbacRoute: typeof AcpRbacRoute
   AcpUsersRoute: typeof AcpUsersRoute
   AcpIndexRoute: typeof AcpIndexRoute
@@ -1095,6 +1135,7 @@ interface AcpRouteRouteChildren {
 }
 
 const AcpRouteRouteChildren: AcpRouteRouteChildren = {
+  AcpFaqsRoute: AcpFaqsRoute,
   AcpRbacRoute: AcpRbacRoute,
   AcpUsersRoute: AcpUsersRoute,
   AcpIndexRoute: AcpIndexRoute,
@@ -1126,6 +1167,7 @@ const rootRouteChildren: RootRouteChildren = {
   ActivateRoute: ActivateRoute,
   CommunityGuidelinesRoute: CommunityGuidelinesRoute,
   ContactRoute: ContactRoute,
+  FaqsRoute: FaqsRoute,
   GamersRoute: GamersRoute,
   LoginRoute: LoginRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,

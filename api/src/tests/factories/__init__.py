@@ -1,4 +1,5 @@
 from .deck_type_factory import DeckTypeFactory
+from .faq_factory import FAQFactory
 from .forum_factory import ForumFactory
 from .genre_factory import GenreFactory
 from .pm_factory import PMFactory

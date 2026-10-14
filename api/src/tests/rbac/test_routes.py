@@ -131,6 +131,7 @@ class TestGetPermissions:
         assert {p["value"] for p in permissions} == {
             "access_acp",
             "manage_users",
+            "manage_faqs",
             "role_admin",
             "forum_read",
             "forum_write",
