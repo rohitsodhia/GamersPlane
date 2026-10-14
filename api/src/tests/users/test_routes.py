@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 
 from app.configs import configs
-from app.models import RolePermission, UserMeta
+from app.models import Role, RolePermission, UserMeta, UserRole
 from app.repositories.user_repository import UserRepository
 from tests.factories import (
     ActivatedUserFactory,
@@ -109,6 +109,36 @@ class TestAutocompleteUsers:
         )
 
         assert len(response.json()["users"]) == 2
+
+
+class TestGetModerators:
+    async def test_public_and_lists_moderators_alphabetically(
+        self, client, db_session, create, monkeypatch
+    ):
+        # No auth on the client: the endpoint is public.
+        mod_role = RoleFactory.build()
+        db_session.add(mod_role)
+        await db_session.flush()
+        monkeypatch.setattr(Role, "MODERATOR_ID", mod_role.id)
+        zed = await create(ActivatedUserFactory, username="zed")
+        amy = await create(ActivatedUserFactory, username="Amy")
+        db_session.add_all(
+            [
+                UserRole(user_id=zed.id, role_id=mod_role.id),
+                UserRole(user_id=amy.id, role_id=mod_role.id),
+            ]
+        )
+        await db_session.flush()
+
+        response = await client.get("/users/moderators")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "moderators": [
+                {"id": amy.id, "username": "Amy"},
+                {"id": zed.id, "username": "zed"},
+            ]
+        }
 
 
 class TestGetUser:

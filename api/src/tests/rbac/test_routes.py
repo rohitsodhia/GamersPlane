@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import select
 
-from app.models import Game, RolePermission
+from app.models import Game, Role, RolePermission
 from tests.factories import ForumFactory, RoleFactory, SystemFactory, UserFactory
 
 Verbs = RolePermission.ValidPermissions
@@ -602,6 +602,19 @@ class TestDeleteRole:
         await make_admin(db_session, user)
         role = await make_role(db_session)
         implicit_role(role)
+
+        response = await client.delete(f"/rbac/roles/{role.id}")
+
+        assert response.status_code == 403
+        assert (await client.get(f"/rbac/roles/{role.id}")).status_code == 200
+
+    async def test_moderators_role_cannot_be_deleted(
+        self, authed_client, db_session, monkeypatch
+    ):
+        client, user = authed_client
+        await make_admin(db_session, user)
+        role = await make_role(db_session)
+        monkeypatch.setattr(Role, "MODERATOR_ID", role.id)
 
         response = await client.delete(f"/rbac/roles/{role.id}")
 

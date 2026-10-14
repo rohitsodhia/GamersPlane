@@ -163,6 +163,17 @@ async def seed():
         admin_role.grant(RolePermission.ValidPermissions.ADMIN)
         admin_role.users.append(primary_user)
         session.add(admin_role)
+        moderator_role = Role(
+            id=Role.MODERATOR_ID, name="Moderators", owner=primary_user
+        )
+        moderator_role.grant(RolePermission.ValidPermissions.ACP_ACCESS)
+        moderator_role.grant(RolePermission.ValidPermissions.MANAGE_USERS)
+        moderator_role.grant(RolePermission.ValidPermissions.MANAGE_FAQS)
+        moderator_role.grant(
+            RolePermission.ValidPermissions.FORUM_MODERATE,
+            scope_type=RolePermission.ScopeTypes.FORUM,
+            scope_id=0,
+        )
         registered_role = Role(
             id=Role.REGISTERED_ID, name="Registered User", owner=primary_user
         )
@@ -190,7 +201,7 @@ async def seed():
             verbs.FORUM_READ, scope_type=forum_scope, scope_id=2, effect=deny
         )
         guest_role.grant(verbs.FORUM_READ, scope_type=forum_scope, scope_id=10)
-        session.add_all([registered_role, guest_role])
+        session.add_all([moderator_role, registered_role, guest_role])
         await session.flush()
         await session.execute(
             text(

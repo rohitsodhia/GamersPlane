@@ -2,9 +2,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.models import UserMeta
+from app.models import UserMeta, UserRole
 from app.repositories.user_repository import UserRepository
-from tests.factories import ActivatedUserFactory, UserFactory
+from tests.factories import ActivatedUserFactory, RoleFactory, UserFactory
 
 
 class TestUserRepository:
@@ -20,6 +20,57 @@ class TestUserRepository:
         assert found is not None
         assert found.id == user.id
         assert found.email == user.email
+
+    async def test_get_role_members_sorted_and_only_that_role(
+        self, repository, db_session, create
+    ):
+        role = RoleFactory.build()
+        other_role = RoleFactory.build()
+        db_session.add_all([role, other_role])
+        bob = await create(ActivatedUserFactory, username="bob")
+        alice = await create(ActivatedUserFactory, username="Alice")
+        carol = await create(ActivatedUserFactory, username="carol")
+        outsider = await create(ActivatedUserFactory, username="aaa")
+        await db_session.flush()
+        db_session.add_all(
+            [
+                UserRole(user_id=carol.id, role_id=role.id),
+                UserRole(user_id=bob.id, role_id=role.id),
+                UserRole(user_id=alice.id, role_id=role.id),
+                UserRole(user_id=outsider.id, role_id=other_role.id),
+            ]
+        )
+        await db_session.flush()
+
+        members = await repository.get_role_members(role.id)
+
+        assert [user.username for user in members] == ["Alice", "bob", "carol"]
+
+    async def test_get_role_members_excludes_banned_unactivated_and_deleted_role(
+        self, repository, db_session, create
+    ):
+        role = RoleFactory.build()
+        dead_role = RoleFactory.build(deleted=datetime.now(timezone.utc))
+        db_session.add_all([role, dead_role])
+        good = await create(ActivatedUserFactory, username="good")
+        banned = await create(ActivatedUserFactory, username="banned")
+        banned.banned = datetime.now(timezone.utc)
+        pending = await create(UserFactory, username="pending")
+        await db_session.flush()
+        db_session.add_all(
+            [
+                UserRole(user_id=good.id, role_id=role.id),
+                UserRole(user_id=banned.id, role_id=role.id),
+                UserRole(user_id=pending.id, role_id=role.id),
+                UserRole(user_id=good.id, role_id=dead_role.id),
+            ]
+        )
+        await db_session.flush()
+
+        assert [u.username for u in await repository.get_role_members(role.id)] == [
+            "good"
+        ]
+        assert await repository.get_role_members(dead_role.id) == []
 
     async def test_get_user_by_email(self, repository, create):
         user = await create(UserFactory, email="findme@example.com")

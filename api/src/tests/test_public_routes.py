@@ -27,6 +27,7 @@ EXPECTED_PUBLIC_ROUTES = {
     ("GET", "/threads"),
     ("GET", "/threads/{thread_id}"),
     ("GET", "/tools/dice"),
+    ("GET", "/users/moderators"),
     ("GET", "/users/{id}"),
 }
 

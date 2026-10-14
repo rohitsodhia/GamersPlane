@@ -101,10 +101,12 @@ class ValidPermissions(LabelEnum):
 class Role(Base, TimestampMixin, SoftDeleteMixin):
     # Fixed ids for the seeded system roles. Registered/Guest membership is
     # implicit (every logged-in user holds Registered, every anonymous request
-    # holds Guest), so they never have user_roles rows.
+    # holds Guest), so they never have user_roles rows. Moderators is an ordinary
+    # role with explicit user_roles membership; its members are the public mod team.
     ADMIN_ID = 1
-    REGISTERED_ID = 2
-    GUEST_ID = 3
+    MODERATOR_ID = 2
+    REGISTERED_ID = 3
+    GUEST_ID = 4
 
     __tablename__ = "roles"
     __table_args__ = (
