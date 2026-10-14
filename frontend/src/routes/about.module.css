@@ -1,0 +1,21 @@
+.about-page {
+	p {
+		margin-block: 1em;
+		line-height: 1.75;
+
+		&:not(.signature, .signature-title)::first-letter {
+			font-size: 1.5em;
+		}
+	}
+
+	.signature {
+		text-align: right;
+		font-size: 1.2em;
+		margin-bottom: 0;
+	}
+
+	.signature-title {
+		text-align: right;
+		margin: 0;
+	}
+}

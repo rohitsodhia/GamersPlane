@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as R403RouteImport } from './routes/403'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as AcpRouteRouteImport } from './routes/acp/route'
 import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as CommunityGuidelinesRouteImport } from './routes/community-guidelines'
@@ -72,6 +73,11 @@ const IndexRoute = IndexRouteImport.update({
 const R403Route = R403RouteImport.update({
   id: '/403',
   path: '/403',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AcpRouteRoute = AcpRouteRouteImport.update({
@@ -348,6 +354,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/acp': typeof AcpRouteRouteWithChildren
   '/403': typeof R403Route
+  '/about': typeof AboutRoute
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/contact': typeof ContactRoute
@@ -403,6 +410,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/403': typeof R403Route
+  '/about': typeof AboutRoute
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/contact': typeof ContactRoute
@@ -458,6 +466,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/acp': typeof AcpRouteRouteWithChildren
   '/403': typeof R403Route
+  '/about': typeof AboutRoute
   '/activate': typeof ActivateRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/contact': typeof ContactRoute
@@ -516,6 +525,7 @@ export interface FileRouteTypes {
     | '/'
     | '/acp'
     | '/403'
+    | '/about'
     | '/activate'
     | '/community-guidelines'
     | '/contact'
@@ -571,6 +581,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/403'
+    | '/about'
     | '/activate'
     | '/community-guidelines'
     | '/contact'
@@ -625,6 +636,7 @@ export interface FileRouteTypes {
     | '/'
     | '/acp'
     | '/403'
+    | '/about'
     | '/activate'
     | '/community-guidelines'
     | '/contact'
@@ -682,6 +694,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AcpRouteRoute: typeof AcpRouteRouteWithChildren
   R403Route: typeof R403Route
+  AboutRoute: typeof AboutRoute
   ActivateRoute: typeof ActivateRoute
   CommunityGuidelinesRoute: typeof CommunityGuidelinesRoute
   ContactRoute: typeof ContactRoute
@@ -736,6 +749,13 @@ declare module '@tanstack/react-router' {
       path: '/403'
       fullPath: '/403'
       preLoaderRoute: typeof R403RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/acp': {
@@ -1164,6 +1184,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcpRouteRoute: AcpRouteRouteWithChildren,
   R403Route: R403Route,
+  AboutRoute: AboutRoute,
   ActivateRoute: ActivateRoute,
   CommunityGuidelinesRoute: CommunityGuidelinesRoute,
   ContactRoute: ContactRoute,
