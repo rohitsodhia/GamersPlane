@@ -18,6 +18,7 @@ function RouteComponent() {
 
 	// Empty sections are hidden from both the sidebar and the body.
 	const sections = data.categories.filter((category) => category.faqs.length > 0);
+	const hbMarginedH2 = useHbMargined<HTMLHeadingElement>();
 
 	return (
 		<div>
@@ -45,9 +46,15 @@ function RouteComponent() {
 									id={section.category}
 									className={styles["section"]}
 								>
-									<h2 className="headerbar hb-dark">{section.label}</h2>
+									<h2 className="headerbar hb-dark" ref={hbMarginedH2.ref}>
+										{section.label}
+									</h2>
 									{section.faqs.map((faq) => (
-										<article key={faq.id} className={styles["faq"]}>
+										<article
+											key={faq.id}
+											className={styles["faq"]}
+											style={{ marginInline: `${hbMarginedH2.margin}px` }}
+										>
 											<h3>{faq.question}</h3>
 											<TiptapContent content={faq.answer} />
 										</article>
