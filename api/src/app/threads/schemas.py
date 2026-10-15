@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from enum import StrEnum
+
 from pydantic import Field, field_validator
 
 from app.quick_npcs.schemas import PostedNPCInput
@@ -66,6 +68,42 @@ class ThreadData(SchemaBase):
 
 class GetThreadsResponse(SchemaBase):
     threads: list[ThreadData]
+    count: int
+    page: int
+
+
+class ThreadListScope(StrEnum):
+    # Last post in the past week, in forums the principal can read...
+    LATEST = "latest"
+    # ...only in game forums...
+    LATEST_GAME = "latest_game"
+    # ...only in game forums that guests can read (public games)...
+    LATEST_PUBLIC = "latest_public"
+    # ...or only threads with posts the principal hasn't read (login required).
+    UNREAD = "unread"
+
+
+class ListingForumRef(SchemaBase):
+    id: int
+    title: str
+
+
+class ThreadListingForum(SchemaBase):
+    id: int
+    title: str
+    game_id: int | None
+    # The forum's ancestors, outermost first, without the site root.
+    heritage: list[ListingForumRef]
+
+
+class ThreadListingData(ThreadData):
+    """A thread in a cross-forum listing, so it says which forum it is in."""
+
+    forum: ThreadListingForum
+
+
+class GetThreadListingResponse(SchemaBase):
+    threads: list[ThreadListingData]
     count: int
     page: int
 

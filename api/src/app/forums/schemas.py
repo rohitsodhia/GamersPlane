@@ -66,6 +66,39 @@ class ModeratedForumData(SchemaBase):
 ModeratedForumData.model_rebuild()
 
 
+class SnippetPart(SchemaBase):
+    text: str
+    # Whether this stretch is a word the search matched.
+    match: bool
+
+
+class PostSearchResultData(SchemaBase):
+    """A matching post. Link to it with ``thread_id`` and ``post_id``:
+    ``GET /posts`` takes both and finds the post's page."""
+
+    post_id: int
+    thread_id: int
+    title: str
+    published_at: datetime
+    author: AuthorData
+    forum_id: int
+    forum_title: str
+    game_id: int | None
+    rank: float
+    # Plain text for the matching part of the post, as parts to render as text
+    # nodes (never as HTML), highlighting those with ``match``.
+    snippet: list[SnippetPart]
+
+
+class SearchPostsResponse(SchemaBase):
+    results: list[PostSearchResultData]
+    # The number of matches, counted only up to a cap.
+    count: int
+    # True when there are more matches than ``count`` (which is then the cap).
+    count_capped: bool
+    page: int
+
+
 class GetForumBreadcrumbsResponse(SchemaBase):
     id: int
     title: str

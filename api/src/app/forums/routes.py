@@ -1,4 +1,7 @@
+from typing import Annotated
+
 from fastapi import APIRouter, status
+from pydantic import StringConstraints
 
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException
@@ -9,8 +12,10 @@ from app.forums.functions import (
     get_forum_or_404,
     get_heritage,
     get_readable_forum,
+    filter_readable_forum_ids,
     is_game_root_forum,
     prune_unreadable,
+    split_snippet,
 )
 from app.forums.permissions import ForumPermissions, Verbs, moderated_roots
 from app.helpers.decorators import public
@@ -34,6 +39,11 @@ from app.repositories.forum_repository import PROTECTED_FORUM_IDS, SITE_ROOT_FOR
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 
 forums = APIRouter(prefix="/forums")
+
+# A search query: trimmed, and between 1 and 200 characters after that.
+SearchText = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+]
 
 
 def build_heritage_data(
@@ -83,6 +93,53 @@ async def get_moderated_forums(db_session: DBSessionDependency, principal: Princ
 
     return build_moderated_tree(
         [*subtrees, *headings], {forum.id for forum in moderated}
+    )
+
+
+@forums.get("/search", response_model=schemas.SearchPostsResponse)
+@public
+async def search_posts(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    q: SearchText,
+    game_id: int | None = None,
+    page: int = 1,
+):
+    """Full-text search of post titles and text in the forums the principal can
+    read (guests: the public ones), best match first, optionally within one
+    game's forums. Not limited to recent posts."""
+    if page < 1:
+        page = 1
+
+    post_repository = PostRepository(db_session, principal=principal)
+    # Check access only to the forums that hold a match, not every forum.
+    readable_ids = await filter_readable_forum_ids(
+        db_session, principal, await post_repository.search_forum_ids(q, game_id)
+    )
+    found, count, count_capped = await post_repository.search(
+        q, readable_ids, game_id=game_id, page=page
+    )
+    return schemas.SearchPostsResponse(
+        results=[
+            schemas.PostSearchResultData(
+                post_id=result.post_id,
+                thread_id=result.thread_id,
+                title=result.title,
+                published_at=result.published_at,
+                author=schemas.AuthorData(
+                    id=result.author_id, username=result.author_username
+                ),
+                forum_id=result.forum_id,
+                forum_title=result.forum_title,
+                game_id=result.game_id,
+                rank=result.rank,
+                snippet=split_snippet(result.snippet),
+            )
+            for result in found
+        ],
+        count=count,
+        count_capped=count_capped,
+        page=page,
     )
 
 

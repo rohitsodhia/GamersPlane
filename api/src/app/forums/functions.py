@@ -1,14 +1,16 @@
+import re
 from collections.abc import Collection
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import NotFoundException
 from app.forums import schemas
-from app.forums.permissions import ForumPermissions
+from app.forums.permissions import ForumPermissions, Verbs
 from app.models import Forum, Post, User
 from app.repositories import ForumRepository
 from app.repositories.forum_repository import SITE_ROOT_FORUM_ID
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
+from app.repositories.post_repository import SNIPPET_MATCH_END, SNIPPET_MATCH_START
 
 
 async def get_forum_or_404(forum_repository: ForumRepository, forum_id: int) -> Forum:
@@ -30,6 +32,40 @@ async def get_readable_forum(
         db_session, principal, forum, "Forum not found"
     )
     return forum, permissions
+
+
+async def filter_readable_forum_ids(
+    db_session: AsyncSession, principal: User | None, forum_ids: Collection[int]
+) -> set[int]:
+    """Which of the given forums the principal can read; ``None`` is the guest
+    role, so the result is what the public can see. Only these forums are loaded
+    and checked, so callers narrow to the forums they care about first (those
+    with recent activity, say) instead of checking every forum on the site.
+    Permission rules stay in ``ForumPermissions``."""
+    if not forum_ids:
+        return set()
+    candidates = list(
+        await ForumRepository(db_session, principal=principal).get_multiple(
+            list(forum_ids)
+        )
+    )
+    permissions = await ForumPermissions.load(db_session, principal, candidates)
+    return {
+        forum.id for forum in candidates if permissions.has(forum, Verbs.FORUM_READ)
+    }
+
+
+def split_snippet(snippet: str) -> list[schemas.SnippetPart]:
+    """Cut a search snippet into text and matched stretches at the markers
+    ``PostRepository.search`` puts around matches."""
+    parts = []
+    for index, chunk in enumerate(
+        re.split(f"[{SNIPPET_MATCH_START}{SNIPPET_MATCH_END}]", snippet)
+    ):
+        # Splitting on both markers alternates plain, match, plain, match...
+        if chunk:
+            parts.append(schemas.SnippetPart(text=chunk, match=index % 2 == 1))
+    return parts
 
 
 def is_game_root_forum(forum: Forum) -> bool:

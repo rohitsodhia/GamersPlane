@@ -9,6 +9,7 @@ Create Date: 2026-08-10 02:21:46.422625
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
@@ -156,6 +157,17 @@ def upgrade() -> None:
         sa.Column("title", sa.String(), nullable=False),
         sa.Column("author_id", sa.Integer(), nullable=False),
         sa.Column("body", sa.JSON(), nullable=False),
+        sa.Column("body_text", sa.Text(), nullable=False),
+        sa.Column(
+            "search_tsv",
+            postgresql.TSVECTOR(),
+            sa.Computed(
+                "setweight(to_tsvector('english', title), 'A') || "
+                "setweight(to_tsvector('english', body_text), 'B')",
+                persisted=True,
+            ),
+            nullable=True,
+        ),
         sa.Column("state", sa.String(length=1), nullable=False),
         sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("revision_of_id", sa.Integer(), nullable=True),
@@ -182,6 +194,13 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_posts_thread_id"), "posts", ["thread_id"], unique=False)
+    op.create_index(
+        "ix_posts_search_tsv",
+        "posts",
+        ["search_tsv"],
+        unique=False,
+        postgresql_using="gin",
+    )
     op.create_table(
         "threads",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -215,6 +234,7 @@ def upgrade() -> None:
         ["forum_id", "last_post_at"],
         unique=False,
     )
+    op.create_index("ix_threads_last_post_at", "threads", ["last_post_at"])
     op.create_foreign_key(
         "fk_posts_thread_id_threads", "posts", "threads", ["thread_id"], ["id"]
     )
@@ -257,9 +277,11 @@ def downgrade() -> None:
     op.drop_table("thread_reads")
     op.drop_table("forum_reads")
     op.drop_constraint("fk_posts_thread_id_threads", "posts", type_="foreignkey")
+    op.drop_index("ix_threads_last_post_at", table_name="threads")
     op.drop_index("ix_threads_forum_id_last_post_at", table_name="threads")
     op.drop_index(op.f("ix_threads_forum_id"), table_name="threads")
     op.drop_table("threads")
+    op.drop_index("ix_posts_search_tsv", table_name="posts", postgresql_using="gin")
     op.drop_index(op.f("ix_posts_thread_id"), table_name="posts")
     op.drop_table("posts")
     op.drop_table("character_favorites")
