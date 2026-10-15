@@ -154,9 +154,10 @@ Checklist:
 - [ ] No `compose.staging.yml`, no frontend service, `docker/Dockerfile-nextjs` is stale (section 0 and 6).
 - [ ] No TLS or published proxy ports for non-dev (section 0 and 6).
 - [ ] Frontend `/reset-password` page does not exist; password reset cannot be completed.
-- [ ] Contact page is unbuilt (nothing in the frontend routes or the API for it), so there is no way for testers to reach you from the site.
 - [ ] Postfix `main.cf` has `compatibility_level = 3.8` while Alpine installs Postfix 3.11; postfix logs a compatibility warning at startup. Harmless, but bump the level deliberately after reading the 3.9-3.11 release notes.
 - [ ] No postfix queue monitoring or bounce handling: failures are only in `logs/postfix/postfix.log` (root-owned on the host; read via `docker exec gamersplane-postfix cat /var/log/postfix.log`). The API logs and swallows SMTP errors, so a user never sees a failed activation email.
 - [ ] `docker/opendkim/opendkim.conf` sets `ReportAddress postmaster@gamersplane.com` and `SendReports yes`; make sure that mailbox exists and is read, since DMARC reports (`rua=mailto:postmaster@gamersplane.com`) go there too.
 - [ ] No backups for the `gp_postgres_db` volume or `./images`. **Needs decision:** backup approach, even for staging.
-- [ ] Avatar upload hardening (Pillow decompression-bomb limit, error handling, size check) before opening uploads to outside testers.
+- [x] Avatar upload hardening (Pillow decompression-bomb limit, error handling, size check) before opening uploads to outside testers.
+- [ ] Responsive layout has not been done site-wide. At phone widths the header nav (about 481px of non-wrapping links) and the footer columns (about 418px) force every page to scroll sideways. Plan: the header becomes a menu button on phones, footer columns stack, 1rem page gutters, then go page by page (forums first). Design and test at 360px (384px is the most common size); mobile is about 40% of returning users per Google Analytics.
+- [ ] Light/dark mode needs extensive work: many colors and components don't adapt. Survey first, then fix.

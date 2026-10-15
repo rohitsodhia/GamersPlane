@@ -14,6 +14,7 @@ from app.repositories import (
     PlayerRepository,
     ReadTrackingRepository,
 )
+from tests.threads.test_search_routes import add_thread
 from tests.factories import (
     ActivatedUserFactory,
     DeckTypeFactory,
@@ -716,6 +717,28 @@ class TestGetLatestGames(_GameFixtures):
 
         assert [g["id"] for g in response.json()["games"]] == [game.id]
 
+    async def test_exclude_mine_drops_the_principals_games(
+        self, auth_as, client, db_session, gm, make_game, create
+    ):
+        viewer = await create(ActivatedUserFactory)
+        open_game = await make_game(gm, title="Open")
+        joined = await make_game(gm, title="Joined")
+        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
+            joined.id, viewer.id, state=Player.States.ACCEPTED
+        )
+        client = auth_as(viewer)
+
+        response = await client.get("/games/latest", params={"exclude_mine": True})
+
+        assert [g["id"] for g in response.json()["games"]] == [open_game.id]
+
+    async def test_exclude_mine_does_nothing_for_guests(self, client, gm, make_game):
+        game = await make_game(gm)
+
+        response = await client.get("/games/latest", params={"exclude_mine": True})
+
+        assert [g["id"] for g in response.json()["games"]] == [game.id]
+
 
 class TestGetMyGames(_GameFixtures):
     """GET /games/my - the authenticated "My Games" listing."""
@@ -821,6 +844,34 @@ class TestGetMyGames(_GameFixtures):
         assert games[1]["is_gm"] is False
         assert games[1]["favorited"] is True
         assert games[1]["player_count"] == 1
+
+    async def test_get_my_games_orders_by_last_activity_then_title(
+        self, auth_as, client, db_session, create, gm, make_game
+    ):
+        older = await make_game(gm, title="Older")
+        newer = await make_game(gm, title="Newer")
+        await make_game(gm, title="Zeta quiet")
+        await make_game(gm, title="Alpha quiet")
+        threads = {}
+        for game, hours in ((older, 5), (newer, 1)):
+            forum = await db_session.get(Forum, game.root_forum_id)
+            threads[game.id] = await add_thread(create, db_session, forum, hours=hours)
+        client = auth_as(gm)
+
+        response = await client.get("/games/my")
+
+        games = response.json()["games"]
+        assert [g["title"] for g in games] == [
+            "Newer",
+            "Older",
+            "Alpha quiet",
+            "Zeta quiet",
+        ]
+        assert (
+            datetime.fromisoformat(games[0]["last_activity"])
+            == threads[newer.id].last_post_at
+        )
+        assert games[2]["last_activity"] is None
 
     async def test_get_my_games_is_gm_true_for_delegated_co_gm(
         self, auth_as, client, db_session, gm, make_game, create

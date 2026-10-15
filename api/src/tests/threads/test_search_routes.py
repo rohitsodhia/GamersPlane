@@ -144,6 +144,21 @@ class TestLatest:
         assert ids(below) == [thread.id]
         assert below.json()["page"] == 1
 
+    async def test_limit_shortens_the_page_but_not_the_count(
+        self, client, create, db_session, open_forum
+    ):
+        older = await add_thread(create, db_session, open_forum, hours=2)
+        newest = await add_thread(create, db_session, open_forum, hours=1)
+
+        limited = await client.get(
+            "/threads/search", params={"scope": "latest", "limit": 1}
+        )
+        unlimited = await client.get("/threads/search", params={"scope": "latest"})
+
+        assert ids(limited) == [newest.id]
+        assert limited.json()["count"] == 2
+        assert ids(unlimited) == [newest.id, older.id]
+
 
 class TestLatestGame:
     async def test_only_game_forums_the_principal_can_read(

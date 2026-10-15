@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.configs import configs
 from app.exceptions import ForbiddenException, NotFoundException
 from app.forums.functions import filter_readable_forum_ids
 from app.forums.permissions import ForumPermissions, Verbs
@@ -38,10 +39,12 @@ async def list_recent_threads(
     principal: Principal | None,
     scope: ThreadListScope,
     page: int,
+    limit: int | None = None,
 ) -> schemas.GetThreadListingResponse:
     """A page of the threads active in the past ``RECENT_THREADS_WINDOW`` that
-    fit the scope, newest last post first. ``Principal`` is None for a guest, who
-    gets 403 for the unread scope as on any route that needs a login."""
+    fit the scope, newest last post first. ``limit`` shortens the page (the
+    count stays the total). ``Principal`` is None for a guest, who gets 403 for
+    the unread scope as on any route that needs a login."""
     if scope is ThreadListScope.UNREAD and principal is None:
         raise ForbiddenException()
 
@@ -77,6 +80,7 @@ async def list_recent_threads(
         readable_ids,
         since,
         page=page,
+        limit=limit or configs.PAGINATE_PER_PAGE,
         unread_only=scope is ThreadListScope.UNREAD,
     )
 

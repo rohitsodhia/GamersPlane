@@ -216,7 +216,10 @@ class PostRepository:
         post = await self.db_session.scalar(
             select(Post)
             .where(Post.id == post_id, Post.deleted.is_(None))
-            .options(selectinload(Post.posted_as).selectinload(Character.avatars))
+            .options(
+                selectinload(Post.author).selectinload(User.meta),
+                selectinload(Post.posted_as).selectinload(Character.avatars),
+            )
             .limit(1)
         )
         return post

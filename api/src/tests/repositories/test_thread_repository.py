@@ -6,6 +6,7 @@ from sqlalchemy import text
 from app.models import Thread
 from app.repositories.thread_repository import ThreadRepository
 from tests.factories import ForumFactory, PostFactory, ThreadFactory
+from tests.threads.test_search_routes import add_thread
 
 
 class TestThreadRepository:
@@ -276,3 +277,44 @@ class TestThreadRepository:
 
         assert forum.id not in last_posts
         assert other_forum.id not in last_posts
+
+    async def test_get_featured_picks_a_sticky_thread(
+        self, repository, create, db_session, forum
+    ):
+        sticky = set()
+        for _ in range(2):
+            thread = await add_thread(create, db_session, forum)
+            thread.options = Thread.Options(sticky=True)
+            sticky.add(thread.id)
+        await add_thread(create, db_session, forum)
+        await db_session.flush()
+
+        # Random, so ask a few times: a plain thread is never chosen.
+        for _ in range(6):
+            featured = await repository.get_featured(forum.id)
+            assert featured.id in sticky
+
+    async def test_get_featured_without_sticky_threads_picks_the_newest(
+        self, repository, create, db_session, forum
+    ):
+        await add_thread(create, db_session, forum, days=2)
+        newest = await add_thread(create, db_session, forum, days=1)
+
+        featured = await repository.get_featured(forum.id)
+
+        assert featured.id == newest.id
+
+    async def test_get_featured_skips_threads_without_a_first_post(
+        self, repository, create, db_session, forum
+    ):
+        with_post = await add_thread(create, db_session, forum)
+        await create(ThreadFactory, forum=forum)
+
+        featured = await repository.get_featured(forum.id)
+
+        assert featured.id == with_post.id
+
+    async def test_get_featured_is_none_for_a_forum_without_threads(
+        self, repository, forum
+    ):
+        assert await repository.get_featured(forum.id) is None

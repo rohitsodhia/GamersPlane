@@ -12,6 +12,7 @@ from app.posts.schemas import (
     NewDrawInput,
     NewRollInput,
 )
+from app.posts.schemas import PostData as PostsPostData
 from app.schema_base import SchemaBase, filtered_str
 from app.threads.option_schemas import ThreadOptionsUpdate, clean_discord_webhook
 from app.threads.poll_schemas import PollData, PollInput
@@ -106,6 +107,13 @@ class GetThreadListingResponse(SchemaBase):
     threads: list[ThreadListingData]
     count: int
     page: int
+
+
+class AnnouncementResponse(SchemaBase):
+    id: int
+    title: str
+    # The thread's first post, as the posts endpoints send it (no rolls or draws).
+    post: PostsPostData
 
 
 class GetThreadResponse(SchemaBase):

@@ -14,6 +14,7 @@ from app.models import (
     Role,
     RolePermission,
     System,
+    Thread,
     User,
     UserRole,
 )
@@ -127,7 +128,11 @@ class GameRepository:
             or 0
         )
 
-    async def get_latest(self, system_id: str | None, limit: int) -> list[Game]:
+    async def get_latest(
+        self, system_id: str | None, limit: int, exclude_user_id: int | None = None
+    ) -> list[Game]:
+        """The newest unretired games. ``exclude_user_id`` leaves out games that
+        user has a player row in, whatever its state (invited, applied, accepted)."""
         query = (
             select(Game)
             .where(Game.retired.is_(None))
@@ -137,7 +142,31 @@ class GameRepository:
         )
         if system_id:
             query = query.where(Game.system_id == system_id)
+        if exclude_user_id is not None:
+            query = query.where(
+                ~select(Player.game_id)
+                .where(Player.game_id == Game.id, Player.user_id == exclude_user_id)
+                .exists()
+            )
         return list(await self.db_session.scalars(query))
+
+    async def get_last_activity(self, game_ids: list[int]) -> dict[int, datetime]:
+        """When each game last had a post, across its forum and subforums. Games
+        without posts are left out."""
+        if not game_ids:
+            return {}
+        rows = await self.db_session.execute(
+            select(Forum.game_id, func.max(Thread.last_post_at))
+            .join(Thread, Thread.forum_id == Forum.id)
+            .where(
+                Forum.game_id.in_(game_ids),
+                Forum.deleted.is_(None),
+                Thread.deleted.is_(None),
+                Thread.last_post_at.is_not(None),
+            )
+            .group_by(Forum.game_id)
+        )
+        return dict(rows.all())
 
     async def get_player_counts(self, game_ids: list[int]) -> dict[int, int]:
         if not game_ids:

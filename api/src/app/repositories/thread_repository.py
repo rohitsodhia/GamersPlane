@@ -64,6 +64,22 @@ class ThreadRepository:
         )
         return threads
 
+    async def get_featured(self, forum_id: int) -> Thread | None:
+        """A random sticky thread of the forum, or its newest thread if none is
+        sticky; None if it has no threads. Threads without a first post (nothing
+        published yet) are skipped, as there'd be nothing to show."""
+        query = select(Thread).where(
+            Thread.forum_id == forum_id, Thread.first_post_id.is_not(None)
+        )
+        sticky = await self.db_session.scalar(
+            query.where(func.coalesce(Thread.options["sticky"].as_boolean(), false()))
+            .order_by(func.random())
+            .limit(1)
+        )
+        if sticky is not None:
+            return sticky
+        return await self.db_session.scalar(query.order_by(Thread.id.desc()).limit(1))
+
     async def recently_active_forum_ids(
         self, since: datetime, game_only: bool = False
     ) -> set[int]:

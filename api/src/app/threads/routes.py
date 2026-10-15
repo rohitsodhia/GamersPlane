@@ -1,5 +1,6 @@
-from fastapi import APIRouter, BackgroundTasks, status
+from fastapi import APIRouter, BackgroundTasks, Query, status
 
+from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException, ValidationError
 from app.forums.functions import get_readable_forum
@@ -9,10 +10,15 @@ from app.middleware import Principal
 from app.models import Post
 from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import (
+    build_content_npcs,
+    build_posted_as,
+    build_posted_npc,
     check_post_change,
+    load_content_npcs,
     validate_content_npcs,
     validate_poster,
 )
+from app.posts.schemas import AuthorData, PostData
 from app.repositories import (
     PollRepository,
     PostRepository,
@@ -37,6 +43,8 @@ from app.threads.poll_functions import (
 from app.threads.poll_schemas import PollData, VoteInput
 
 threads = APIRouter(prefix="/threads")
+
+ANNOUNCEMENTS_FORUM_ID = 3
 
 
 @threads.get("", response_model=schemas.GetThreadsResponse)
@@ -89,13 +97,54 @@ async def search_threads(
     principal: Principal,
     scope: schemas.ThreadListScope,
     page: int = 1,
+    limit: int | None = Query(None, ge=1, le=configs.PAGINATE_PER_PAGE),
 ):
     """Threads from the past week across forums, by ``scope`` (see
-    ``ThreadListScope``). Public, but the ``unread`` scope needs a login."""
+    ``ThreadListScope``). Public, but the ``unread`` scope needs a login.
+    ``limit`` asks for fewer than a full page of threads."""
     if page < 1:
         page = 1
 
-    return await list_recent_threads(db_session, principal, scope, page)
+    return await list_recent_threads(db_session, principal, scope, page, limit)
+
+
+@threads.get("/announcement", response_model=schemas.AnnouncementResponse)
+async def get_announcement(db_session: DBSessionDependency, principal: Principal):
+    """A random sticky thread of the announcements forum, else its newest thread,
+    with its first post. 404 when the forum has no threads."""
+    forum, _ = await get_readable_forum(db_session, principal, ANNOUNCEMENTS_FORUM_ID)
+    thread = await ThreadRepository(db_session, principal=principal).get_featured(
+        forum.id
+    )
+    if thread is None:
+        raise NotFoundException("No announcement")
+    # Reloaded for the author's avatar and the posted-as character's avatars.
+    post = await PostRepository(db_session, principal=principal).get(
+        thread.first_post_id
+    )
+    assert post is not None and post.published_at is not None
+
+    speakers = await load_content_npcs(db_session, principal, [post.body])
+    return schemas.AnnouncementResponse(
+        id=thread.id,
+        title=post.title,
+        post=PostData(
+            id=post.id,
+            title=post.title,
+            datestamp=post.published_at,
+            author=AuthorData(
+                id=post.author.id,
+                username=post.author.username,
+                avatar=post.author.avatar_url,
+                last_activity=post.author.last_activity,
+            ),
+            # Not a game forum, so no viewer is a game's GM here.
+            posted_as=build_posted_as(post, principal, None),
+            posted_npc=build_posted_npc(post),
+            body=post.body,
+            content_npcs=build_content_npcs(post.body, speakers),
+        ),
+    )
 
 
 @threads.get("/{thread_id}", response_model=schemas.GetThreadResponse)
