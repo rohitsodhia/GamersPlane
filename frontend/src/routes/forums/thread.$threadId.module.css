@@ -11,6 +11,19 @@
 	gap: 1em;
 }
 
+/* Media queries can't use CSS variables, so the 600px breakpoint is literal. */
+@media (max-width: 600px) {
+	.thread-menu {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.5em;
+	}
+
+	.mod-actions {
+		align-self: flex-end;
+	}
+}
+
 .mod-actions {
 	display: flex;
 	gap: 0.25em;
@@ -92,6 +105,11 @@
 			}
 		}
 
+		/* Transparent wrapper on desktop, so the names stay in the author column. */
+		.author-names {
+			display: contents;
+		}
+
 		.character-name {
 			font-weight: bold;
 			text-align: center;
@@ -164,17 +182,13 @@
 
 	.post-actions {
 		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
 		justify-content: flex-end;
-		gap: 1em;
+		gap: 0.5em 1em;
 		margin-top: 0.5em;
 		margin-right: 1em;
 		font-size: var(--font-size-sm);
-
-		/* Sits apart from the other actions, at the bubble's left edge. */
-		.mark-unread {
-			margin-left: 1em;
-			margin-right: auto;
-		}
 
 		button {
 			color: var(--gp-light-red);
@@ -184,29 +198,139 @@
 			}
 		}
 	}
-}
 
-.confirm-popover {
-	position: fixed;
-	inset: 0;
-	margin: auto;
-	max-width: min(360px, calc(100vw - 2rem));
-	padding: 1.2em;
-	background: var(--bg);
-	color: var(--text);
-	border: 1px solid var(--text);
-	border-radius: 0.3em;
+	/* Media queries can't use CSS variables, so the 600px breakpoint is literal. */
+	@media (max-width: 600px) {
+		.post,
+		.post-left {
+			flex-direction: column;
+		}
 
-	&::backdrop {
-		background: rgba(0, 0, 0, 0.5);
+		/* Author above the bubble: avatar, with the names stacked beside it. */
+		.post-author {
+			flex-direction: row;
+			align-items: center;
+			justify-content: flex-start;
+			width: auto;
+			gap: 0.75em;
+			/* Room for the pointer sitting on top of the bubble. */
+			margin-bottom: 14px;
+
+			.user-avatar {
+				max-width: 60px;
+				max-height: 60px;
+			}
+
+			.avatar-stack {
+				margin-bottom: 10px;
+				margin-right: 10px;
+			}
+
+			.avatar-corner img {
+				max-width: 20px;
+				max-height: 20px;
+				border-width: 1px;
+			}
+
+			.author-names {
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
+				gap: 0.15em;
+				min-width: 0;
+			}
+
+			.character-name,
+			.author-name,
+			.author-username {
+				text-align: left;
+				justify-content: flex-start;
+			}
+		}
+
+		.post-left .post-author {
+			flex-direction: row-reverse;
+
+			.avatar-stack {
+				margin-right: 0;
+				margin-left: 10px;
+			}
+
+			.avatar-corner {
+				right: auto;
+				left: 0;
+				transform: translate(-50%, 50%);
+			}
+
+			.author-names {
+				align-items: flex-end;
+			}
+
+			.character-name,
+			.author-name,
+			.author-username {
+				text-align: right;
+				justify-content: flex-end;
+			}
+		}
+
+		/* The point is the sideways one turned to sit on top of the bubble. */
+		.chat-point,
+		.post-left .chat-point {
+			top: -14px;
+			left: 20px;
+			right: auto;
+			transform: rotate(90deg);
+		}
+
+		.post-left .chat-point {
+			left: auto;
+			right: 20px;
+			transform: scaleX(-1) rotate(90deg);
+		}
+
+		.post-content {
+			min-width: 0;
+		}
+
+		.post-bubble {
+			overflow-wrap: anywhere;
+
+			:global(.post-body) {
+				img,
+				video,
+				iframe {
+					max-width: 100%;
+					height: auto;
+				}
+
+				table,
+				pre {
+					display: block;
+					max-width: 100%;
+					overflow-x: auto;
+				}
+			}
+		}
+
+		/* The first post's title gets its own line, with the date below it. */
+		.post-header {
+			flex-wrap: wrap;
+			justify-content: flex-end;
+		}
+
+		.post-title {
+			flex-basis: 100%;
+		}
+
+		.reply-title {
+			display: none;
+		}
+
+		.post-actions {
+			margin-right: 0;
+		}
 	}
-}
-
-.confirm-popover-actions {
-	display: flex;
-	justify-content: center;
-	gap: 1em;
-	margin-top: 1em;
 }
 
 .quick-reply-form {

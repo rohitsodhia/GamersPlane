@@ -7,7 +7,12 @@ from app.forums.functions import filter_readable_forum_ids
 from app.forums.permissions import ForumPermissions, Verbs
 from app.middleware import Principal
 from app.models import Forum, Post, Thread
-from app.repositories import ForumRepository, ReadTrackingRepository, ThreadRepository
+from app.repositories import (
+    ForumRepository,
+    GameRepository,
+    ReadTrackingRepository,
+    ThreadRepository,
+)
 from app.repositories.forum_repository import SITE_ROOT_FORUM_ID
 from app.threads import schemas
 from app.threads.option_schemas import ThreadOptionsUpdate
@@ -49,10 +54,22 @@ async def list_recent_threads(
         game_only=scope in (ThreadListScope.LATEST_GAME, ThreadListScope.LATEST_PUBLIC),
     )
     # Public games are the game forums the guest role (not the principal) can read.
+    # Every other scope shows game forums only for the principal's own games (the
+    # same rule as the forum index); a guest has none.
+    own_game_ids = None
+    if scope is not ThreadListScope.LATEST_PUBLIC:
+        own_game_ids = (
+            await GameRepository(
+                db_session, principal=principal
+            ).get_forum_listed_game_ids(principal.id)
+            if principal
+            else set()
+        )
     readable_ids = await filter_readable_forum_ids(
         db_session,
         None if scope is ThreadListScope.LATEST_PUBLIC else principal,
         active_ids,
+        only_game_ids=own_game_ids,
     )
     forum_repository = ForumRepository(db_session, principal=principal)
 

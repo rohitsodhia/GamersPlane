@@ -4,12 +4,9 @@ import clsx from "clsx";
 import { useState } from "react";
 import { z } from "zod";
 import DieIcon from "#/components/DieIcon";
-import LockIcon from "#/components/LockIcon";
+import ForumSearchForm from "#/components/ForumSearchForm";
 import Paginate from "#/components/Paginate";
-import PinIcon from "#/components/PinIcon";
 import RAIcon from "#/components/RAIcon";
-import { PAGINATE_PER_PAGE } from "#/lib/config";
-import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { useResizeObserver } from "#/lib/use-resize-observer";
 import {
@@ -18,14 +15,11 @@ import {
 	forumQueryOptions,
 	markForumRead,
 } from "#/queries/forums";
-import {
-	type ThreadOptions,
-	type Thread as ThreadType,
-	threadsQueryOptions,
-} from "#/queries/threads";
+import { threadsQueryOptions } from "#/queries/threads";
 import { useAuthStore } from "#/stores/auth";
 import { useGameBarGame } from "#/stores/game-bar";
 import { Breadcrumbs } from "./-breadcrumbs";
+import { LastPostInfo, ThreadList } from "./-thread-list";
 import styles from "./{-$forumId}.module.css";
 
 export const Route = createFileRoute("/forums/{-$forumId}")({
@@ -136,135 +130,6 @@ function CategoryForum({ forum }: { forum: ChildForum }) {
 	);
 }
 
-function LastPostInfo({
-	lastPost,
-}: {
-	lastPost: { datestamp: string; author: { id: number; username: string } } | null;
-}) {
-	if (!lastPost) return <div className={styles["last-post-info"]}>No Posts Yet!</div>;
-
-	return (
-		<div className={styles["last-post-info"]}>
-			<Link
-				to="/user/$userId"
-				params={{ userId: lastPost.author.id }}
-				className="username"
-			>
-				{lastPost.author.username}
-			</Link>
-			<span>{formatDateTime(lastPost.datestamp)}</span>
-		</div>
-	);
-}
-
-function Thread({ thread }: { thread: ThreadType }) {
-	return (
-		<div>
-			<ThreadStatusIcon options={thread.options} hasUnread={thread.has_unread} />
-			<div className={styles["thread-info"]}>
-				{/* Keep the grid cell when read, so the title stays in its column. */}
-				{thread.has_unread ? (
-					<Link
-						to="/forums/thread/$threadId"
-						params={{ threadId: thread.id }}
-						search={{ view: "new-post" }}
-						className="thread-title"
-					>
-						<img src="/images/icons/new-post.svg" alt="New Post" />
-					</Link>
-				) : (
-					<div></div>
-				)}
-				<Link
-					to="/forums/thread/$threadId"
-					params={{ threadId: thread.id }}
-					className="thread-title"
-				>
-					{thread.first_post.title}
-				</Link>
-				<div className={styles["latest-posts"]}>
-					<InlineThreadPagination threadId={thread.id} postCount={thread.post_count} />
-					<Link
-						to="/forums/thread/$threadId"
-						params={{ threadId: thread.id }}
-						search={{
-							page: Math.max(1, Math.ceil(thread.post_count / PAGINATE_PER_PAGE)),
-						}}
-						hash={`post-${thread.last_post.id}`}
-						className="thread-title"
-					>
-						<img src="/images/icons/down-arrow.svg" alt="Last Post" />
-					</Link>
-				</div>
-				<div></div>
-				<div className={styles["thread-author"]}>
-					by{" "}
-					<Link
-						to="/user/$userId"
-						params={{ userId: thread.first_post.author.id }}
-						className="username"
-					>
-						{thread.first_post.author.username}
-					</Link>{" "}
-					on <span>{formatDateTime(thread.first_post.datestamp)}</span>
-				</div>
-			</div>
-			<div>{thread.post_count}</div>
-			<LastPostInfo lastPost={thread.last_post} />
-		</div>
-	);
-}
-
-function ThreadStatusIcon({
-	options,
-	hasUnread,
-}: {
-	options: ThreadOptions;
-	hasUnread: boolean;
-}) {
-	const className = clsx("forum-status-icon", !hasUnread && "read");
-	const readLabel = hasUnread ? "Unread" : "Read";
-	if (options.sticky) {
-		return (
-			<PinIcon className={className} title={`Thread Status - Sticky, ${readLabel}`} />
-		);
-	}
-	if (options.locked) {
-		return (
-			<LockIcon className={className} title={`Thread Status - Locked, ${readLabel}`} />
-		);
-	}
-	return <DieIcon className={className} title={`Thread Status - ${readLabel}`} />;
-}
-
-function InlineThreadPagination({
-	threadId,
-	postCount,
-}: {
-	threadId: number;
-	postCount: number;
-}) {
-	const maxPages = Math.ceil(postCount / PAGINATE_PER_PAGE);
-	if (maxPages <= 1) return null;
-
-	const pages = maxPages < 3 ? [1, 2] : [maxPages - 2, maxPages - 1, maxPages];
-
-	return (
-		<>
-			{pages.map((page) => (
-				<Link
-					key={page}
-					to="/forums/thread/$threadId"
-					params={{ threadId }}
-					search={{ page }}
-				>
-					{page}
-				</Link>
-			))}
-		</>
-	);
-}
-
 function ForumThreads({
 	forumId,
 	canCreateThread,
@@ -303,24 +168,11 @@ function ForumThreads({
 					<Paginate numItems={count} current={page} onPageChange={setPage} />
 				</div>
 			</div>
-			<div
-				className={`headerbar hb-dark listed-items-header ${styles["column-titles"]}`}
-				ref={hbMarginedThreadHeader.ref}
-			>
-				<div></div>
-				<div className={styles["thread-info"]}>Thread</div>
-				<div># of Posts</div>
-				<div>Last Post</div>
-			</div>
-			<div
-				className={styles["thread-list"]}
-				style={{ marginInline: hbMarginedThreadHeader.margin }}
-			>
-				{threads.map((thread) => (
-					<Thread key={thread.id} thread={thread} />
-				))}
-				{threads.length === 0 && <div className={styles["no-threads"]}>No threads</div>}
-			</div>
+			<ThreadList
+				threads={threads}
+				headerRef={hbMarginedThreadHeader.ref}
+				margin={hbMarginedThreadHeader.margin}
+			/>
 			<div
 				className="thread-pagination"
 				style={{ marginInline: hbMarginedThreadHeader.margin }}
@@ -373,21 +225,43 @@ function RouteComponent() {
 					<div>
 						Be sure to read and follow the{" "}
 						<Link to="/community-guidelines">community guidelines</Link>.
+						{(forum.game_id != null || forum.id === 0) && (
+							<ForumSearchForm
+								gameId={forum.game_id ?? undefined}
+								placeholder={
+									forum.game_id != null
+										? "Search this game's forums"
+										: "Search all forums"
+								}
+								className={styles["game-search"]}
+							/>
+						)}
 					</div>
 					<div>
 						{forum.id === 0 && (
 							<>
 								<div>
-									<a href="/forums/search/?search=latestPosts">Latest Posts</a>/
-									<a href="/forums/search/?search=unreadPosts">Unread Posts</a>
+									<Link to="/forums/recent" search={{ scope: "latest" }}>
+										Latest Posts
+									</Link>
+									{loggedIn && (
+										<>
+											/
+											<Link to="/forums/recent" search={{ scope: "unread" }}>
+												Unread Posts
+											</Link>
+										</>
+									)}
 								</div>
 								<div>
-									<a href="/forums/search/?search=latestGamePosts">Latest Game Posts</a>
+									<Link to="/forums/recent" search={{ scope: "latest_game" }}>
+										Latest Game Posts
+									</Link>
 								</div>
 								<div>
-									<a href="/forums/search/?search=latestPublicPosts">
+									<Link to="/forums/recent" search={{ scope: "latest_public" }}>
 										Latest in Public Games
-									</a>
+									</Link>
 								</div>
 							</>
 						)}

@@ -16,6 +16,8 @@ import type { JSONContent } from "@tiptap/core";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
+import { ActionsMenu, type MenuAction } from "#/components/ActionsMenu";
+import { ConfirmDialog } from "#/components/ConfirmDialog";
 import Editor, {
 	emptyContent,
 	isContentEmpty,
@@ -196,7 +198,22 @@ function PostItem({
 	// Only passed for the thread's last post.
 	onMarkUnread?: () => void;
 }) {
-	const deleteConfirmId = `delete-post-confirm-${post.id}`;
+	const navigate = useNavigate();
+	const [confirmingDelete, setConfirmingDelete] = useState(false);
+	const menuActions: MenuAction[] = [];
+	if (onMarkUnread) {
+		menuActions.push({ label: "Mark as unread", onAction: onMarkUnread });
+	}
+	if (canEdit) {
+		menuActions.push({
+			label: "Edit",
+			onAction: () =>
+				navigate({ to: "/forums/edit-post/$postId", params: { postId: post.id } }),
+		});
+	}
+	if (canDelete) {
+		menuActions.push({ label: "Delete", onAction: () => setConfirmingDelete(true) });
+	}
 	const postedAs = post.posted_as;
 	// A quick NPC takes the same slots as a character, with no sheet to link to.
 	const postedNpc = post.posted_npc;
@@ -236,26 +253,31 @@ function PostItem({
 						/>
 					</Link>
 				)}
-				{asName && (
-					<div className={styles["character-name"]}>
-						{postedAs?.can_view ? (
-							<Link to="/characters/$characterId" params={{ characterId: postedAs.id }}>
-								{postedAs.name}
-							</Link>
-						) : (
-							asName
-						)}
+				<div className={styles["author-names"]}>
+					{asName && (
+						<div className={styles["character-name"]}>
+							{postedAs?.can_view ? (
+								<Link
+									to="/characters/$characterId"
+									params={{ characterId: postedAs.id }}
+								>
+									{postedAs.name}
+								</Link>
+							) : (
+								asName
+							)}
+						</div>
+					)}
+					<div className={styles["author-name"]}>
+						<Link
+							to="/user/$userId"
+							params={{ userId: post.author.id }}
+							className={clsx("username", asName && styles["author-username"])}
+						>
+							{post.author.username}
+						</Link>
+						<InactiveMarker lastActivity={post.author.last_activity} />
 					</div>
-				)}
-				<div className={styles["author-name"]}>
-					<Link
-						to="/user/$userId"
-						params={{ userId: post.author.id }}
-						className={clsx("username", asName && styles["author-username"])}
-					>
-						{post.author.username}
-					</Link>
-					<InactiveMarker lastActivity={post.author.last_activity} />
 				</div>
 			</div>
 			<div className={styles["post-content"]}>
@@ -267,7 +289,10 @@ function PostItem({
 							params={{ threadId }}
 							search={{ page }}
 							hash={`post-${post.id}`}
-							className={styles["post-title"]}
+							className={clsx(
+								styles["post-title"],
+								!isFirstPost && styles["reply-title"],
+							)}
 						>
 							{post.title}
 						</Link>
@@ -290,66 +315,25 @@ function PostItem({
 					/>
 				</div>
 				<div className={styles["post-actions"]}>
-					{onMarkUnread && (
-						<button
-							type="button"
-							className={styles["mark-unread"]}
-							onClick={onMarkUnread}
-						>
-							Mark as unread
-						</button>
-					)}
 					{canWrite && (
 						<button type="button" className="quote-post" onClick={() => onQuote(post)}>
 							Quote
 						</button>
 					)}
-					{canEdit && (
-						<Link
-							to="/forums/edit-post/$postId"
-							params={{ postId: post.id }}
-							className="edit-post"
-							title="Coming soon"
-						>
-							Edit
-						</Link>
-					)}
-					{canDelete && (
-						<button
-							type="button"
-							className="delete-post"
-							popoverTarget={deleteConfirmId}
-						>
-							Delete
-						</button>
-					)}
+					<ActionsMenu label="Post actions" actions={menuActions} />
 				</div>
 			</div>
 			{canDelete && (
-				// biome-ignore lint/a11y/useKeyWithClickEvents: delegated click handler catches bubbled clicks from interactive <button> children, which already fire click on keyboard activation
-				// biome-ignore lint/a11y/noStaticElementInteractions: delegated click handler catches bubbled clicks from interactive <button> children
-				<div
-					id={deleteConfirmId}
-					popover="auto"
-					className={styles["confirm-popover"]}
-					onClick={(e) => {
-						if (e.target instanceof HTMLElement) {
-							e.currentTarget.hidePopover();
-						}
-					}}
-				>
-					<p>
-						{isFirstPost
+				<ConfirmDialog
+					isOpen={confirmingDelete}
+					onOpenChange={setConfirmingDelete}
+					message={
+						isFirstPost
 							? "Are you sure you want to delete this thread? This will delete the entire thread and all of its posts."
-							: "Are you sure you want to delete this post?"}
-					</p>
-					<div className={styles["confirm-popover-actions"]}>
-						<button type="button" className="skew-btn" onClick={() => onDelete(post)}>
-							Yes
-						</button>
-						<button type="button">No</button>
-					</div>
-				</div>
+							: "Are you sure you want to delete this post?"
+					}
+					onConfirm={() => onDelete(post)}
+				/>
 			)}
 		</div>
 	);
@@ -631,6 +615,14 @@ function RouteComponent() {
 				<div className="thread-pagination">
 					<Paginate numItems={count} current={page} onPageChange={setPage} />
 				</div>
+
+				{deleteMutation.isError && (
+					<div className="error" role="alert">
+						{deleteMutation.error instanceof ApiError
+							? deleteMutation.error.errors.map((e) => e.detail).join(" ")
+							: "Couldn't delete the post."}
+					</div>
+				)}
 
 				<div className={styles["thread-posts"]}>
 					{posts.map((post, index) => (

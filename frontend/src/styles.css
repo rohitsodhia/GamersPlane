@@ -145,6 +145,15 @@ textarea {
 	padding: 0.3em 0.5em;
 }
 
+/* Chrome clips a placeholder to its own line box, which cuts the tails off descenders
+   (the g in "game's"). Let them show; a long placeholder is still cut at the field's
+   edge, just without an ellipsis. */
+input::placeholder,
+textarea::placeholder {
+	overflow: visible;
+	text-overflow: clip;
+}
+
 input:is([type="radio"], [type="checkbox"]) {
 	margin-right: 0.5em;
 }

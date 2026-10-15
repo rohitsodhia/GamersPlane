@@ -35,13 +35,17 @@ async def get_readable_forum(
 
 
 async def filter_readable_forum_ids(
-    db_session: AsyncSession, principal: User | None, forum_ids: Collection[int]
+    db_session: AsyncSession,
+    principal: User | None,
+    forum_ids: Collection[int],
+    only_game_ids: Collection[int] | None = None,
 ) -> set[int]:
     """Which of the given forums the principal can read; ``None`` is the guest
     role, so the result is what the public can see. Only these forums are loaded
     and checked, so callers narrow to the forums they care about first (those
     with recent activity, say) instead of checking every forum on the site.
-    Permission rules stay in ``ForumPermissions``."""
+    ``only_game_ids`` drops game forums of other games before the check (forums
+    outside games are unaffected). Permission rules stay in ``ForumPermissions``."""
     if not forum_ids:
         return set()
     candidates = list(
@@ -49,6 +53,12 @@ async def filter_readable_forum_ids(
             list(forum_ids)
         )
     )
+    if only_game_ids is not None:
+        candidates = [
+            forum
+            for forum in candidates
+            if forum.game_id is None or forum.game_id in only_game_ids
+        ]
     permissions = await ForumPermissions.load(db_session, principal, candidates)
     return {
         forum.id for forum in candidates if permissions.has(forum, Verbs.FORUM_READ)

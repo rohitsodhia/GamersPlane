@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.models import RolePermission
+from app.models import FavoriteGame, RolePermission
 from app.repositories import ThreadRepository
 from tests.conftest import SITE_ROOT_FORUM_ID
 from tests.factories import ForumFactory, PostFactory, ThreadFactory
@@ -22,6 +22,11 @@ async def add_thread(create, db_session, forum, **ago):
     )
     await ThreadRepository(db_session, principal=None).attach_new_post(thread, post)
     return thread
+
+
+async def favorite(db_session, user, *games):
+    db_session.add_all(FavoriteGame(user_id=user.id, game_id=g.id) for g in games)
+    await db_session.flush()
 
 
 def ids(response) -> list[int]:
@@ -147,6 +152,7 @@ class TestLatestGame:
         client, user = authed_client
         public, private = games
         await grant(db_session, user, private.forum, Verbs.FORUM_READ)
+        await favorite(db_session, user, public.game, private.game)
         in_public = await add_thread(create, db_session, public.forum)
         in_private = await add_thread(create, db_session, private.forum, hours=2)
         await add_thread(create, db_session, open_forum)
@@ -159,8 +165,10 @@ class TestLatestGame:
     async def test_game_forums_the_principal_cannot_read_are_left_out(
         self, authed_client, create, db_session, games
     ):
-        client, _ = authed_client
+        client, user = authed_client
         _, private = games
+        # Their own game, but they have no read access to it.
+        await favorite(db_session, user, private.game)
         await add_thread(create, db_session, private.forum)
 
         response = await client.get("/threads/search", params={"scope": "latest_game"})
