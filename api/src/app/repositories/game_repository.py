@@ -150,6 +150,18 @@ class GameRepository:
             )
         return list(await self.db_session.scalars(query))
 
+    async def get_game_forum_ids(self, game_ids: list[int]) -> set[int]:
+        """Every live forum of the given games: their root forums and subforums."""
+        if not game_ids:
+            return set()
+        return set(
+            await self.db_session.scalars(
+                select(Forum.id).where(
+                    Forum.game_id.in_(game_ids), Forum.deleted.is_(None)
+                )
+            )
+        )
+
     async def get_last_activity(self, game_ids: list[int]) -> dict[int, datetime]:
         """When each game last had a post, across its forum and subforums. Games
         without posts are left out."""

@@ -78,6 +78,8 @@ export type MyGameListItem = GameListItem & {
 	is_gm: boolean;
 	// Datetime of the game's newest post; null if it has none.
 	last_activity: string | null;
+	// Whether the game's forum (or a readable subforum) has unread posts.
+	has_unread: boolean;
 };
 
 export const myGamesQueryOptions = () =>

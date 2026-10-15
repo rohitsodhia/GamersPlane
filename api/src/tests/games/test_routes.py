@@ -5,7 +5,15 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
 from app.configs import configs
-from app.models import Deck, DeckPermission, FavoriteGame, Forum, Game, Player
+from app.models import (
+    Deck,
+    DeckPermission,
+    FavoriteGame,
+    Forum,
+    Game,
+    Player,
+    RolePermission,
+)
 from app.repositories import (
     CharacterRepository,
     CharacterSheetRepository,
@@ -19,9 +27,12 @@ from tests.factories import (
     ActivatedUserFactory,
     DeckTypeFactory,
     ForumFactory,
+    RoleFactory,
     SystemFactory,
     ThreadFactory,
 )
+
+Verbs = RolePermission.ValidPermissions
 
 SHEET_LAYOUT = {
     "schema_version": 1,
@@ -872,6 +883,62 @@ class TestGetMyGames(_GameFixtures):
             == threads[newer.id].last_post_at
         )
         assert games[2]["last_activity"] is None
+
+    async def test_get_my_games_has_unread_follows_the_games_forum_threads(
+        self, auth_as, client, db_session, create, gm, make_game
+    ):
+        unread = await make_game(gm, title="Unread")
+        read = await make_game(gm, title="Read")
+        await make_game(gm, title="Quiet")
+        await add_thread(
+            create, db_session, await db_session.get(Forum, unread.root_forum_id)
+        )
+        read_thread = await add_thread(
+            create, db_session, await db_session.get(Forum, read.root_forum_id)
+        )
+        await ReadTrackingRepository(db_session, principal=gm).mark_thread_read(
+            read_thread
+        )
+        client = auth_as(gm)
+
+        response = await client.get("/games/my")
+
+        flags = {g["title"]: g["has_unread"] for g in response.json()["games"]}
+        assert flags == {"Unread": True, "Read": False, "Quiet": False}
+
+    async def test_get_my_games_has_unread_rolls_up_readable_subforums_only(
+        self, auth_as, client, db_session, create, gm, make_game
+    ):
+        rolled_up = await make_game(gm, title="Rolled up")
+        hidden = await make_game(gm, title="Hidden")
+        for game in (rolled_up, hidden):
+            root = await db_session.get(Forum, game.root_forum_id)
+            subforum = await create(
+                ForumFactory,
+                parent_id=root.id,
+                heritage=[*root.heritage, root.id],
+                game_id=game.id,
+            )
+            await add_thread(create, db_session, subforum)
+        # A deny on the last (Hidden's) subforum overrides what the GM gets from
+        # its root.
+        denial = RoleFactory.build()
+        db_session.add(denial)
+        for verb in (Verbs.FORUM_READ, Verbs.FORUM_MODERATE):
+            denial.grant(
+                verb,
+                scope_type=RolePermission.ScopeTypes.FORUM,
+                scope_id=subforum.id,
+                effect=RolePermission.Effects.DENY,
+            )
+        denial.users.append(gm)
+        await db_session.flush()
+        client = auth_as(gm)
+
+        response = await client.get("/games/my")
+
+        flags = {g["title"]: g["has_unread"] for g in response.json()["games"]}
+        assert flags == {"Rolled up": True, "Hidden": False}
 
     async def test_get_my_games_is_gm_true_for_delegated_co_gm(
         self, auth_as, client, db_session, gm, make_game, create

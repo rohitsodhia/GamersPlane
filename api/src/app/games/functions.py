@@ -1,6 +1,33 @@
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.exceptions import ForbiddenException, NotFoundException
+from app.forums.functions import filter_readable_forum_ids
+from app.middleware import Principal
 from app.models import Deck, Game, Player
-from app.repositories import DeckRepository, GameRepository, PlayerRepository
+from app.repositories import (
+    DeckRepository,
+    GameRepository,
+    PlayerRepository,
+    ReadTrackingRepository,
+)
+
+
+async def unread_game_ids(
+    db_session: AsyncSession, principal: Principal, games: list[Game]
+) -> set[int]:
+    """The games whose root forum has unread posts for the principal, counting
+    their readable subforums as the forum index does. A game whose root forum
+    isn't readable is never unread."""
+    if not games:
+        return set()
+    forum_ids = await GameRepository(
+        db_session, principal=principal
+    ).get_game_forum_ids([game.id for game in games])
+    readable_ids = await filter_readable_forum_ids(db_session, principal, forum_ids)
+    unread_forum_ids = await ReadTrackingRepository(
+        db_session, principal=principal
+    ).unread_forum_ids(readable_ids)
+    return {game.id for game in games if game.root_forum_id in unread_forum_ids}
 
 
 async def get_game_or_404(game_repository: GameRepository, game_id: int) -> Game:

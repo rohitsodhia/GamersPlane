@@ -19,6 +19,7 @@ from app.games.functions import (
     require_game_exists,
     require_gm,
     require_not_retired,
+    unread_game_ids,
 )
 from app.helpers.avatars import read_avatar_upload
 from app.helpers.decorators import public
@@ -175,6 +176,7 @@ async def get_my_games(db_session: DBSessionDependency, principal: Principal):
     )
     gm_game_ids = await game_repository.get_principal_gm_game_ids(game_ids)
     last_activity = await game_repository.get_last_activity(game_ids)
+    unread_ids = await unread_game_ids(db_session, principal, games)
 
     # Games come back by title; the sort is stable, so ties on activity (and games
     # without any, last) stay in title order.
@@ -188,6 +190,7 @@ async def get_my_games(db_session: DBSessionDependency, principal: Principal):
                 **_game_to_data(game, player_counts, favorited_ids).model_dump(),
                 is_gm=game.id in gm_game_ids,
                 last_activity=last_activity.get(game.id),
+                has_unread=game.id in unread_ids,
             )
             for game in games
         ],

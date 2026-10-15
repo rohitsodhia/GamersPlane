@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import clsx from "clsx";
 import { useState } from "react";
 import { Button } from "react-aria-components";
 import { DateTime } from "#/components/DateTime";
+import DieIcon from "#/components/DieIcon";
 import LoadingSpinner from "#/components/LoadingSpinner";
 import RAIcon from "#/components/RAIcon";
 import { TiptapContent } from "#/components/TiptapContent";
@@ -59,7 +61,10 @@ function GameRows({ games }: { games: MyGameListItem[] }) {
 		<>
 			{games.map((game) => (
 				<li key={game.id} className={styles["game-row"]}>
-					<RAIcon className="ra-gamers-plane" />
+					<DieIcon
+						className={clsx(!game.has_unread && "read")}
+						title={`Game Status - ${game.has_unread ? "Unread" : "Read"}`}
+					/>
 					<div className={styles["game-info"]}>
 						<Link
 							to="/games/$gameId"

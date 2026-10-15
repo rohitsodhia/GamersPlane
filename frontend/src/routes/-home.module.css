@@ -158,6 +158,11 @@
 		color: var(--gp-red);
 		font-size: 1.4em;
 	}
+
+	/* Icon size is set globally; keep it from shrinking beside a long title. */
+	:global(.forum-icon) {
+		flex-shrink: 0;
+	}
 }
 
 .game-info {
