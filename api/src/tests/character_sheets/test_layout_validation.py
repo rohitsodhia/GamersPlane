@@ -218,7 +218,9 @@ class TestValidateLive:
 
     def test_rejects_live_on_other_types(self):
         with pytest.raises(ValidationError, match="isn't allowed on a 'text'"):
-            validate_sheet_layout(_layout({"type": "text", "content": [], "live": True}))
+            validate_sheet_layout(
+                _layout({"type": "text", "content": [], "live": True})
+            )
 
     def test_rejects_a_non_boolean(self):
         with pytest.raises(ValidationError, match="'live'.* must be a boolean"):
