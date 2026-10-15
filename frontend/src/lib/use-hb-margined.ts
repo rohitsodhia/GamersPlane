@@ -7,6 +7,10 @@ import { useResizeObserver } from "#/lib/use-resize-observer";
  * Attach `ref` to the headerbar; apply the returned `margin` to whichever
  * other elements need to line up with it (marginInlineStart, marginInlineEnd,
  * or marginInline for both), regardless of their position relative to it.
+ *
+ * It measures when the calling component mounts, so the element must be rendered
+ * by then. For one that appears later (behind a loading state, say), call the hook
+ * in the component that renders it, or it will never be measured.
  */
 export function useHbMargined<T extends HTMLElement>() {
 	const [margin, setMargin] = useState(0);

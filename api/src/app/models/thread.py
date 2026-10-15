@@ -28,6 +28,8 @@ class Thread(Base, SoftDeleteMixin, TimestampMixin):
     __tablename__ = "threads"
     __table_args__ = (
         Index("ix_threads_forum_id_last_post_at", "forum_id", "last_post_at"),
+        # For the cross-forum listings, which start from recent activity.
+        Index("ix_threads_last_post_at", "last_post_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

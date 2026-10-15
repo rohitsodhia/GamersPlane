@@ -1,0 +1,12 @@
+.search-form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5em;
+
+	input {
+		flex: 1 1 12em;
+		min-width: 0;
+		max-width: 24em;
+	}
+}

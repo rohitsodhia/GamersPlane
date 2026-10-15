@@ -26,6 +26,7 @@ from app.threads.functions import (
     build_post_data,
     check_thread_options,
     get_readable_thread,
+    list_recent_threads,
     merge_thread_options,
 )
 from app.threads.poll_functions import (
@@ -79,6 +80,22 @@ async def get_threads(
         count=await thread_repository.count_by_forum(forum_id),
         page=page,
     )
+
+
+@threads.get("/search", response_model=schemas.GetThreadListingResponse)
+@public
+async def search_threads(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    scope: schemas.ThreadListScope,
+    page: int = 1,
+):
+    """Threads from the past week across forums, by ``scope`` (see
+    ``ThreadListScope``). Public, but the ``unread`` scope needs a login."""
+    if page < 1:
+        page = 1
+
+    return await list_recent_threads(db_session, principal, scope, page)
 
 
 @threads.get("/{thread_id}", response_model=schemas.GetThreadResponse)

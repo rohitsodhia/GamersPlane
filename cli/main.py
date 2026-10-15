@@ -439,7 +439,7 @@ def random_post_content() -> tuple[str, dict]:
 @app.command()
 @async_command
 async def create_thread(
-    forum_id: int = typer.Option(default=1, prompt=True),
+    forum_id: int = typer.Option(default=4, prompt=True),
     user_id: int = typer.Option(default=1, prompt=True),
 ):
     async with session_manager.session() as session:

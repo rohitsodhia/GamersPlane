@@ -1,10 +1,13 @@
+from collections.abc import Collection
 from datetime import UTC, datetime
 
 from sqlalchemy import ScalarResult, false, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.configs import configs
+from app.helpers.sql import in_array
 from app.models import Forum, Post, Thread, User
+from app.repositories.read_tracking_repository import ReadTrackingRepository
 
 
 class ThreadRepository:
@@ -60,6 +63,71 @@ class ThreadRepository:
             .offset((page - 1) * limit)
         )
         return threads
+
+    async def recently_active_forum_ids(
+        self, since: datetime, game_only: bool = False
+    ) -> set[int]:
+        """The forums holding a live thread whose last post is at or after
+        ``since`` (only game forums with ``game_only``)."""
+        query = (
+            select(Thread.forum_id)
+            .join(Forum, Thread.forum_id == Forum.id)
+            .where(
+                Thread.deleted.is_(None),
+                Forum.deleted.is_(None),
+                Thread.last_post_at >= since,
+            )
+            .distinct()
+        )
+        if game_only:
+            query = query.where(Forum.game_id.is_not(None))
+        return set(await self.db_session.scalars(query))
+
+    async def get_recent(
+        self,
+        forum_ids: Collection[int],
+        since: datetime,
+        page: int = 1,
+        limit: int = configs.PAGINATE_PER_PAGE,
+        unread_only: bool = False,
+    ) -> tuple[list[Thread], int]:
+        """A page of the threads in ``forum_ids`` whose last post is at or after
+        ``since`` (newest last post first), and how many there are in all.
+        ``unread_only`` keeps only those the principal hasn't read.
+
+        ``last_post_at`` is the denormalized time of the thread's last published,
+        live post, so a thread with no such post never qualifies.
+        """
+        if not forum_ids:
+            return [], 0
+        ids_query = select(Thread.id).where(
+            in_array(Thread.forum_id, forum_ids),
+            Thread.deleted.is_(None),
+            Thread.last_post_at.is_not(None),
+            Thread.last_post_at >= since,
+        )
+        if unread_only:
+            ids_query = await ReadTrackingRepository(
+                self.db_session, principal=self.principal
+            ).only_unread_threads(ids_query, forum_ids)
+
+        count = await self.db_session.scalar(
+            select(func.count()).select_from(ids_query.subquery())
+        )
+        page_ids = list(
+            await self.db_session.scalars(
+                ids_query.order_by(Thread.last_post_at.desc(), Thread.id.desc())
+                .limit(limit)
+                .offset((page - 1) * limit)
+            )
+        )
+        loaded = {
+            thread.id: thread
+            for thread in await self.db_session.scalars(
+                select(Thread).where(Thread.id.in_(page_ids))
+            )
+        }
+        return [loaded[thread_id] for thread_id in page_ids], count or 0
 
     async def create(
         self,

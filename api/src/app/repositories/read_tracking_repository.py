@@ -3,6 +3,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy import (
     Integer,
+    Select,
+    Values,
     column,
     delete,
     func,
@@ -15,6 +17,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import DateTime
 
+from app.helpers.sql import in_array
 from app.models import Forum, ForumRead, Post, Thread, ThreadRead, User
 from app.repositories.forum_repository import SITE_ROOT_FORUM_ID
 
@@ -93,21 +96,7 @@ class ReadTrackingRepository:
         }
         if not heritages:
             return set()
-        forum_reads = await self._forum_reads()
-
-        cutoffs = values(
-            column("forum_id", Integer),
-            column("cutoff", DateTime(timezone=True)),
-            name="forum_cutoffs",
-        ).data(
-            [
-                (
-                    forum_id,
-                    _cutoff(forum_reads, forum_id, heritage) or _NO_CUTOFF,
-                )
-                for forum_id, heritage in heritages.items()
-            ]
-        )
+        cutoffs = await self._forum_cutoffs(heritages)
         cutoff = cutoffs.c.cutoff
         # The comparisons against the cutoff and the thread's own marker are kept
         # separate (rather than against greatest() of the two), and the cutoff is
@@ -157,6 +146,41 @@ class ReadTrackingRepository:
             unread.add(forum_id)
             unread.update(heritages[forum_id])
         return unread & readable
+
+    async def only_unread_threads(
+        self, query: Select, readable_forum_ids: Collection[int]
+    ) -> Select:
+        """``query`` (a select over ``Thread``) limited to the threads in the
+        readable forums that have unread posts: the same rules as
+        ``unread_thread_ids``, evaluated in SQL so the result can be paged."""
+        heritages = {
+            row.id: row.heritage
+            for row in await self.db_session.execute(
+                select(Forum.id, Forum.heritage).where(
+                    in_array(Forum.id, readable_forum_ids)
+                )
+            )
+        }
+        cutoffs = await self._forum_cutoffs(heritages)
+        return (
+            query.join(cutoffs, cutoffs.c.forum_id == Thread.forum_id)
+            .outerjoin(
+                ThreadRead,
+                (ThreadRead.thread_id == Thread.id)
+                & (ThreadRead.user_id == self.principal.id),
+            )
+            .where(
+                Thread.last_post_at.is_not(None),
+                # A pinned thread ignores the forum cutoff.
+                or_(
+                    ThreadRead.pinned.is_(True), Thread.last_post_at > cutoffs.c.cutoff
+                ),
+                or_(
+                    ThreadRead.read_until.is_(None),
+                    Thread.last_post_at > ThreadRead.read_until,
+                ),
+            )
+        )
 
     # Writes
 
@@ -249,6 +273,21 @@ class ReadTrackingRepository:
         )
 
     # Internals
+
+    async def _forum_cutoffs(self, heritages: dict[int, list[int]]) -> Values:
+        """A VALUES list of each forum's read cutoff (``_NO_CUTOFF`` when it has
+        none, so the column is never NULL)."""
+        forum_reads = await self._forum_reads()
+        return values(
+            column("forum_id", Integer),
+            column("cutoff", DateTime(timezone=True)),
+            name="forum_cutoffs",
+        ).data(
+            [
+                (forum_id, _cutoff(forum_reads, forum_id, heritage) or _NO_CUTOFF)
+                for forum_id, heritage in heritages.items()
+            ]
+        )
 
     async def _forum_reads(self) -> dict[int, datetime]:
         # Selects columns, not entities, so nothing stale comes from the identity

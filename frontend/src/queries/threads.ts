@@ -74,6 +74,49 @@ type ThreadsResponse = {
 	page: number;
 };
 
+export type ThreadForum = {
+	id: number;
+	title: string;
+	game_id: number | null;
+	// The parent forums, outermost first, without the site root.
+	heritage: { id: number; title: string }[];
+};
+
+export type ThreadWithForum = Thread & { forum: ThreadForum };
+
+export const RECENT_SCOPES = [
+	"latest",
+	"latest_game",
+	"latest_public",
+	"unread",
+] as const;
+export type RecentScope = (typeof RECENT_SCOPES)[number];
+
+export const RECENT_SCOPE_LABELS: Record<RecentScope, string> = {
+	latest: "Latest Posts",
+	latest_game: "Latest Game Posts",
+	latest_public: "Latest Public Game Posts",
+	unread: "Unread Posts",
+};
+
+type RecentThreadsResponse = {
+	threads: ThreadWithForum[];
+	count: number;
+	page: number;
+};
+
+// Threads with a post in the last week. "unread" needs a login.
+export function recentThreadsQueryOptions(scope: RecentScope, page = 1) {
+	return queryOptions({
+		queryKey: ["threads", "recent", scope, page],
+		queryFn: async (): Promise<RecentThreadsResponse> => {
+			const res = await apiFetch(`/threads/search?scope=${scope}&page=${page}`);
+			if (!res.ok) throw new Error("Failed to fetch recent threads");
+			return res.json();
+		},
+	});
+}
+
 export type ThreadDetails = {
 	id: number;
 	forum_id: number;

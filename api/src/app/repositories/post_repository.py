@@ -1,4 +1,5 @@
 from collections.abc import Collection
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy import ScalarResult, func, select
@@ -6,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.configs import configs
+from app.helpers.prose import prose_to_text
+from app.helpers.sql import in_array
 from app.models import (
     Character,
     Deck,
@@ -20,10 +23,163 @@ from app.models import (
 from app.repositories.character_repository import CharacterRepository
 
 
+# Wrap the matched words in a search snippet. Private-use characters rather than
+# markup, so the snippet is plain text that can't carry HTML; callers split on
+# them (see ``split_snippet``).
+SNIPPET_MATCH_START = "\ue000"
+SNIPPET_MATCH_END = "\ue001"
+# The most matches a search counts; past it the response says the count is capped.
+SEARCH_COUNT_CAP = 1000
+_HEADLINE_OPTIONS = (
+    f"StartSel={SNIPPET_MATCH_START}, StopSel={SNIPPET_MATCH_END}, "
+    'MaxWords=35, MinWords=15, MaxFragments=2, FragmentDelimiter=" ... "'
+)
+
+
+@dataclass
+class PostSearchResult:
+    post_id: int
+    thread_id: int
+    title: str
+    published_at: datetime
+    author_id: int
+    author_username: str
+    forum_id: int
+    forum_title: str
+    game_id: int | None
+    rank: float
+    # The matching part of the post's text, matches wrapped in the markers above.
+    snippet: str
+
+
 class PostRepository:
     def __init__(self, db_session: AsyncSession, principal: User):
         self.db_session = db_session
         self.principal = principal
+
+    @staticmethod
+    def _search_matches(tsquery, game_id: int | None) -> tuple:
+        """The conditions for a live, published post matching the query (in the
+        game's forums, if given), over ``Post`` joined to ``Thread`` and ``Forum``."""
+        return (
+            Post.state == Post.States.PUBLISHED,
+            Post.deleted.is_(None),
+            Thread.deleted.is_(None),
+            Post.search_tsv.bool_op("@@")(tsquery),
+            *((Forum.game_id == game_id,) if game_id is not None else ()),
+        )
+
+    async def search_forum_ids(self, text: str, game_id: int | None = None) -> set[int]:
+        """The forums holding at least one post that ``search`` would match. Check
+        the principal's access to just these before searching."""
+        tsquery = func.websearch_to_tsquery("english", text)
+        return set(
+            await self.db_session.scalars(
+                select(Thread.forum_id)
+                .select_from(Post)
+                .join(Thread, Post.thread_id == Thread.id)
+                .join(Forum, Thread.forum_id == Forum.id)
+                .where(*self._search_matches(tsquery, game_id))
+                .distinct()
+            )
+        )
+
+    async def search(
+        self,
+        text: str,
+        forum_ids: Collection[int],
+        game_id: int | None = None,
+        page: int = 1,
+        limit: int = configs.PAGINATE_PER_PAGE,
+    ) -> tuple[list[PostSearchResult], int, bool]:
+        """A page of the published, live posts in ``forum_ids`` (narrowed to the
+        game's forums with ``game_id``) matching ``text``, best match first, the
+        number of matches, and whether that count stopped at ``SEARCH_COUNT_CAP``
+        (the real total is higher).
+
+        ``text`` is parsed by ``websearch_to_tsquery`` (quoted phrases, ``or``,
+        ``-exclusion``), which never raises on odd input.
+        """
+        if not forum_ids:
+            return [], 0, False
+        tsquery = func.websearch_to_tsquery("english", text)
+        matching = (
+            in_array(Thread.forum_id, forum_ids),
+            *self._search_matches(tsquery, game_id),
+        )
+        # One past the cap, to tell "exactly the cap" from "more than the cap".
+        capped_matches = (
+            select(Post.id)
+            .join(Thread, Post.thread_id == Thread.id)
+            .join(Forum, Thread.forum_id == Forum.id)
+            .where(*matching)
+            .limit(SEARCH_COUNT_CAP + 1)
+        )
+        found = (
+            await self.db_session.scalar(
+                select(func.count()).select_from(capped_matches.subquery())
+            )
+            or 0
+        )
+        count = min(found, SEARCH_COUNT_CAP)
+        rank = func.ts_rank(Post.search_tsv, tsquery).label("rank")
+        rows = (
+            await self.db_session.execute(
+                select(
+                    Post.id,
+                    Post.thread_id,
+                    Post.title,
+                    Post.published_at,
+                    Post.author_id,
+                    User.username,
+                    Forum.id.label("forum_id"),
+                    Forum.title.label("forum_title"),
+                    Forum.game_id,
+                    rank,
+                )
+                .join(Thread, Post.thread_id == Thread.id)
+                .join(Forum, Thread.forum_id == Forum.id)
+                .join(User, Post.author_id == User.id)
+                .where(*matching)
+                .order_by(rank.desc(), Post.published_at.desc(), Post.id.desc())
+                .limit(limit)
+                .offset((page - 1) * limit)
+            )
+        ).all()
+
+        # Headlines are slow, so they're made only for the page's posts.
+        snippets = dict(
+            (
+                await self.db_session.execute(
+                    select(
+                        Post.id,
+                        func.ts_headline(
+                            "english", Post.body_text, tsquery, _HEADLINE_OPTIONS
+                        ),
+                    ).where(Post.id.in_([row.id for row in rows]))
+                )
+            ).all()
+        )
+        return (
+            [
+                PostSearchResult(
+                    post_id=row.id,
+                    thread_id=row.thread_id,
+                    title=row.title,
+                    published_at=row.published_at,
+                    author_id=row.author_id,
+                    author_username=row.username,
+                    forum_id=row.forum_id,
+                    forum_title=row.forum_title,
+                    game_id=row.game_id,
+                    rank=row.rank,
+                    snippet=snippets[row.id],
+                )
+                for row in rows
+            ],
+            count,
+            found > SEARCH_COUNT_CAP,
+        )
 
     async def count_by_author(self, author_id: int) -> tuple[int, int]:
         """Returns (game_post_count, community_post_count) for a user."""
@@ -148,6 +304,7 @@ class PostRepository:
             author_id=author_id,
             title=title,
             body=body,
+            body_text=prose_to_text(body),
             state=state,
             posted_as_id=posted_as_id,
             posted_avatar_id=posted_avatar_id,
@@ -227,6 +384,7 @@ class PostRepository:
     async def update(self, post: Post, title: str, body: dict) -> Post:
         post.title = title
         post.body = body
+        post.body_text = prose_to_text(body)
         self.db_session.add(post)
         await self.db_session.flush()
         return post

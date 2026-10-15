@@ -1,0 +1,14 @@
+.short {
+	display: none;
+}
+
+/* Media queries can't use CSS variables, so the 600px phone breakpoint is literal. */
+@media (max-width: 600px) {
+	.long {
+		display: none;
+	}
+
+	.short {
+		display: inline;
+	}
+}
