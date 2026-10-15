@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
+import { DateTime } from "#/components/DateTime";
 import ForumSearchForm from "#/components/ForumSearchForm";
 import LoadingSpinner from "#/components/LoadingSpinner";
 import Paginate from "#/components/Paginate";
 import { ApiError } from "#/lib/api";
-import { formatDateTime } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	resultCountLabel,
@@ -49,7 +49,7 @@ function ResultItem({ result }: { result: SearchResult }) {
 				>
 					{result.author.username}
 				</Link>{" "}
-				on {formatDateTime(result.published_at)}
+				on <DateTime value={result.published_at} />
 			</div>
 			<p className={styles["snippet"]}>
 				{result.snippet.map((part, i) => {

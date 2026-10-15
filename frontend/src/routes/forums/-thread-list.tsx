@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import clsx from "clsx";
+import { DateTime } from "#/components/DateTime";
 import DieIcon from "#/components/DieIcon";
 import LockIcon from "#/components/LockIcon";
 import PinIcon from "#/components/PinIcon";
 import { PAGINATE_PER_PAGE } from "#/lib/config";
-import { formatDateTime } from "#/lib/format-date";
 import type { Thread, ThreadForum, ThreadOptions } from "#/queries/threads";
 import styles from "./-thread-list.module.css";
 
@@ -36,7 +36,7 @@ export function LastPostInfo({
 			>
 				{lastPost.author.username}
 			</Link>
-			<span>{formatDateTime(lastPost.datestamp)}</span>
+			<DateTime value={lastPost.datestamp} />
 		</div>
 	);
 }
@@ -148,7 +148,7 @@ function ThreadRow({ thread }: { thread: Thread & { forum?: ThreadForum } }) {
 							</Link>{" "}
 						</>
 					)}
-					on <span>{formatDateTime(thread.first_post.datestamp)}</span>
+					on <DateTime value={thread.first_post.datestamp} />
 				</div>
 			</div>
 			<div>{thread.post_count}</div>

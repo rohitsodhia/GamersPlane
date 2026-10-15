@@ -7,6 +7,15 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
 	hour12: true,
 });
 
+const shortDateTimeFormatter = new Intl.DateTimeFormat("en-US", {
+	month: "short",
+	day: "numeric",
+	year: "numeric",
+	hour: "numeric",
+	minute: "2-digit",
+	hour12: true,
+});
+
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
 	month: "long",
 	day: "numeric",
@@ -26,4 +35,17 @@ export function formatDateTime(date: Date | string | number) {
 		parts.find((part) => part.type === type)?.value;
 
 	return `${get("month")} ${get("day")}, ${get("year")} ${get("hour")}:${get("minute")} ${get("dayPeriod")?.toLowerCase()}`;
+}
+
+// Produces "May 9, 4:09 am", or "May 9, 2025 4:09 am" for a year other than the
+// current one (`now` is for tests). For narrow screens; see the DateTime component.
+export function formatDateTimeShort(date: Date | string | number, now = new Date()) {
+	const value = new Date(date);
+	const parts = shortDateTimeFormatter.formatToParts(value);
+	const get = (type: Intl.DateTimeFormatPartTypes) =>
+		parts.find((part) => part.type === type)?.value;
+	// Local time, like the parts above.
+	const year = value.getFullYear() === now.getFullYear() ? "" : ` ${get("year")}`;
+
+	return `${get("month")} ${get("day")},${year} ${get("hour")}:${get("minute")} ${get("dayPeriod")?.toLowerCase()}`;
 }

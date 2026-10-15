@@ -4,7 +4,7 @@
 	padding: 0.5em;
 	text-align: center;
 
-	span {
+	time {
 		font-size: var(--font-size-sm);
 	}
 }
