@@ -1,0 +1,194 @@
+.home {
+	min-width: 0;
+}
+
+.columns {
+	display: grid;
+	grid-template-columns: 1fr 1.3fr 1fr;
+	gap: 0 1.5em;
+	align-items: start;
+
+	/* Grid items default to min-width: auto, which lets long titles force
+	   horizontal page scroll. */
+	& > * {
+		min-width: 0;
+	}
+}
+
+.widget {
+	margin-bottom: 1em;
+	min-width: 0;
+}
+
+.widget-header {
+	margin-block: 0.7rem 0.5rem;
+	font-size: 1.4em;
+
+	a,
+	a:visited,
+	a:active {
+		color: #fff;
+	}
+}
+
+/* The global h2.headerbar rules set the dark bar and would otherwise win. */
+.widget-header.tone-orange:global(.headerbar)::before {
+	background-color: var(--gp-orange);
+}
+
+.widget-header.tone-red:global(.headerbar)::before {
+	background-color: var(--gp-red);
+}
+
+.widget-footer {
+	margin-top: 0.5em;
+	padding-top: 0.4em;
+	font-size: var(--font-size-sm);
+	text-align: right;
+}
+
+.empty {
+	margin-block: 0.5em;
+}
+
+.join-game {
+	margin-block: 0.75em;
+	text-align: center;
+}
+
+.announcement-placeholder {
+	min-height: 3.5rem;
+}
+
+.announcement-title {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1em;
+}
+
+.toggle {
+	flex-shrink: 0;
+	padding: 0 0.4em;
+	border: 0;
+	background: transparent;
+	color: #fff;
+	font: inherit;
+	cursor: pointer;
+
+	&[data-focus-visible] {
+		outline: 1px solid #fff;
+	}
+}
+
+.thread-list,
+.latest-games {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.thread-row {
+	display: flex;
+	gap: 0.6em;
+	padding-block: 0.5em;
+	border-top: 1px solid #ccc;
+
+	&:first-child {
+		border-top: 0;
+	}
+
+	/* Icon size is set globally; keep it from shrinking beside a long title. */
+	:global(.forum-icon) {
+		flex-shrink: 0;
+		margin-top: 0.15em;
+	}
+}
+
+.thread-info {
+	min-width: 0;
+}
+
+.thread-title {
+	font-weight: bold;
+	overflow-wrap: anywhere;
+}
+
+.thread-meta {
+	font-size: var(--font-size-sm);
+}
+
+.latest-game {
+	padding-block: 0.5em;
+	border-top: 1px solid #ccc;
+	overflow-wrap: anywhere;
+
+	&:first-child {
+		border-top: 0;
+	}
+}
+
+.latest-game-title {
+	margin-bottom: 0.25em;
+	font-weight: bold;
+}
+
+.system {
+	text-decoration: underline;
+}
+
+.game-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 16em), 1fr));
+	gap: 0.5em 1.5em;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.game-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5em;
+	min-width: 0;
+
+	:global(.ra) {
+		flex-shrink: 0;
+		margin-top: 0.1em;
+		color: var(--gp-red);
+		font-size: 1.4em;
+	}
+}
+
+.game-info {
+	min-width: 0;
+}
+
+.game-title {
+	font-weight: bold;
+	overflow-wrap: anywhere;
+}
+
+.game-meta {
+	font-size: var(--font-size-sm);
+}
+
+/* Media queries can't use CSS variables, so the 600px phone breakpoint is literal. */
+@media (max-width: 600px) {
+	.columns {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	/* Game posts first, then community posts, then the games widgets. */
+	.col-right {
+		order: 1;
+	}
+
+	.col-middle {
+		order: 2;
+	}
+
+	.col-left {
+		order: 3;
+	}
+}

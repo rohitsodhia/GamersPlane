@@ -74,7 +74,11 @@ export type GameListItem = {
 	favorited: boolean;
 };
 
-export type MyGameListItem = GameListItem & { is_gm: boolean };
+export type MyGameListItem = GameListItem & {
+	is_gm: boolean;
+	// Datetime of the game's newest post; null if it has none.
+	last_activity: string | null;
+};
 
 export const myGamesQueryOptions = () =>
 	queryOptions({
@@ -111,12 +115,19 @@ export const browseGamesQueryOptions = (
 		placeholderData: keepPreviousData,
 	});
 
-// With no systemId, returns the latest games across all systems.
-export const latestGamesQueryOptions = (systemId: string | null) =>
+// With no systemId, returns the latest games across all systems. `excludeMine`
+// leaves out games the viewer is already in (the homepage).
+export const latestGamesQueryOptions = (
+	systemId: string | null,
+	{ excludeMine = false }: { excludeMine?: boolean } = {},
+) =>
 	queryOptions({
-		queryKey: ["games", "latest", systemId],
+		queryKey: ["games", "latest", systemId, excludeMine],
 		queryFn: async (): Promise<GameListItem[]> => {
-			const qs = systemId ? `?${new URLSearchParams({ system: systemId })}` : "";
+			const params = new URLSearchParams();
+			if (systemId) params.set("system", systemId);
+			if (excludeMine) params.set("exclude_mine", "true");
+			const qs = params.size ? `?${params}` : "";
 			const res = await apiFetch(`/games/latest${qs}`);
 			if (!res.ok) throw new Error("Failed to fetch latest games");
 			return (await res.json()).games;

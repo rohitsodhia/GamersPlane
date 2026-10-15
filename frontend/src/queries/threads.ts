@@ -2,7 +2,11 @@ import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { ForumPermission } from "#/queries/forums";
-import type { PostAttachmentsInput, PostedNpcInput } from "#/queries/posts";
+import type {
+	Post as FullPost,
+	PostAttachmentsInput,
+	PostedNpcInput,
+} from "#/queries/posts";
 
 export type ThreadOptions = {
 	sticky: boolean;
@@ -105,13 +109,38 @@ type RecentThreadsResponse = {
 	page: number;
 };
 
-// Threads with a post in the last week. "unread" needs a login.
-export function recentThreadsQueryOptions(scope: RecentScope, page = 1) {
+// Threads with a post in the last week. "unread" needs a login. `limit` overrides
+// the page size (the homepage widgets show a handful).
+export function recentThreadsQueryOptions(
+	scope: RecentScope,
+	page = 1,
+	limit?: number,
+) {
 	return queryOptions({
-		queryKey: ["threads", "recent", scope, page],
+		queryKey: ["threads", "recent", scope, page, limit],
 		queryFn: async (): Promise<RecentThreadsResponse> => {
-			const res = await apiFetch(`/threads/search?scope=${scope}&page=${page}`);
+			const limitParam = limit === undefined ? "" : `&limit=${limit}`;
+			const res = await apiFetch(
+				`/threads/search?scope=${scope}&page=${page}${limitParam}`,
+			);
 			if (!res.ok) throw new Error("Failed to fetch recent threads");
+			return res.json();
+		},
+	});
+}
+
+export type Announcement = {
+	id: number;
+	title: string;
+	post: FullPost;
+};
+
+export function announcementQueryOptions() {
+	return queryOptions({
+		queryKey: ["threads", "announcement"],
+		queryFn: async (): Promise<Announcement> => {
+			const res = await apiFetch("/threads/announcement");
+			if (!res.ok) throw new Error("Failed to fetch announcement");
 			return res.json();
 		},
 	});
