@@ -13,7 +13,11 @@ from app.exceptions import (
     NotFoundException,
     ValidationError,
 )
-from app.helpers.avatars import process_avatar_upload, save_avatar
+from app.helpers.avatars import (
+    process_avatar_upload,
+    read_avatar_upload,
+    save_avatar,
+)
 from app.middleware import Principal
 from app.models import Character, CharacterSheet, CharacterSheetVersion
 from app.repositories import (
@@ -410,7 +414,7 @@ async def add_character_avatar(
             f"A character can have at most {AVATAR_MAX_COUNT} avatars",
         )
 
-    contents = await avatar.read()
+    contents = await read_avatar_upload(avatar)
     image, ext = process_avatar_upload(contents)
 
     new_avatar = await character_repository.add_avatar(character, ext)

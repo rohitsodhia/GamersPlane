@@ -19,6 +19,7 @@ from app.games.functions import (
     require_gm,
     require_not_retired,
 )
+from app.helpers.avatars import read_avatar_upload
 from app.helpers.decorators import public
 from app.helpers.remote_image import fetch_remote_image
 from app.middleware import Principal
@@ -825,7 +826,7 @@ async def upload_game_image(
     return await store_npc_image(
         QuickNPCRepository(db_session, principal=principal),
         NPCOwner.game(game_id),
-        await image.read(),
+        await read_avatar_upload(image),
     )
 
 

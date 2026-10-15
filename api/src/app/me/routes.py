@@ -6,7 +6,11 @@ from app.auth.functions import validate_password_change
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.forums.permissions import moderated_roots
-from app.helpers.avatars import process_avatar_upload, save_avatar
+from app.helpers.avatars import (
+    process_avatar_upload,
+    read_avatar_upload,
+    save_avatar,
+)
 from app.helpers.functions import error_response
 from app.helpers.remote_image import fetch_remote_image
 from app.me import schemas
@@ -192,7 +196,7 @@ async def update_current_user_avatar(
     db_session: DBSessionDependency,
     avatar: UploadFile = File(...),
 ):
-    contents = await avatar.read()
+    contents = await read_avatar_upload(avatar)
     image, ext = process_avatar_upload(contents)
 
     avatars_dir = Path(configs.AVATARS_DIR + "/users")
@@ -265,7 +269,7 @@ async def upload_my_image(
     return await store_npc_image(
         QuickNPCRepository(db_session, principal=principal),
         NPCOwner.user(principal.id),
-        await image.read(),
+        await read_avatar_upload(image),
     )
 
 

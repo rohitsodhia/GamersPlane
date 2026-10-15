@@ -26,6 +26,10 @@ server {
 
     server_name ${API_SERVER_NAMES};
 
+    # Avatar uploads are capped at 10MB by the API (AVATAR_MAX_BYTES); leave
+    # room for the multipart envelope. nginx's 1MB default would 413 them first.
+    client_max_body_size 11m;
+
     location / {
         proxy_pass http://api:8000;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -39,6 +43,8 @@ server {
     server_name ${IMAGES_SERVER_NAMES};
 
     root /var/www/images;
+
+    add_header X-Content-Type-Options nosniff always;
 
     location / {
         try_files $uri =404;
