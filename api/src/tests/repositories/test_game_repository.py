@@ -413,3 +413,19 @@ class TestGameRepository:
         activity = await repository.get_last_activity([busy.id, quiet.id])
 
         assert activity == {busy.id: latest.last_post_at}
+
+    async def test_get_last_activity_ignores_deleted_threads(
+        self, repository, gm, system, create, db_session
+    ):
+        game = await repository.create(
+            "Game", system.id, [], gm.id, "1/d", 4, 1, None, None, True, None, None
+        )
+        root = await db_session.get(Forum, game.root_forum_id)
+        live = await add_thread(create, db_session, root, days=3)
+        deleted = await add_thread(create, db_session, root, days=1)
+        deleted.deleted = deleted.last_post_at
+        await db_session.flush()
+
+        activity = await repository.get_last_activity([game.id])
+
+        assert activity == {game.id: live.last_post_at}

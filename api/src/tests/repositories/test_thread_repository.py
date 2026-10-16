@@ -289,8 +289,9 @@ class TestThreadRepository:
         await add_thread(create, db_session, forum)
         await db_session.flush()
 
-        # Random, so ask a few times: a plain thread is never chosen.
-        for _ in range(6):
+        # Random, so ask plenty of times: a plain thread is never chosen (an
+        # implementation ignoring sticky would pass 20 draws about 0.3% of the time).
+        for _ in range(20):
             featured = await repository.get_featured(forum.id)
             assert featured.id in sticky
 

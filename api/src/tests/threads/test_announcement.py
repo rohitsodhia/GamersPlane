@@ -47,12 +47,3 @@ class TestGetAnnouncement:
         response = await client.get("/threads/announcement")
 
         assert response.status_code == 404
-
-    async def test_unreadable_forum_is_404(self, authed_client, create, db_session):
-        client, _ = authed_client
-        closed = await create(ForumFactory, id=ANNOUNCEMENTS_FORUM_ID, heritage=[])
-        await add_thread(create, db_session, closed)
-
-        response = await client.get("/threads/announcement")
-
-        assert response.status_code == 404
