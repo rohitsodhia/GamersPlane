@@ -1,10 +1,11 @@
 import pytest
 from sqlalchemy import select, text
 
-from app.models import Forum, Role, RolePermission, UserRole
+from app.models import Forum, Player, Role, RolePermission, UserRole
 from app.models.game import PostFrequency
-from app.repositories import GameRepository
+from app.repositories import GameRepository, PlayerRepository
 from tests.factories import ActivatedUserFactory, ForumFactory, SystemFactory
+from tests.threads.test_search_routes import add_thread
 
 Verbs = RolePermission.ValidPermissions
 
@@ -358,3 +359,73 @@ class TestGameRepository:
         root_forum = await db_session.get(Forum, game.root_forum_id)
         await db_session.refresh(root_forum)
         assert root_forum.title == "New Title"
+
+    async def test_get_latest_excludes_games_with_a_player_row_in_any_state(
+        self, repository, gm, system, create, db_session
+    ):
+        viewer = await create(ActivatedUserFactory)
+        open_game = await repository.create(
+            "Open", system.id, [], gm.id, "1/d", 4, 1, None, None, True, None, None
+        )
+        for state in Player.States:
+            game = await repository.create(
+                state.name,
+                system.id,
+                [],
+                gm.id,
+                "1/d",
+                4,
+                1,
+                None,
+                None,
+                True,
+                None,
+                None,
+            )
+            await PlayerRepository(db_session, principal=gm).attach_player_to_game(
+                game.id, viewer.id, state=state
+            )
+
+        games = await repository.get_latest(None, 10, exclude_user_id=viewer.id)
+
+        assert [g.id for g in games] == [open_game.id]
+
+    async def test_get_last_activity_takes_the_latest_post_across_subforums(
+        self, repository, gm, system, create, db_session
+    ):
+        busy = await repository.create(
+            "Busy", system.id, [], gm.id, "1/d", 4, 1, None, None, True, None, None
+        )
+        quiet = await repository.create(
+            "Quiet", system.id, [], gm.id, "1/d", 4, 1, None, None, True, None, None
+        )
+        root = await db_session.get(Forum, busy.root_forum_id)
+        subforum = await create(
+            ForumFactory,
+            parent_id=root.id,
+            heritage=[*root.heritage, root.id],
+            game_id=busy.id,
+        )
+        await add_thread(create, db_session, root, days=3)
+        latest = await add_thread(create, db_session, subforum, days=1)
+        await add_thread(create, db_session, subforum, days=2)
+
+        activity = await repository.get_last_activity([busy.id, quiet.id])
+
+        assert activity == {busy.id: latest.last_post_at}
+
+    async def test_get_last_activity_ignores_deleted_threads(
+        self, repository, gm, system, create, db_session
+    ):
+        game = await repository.create(
+            "Game", system.id, [], gm.id, "1/d", 4, 1, None, None, True, None, None
+        )
+        root = await db_session.get(Forum, game.root_forum_id)
+        live = await add_thread(create, db_session, root, days=3)
+        deleted = await add_thread(create, db_session, root, days=1)
+        deleted.deleted = deleted.last_post_at
+        await db_session.flush()
+
+        activity = await repository.get_last_activity([game.id])
+
+        assert activity == {game.id: live.last_post_at}

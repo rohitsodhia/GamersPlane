@@ -103,6 +103,10 @@ class GameData(SchemaBase):
 
 class MyGameData(GameData):
     is_gm: bool
+    # The latest post in any of the game's forums; null if it has none.
+    last_activity: datetime.datetime | None
+    # Whether the game's forum (with its readable subforums) has unread posts.
+    has_unread: bool
 
 
 class GetGamesResponse(SchemaBase):
