@@ -73,9 +73,64 @@ def initialize():
     )
 
 
-@app.command()
+async def create_thread(session, user, forum_id):
+    thread_repository = ThreadRepository(session, principal=user)
+    thread = await thread_repository.create(forum_id, Thread.Options())
+
+    title, body = random_post_content()
+    post = await PostRepository(session, principal=user).create(
+        thread.id, user.id, title, body, state=Post.States.PUBLISHED
+    )
+    await thread_repository.attach_new_post(thread, post)
+    await ReadTrackingRepository(session, principal=user).mark_viewed(
+        thread, post.published_at
+    )
+
+    return thread, title
+
+
+async def create_post(session, user, thread_id):
+    thread_repository = ThreadRepository(session, principal=user)
+    thread = await thread_repository.get(thread_id)
+    if thread is None:
+        typer.echo(f"No thread with id {thread_id}")
+        raise typer.Exit(code=1)
+
+    title, body = random_post_content()
+    post = await PostRepository(session, principal=user).create(
+        thread.id, user.id, title, body, state=Post.States.PUBLISHED
+    )
+    await thread_repository.attach_new_post(thread, post)
+    await ReadTrackingRepository(session, principal=user).mark_viewed(
+        thread, post.published_at
+    )
+
+    return post, thread
+
+
+async def create_game(session, gm, system_id, allowed_char_sheets_list):
+    game_repository = GameRepository(session, principal=gm)
+    game = await game_repository.create(
+        title=" ".join(mimesis_text.words(3)),
+        system_id=system_id,
+        allowed_char_sheets=allowed_char_sheets_list,
+        gm_id=gm.id,
+        post_frequency=f"{random.randint(1, 5)}/d",
+        num_players=random.randint(1, 6),
+        chars_per_player=1,
+        description=prose(mimesis_text.sentence()),
+        char_gen_info=prose(mimesis_text.sentence()),
+        public=True,
+        recruitment_thread_id=None,
+        advanced_options=None,
+    )
+
+    return game
+
+
+@app.command("seed")
 @async_command
-async def seed():
+async def cli_seed():
     async with session_manager.session() as session:
         with open("data/referral_links.json") as f:
             referral_links_data = json.load(f)
@@ -143,20 +198,21 @@ async def seed():
         await user_repo.update_user_meta(
             primary_user, {UserMeta.MetaKeys.AVATAR_EXT: "png"}
         )
-        user = await register_user(
+        user1 = await register_user(
             session,
             email="test@test.com",
             username="Irdalth",
             password="test1234",
         )
-        user.activate()
-        user = await register_user(
+        user1.activate()
+        user2 = await register_user(
             session,
             email="test2@test.com",
             username="Soliin",
             password="test1234",
         )
-        user.activate()
+        user2.activate()
+        user_list = [primary_user, user1, user2]
         typer.echo("Users added")
 
         admin_role = Role(id=Role.ADMIN_ID, name="Administrator", owner=primary_user)
@@ -211,6 +267,19 @@ async def seed():
         )
         typer.echo("System roles added")
 
+        thread, _ = await create_thread(session, primary_user, 3)
+        thread_repository = ThreadRepository(session, principal=primary_user)
+        await thread_repository.update_options(thread, Thread.Options(sticky=True))
+
+        for i in range(3):
+            user = random.choice(user_list)
+            thread, _ = await create_thread(session, user, 4)
+
+            for j in range(random.randint(3, 6)):
+                user = random.choice(user_list)
+                await create_post(session, user, thread.id)
+        typer.echo("Threads and posts created")
+
         with open("data/deck_types.json") as f:
             deck_types_data = json.load(f)
         for deck_type_data in deck_types_data:
@@ -220,7 +289,7 @@ async def seed():
         character_sheet_repo = CharacterSheetRepository(session, primary_user)
         character_sheet = await character_sheet_repo.create(
             name="Test 1",
-            system_id="dnd5",
+            system_id="custom",
         )
         # New sheets start as a draft; characters can only pin published versions.
         character_sheet_version, _ = await character_sheet_repo.publish_draft(
@@ -256,10 +325,21 @@ async def seed():
         }
         typer.echo("Character added")
 
+        await create_game(session, primary_user, "dnd5", ["dnd5"])
+        game = await create_game(session, user1, "custom", ["custom"])
+        player_repository = PlayerRepository(session, principal=primary_user)
+        await player_repository.attach_player_to_game(
+            game.id, primary_user.id, state=Player.States.ACCEPTED
+        )
+        await character_repo.submit_to_game(character, game.id)
+        await character_repo.approve(character)
+        await create_game(session, user1, "custom", ["custom"])
+        typer.echo("Games added")
 
-@app.command()
+
+@app.command("create-user")
 @async_command
-async def create_user(
+async def cli_create_user(
     username: str = typer.Option(..., prompt=True),
     email: str = typer.Option(..., prompt=True),
     password: str = typer.Option(
@@ -275,9 +355,9 @@ async def create_user(
             user.activate()
 
 
-@app.command()
+@app.command("create-game")
 @async_command
-async def create_game(
+async def cli_create_game(
     system_id: str = typer.Option("custom", prompt=True),
     allowed_char_sheets: str = typer.Option(
         "custom", prompt="Allowed char sheets (comma separated)"
@@ -295,32 +375,14 @@ async def create_game(
             typer.echo(f"No user with id {gm_id}")
             raise typer.Exit(code=1)
 
-        game_repository = GameRepository(session, principal=gm)
-        game = await game_repository.create(
-            title=" ".join(mimesis_text.words(3)),
-            system_id=system_id,
-            allowed_char_sheets=allowed_char_sheets_list,
-            gm_id=gm_id,
-            post_frequency=f"{random.randint(1, 5)}/d",
-            num_players=random.randint(1, 6),
-            chars_per_player=1,
-            description=prose(mimesis_text.sentence()),
-            char_gen_info=prose(mimesis_text.sentence()),
-            public=True,
-            recruitment_thread_id=None,
-            advanced_options=None,
-        )
-        player_repository = PlayerRepository(session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm_id, is_gm=True, state=Player.States.ACCEPTED
-        )
+        game = await create_game(session, gm, system_id, allowed_char_sheets_list)
 
         typer.echo(f"Game {game.id} created: {game.title}")
 
 
-@app.command()
+@app.command("create-char-sheet")
 @async_command
-async def create_char_sheet(
+async def cli_create_char_sheet(
     system_id: str = typer.Option("custom", prompt=True),
     user_id: int = typer.Option(default=1, prompt=True),
     name: str = typer.Option("", prompt="Name (blank for random)", show_default=False),
@@ -436,9 +498,9 @@ def random_post_content() -> tuple[str, dict]:
     return title, body
 
 
-@app.command()
+@app.command("create-thread")
 @async_command
-async def create_thread(
+async def cli_create_thread(
     forum_id: int = typer.Option(default=4, prompt=True),
     user_id: int = typer.Option(default=1, prompt=True),
 ):
@@ -452,24 +514,14 @@ async def create_thread(
             typer.echo(f"No forum with id {forum_id}")
             raise typer.Exit(code=1)
 
-        thread_repository = ThreadRepository(session, principal=user)
-        thread = await thread_repository.create(forum_id, Thread.Options())
-
-        title, body = random_post_content()
-        post = await PostRepository(session, principal=user).create(
-            thread.id, user.id, title, body, state=Post.States.PUBLISHED
-        )
-        await thread_repository.attach_new_post(thread, post)
-        await ReadTrackingRepository(session, principal=user).mark_viewed(
-            thread, post.published_at
-        )
+        thread, title = await create_thread(session, user, forum_id)
 
         typer.echo(f"Thread {thread.id} created in forum {forum_id}: {title}")
 
 
-@app.command()
+@app.command("create-post")
 @async_command
-async def create_post(
+async def cli_create_post(
     thread_id: int = typer.Option(..., prompt=True),
     user_id: int = typer.Option(default=1, prompt=True),
 ):
@@ -479,20 +531,7 @@ async def create_post(
             typer.echo(f"No user with id {user_id}")
             raise typer.Exit(code=1)
 
-        thread_repository = ThreadRepository(session, principal=user)
-        thread = await thread_repository.get(thread_id)
-        if thread is None:
-            typer.echo(f"No thread with id {thread_id}")
-            raise typer.Exit(code=1)
-
-        title, body = random_post_content()
-        post = await PostRepository(session, principal=user).create(
-            thread.id, user.id, title, body, state=Post.States.PUBLISHED
-        )
-        await thread_repository.attach_new_post(thread, post)
-        await ReadTrackingRepository(session, principal=user).mark_viewed(
-            thread, post.published_at
-        )
+        post, thread = await create_post(session, user, thread_id)
 
         typer.echo(f"Post {post.id} created in thread {thread.id}")
 
