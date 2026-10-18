@@ -89,11 +89,6 @@ async def create_game(
         game_data.advanced_options,
     )
 
-    player_repository = PlayerRepository(db_session, principal=principal)
-    await player_repository.attach_player_to_game(
-        game.id, principal.id, is_gm=True, state=Player.States.ACCEPTED
-    )
-
     return schemas.GameIdResponse(id=game.id)
 
 

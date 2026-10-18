@@ -161,6 +161,31 @@ class TestGameRepository:
         )
         assert set(role_ids) == {game.gm_role_id}
 
+    async def test_create_attaches_gm_as_accepted_gm_player(
+        self, repository, gm, system, db_session
+    ):
+        game = await repository.create(
+            "My Campaign",
+            system.id,
+            [],
+            gm.id,
+            "1/d",
+            4,
+            1,
+            None,
+            None,
+            True,
+            None,
+            None,
+        )
+
+        players = list(
+            await db_session.scalars(select(Player).where(Player.game_id == game.id))
+        )
+        assert [(p.user_id, p.is_gm, p.state) for p in players] == [
+            (gm.id, True, Player.States.ACCEPTED)
+        ]
+
     async def test_create_grants_game_roles_on_root_forum(
         self, repository, gm, system, db_session
     ):

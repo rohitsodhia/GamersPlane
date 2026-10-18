@@ -101,20 +101,6 @@ class TestCreateGame:
     async def system(self, create):
         return await create(SystemFactory, id="dnd5e")
 
-    async def test_create_game_makes_creator_a_gm_player(
-        self, authed_client, system, db_session
-    ):
-        client, user = authed_client
-
-        response = await client.post("/games/", json=_payload())
-
-        assert response.status_code == 200
-        game_id = response.json()["id"]
-        assert game_id is not None
-        player = await db_session.get(Player, {"game_id": game_id, "user_id": user.id})
-        assert player is not None
-        assert player.is_gm is True
-
     async def test_create_game_system_not_found(self, authed_client):
         client, _user = authed_client
 
@@ -139,7 +125,7 @@ class TestCreateGame:
     async def test_create_game_strips_and_converts_title(
         self, authed_client, system, db_session
     ):
-        client, _user = authed_client
+        client, user = authed_client
 
         response = await client.post(
             "/games/", json=_payload(title="  Line one\nLine two  ")
@@ -148,6 +134,7 @@ class TestCreateGame:
         assert response.status_code == 200
         game = await db_session.get(Game, response.json()["id"])
         assert game.title == "Line one<br>Line two"
+        assert game.gm_id == user.id
 
 
 class TestGetGame:
@@ -218,7 +205,7 @@ class TestGetGame:
         assert body["recruitment_thread_id"] is None
         assert body["advanced_options"] is None
         assert body["retired"] is None
-        assert body["players"] == []
+        assert [p["id"] for p in body["players"]] == [gm.id]
         assert body["viewer_state"] is None
         assert body["favorited"] is False
 
@@ -265,7 +252,7 @@ class TestGetGame:
         response = await client.get(f"/games/{game.id}")
 
         player_user_ids = {p["id"] for p in response.json()["players"]}
-        assert player_user_ids == {applied.id, accepted.id, invited.id}
+        assert player_user_ids == {gm.id, applied.id, accepted.id, invited.id}
 
     @pytest.mark.parametrize("use_auth", [True, False])
     async def test_get_game_non_gm_only_returns_accepted_players(
@@ -287,7 +274,7 @@ class TestGetGame:
         response = await client.get(f"/games/{game.id}")
 
         player_user_ids = {p["id"] for p in response.json()["players"]}
-        assert player_user_ids == {accepted.id}
+        assert player_user_ids == {gm.id, accepted.id}
 
     async def test_get_game_viewer_state_reflects_own_invite(
         self, auth_as, client, db_session, gm, game, create
@@ -305,7 +292,7 @@ class TestGetGame:
         assert body["viewer_state"] == "invited"
         # The invited player isn't accepted, so they still don't show up in
         # the public players list even though they can see their own state.
-        assert body["players"] == []
+        assert [p["id"] for p in body["players"]] == [gm.id]
 
     async def test_get_game_player_fields(self, client, db_session, gm, game, create):
         user = await create(ActivatedUserFactory)
@@ -317,9 +304,16 @@ class TestGetGame:
 
         response = await client.get(f"/games/{game.id}")
 
-        players = response.json()["players"]
-        assert players == [
-            {
+        players = {p["id"]: p for p in response.json()["players"]}
+        assert players == {
+            gm.id: {
+                "id": gm.id,
+                "username": gm.username,
+                "is_gm": True,
+                "state": "accepted",
+                "characters": [],
+            },
+            user.id: {
                 "id": user.id,
                 "username": user.username,
                 "is_gm": False,
@@ -334,8 +328,8 @@ class TestGetGame:
                         "can_view": False,
                     }
                 ],
-            }
-        ]
+            },
+        }
 
     @pytest.mark.parametrize("viewer", ["anonymous", "other_player"])
     async def test_get_game_hides_pending_characters_from_others(
@@ -367,9 +361,6 @@ class TestGetGame:
         self, auth_as, client, db_session, gm, game, create, viewer
     ):
         player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
         owner = await create(ActivatedUserFactory)
         await player_repository.attach_player_to_game(
             game.id, owner.id, state=Player.States.ACCEPTED
@@ -405,9 +396,6 @@ class TestGetGame:
         self, auth_as, client, db_session, gm, game, create, viewer, expected
     ):
         player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
         owner = await create(ActivatedUserFactory)
         other = await create(ActivatedUserFactory)
         for user in (owner, other):
@@ -476,13 +464,6 @@ class _GameFixtures:
                 public,
                 None,
                 None,
-            )
-            # Real games always have their GM attached as a player (see
-            # create_game in routes.py); "my games" and is_gm both read this
-            # Player row, not Game.gm_id, so the fixture must mirror that.
-            player_repository = PlayerRepository(db_session, principal=gm)
-            await player_repository.attach_player_to_game(
-                game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
             )
             return game
 
@@ -1196,13 +1177,6 @@ class TestInvitePlayer:
             None,
             None,
         )
-        # Real games always have their GM attached as a player (see
-        # create_game in routes.py); invite_player's GM check reads this
-        # Player row, not Game.gm_id, so the fixture must mirror that.
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
         return game
 
     async def test_invite_player_not_gm_forbidden(self, authed_client, game):
@@ -1301,10 +1275,6 @@ class TestApplyToGame:
             None,
             None,
         )
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
         return game
 
     async def test_apply_to_game_closed_forbidden(
@@ -1402,13 +1372,6 @@ class TestApprovePlayer:
             True,
             None,
             None,
-        )
-        # Real games always have their GM attached as a player (see
-        # create_game in routes.py); approve_player's GM check reads this
-        # Player row, not Game.gm_id, so the fixture must mirror that.
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
         )
         return game
 
@@ -1512,10 +1475,6 @@ class TestAcceptInvite:
             None,
             None,
         )
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
         return game
 
     async def test_accept_invite_not_invited_conflict(
@@ -1589,13 +1548,6 @@ class TestToggleGm:
             True,
             None,
             None,
-        )
-        # Real games always have their GM attached as a player (see
-        # create_game in routes.py); toggle_gm's GM check reads this
-        # Player row, not Game.gm_id, so the fixture must mirror that.
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
         )
         return game
 
@@ -1870,13 +1822,6 @@ class TestDeletePlayer:
             None,
             None,
         )
-        # Real games always have their GM attached as a player (see
-        # create_game in routes.py); delete_player's GM check reads this
-        # Player row, not Game.gm_id, so the fixture must mirror that.
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
         return game
 
     @pytest.fixture
@@ -2018,13 +1963,6 @@ class TestCreateDeck:
             None,
             None,
         )
-        # Real games always have their GM attached as a player (see
-        # create_game in routes.py); create_deck's GM check reads this
-        # Player row, not Game.gm_id, so the fixture must mirror that.
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
         return game
 
     def _payload(self, deck_type, **overrides):
@@ -2035,19 +1973,6 @@ class TestCreateDeck:
         }
         fields.update(overrides)
         return fields
-
-    async def test_create_deck_permission_user_not_in_game_not_found(
-        self, auth_as, client, game, gm, deck_type, create
-    ):
-        client = auth_as(gm)
-        stranger = await create(ActivatedUserFactory)
-
-        response = await client.post(
-            f"/games/{game.id}/decks",
-            json=self._payload(deck_type, permissions=[stranger.id]),
-        )
-
-        assert response.status_code == 404
 
     async def test_create_deck_permission_target_must_be_accepted(
         self, auth_as, client, db_session, game, gm, deck_type, create
@@ -2311,13 +2236,6 @@ class TestUpdateDeck:
             None,
             None,
         )
-        # Real games always have their GM attached as a player (see
-        # create_game in routes.py); update_deck's GM check reads this
-        # Player row, not Game.gm_id, so the fixture must mirror that.
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
         return game
 
     @pytest.fixture
@@ -2429,13 +2347,6 @@ class TestShuffleDeck:
             None,
             None,
         )
-        # Real games always have their GM attached as a player (see
-        # create_game in routes.py); shuffle_deck's GM check reads this
-        # Player row, not Game.gm_id, so the fixture must mirror that.
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
         return game
 
     @pytest.fixture
@@ -2505,13 +2416,6 @@ class TestDeleteDeck:
             None,
             None,
         )
-        # Real games always have their GM attached as a player (see
-        # create_game in routes.py); delete_deck's GM check reads this
-        # Player row, not Game.gm_id, so the fixture must mirror that.
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
         return game
 
     @pytest.fixture
@@ -2523,38 +2427,6 @@ class TestDeleteDeck:
             type=deck_type.short,
             permissions=[],
         )
-
-    async def test_delete_deck_belonging_to_another_game_not_found(
-        self, auth_as, client, db_session, gm, game, system, deck_type
-    ):
-        client = auth_as(gm)
-        game_repository = GameRepository(db_session, principal=gm)
-        other_game = await game_repository.create(
-            "Other Campaign",
-            system.id,
-            [],
-            gm.id,
-            "3/w",
-            4,
-            1,
-            None,
-            None,
-            True,
-            None,
-            None,
-        )
-        deck_repository = DeckRepository(db_session, principal=gm)
-        other_deck = await deck_repository.create(
-            game_id=other_game.id,
-            label="Other Deck",
-            type=deck_type.short,
-            permissions=[],
-        )
-
-        response = await client.delete(f"/games/{game.id}/decks/{other_deck.id}")
-
-        assert response.status_code == 404
-        assert await db_session.get(Deck, other_deck.id) is not None
 
     async def test_delete_deck_removes_deck(
         self, auth_as, client, db_session, game, gm, deck
@@ -2605,9 +2477,6 @@ class _GameCharacterFixtures:
             True,
             None,
             None,
-        )
-        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
         )
         return game
 

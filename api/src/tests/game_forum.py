@@ -10,7 +10,6 @@ from app.models import (
     Forum,
     Game,
     NPCImage,
-    Player,
     QuickNPC,
     RolePermission,
     System,
@@ -22,7 +21,6 @@ from app.repositories import (
     DeckRepository,
     GameRepository,
     NPCOwner,
-    PlayerRepository,
     QuickNPCRepository,
 )
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
@@ -168,9 +166,6 @@ async def make_game_forum(create, db_session) -> GameForum:
         gm = await create(ActivatedUserFactory)
         game = await GameRepository(db_session, principal=gm).create(
             title, system.id, [], gm.id, "3/w", 4, 1, None, None, True, None, None
-        )
-        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
         )
         forum = await db_session.get(Forum, game.root_forum_id)
         deck = await DeckRepository(db_session, principal=gm).create(

@@ -19,6 +19,7 @@ from app.models import (
     UserRole,
 )
 from app.repositories.forum_repository import ForumRepository
+from app.repositories.player_repository import PlayerRepository
 
 GAMES_ROOT_FORUM_ID = 2
 
@@ -283,6 +284,11 @@ class GameRepository:
         player_role.game_role = game.id
         root_forum.game_id = game.id
         await self.db_session.flush()
+
+        player_repository = PlayerRepository(self.db_session, principal=self.principal)
+        await player_repository.attach_player_to_game(
+            game.id, gm_id, is_gm=True, state=Player.States.ACCEPTED
+        )
 
         return game
 
