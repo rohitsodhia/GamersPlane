@@ -123,9 +123,6 @@ async def _game_with_gm(create, db_session, system, gm):
         None,
         None,
     )
-    await PlayerRepository(db_session, principal=gm).attach_player_to_game(
-        game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-    )
     return game
 
 
@@ -439,12 +436,12 @@ class TestGetCharacter:
                 "(SELECT MAX(id) FROM forums))"
             )
         )
-        viewer = await create(ActivatedUserFactory)
-        game = await GameRepository(db_session, principal=viewer).create(
+        gm = await create(ActivatedUserFactory)
+        game = await GameRepository(db_session, principal=gm).create(
             "My Campaign",
             system.id,
             [system.id],
-            viewer.id,
+            gm.id,
             "1/d",
             4,
             1,
@@ -454,9 +451,13 @@ class TestGetCharacter:
             None,
             None,
         )
-        await PlayerRepository(db_session, principal=viewer).attach_player_to_game(
-            game.id, viewer.id, is_gm=is_gm, state=Player.States.ACCEPTED
-        )
+        if is_gm:
+            viewer = gm
+        else:
+            viewer = await create(ActivatedUserFactory)
+            await PlayerRepository(db_session, principal=gm).attach_player_to_game(
+                game.id, viewer.id, state=Player.States.ACCEPTED
+            )
         character.game_id = game.id
         await db_session.flush()
         auth_as(viewer)

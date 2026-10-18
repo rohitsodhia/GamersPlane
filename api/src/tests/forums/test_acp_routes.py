@@ -128,9 +128,6 @@ async def make_game(create, db_session, gm, site):
             title, system.id, [], gm.id, "1/d", 4, 1, None, None, True, None, None
         )
         player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
-            game.id, gm.id, is_gm=True, state=Player.States.ACCEPTED
-        )
         for user, state in players:
             await player_repository.attach_player_to_game(game.id, user.id, state=state)
         return game

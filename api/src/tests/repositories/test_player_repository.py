@@ -76,8 +76,10 @@ class TestPlayerRepository:
         assert player.is_gm is False
         assert player.state == Player.States.APPLIED
 
-    async def test_attach_player_to_game_as_gm(self, repository, game, gm):
-        player = await repository.attach_player_to_game(game.id, gm.id, is_gm=True)
+    async def test_attach_player_to_game_as_gm(self, repository, game, create):
+        co_gm = await create(ActivatedUserFactory)
+
+        player = await repository.attach_player_to_game(game.id, co_gm.id, is_gm=True)
 
         assert player.is_gm is True
 
@@ -105,7 +107,7 @@ class TestPlayerRepository:
         await db_session.rollback()
 
     async def test_get_players_for_game_returns_all_states_by_default(
-        self, repository, game, create
+        self, repository, game, create, gm
     ):
         applied = await create(ActivatedUserFactory)
         accepted = await create(ActivatedUserFactory)
@@ -116,10 +118,10 @@ class TestPlayerRepository:
 
         players = list(await repository.get_players_for_game(game.id))
 
-        assert {p.user_id for p in players} == {applied.id, accepted.id}
+        assert {p.user_id for p in players} == {gm.id, applied.id, accepted.id}
 
     async def test_get_players_for_game_only_accepted_filters_other_states(
-        self, repository, game, create
+        self, repository, game, create, gm
     ):
         applied = await create(ActivatedUserFactory)
         accepted = await create(ActivatedUserFactory)
@@ -132,7 +134,7 @@ class TestPlayerRepository:
             await repository.get_players_for_game(game.id, only_accepted=True)
         )
 
-        assert {p.user_id for p in players} == {accepted.id}
+        assert {p.user_id for p in players} == {gm.id, accepted.id}
 
     async def test_get_players_for_game_scoped_to_game(
         self, repository, game, gm, system, db_session, create
@@ -157,10 +159,10 @@ class TestPlayerRepository:
 
         players = list(await repository.get_players_for_game(game.id))
 
-        assert players == []
+        assert [p.user_id for p in players] == [gm.id]
 
     async def test_get_players_for_game_eager_loads_user(
-        self, repository, game, create
+        self, repository, game, create, gm
     ):
         user = await create(ActivatedUserFactory)
         await repository.attach_player_to_game(game.id, user.id)
@@ -169,7 +171,7 @@ class TestPlayerRepository:
 
         # Accessing an unloaded relationship on an async session raises
         # MissingGreenlet, so this only passes if user was eagerly loaded.
-        assert players[0].user.username == user.username
+        assert {p.user.username for p in players} == {gm.username, user.username}
 
     async def test_get_player_returns_player(self, repository, game, create):
         user = await create(ActivatedUserFactory)
@@ -300,8 +302,7 @@ class TestPlayerRepository:
         assert await role_ids_of(db_session, user.id) == {game.player_role_id}
 
     async def test_is_gm_true_for_gm_player(self, repository, game, gm):
-        await repository.attach_player_to_game(game.id, gm.id, is_gm=True)
-
+        # GameRepository.create already attached the game's GM as a player.
         assert await repository.is_gm(game.id, gm.id) is True
 
     async def test_is_gm_false_for_non_gm_player(self, repository, game, create):
