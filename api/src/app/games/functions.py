@@ -1,7 +1,12 @@
+from pathlib import Path
+
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import ForbiddenException, NotFoundException
+from app.configs import configs
+from app.exceptions import ForbiddenException, NotFoundException, ValidationError
 from app.forums.functions import filter_readable_forum_ids
+from app.games import schemas
 from app.middleware import Principal
 from app.models import Deck, Game, Player
 from app.repositories import (
@@ -73,3 +78,54 @@ async def get_deck_or_404(
     if not deck or deck.game_id != game_id:
         raise NotFoundException("Deck not found")
     return deck
+
+
+def background_path(filename: str) -> Path:
+    return Path(configs.AVATARS_DIR) / "backgrounds" / filename
+
+
+def get_background(options: dict | None) -> schemas.BackgroundOptions | None:
+    """The stored background, or None if there isn't one or it isn't valid."""
+    if not options or not options.get("background"):
+        return None
+    try:
+        return schemas.BackgroundOptions.model_validate(options["background"])
+    except PydanticValidationError:
+        return None
+
+
+def build_background_data(
+    background: schemas.BackgroundOptions,
+) -> schemas.BackgroundData:
+    return schemas.BackgroundData(
+        **background.model_dump(exclude={"image"}),
+        url=f"{configs.AVATARS_ROOT}/backgrounds/{background.image}",
+    )
+
+
+def build_advanced_options_data(
+    options: dict | None,
+) -> schemas.AdvancedOptionsData | None:
+    if options is None:
+        return None
+    background = get_background(options)
+    return schemas.AdvancedOptionsData(
+        background=build_background_data(background) if background else None
+    )
+
+
+def merge_advanced_options(
+    stored: dict | None, incoming: schemas.AdvancedOptionsInput | None
+) -> dict | None:
+    """Apply a client's options to the stored ones. Clients only set how the
+    background is shown; the image itself comes from the upload endpoint, so
+    it's kept, and a background can't be configured before one is uploaded."""
+    options = dict(stored or {})
+    if incoming is not None and incoming.background is not None:
+        existing = get_background(options)
+        if existing is None:
+            raise ValidationError("Upload a background image first")
+        options["background"] = existing.model_copy(
+            update=incoming.background.model_dump()
+        ).model_dump()
+    return options or None

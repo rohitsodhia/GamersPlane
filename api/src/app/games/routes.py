@@ -1,3 +1,4 @@
+import secrets
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -13,9 +14,14 @@ from app.exceptions import (
 )
 from app.games import schemas
 from app.games.functions import (
+    background_path,
+    build_advanced_options_data,
+    build_background_data,
+    get_background,
     get_deck_or_404,
     get_game_or_404,
     get_player_or_404,
+    merge_advanced_options,
     require_game_exists,
     require_gm,
     require_not_retired,
@@ -23,6 +29,7 @@ from app.games.functions import (
 )
 from app.helpers.avatars import read_avatar_upload
 from app.helpers.decorators import public
+from app.helpers.images import process_image_upload, read_image_upload, save_image
 from app.helpers.remote_image import fetch_remote_image
 from app.middleware import Principal
 from app.models import Character, Deck, Game, Player
@@ -57,6 +64,9 @@ from app.repositories.player_repository import DuplicatePlayerError
 
 games = APIRouter(prefix="/games")
 
+BACKGROUND_MAX_DIMENSION = 1920
+BACKGROUND_MAX_BYTES = 10 * 1024 * 1024
+
 
 @games.post("/", response_model=schemas.GameIdResponse)
 async def create_game(
@@ -86,7 +96,7 @@ async def create_game(
         game_data.char_gen_info,
         game_data.public,
         game_data.recruitment_thread_id,
-        game_data.advanced_options,
+        merge_advanced_options(None, game_data.advanced_options),
     )
 
     return schemas.GameIdResponse(id=game.id)
@@ -300,7 +310,7 @@ async def get_game(game_id: int, db_session: DBSessionDependency, principal: Pri
         status=game.status.name.lower(),
         public=game.public,
         recruitment_thread_id=game.recruitment_thread_id,
-        advanced_options=game.advanced_options,
+        advanced_options=build_advanced_options_data(game.advanced_options),
         retired=game.retired,
         players=players,
         viewer_state=viewer_state,
@@ -331,8 +341,67 @@ async def update_game(
     if len(char_sheets) != len(set(request_body.allowed_char_sheets)):
         raise NotFoundException("One or more allowed char sheets not found")
     update_data["allowed_char_sheets"] = list(char_sheets)
+    update_data["advanced_options"] = merge_advanced_options(
+        game.advanced_options, request_body.advanced_options
+    )
 
     return await game_repository.update(game, **update_data)
+
+
+@games.post("/{game_id}/background", response_model=schemas.BackgroundData)
+async def upload_game_background(
+    game_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    image: UploadFile = File(...),
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+
+    if principal.id != game.gm_id:
+        raise ForbiddenException("Only game masters can edit games")
+
+    contents = await read_image_upload(image, BACKGROUND_MAX_BYTES, "Background")
+    processed, ext = process_image_upload(
+        contents, BACKGROUND_MAX_DIMENSION, BACKGROUND_MAX_BYTES, "Background"
+    )
+    filename = f"{secrets.token_hex(16)}.{ext}"
+    save_image(processed, background_path(filename))
+
+    old = get_background(game.advanced_options)
+    settings = old.model_dump() if old else {}
+    background = schemas.BackgroundOptions(**{**settings, "image": filename})
+    await game_repository.update(
+        game,
+        advanced_options={
+            **(game.advanced_options or {}),
+            "background": background.model_dump(),
+        },
+    )
+    if old:
+        background_path(old.image).unlink(missing_ok=True)
+
+    return build_background_data(background)
+
+
+@games.delete("/{game_id}/background", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_game_background(
+    game_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+
+    if principal.id != game.gm_id:
+        raise ForbiddenException("Only game masters can edit games")
+
+    options = dict(game.advanced_options or {})
+    old = get_background(options)
+    if "background" not in options:
+        return
+    del options["background"]
+    await game_repository.update(game, advanced_options=options or None)
+    if old:
+        background_path(old.image).unlink(missing_ok=True)
 
 
 @games.patch("/{game_id}/toggle/{key}", status_code=status.HTTP_204_NO_CONTENT)
