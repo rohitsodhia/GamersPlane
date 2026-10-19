@@ -16,19 +16,32 @@
 		margin-bottom: 0.25em;
 	}
 
-	.field input[type="text"] {
-		width: min(100%, 400px);
-	}
-
-	.field textarea {
-		width: min(100%, 500px);
-		min-height: 150px;
-		font-family: monospace;
-	}
-
 	.checked-row {
 		display: flex;
 		align-items: center;
 		gap: 0.5em;
+	}
+
+	.background {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75em;
+
+		h3 {
+			margin: 0;
+		}
+	}
+
+	.preview {
+		width: min(100%, 400px);
+		aspect-ratio: 16 / 9;
+		border: 1px solid var(--text);
+		background-color: var(--bg);
+	}
+
+	.settings {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75em;
 	}
 }

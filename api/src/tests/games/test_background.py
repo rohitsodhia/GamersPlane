@@ -73,7 +73,7 @@ class TestUpload:
             == body["url"].rsplit("/", 1)[1]
         )
         assert (body["position"], body["size"], body["repeat"], body["fixed"]) == (
-            "center",
+            "top",
             "cover",
             "no-repeat",
             False,

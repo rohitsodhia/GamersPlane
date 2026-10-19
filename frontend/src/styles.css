@@ -102,6 +102,24 @@ main {
 	& > .full-width {
 		grid-column: full-width;
 	}
+
+	/* A game background sits behind the content, which gets one semi-opaque panel
+	   (the page background, mostly opaque) so text stays readable. The panel is a
+	   single pseudo-element behind everything, so it can't wash out neighbouring
+	   content, and `isolation` keeps it above the background image itself. */
+	&.game-background {
+		isolation: isolate;
+
+		&::before {
+			content: "";
+			position: absolute;
+			z-index: -1;
+			grid-column: content;
+			inset-inline: -1rem;
+			inset-block: -1rem;
+			background: color-mix(in srgb, var(--bg) 92%, transparent);
+		}
+	}
 }
 
 .loading-spinner {

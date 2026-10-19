@@ -14,12 +14,15 @@ import GameBar from "#/components/GameBar";
 import Header from "#/components/Header";
 import NotFound from "#/components/NotFound";
 import TanStackQueryDevtools from "#/integrations/tanstack-query/devtools";
+import { backgroundStyle } from "#/lib/game-background";
 import { isTokenExpiringSoon, isTokenValid } from "#/lib/jwt";
+import { gameDetailsQueryOptions } from "#/queries/game";
 import { meHeaderQueryOptions, meQueryOptions } from "#/queries/me";
 import { referralLinksQueryOptions } from "#/queries/referralLinks";
 import { refreshToken } from "#/queries/refresh";
 import racCss from "#/rac.css?url";
 import { useAuthStore } from "#/stores/auth";
+import { useGameBarStore } from "#/stores/game-bar";
 import { useLayoutStore } from "#/stores/layout";
 import appCss from "#/styles.css?url";
 
@@ -130,10 +133,25 @@ function RootLayout() {
 	const authResolved = mounted && (!token || meFetched);
 	const referralLinksResolved = mounted && referralLinksFetched;
 
+	const gameId = useGameBarStore((state) => state.gameId);
+	const { data: game } = useQuery({
+		...gameDetailsQueryOptions(gameId ?? 0),
+		enabled: mounted && gameId !== null,
+	});
+	const background =
+		mounted && gameId !== null ? (game?.advanced_options?.background ?? null) : null;
+
 	return (
 		<>
 			{authResolved && <Header />}
-			<main className={clsx("page-wrap", noGap && "no-gap")}>
+			<main
+				className={clsx(
+					"page-wrap",
+					noGap && "no-gap",
+					background && "game-background",
+				)}
+				style={background ? backgroundStyle(background, background.url) : undefined}
+			>
 				<Outlet />
 			</main>
 			{referralLinksResolved && <Footer />}

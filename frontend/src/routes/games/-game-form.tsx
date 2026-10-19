@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { JSONContent } from "@tiptap/core";
 import clsx from "clsx";
@@ -9,26 +9,63 @@ import { Checkbox } from "#/components/Checkbox";
 import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
 import { Select } from "#/components/Select";
 import { ApiError } from "#/lib/api";
+import { DEFAULT_BACKGROUND_SETTINGS } from "#/lib/game-background";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { createGame, type GameDetails, updateGame } from "#/queries/game";
+import {
+	createGame,
+	deleteGameBackground,
+	type GameDetails,
+	type NewGameInput,
+	updateGame,
+	uploadGameBackground,
+} from "#/queries/game";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { AdvancedOptions } from "./-advanced-options";
 import styles from "./-game-form.module.css";
+import {
+	type BackgroundDraft,
+	errorMessage,
+	saveGameWithBackground,
+} from "./-game-save";
 
 function FieldError({ message }: { message: string | undefined }) {
 	if (!message) return null;
 	return <>{message}</>;
 }
 
-export function GameForm({ title, game }: { title: string; game?: GameDetails }) {
+export function GameForm({
+	title,
+	game,
+	initialError,
+}: {
+	title: string;
+	game?: GameDetails;
+	/** A message carried over from the create step (e.g. a failed background upload). */
+	initialError?: string;
+}) {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const { data: systems } = useSuspenseQuery(systemsQueryOptions({ basic: true }));
+	const existingBackground = game?.advanced_options?.background ?? null;
 	const mutation = useMutation({
-		mutationFn: game
-			? (data: Parameters<typeof updateGame>[1]) => updateGame(game.id, data)
-			: createGame,
+		mutationFn: (args: { data: NewGameInput; draft: BackgroundDraft }) =>
+			saveGameWithBackground({
+				gameId: game?.id,
+				hasExistingImage: existingBackground !== null,
+				draft: args.draft,
+				ops: {
+					create: (advanced) =>
+						createGame({ ...args.data, advanced_options: advanced }),
+					update: (gameId, advanced) =>
+						updateGame(gameId, { ...args.data, advanced_options: advanced }),
+					upload: uploadGameBackground,
+					remove: deleteGameBackground,
+				},
+			}),
 	});
-	const [apiErrors, setApiErrors] = useState<string[]>([]);
+	const [apiErrors, setApiErrors] = useState<string[]>(
+		initialError ? [initialError] : [],
+	);
 
 	const charSheetSystems = systems.filter((system) => system.has_char_sheet);
 
@@ -47,33 +84,60 @@ export function GameForm({ title, game }: { title: string; game?: GameDetails })
 			recruitmentThreadId: game?.recruitment_thread_id
 				? String(game.recruitment_thread_id)
 				: "",
-			advancedOptions: (game?.advanced_options ?? {}) as Record<string, unknown>,
+			background: {
+				file: null,
+				removed: false,
+				settings: existingBackground
+					? {
+							position: existingBackground.position,
+							size: existingBackground.size,
+							repeat: existingBackground.repeat,
+							fixed: existingBackground.fixed,
+						}
+					: DEFAULT_BACKGROUND_SETTINGS,
+			} as BackgroundDraft,
 		},
 		onSubmit: async ({ value }) => {
 			setApiErrors([]);
 			try {
 				const result = await mutation.mutateAsync({
-					title: value.title,
-					system_id: value.systemId,
-					allowed_char_sheets: value.allowedCharSheets,
-					post_frequency: `${value.timesPer}/${value.perPeriod}`,
-					num_players: value.numPlayers,
-					chars_per_player: value.charsPerPlayer,
-					description: isContentEmpty(value.description) ? null : value.description,
-					char_gen_info: isContentEmpty(value.charGenInfo) ? null : value.charGenInfo,
-					public: value.isPublic,
-					recruitment_thread_id: value.recruitmentThreadId
-						? Number(value.recruitmentThreadId)
-						: null,
-					advanced_options: Object.keys(value.advancedOptions).length
-						? value.advancedOptions
-						: null,
+					draft: value.background,
+					data: {
+						title: value.title,
+						system_id: value.systemId,
+						allowed_char_sheets: value.allowedCharSheets,
+						post_frequency: `${value.timesPer}/${value.perPeriod}`,
+						num_players: value.numPlayers,
+						chars_per_player: value.charsPerPlayer,
+						description: isContentEmpty(value.description) ? null : value.description,
+						char_gen_info: isContentEmpty(value.charGenInfo) ? null : value.charGenInfo,
+						public: value.isPublic,
+						recruitment_thread_id: value.recruitmentThreadId
+							? Number(value.recruitmentThreadId)
+							: null,
+						advanced_options: null,
+					},
 				});
-				navigate({ to: "/games/$gameId", params: { gameId: result.id } });
-			} catch (exception) {
-				if (exception instanceof ApiError) {
-					setApiErrors(exception.errors.map((e) => e.detail));
+				if (result.backgroundError) {
+					navigate({
+						to: "/games/$gameId/edit",
+						params: { gameId: result.id },
+						search: {
+							backgroundError: `Game created, but the background failed to upload: ${result.backgroundError}`,
+						},
+					});
+				} else {
+					navigate({ to: "/games/$gameId", params: { gameId: result.id } });
 				}
+			} catch (exception) {
+				setApiErrors(
+					exception instanceof ApiError
+						? exception.errors.map((e) => e.detail)
+						: [errorMessage(exception)],
+				);
+			} finally {
+				queryClient.invalidateQueries({ queryKey: ["game"] });
+				queryClient.invalidateQueries({ queryKey: ["games"] });
 			}
 		},
 	});
@@ -385,11 +449,12 @@ export function GameForm({ title, game }: { title: string; game?: GameDetails })
 					</form.Field>
 
 					<div className="is-container">
-						<form.Field name="advancedOptions">
+						<form.Field name="background">
 							{(field) => (
 								<AdvancedOptions
-									value={field.state.value}
-									onChange={(value) => field.handleChange(value)}
+									background={field.state.value}
+									onBackgroundChange={(value) => field.handleChange(value)}
+									existingUrl={existingBackground?.url ?? null}
 								/>
 							)}
 						</form.Field>

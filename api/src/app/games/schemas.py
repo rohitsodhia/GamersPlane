@@ -31,8 +31,8 @@ class BackgroundSettings(SchemaBase):
         "top right",
         "bottom left",
         "bottom right",
-    ] = "center"
-    size: Literal["cover", "contain", "auto"] = "cover"
+    ] = "top"
+    size: Literal["cover", "contain", "width", "auto"] = "cover"
     repeat: Literal["no-repeat", "repeat", "repeat-x", "repeat-y"] = "no-repeat"
     fixed: bool = False
 
