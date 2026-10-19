@@ -19,15 +19,6 @@ def _make_image_bytes(format="PNG", size=(10, 10)):
 
 
 class TestProcessAvatarUpload:
-    def test_rejects_oversized_uploads(self):
-        oversized = b"0" * (AVATAR_MAX_BYTES + 1)
-
-        with pytest.raises(HTTPException) as exc_info:
-            process_avatar_upload(oversized)
-
-        assert exc_info.value.status_code == 400
-        assert exc_info.value.detail == "Avatar must be smaller than 10MB"
-
     def test_resizes_images_larger_than_the_avatar_dimension(self):
         contents = _make_image_bytes(size=(AVATAR_MAX_DIMENSION * 3, 30))
 

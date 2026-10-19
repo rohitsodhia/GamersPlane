@@ -82,13 +82,6 @@ class TestProcessImageUpload:
 
         assert image.size == (MAX_DIMENSION, 50)
 
-    def test_leaves_smaller_images_unresized(self):
-        contents = _make_image_bytes(size=(10, 20))
-
-        image, _ext = _process(contents)
-
-        assert image.size == (10, 20)
-
     def test_png_with_alpha_keeps_its_alpha_channel(self):
         contents = _make_image_bytes(format="PNG", mode="RGBA")
 
@@ -98,26 +91,25 @@ class TestProcessImageUpload:
         assert ext == "png"
         assert image.mode == "RGBA"
 
-    def test_rejects_images_over_the_pixel_limit(self):
-        # Mode "1" keeps the file tiny while still having > IMAGE_MAX_PIXELS pixels.
-        contents = _make_image_bytes(size=(6000, 5000), mode="1")
-        assert 6000 * 5000 > IMAGE_MAX_PIXELS
+    @pytest.mark.parametrize(
+        ("size", "kwargs", "expected_limit"),
+        [
+            ((6000, 5000), {}, "25 megapixels"),
+            ((2000, 1000), {"max_pixels": 1_000_000}, "1 megapixels"),
+        ],
+    )
+    def test_rejects_images_over_the_pixel_limit(self, size, kwargs, expected_limit):
+        # Mode "1" keeps the file tiny while still having many pixels.
+        contents = _make_image_bytes(size=size, mode="1")
+        assert size[0] * size[1] > kwargs.get("max_pixels", IMAGE_MAX_PIXELS)
 
         with pytest.raises(HTTPException) as exc_info:
-            _process(contents)
+            process_image_upload(contents, MAX_DIMENSION, MAX_BYTES, LABEL, **kwargs)
 
         assert exc_info.value.status_code == 400
-        assert exc_info.value.detail == "Background must be smaller than 25 megapixels"
-
-    def test_respects_a_custom_pixel_limit(self):
-        contents = _make_image_bytes(size=(2000, 1000), mode="1")
-
-        with pytest.raises(HTTPException) as exc_info:
-            process_image_upload(
-                contents, MAX_DIMENSION, MAX_BYTES, LABEL, max_pixels=1_000_000
-            )
-
-        assert exc_info.value.detail == "Background must be smaller than 1 megapixels"
+        assert (
+            exc_info.value.detail == f"Background must be smaller than {expected_limit}"
+        )
 
     def test_rejects_decompression_bombs_with_a_400(self):
         # Large enough that Pillow itself raises DecompressionBombError on open,

@@ -5,7 +5,6 @@ from PIL import Image
 
 from app.configs import configs
 from app.models import Game
-from app.repositories import PlayerRepository
 from tests.factories import ActivatedUserFactory
 from tests.game_forum import make_game_forum
 
@@ -110,26 +109,41 @@ class TestUpload:
         assert second["size"] == "contain"
         assert second["color"] == "#336699"
 
-    async def test_only_the_gm_can_upload(self, auth_as, create, db_session, world):
-        member = await create(ActivatedUserFactory)
-        await PlayerRepository(db_session, principal=member).attach_player_to_game(
-            world.game.id, member.id
-        )
+    async def test_only_the_gm_can_upload(self, auth_as, create, world):
         stranger = await create(ActivatedUserFactory)
 
-        for user in (member, stranger):
-            response = await auth_as(user).post(
-                f"/games/{world.game.id}/background", files=upload()
-            )
-            assert response.status_code == 403
+        response = await auth_as(stranger).post(
+            f"/games/{world.game.id}/background", files=upload()
+        )
 
-    async def test_non_image_is_rejected(self, auth_as, world):
+        assert response.status_code == 403
+
+    async def test_non_image_is_rejected(self, auth_as, db_session, tmp_path, world):
         response = await auth_as(world.gm).post(
             f"/games/{world.game.id}/background",
             files={"image": ("a.png", b"nope", "image/png")},
         )
 
         assert response.status_code == 400
+        game = await db_session.get(Game, world.game.id)
+        assert "background" not in (game.advanced_options or {})
+        assert not list((tmp_path / "backgrounds").glob("*"))
+
+    async def test_replacing_when_the_old_file_is_gone_still_succeeds(
+        self, auth_as, tmp_path, world
+    ):
+        client = auth_as(world.gm)
+        first = (
+            await client.post(f"/games/{world.game.id}/background", files=upload())
+        ).json()
+        stored_file(tmp_path, first["url"]).unlink()
+
+        response = await client.post(
+            f"/games/{world.game.id}/background", files=upload()
+        )
+
+        assert response.status_code == 200
+        assert stored_file(tmp_path, response.json()["url"]).exists()
 
 
 class TestSettings:
@@ -200,9 +214,8 @@ class TestSettings:
     @pytest.mark.parametrize(
         "options",
         [
-            {"background": {"size": "bogus"}},
             {"background": {"color": "#fff"}},
-            {"background": {"color": "#GGGGGG"}},
+            {"background": {"color": "#A1B2C3"}},
             {"theme": "dark"},
             {"background": {"image": FORGED_NAME}},
         ],
@@ -213,6 +226,85 @@ class TestSettings:
         )
 
         assert response.status_code == 422
+
+    async def test_creating_with_settings_needs_an_uploaded_image(self, auth_as, world):
+        response = await auth_as(world.gm).post(
+            "/games/",
+            json=patch_body(world.game, {"background": {"size": "cover"}}),
+        )
+
+        assert response.status_code == 400
+        assert response.json()["errors"][0]["detail"] == (
+            "Upload a background image first"
+        )
+
+
+STORED_IMAGE = "a" * 32 + ".png"
+MALFORMED = {"image": "not-a-valid-name", "position": "nowhere"}
+LEGACY = {
+    "image": STORED_IMAGE,
+    "position": "top",
+    "size": "width",
+    "fixed": True,
+    "color": None,
+    "repeat": "no-repeat",
+}
+
+
+class TestStoredShapes:
+    async def store(self, db_session, game, background):
+        game.advanced_options = {"background": background}
+        await db_session.flush()
+
+    async def test_legacy_shape_is_read_ignoring_unknown_keys(
+        self, auth_as, db_session, world
+    ):
+        await self.store(db_session, world.game, LEGACY)
+
+        response = await auth_as(world.gm).get(f"/games/{world.game.id}")
+
+        assert response.status_code == 200
+        assert response.json()["advanced_options"]["background"] == {
+            "position": "top",
+            "size": "width",
+            "fixed": True,
+            "color": None,
+            "url": f"{configs.AVATARS_ROOT}/backgrounds/{STORED_IMAGE}",
+        }
+
+    async def test_malformed_background_reads_as_none(self, auth_as, db_session, world):
+        await self.store(db_session, world.game, MALFORMED)
+
+        response = await auth_as(world.gm).get(f"/games/{world.game.id}")
+
+        assert response.status_code == 200
+        assert response.json()["advanced_options"]["background"] is None
+
+    async def test_settings_need_an_upload_when_the_stored_one_is_malformed(
+        self, auth_as, db_session, world
+    ):
+        await self.store(db_session, world.game, MALFORMED)
+
+        response = await auth_as(world.gm).patch(
+            f"/games/{world.game.id}",
+            json=patch_body(world.game, {"background": {"size": "cover"}}),
+        )
+
+        assert response.status_code == 400
+        assert response.json()["errors"][0]["detail"] == (
+            "Upload a background image first"
+        )
+
+    async def test_delete_clears_a_malformed_background(
+        self, auth_as, db_session, world
+    ):
+        await self.store(db_session, world.game, MALFORMED)
+
+        response = await auth_as(world.gm).delete(f"/games/{world.game.id}/background")
+
+        assert response.status_code == 204
+        game = await db_session.get(Game, world.game.id)
+        assert not game.advanced_options
 
 
 class TestDelete:

@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+import { ApiError } from "#/lib/api";
 import { DEFAULT_BACKGROUND_SETTINGS } from "#/lib/game-background";
-import { type BackgroundDraft, saveGameWithBackground } from "./-game-save";
+import {
+	type BackgroundDraft,
+	errorMessage,
+	saveGameWithBackground,
+} from "./-game-save";
 
 const file = new File(["x"], "bg.png", { type: "image/png" });
 const draft = (changes: Partial<BackgroundDraft> = {}): BackgroundDraft => ({
@@ -69,6 +74,21 @@ describe("saveGameWithBackground, editing", () => {
 		});
 	});
 
+	it("uploads a staged file even when the old image was marked removed", async () => {
+		const { calls, ops } = makeOps();
+		await saveGameWithBackground({
+			gameId: 3,
+			hasExistingImage: true,
+			draft: draft({ file, removed: true }),
+			ops,
+		});
+		expect(calls).toEqual(["upload", "update"]);
+		expect(ops.remove).not.toHaveBeenCalled();
+		expect(ops.update).toHaveBeenCalledWith(3, {
+			background: DEFAULT_BACKGROUND_SETTINGS,
+		});
+	});
+
 	it("does not patch when the upload fails", async () => {
 		const { ops } = makeOps();
 		ops.upload.mockRejectedValueOnce(new Error("bad file"));
@@ -81,6 +101,24 @@ describe("saveGameWithBackground, editing", () => {
 			}),
 		).rejects.toThrow("bad file");
 		expect(ops.update).not.toHaveBeenCalled();
+	});
+});
+
+describe("errorMessage", () => {
+	it("joins an ApiError's details with a space", () => {
+		const error = new ApiError(400, [
+			{ code: "a", detail: "First problem." },
+			{ code: "b", detail: "Second problem." },
+		]);
+		expect(errorMessage(error)).toBe("First problem. Second problem.");
+	});
+
+	it("uses a plain Error's message", () => {
+		expect(errorMessage(new Error("boom"))).toBe("boom");
+	});
+
+	it("falls back for anything else", () => {
+		expect(errorMessage("nope")).toBe("Something went wrong.");
 	});
 });
 
