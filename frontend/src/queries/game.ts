@@ -26,6 +26,33 @@ export type GamePlayer = {
 	characters: GamePlayerCharacter[];
 };
 
+export type BackgroundPosition =
+	| "center"
+	| "top"
+	| "bottom"
+	| "left"
+	| "right"
+	| "top left"
+	| "top right"
+	| "bottom left"
+	| "bottom right";
+export type BackgroundSize = "width" | "cover" | "contain";
+
+export type GameBackgroundSettings = {
+	position: BackgroundPosition;
+	size: BackgroundSize;
+	fixed: boolean;
+	color: string | null;
+};
+
+export type GameBackground = GameBackgroundSettings & { url: string };
+
+export type GameAdvancedOptions = { background: GameBackground | null };
+
+export type GameAdvancedOptionsInput = {
+	background: GameBackgroundSettings | null;
+};
+
 export type GameDetails = {
 	id: number;
 	title: string;
@@ -43,7 +70,7 @@ export type GameDetails = {
 	status: "open" | "closed";
 	public: boolean;
 	recruitment_thread_id: number | null;
-	advanced_options: Record<string, unknown> | null;
+	advanced_options: GameAdvancedOptions | null;
 	retired: string | null;
 	players: GamePlayer[];
 	viewer_state: GamePlayerState | null;
@@ -159,7 +186,7 @@ export type NewGameInput = {
 	char_gen_info: JSONContent | null;
 	public: boolean;
 	recruitment_thread_id: number | null;
-	advanced_options: Record<string, unknown> | null;
+	advanced_options: GameAdvancedOptionsInput | null;
 };
 
 export const favoriteGame = async (gameId: number): Promise<{ favorite: boolean }> => {
@@ -312,6 +339,32 @@ export const updateGame = async (
 		throw new ApiError(res.status, errors);
 	}
 	return res.json();
+};
+
+export const uploadGameBackground = async (
+	gameId: number,
+	image: File,
+): Promise<GameBackground> => {
+	const formData = new FormData();
+	formData.append("image", image);
+
+	const res = await apiFetch(`/games/${gameId}/background`, {
+		method: "POST",
+		body: formData,
+	});
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
+	return res.json();
+};
+
+export const deleteGameBackground = async (gameId: number): Promise<void> => {
+	const res = await apiFetch(`/games/${gameId}/background`, { method: "DELETE" });
+	if (!res.ok) {
+		const { errors } = await res.json();
+		throw new ApiError(res.status, errors);
+	}
 };
 
 export const decksQueryOptions = (gameId: number) =>

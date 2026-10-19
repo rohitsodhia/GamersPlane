@@ -102,6 +102,35 @@ main {
 	& > .full-width {
 		grid-column: full-width;
 	}
+
+	/* A game background sits behind the content, which gets one semi-opaque panel
+	   (the page background, mostly opaque) so text stays readable. The panel is a
+	   single pseudo-element behind everything, so it can't wash out neighbouring
+	   content, and `isolation` keeps it above the background image itself. */
+	&.game-background {
+		isolation: isolate;
+
+		&::before {
+			content: "";
+			position: absolute;
+			z-index: -1;
+			grid-column: content;
+			inset-inline: -1rem;
+			inset-block: -1rem;
+			background: color-mix(in srgb, var(--bg) 95%, transparent);
+		}
+
+		/* Padding in place of the page's vertical margin: a background only paints
+		   inside the box, so a margin leaves a gap between it and the header. */
+		&:not(.no-gap) {
+			margin-block: 0;
+			padding-block: 20px;
+
+			&::before {
+				inset-block: 0;
+			}
+		}
+	}
 }
 
 .loading-spinner {

@@ -1014,7 +1014,6 @@ class TestUpdateGame:
                 char_gen_info={"info": "updated"},
                 public=False,
                 recruitment_thread_id=42,
-                advanced_options={"foo": "bar"},
             ),
         )
 
@@ -1030,7 +1029,6 @@ class TestUpdateGame:
         assert updated.char_gen_info == {"info": "updated"}
         assert updated.public is False
         assert updated.recruitment_thread_id == 42
-        assert updated.advanced_options == {"foo": "bar"}
 
     async def test_update_game_allowed_char_sheets(
         self, auth_as, client, db_session, game, gm, create

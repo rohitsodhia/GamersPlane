@@ -4,12 +4,63 @@ import datetime
 from typing import Annotated, Literal
 
 from annotated_types import Len
+from pydantic import ConfigDict, Field
 
 from app.models import Character
 from app.schema_base import SchemaBase, filtered_str
 
 # A game must allow at least one character sheet.
 AllowedCharSheets = Annotated[list[str], Len(min_length=1)]
+
+
+BACKGROUND_IMAGE_PATTERN = r"^[a-f0-9]{32}\.(jpg|png|webp)$"
+
+
+class BackgroundSettings(SchemaBase):
+    """How a game's background image is shown: presets only, no free-form CSS."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    position: Literal[
+        "center",
+        "top",
+        "bottom",
+        "left",
+        "right",
+        "top left",
+        "top right",
+        "bottom left",
+        "bottom right",
+    ] = "top"
+    size: Literal["width", "cover", "contain"] = "width"
+    fixed: bool = True
+    color: str | None = Field(default=None, pattern=r"^#[0-9a-f]{6}$")
+
+
+class BackgroundOptions(BackgroundSettings):
+    """The stored shape. ``image`` is only ever set by the upload endpoint.
+    Extra keys are ignored on read so a setting we've since dropped (``repeat``)
+    doesn't make an already-stored background disappear."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    image: str = Field(pattern=BACKGROUND_IMAGE_PATTERN)
+
+
+class AdvancedOptionsInput(SchemaBase):
+    """What a client may send. The background's image isn't part of it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    background: BackgroundSettings | None = None
+
+
+class BackgroundData(BackgroundSettings):
+    url: str
+
+
+class AdvancedOptionsData(SchemaBase):
+    background: BackgroundData | None
 
 
 class NewGameInput(SchemaBase):
@@ -23,7 +74,7 @@ class NewGameInput(SchemaBase):
     char_gen_info: dict | None
     public: bool
     recruitment_thread_id: int | None
-    advanced_options: dict | None
+    advanced_options: AdvancedOptionsInput | None
 
 
 class GameIdResponse(SchemaBase):
@@ -79,7 +130,7 @@ class GetGameResponse(SchemaBase):
     status: Literal["open", "closed"]
     public: bool
     recruitment_thread_id: int | None
-    advanced_options: dict | None
+    advanced_options: AdvancedOptionsData | None
     retired: datetime.datetime | None
     players: list[PlayerData]
     viewer_state: PlayerState | None
@@ -146,7 +197,7 @@ class UpdateGameInput(SchemaBase):
     char_gen_info: dict | None
     public: bool
     recruitment_thread_id: int | None
-    advanced_options: dict | None
+    advanced_options: AdvancedOptionsInput | None
 
 
 class DeckData(SchemaBase):
