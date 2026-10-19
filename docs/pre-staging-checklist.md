@@ -8,7 +8,7 @@ In order. Items marked **Needs decision:** have no answer in the repo yet. Nothi
 
 - [ ] Pick `<staging-host>`. It is also the droplet name (section 1), the mail From domain (`no-reply@<staging-host>`) and `POSTFIX_MYHOSTNAME`.
 - [ ] **Needs decision:** API hostname. `docker/nginx/nginx.staging.conf` is an old v1.5 sketch (`apiv15.staging-v15.gamersplane.com`) and is not used by anything; `default.conf.template` takes `API_SERVER_NAMES` from `.env`. Pick e.g. `api.<staging-host>`.
-- [ ] **Needs decision:** images hostname (`IMAGES_SERVER_NAMES`, `IMAGES_HOST_NAME`), e.g. `images.<staging-host>`. Avatars are served by the proxy from `./images`.
+- [ ] **Needs decision:** images hostname (`IMAGES_SERVER_NAMES`, `IMAGES_HOST_NAME`), e.g. `images.<staging-host>`. Uploads (avatars, backgrounds) are served by the proxy from `./images`.
 - [ ] **Needs decision:** TLS approach. The v2 nginx config listens on port 80 only and nothing in `compose.yml` terminates TLS or publishes a port outside dev (see section 6). The cookie is `Secure` whenever `ENVIRONMENT != dev`, so staging will not log in over plain HTTP. What v1 did: its Apache proxy publishes only `127.0.0.1:80`, and its `docker/apache/ssl/` holds a self-signed local CA/cert for dev. There is no certbot/Let's Encrypt setup in the v1 repo, so prod TLS was presumably terminated outside the compose stack (host or DO-level), which is not recorded. Options: host-level nginx/Caddy with Let's Encrypt in front of the proxy container, or a TLS-terminating container added to the compose stack.
 - [ ] **Needs decision:** frontend hosting. The `frontend` service is commented out in `compose.yml`, and `docker/Dockerfile-nextjs` is stale (the frontend is TanStack Start/Vite, `npm run build`, not Next.js). Options: build and run it on the droplet (needs a new Dockerfile and compose service), or host it elsewhere. Note `VITE_API_BASE_URL` and `VITE_PAGINATE_PER_PAGE` are baked in at build time.
 - [ ] **Needs decision:** staging data source. The prod import (`migration/`) is unbuilt: it only holds BBCode usage queries. Realistic options today are the seed data (section 6) or an empty database.
@@ -114,7 +114,7 @@ What the repo does and does not provide today:
 Checklist:
 
 - [ ] **Needs decision:** write a `compose.staging.yml` (publish proxy ports 80/443 or add TLS termination, frontend service, anything else per the decisions in section 0).
-- [ ] Create `./images` (bind-mounted into the API and proxy): `mkdir -p images/avatars`
+- [ ] Create `./images` (bind-mounted into the API and proxy): `mkdir -p images/uploads`
 - [ ] Start the stack:
 
   ```bash

@@ -18,7 +18,7 @@ def _isolate(wrap_in_savepoint):
 
 @pytest.fixture(autouse=True)
 def _tmp_avatars(monkeypatch, tmp_path):
-    monkeypatch.setattr(configs, "AVATARS_DIR", str(tmp_path))
+    monkeypatch.setattr(configs, "BACKGROUNDS_DIR", str(tmp_path / "backgrounds"))
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ class TestUpload:
 
         assert response.status_code == 200
         body = response.json()
-        assert body["url"].startswith(f"{configs.AVATARS_ROOT}/backgrounds/")
+        assert body["url"].startswith(f"{configs.BACKGROUNDS_ROOT}/")
         assert stored_file(tmp_path, body["url"]).exists()
         game = await db_session.get(Game, world.game.id)
         assert (
@@ -269,7 +269,7 @@ class TestStoredShapes:
             "size": "width",
             "fixed": True,
             "color": None,
-            "url": f"{configs.AVATARS_ROOT}/backgrounds/{STORED_IMAGE}",
+            "url": f"{configs.BACKGROUNDS_ROOT}/{STORED_IMAGE}",
         }
 
     async def test_malformed_background_reads_as_none(self, auth_as, db_session, world):

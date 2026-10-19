@@ -81,7 +81,7 @@ async def get_deck_or_404(
 
 
 def background_path(filename: str) -> Path:
-    return Path(configs.AVATARS_DIR) / "backgrounds" / filename
+    return Path(configs.BACKGROUNDS_DIR) / filename
 
 
 def get_background(options: dict | None) -> schemas.BackgroundOptions | None:
@@ -99,7 +99,7 @@ def build_background_data(
 ) -> schemas.BackgroundData:
     return schemas.BackgroundData(
         **background.model_dump(exclude={"image"}),
-        url=f"{configs.AVATARS_ROOT}/backgrounds/{background.image}",
+        url=f"{configs.BACKGROUNDS_ROOT}/{background.image}",
     )
 
 
