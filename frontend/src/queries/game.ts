@@ -42,6 +42,7 @@ export type GameBackgroundSettings = {
 	position: BackgroundPosition;
 	size: BackgroundSize;
 	fixed: boolean;
+	color: string | null;
 };
 
 export type GameBackground = GameBackgroundSettings & { url: string };

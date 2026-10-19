@@ -5,6 +5,7 @@ export const DEFAULT_BACKGROUND_SETTINGS: GameBackgroundSettings = {
 	position: "top",
 	size: "width",
 	fixed: true,
+	color: null,
 };
 
 export const BACKGROUND_MAX_BYTES = 10 * 1024 * 1024;
@@ -29,6 +30,7 @@ export function backgroundStyle(
 	url: string,
 ): CSSProperties {
 	return {
+		backgroundColor: settings.color ?? undefined,
 		backgroundImage: `url(${JSON.stringify(url)})`,
 		backgroundPosition: settings.position,
 		backgroundSize: settings.size === "width" ? "100% auto" : settings.size,

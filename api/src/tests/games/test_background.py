@@ -89,7 +89,13 @@ class TestUpload:
             f"/games/{world.game.id}",
             json=patch_body(
                 world.game,
-                {"background": {"position": "top left", "size": "contain"}},
+                {
+                    "background": {
+                        "position": "top left",
+                        "size": "contain",
+                        "color": "#336699",
+                    }
+                },
             ),
         )
 
@@ -102,6 +108,7 @@ class TestUpload:
         assert stored_file(tmp_path, second["url"]).exists()
         assert second["position"] == "top left"
         assert second["size"] == "contain"
+        assert second["color"] == "#336699"
 
     async def test_only_the_gm_can_upload(self, auth_as, create, db_session, world):
         member = await create(ActivatedUserFactory)
@@ -150,6 +157,24 @@ class TestSettings:
             "fixed": False,
         }
 
+    async def test_color_is_set_then_cleared_when_omitted(self, auth_as, world):
+        client = auth_as(world.gm)
+        await client.post(f"/games/{world.game.id}/background", files=upload())
+
+        await client.patch(
+            f"/games/{world.game.id}",
+            json=patch_body(world.game, {"background": {"color": "#a1b2c3"}}),
+        )
+        fetched = (await client.get(f"/games/{world.game.id}")).json()
+        assert fetched["advanced_options"]["background"]["color"] == "#a1b2c3"
+
+        await client.patch(
+            f"/games/{world.game.id}",
+            json=patch_body(world.game, {"background": {"size": "cover"}}),
+        )
+        fetched = (await client.get(f"/games/{world.game.id}")).json()
+        assert fetched["advanced_options"]["background"]["color"] is None
+
     async def test_patch_without_options_keeps_the_background(self, auth_as, world):
         client = auth_as(world.gm)
         uploaded = (
@@ -176,6 +201,8 @@ class TestSettings:
         "options",
         [
             {"background": {"size": "bogus"}},
+            {"background": {"color": "#fff"}},
+            {"background": {"color": "#GGGGGG"}},
             {"theme": "dark"},
             {"background": {"image": FORGED_NAME}},
         ],

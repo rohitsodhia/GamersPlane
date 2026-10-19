@@ -92,6 +92,7 @@ export function GameForm({
 							position: existingBackground.position,
 							size: existingBackground.size,
 							fixed: existingBackground.fixed,
+							color: existingBackground.color,
 						}
 					: DEFAULT_BACKGROUND_SETTINGS,
 			} as BackgroundDraft,

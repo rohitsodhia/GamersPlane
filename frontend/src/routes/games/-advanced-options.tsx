@@ -208,6 +208,27 @@ export function AdvancedOptions({
 							/>
 							<div className={styles["settings"]}>
 								<div className={styles["field"]}>
+									<label htmlFor="adr-background-color">Color</label>
+									<div>
+										<input
+											id="adr-background-color"
+											type="color"
+											value={background.settings.color ?? "#ffffff"}
+											onChange={(e) => setSettings({ color: e.target.value })}
+										/>{" "}
+										{background.settings.color ? (
+											<button
+												type="button"
+												onClick={() => setSettings({ color: null })}
+											>
+												Clear
+											</button>
+										) : (
+											<span className="explanation">None</span>
+										)}
+									</div>
+								</div>
+								<div className={styles["field"]}>
 									<label htmlFor="adr-background-position">Position</label>
 									<Select
 										id="adr-background-position"

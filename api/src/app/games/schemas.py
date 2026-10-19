@@ -34,6 +34,7 @@ class BackgroundSettings(SchemaBase):
     ] = "top"
     size: Literal["width", "cover", "contain"] = "width"
     fixed: bool = True
+    color: str | None = Field(default=None, pattern=r"^#[0-9a-f]{6}$")
 
 
 class BackgroundOptions(BackgroundSettings):

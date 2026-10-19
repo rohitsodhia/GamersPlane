@@ -30,10 +30,11 @@ describe("backgroundStyle", () => {
 	it("maps settings to css, quoting the url", () => {
 		expect(
 			backgroundStyle(
-				{ position: "top left", size: "contain", fixed: true },
+				{ position: "top left", size: "contain", fixed: true, color: "#112233" },
 				'https://x.test/a"b.png',
 			),
 		).toEqual({
+			backgroundColor: "#112233",
 			backgroundImage: 'url("https://x.test/a\\"b.png")',
 			backgroundPosition: "top left",
 			backgroundSize: "contain",
@@ -46,6 +47,12 @@ describe("backgroundStyle", () => {
 		expect(
 			backgroundStyle({ ...DEFAULT_BACKGROUND_SETTINGS, size: "width" }, "/a.png"),
 		).toMatchObject({ backgroundSize: "100% auto" });
+	});
+
+	it("sets no background color when none is chosen", () => {
+		expect(
+			backgroundStyle(DEFAULT_BACKGROUND_SETTINGS, "/a.png").backgroundColor,
+		).toBeUndefined();
 	});
 
 	it("scrolls with the page when not fixed", () => {
