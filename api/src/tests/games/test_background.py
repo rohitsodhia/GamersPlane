@@ -72,11 +72,10 @@ class TestUpload:
             game.advanced_options["background"]["image"]
             == body["url"].rsplit("/", 1)[1]
         )
-        assert (body["position"], body["size"], body["repeat"], body["fixed"]) == (
+        assert (body["position"], body["size"], body["fixed"]) == (
             "top",
-            "cover",
-            "no-repeat",
-            False,
+            "width",
+            True,
         )
 
     async def test_replacing_deletes_the_old_file_and_keeps_settings(
@@ -139,7 +138,7 @@ class TestSettings:
             f"/games/{world.game.id}",
             json=patch_body(
                 world.game,
-                {"background": {"repeat": "repeat-x", "fixed": True}},
+                {"background": {"size": "cover", "fixed": False}},
             ),
         )
 
@@ -147,8 +146,8 @@ class TestSettings:
         fetched = (await client.get(f"/games/{world.game.id}")).json()
         assert fetched["advanced_options"]["background"] == {
             **uploaded,
-            "repeat": "repeat-x",
-            "fixed": True,
+            "size": "cover",
+            "fixed": False,
         }
 
     async def test_patch_without_options_keeps_the_background(self, auth_as, world):
@@ -168,7 +167,7 @@ class TestSettings:
     async def test_settings_need_an_uploaded_image(self, auth_as, world):
         response = await auth_as(world.gm).patch(
             f"/games/{world.game.id}",
-            json=patch_body(world.game, {"background": {"size": "auto"}}),
+            json=patch_body(world.game, {"background": {"size": "cover"}}),
         )
 
         assert response.status_code == 400

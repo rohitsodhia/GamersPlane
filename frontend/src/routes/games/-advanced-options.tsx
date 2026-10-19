@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { Checkbox } from "#/components/Checkbox";
 import { Select } from "#/components/Select";
@@ -6,11 +7,7 @@ import {
 	backgroundFileError,
 	backgroundStyle,
 } from "#/lib/game-background";
-import type {
-	BackgroundPosition,
-	BackgroundRepeat,
-	BackgroundSize,
-} from "#/queries/game";
+import type { BackgroundPosition, BackgroundSize } from "#/queries/game";
 import styles from "./-advanced-options.module.css";
 import { type BackgroundDraft, imageWillExist } from "./-game-save";
 
@@ -29,18 +26,29 @@ const POSITIONS: Option<BackgroundPosition>[] = [
 ];
 
 const SIZES: Option<BackgroundSize>[] = [
-	{ id: "cover", label: "Cover" },
-	{ id: "contain", label: "Contain" },
 	{ id: "width", label: "Fit width" },
-	{ id: "auto", label: "Original size" },
+	{ id: "cover", label: "Fill the page" },
+	{ id: "contain", label: "Show the whole image" },
 ];
 
-const REPEATS: Option<BackgroundRepeat>[] = [
-	{ id: "no-repeat", label: "Don't repeat" },
-	{ id: "repeat", label: "Repeat" },
-	{ id: "repeat-x", label: "Repeat horizontally" },
-	{ id: "repeat-y", label: "Repeat vertically" },
-];
+const SIZE_DESCRIPTIONS: Record<BackgroundSize, string> = {
+	width:
+		"Stretches the image across the page's full width without distorting it. Extra height is cut off at the bottom, or left empty if the image is shorter than the page.",
+	cover:
+		"Fills the whole page, cropping the edges of the image if its shape doesn't match. Can look zoomed in on tall or narrow pages.",
+	contain:
+		"Shows the entire image without cropping, which can leave empty space at the sides or bottom.",
+};
+
+// Hidden for now: nobody in the old data used repeat, and the API no longer
+// takes it. To bring it back, restore `repeat` on the API's BackgroundSettings
+// and the frontend types, then un-comment this and the Repeat select below.
+// const REPEATS: Option<BackgroundRepeat>[] = [
+// 	{ id: "no-repeat", label: "Don't repeat" },
+// 	{ id: "repeat", label: "Repeat" },
+// 	{ id: "repeat-x", label: "Repeat horizontally" },
+// 	{ id: "repeat-y", label: "Repeat vertically" },
+// ];
 
 // The old site scraped dice-rule and GM-sheet "shortcuts" live out of two
 // hardcoded forum threads by regex-matching a spoiler-tag HTML structure
@@ -77,6 +85,10 @@ export function AdvancedOptions({
 		return () => URL.revokeObjectURL(url);
 	}, [background.file]);
 
+	// Opens on load when the game already has options set. Read once, so it
+	// doesn't fight the user toggling it or the staged edits below.
+	const [startsOpen] = useState(existingUrl !== null);
+
 	const hasImage = imageWillExist(existingUrl !== null, background);
 	const previewUrl = background.file ? stagedUrl : existingUrl;
 
@@ -101,10 +113,10 @@ export function AdvancedOptions({
 	}
 
 	return (
-		<details className={styles["advanced-options"]}>
+		<details className={styles["advanced-options"]} open={startsOpen}>
 			<summary>Advanced rules definitions</summary>
-			<div className={styles["content"]}>
-				<p className="explanation">
+			<div className={clsx("grid-layout", styles["content"])}>
+				<p className="explanation full-width">
 					See the{" "}
 					<a href="/forums/thread/22053/" target="guidesForum">
 						guides forum
@@ -112,7 +124,7 @@ export function AdvancedOptions({
 					for help configuring these rules.
 				</p>
 
-				<p className="explanation">
+				<p className="explanation full-width">
 					Community dice-rule and GM-sheet shortcuts aren't available yet — the old
 					version scraped them live from forum threads 22053 and 23143, which relied on
 					a spoiler markup pattern the rebuilt forums no longer produce. These need a
@@ -145,28 +157,34 @@ export function AdvancedOptions({
 				</div>
 
 				<div className={styles["background"]}>
-					<h3>Background</h3>
-					<p className="explanation">The background shows behind the page content.</p>
+					<h3 className="full-width">Background</h3>
+					<p className="explanation full-width">
+						The background shows behind the page content.
+					</p>
 
-					<div className={styles["field"]}>
+					<div className={styles["field-with-hint"]}>
 						<label htmlFor="adr-background-file">
 							{hasImage ? "Replace image" : "Image"}
 						</label>
-						<input
-							id="adr-background-file"
-							type="file"
-							accept={BACKGROUND_TYPES.join(",")}
-							onChange={(e) => {
-								pickFile(e.target.files?.[0]);
-								e.target.value = "";
-							}}
-						/>
-						<p className="explanation">JPEG, PNG or WEBP, up to 10MB.</p>
-						{fileError && <p className="error">{fileError}</p>}
+						<div>
+							<input
+								id="adr-background-file"
+								type="file"
+								accept={BACKGROUND_TYPES.join(",")}
+								onChange={(e) => {
+									pickFile(e.target.files?.[0]);
+									e.target.value = "";
+								}}
+							/>
+						</div>
+						<p className={clsx("explanation", styles["hint"])}>
+							JPEG, PNG or WEBP, up to 10MB.
+						</p>
+						{fileError && <p className={clsx("error", styles["hint"])}>{fileError}</p>}
 					</div>
 
 					{background.removed && existingUrl !== null && !background.file && (
-						<p className="explanation">
+						<p className="explanation full-width">
 							The background will be removed when you save.{" "}
 							<button
 								type="button"
@@ -202,7 +220,7 @@ export function AdvancedOptions({
 										}
 									/>
 								</div>
-								<div className={styles["field"]}>
+								<div className={styles["field-with-hint"]}>
 									<label htmlFor="adr-background-size">Size</label>
 									<Select
 										id="adr-background-size"
@@ -212,7 +230,11 @@ export function AdvancedOptions({
 										selectedId={background.settings.size}
 										onChange={(id) => setSettings({ size: id as BackgroundSize })}
 									/>
+									<p className={clsx("explanation", styles["hint"])}>
+										{SIZE_DESCRIPTIONS[background.settings.size]}
+									</p>
 								</div>
+								{/* Hidden, see REPEATS above.
 								<div className={styles["field"]}>
 									<label htmlFor="adr-background-repeat">Repeat</label>
 									<Select
@@ -224,6 +246,7 @@ export function AdvancedOptions({
 										onChange={(id) => setSettings({ repeat: id as BackgroundRepeat })}
 									/>
 								</div>
+								*/}
 								<div className={styles["checked-row"]}>
 									<label htmlFor="adr-background-fixed">
 										Keep fixed while scrolling:
@@ -235,7 +258,7 @@ export function AdvancedOptions({
 									/>
 								</div>
 							</div>
-							<div>
+							<div className={styles["actions"]}>
 								<button type="button" onClick={removeImage}>
 									Remove background
 								</button>

@@ -117,7 +117,18 @@ main {
 			grid-column: content;
 			inset-inline: -1rem;
 			inset-block: -1rem;
-			background: color-mix(in srgb, var(--bg) 92%, transparent);
+			background: color-mix(in srgb, var(--bg) 95%, transparent);
+		}
+
+		/* Padding in place of the page's vertical margin: a background only paints
+		   inside the box, so a margin leaves a gap between it and the header. */
+		&:not(.no-gap) {
+			margin-block: 0;
+			padding-block: 20px;
+
+			&::before {
+				inset-block: 0;
+			}
 		}
 	}
 }

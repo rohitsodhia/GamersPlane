@@ -36,13 +36,11 @@ export type BackgroundPosition =
 	| "top right"
 	| "bottom left"
 	| "bottom right";
-export type BackgroundSize = "cover" | "contain" | "width" | "auto";
-export type BackgroundRepeat = "no-repeat" | "repeat" | "repeat-x" | "repeat-y";
+export type BackgroundSize = "width" | "cover" | "contain";
 
 export type GameBackgroundSettings = {
 	position: BackgroundPosition;
 	size: BackgroundSize;
-	repeat: BackgroundRepeat;
 	fixed: boolean;
 };
 

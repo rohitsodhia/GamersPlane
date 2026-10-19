@@ -30,14 +30,14 @@ describe("backgroundStyle", () => {
 	it("maps settings to css, quoting the url", () => {
 		expect(
 			backgroundStyle(
-				{ position: "top left", size: "contain", repeat: "repeat-x", fixed: true },
+				{ position: "top left", size: "contain", fixed: true },
 				'https://x.test/a"b.png',
 			),
 		).toEqual({
 			backgroundImage: 'url("https://x.test/a\\"b.png")',
 			backgroundPosition: "top left",
 			backgroundSize: "contain",
-			backgroundRepeat: "repeat-x",
+			backgroundRepeat: "no-repeat",
 			backgroundAttachment: "fixed",
 		});
 	});
@@ -49,8 +49,8 @@ describe("backgroundStyle", () => {
 	});
 
 	it("scrolls with the page when not fixed", () => {
-		expect(backgroundStyle(DEFAULT_BACKGROUND_SETTINGS, "/a.png")).toMatchObject({
-			backgroundAttachment: "scroll",
-		});
+		expect(
+			backgroundStyle({ ...DEFAULT_BACKGROUND_SETTINGS, fixed: false }, "/a.png"),
+		).toMatchObject({ backgroundAttachment: "scroll" });
 	});
 });

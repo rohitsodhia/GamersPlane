@@ -32,13 +32,16 @@ class BackgroundSettings(SchemaBase):
         "bottom left",
         "bottom right",
     ] = "top"
-    size: Literal["cover", "contain", "width", "auto"] = "cover"
-    repeat: Literal["no-repeat", "repeat", "repeat-x", "repeat-y"] = "no-repeat"
-    fixed: bool = False
+    size: Literal["width", "cover", "contain"] = "width"
+    fixed: bool = True
 
 
 class BackgroundOptions(BackgroundSettings):
-    """The stored shape. ``image`` is only ever set by the upload endpoint."""
+    """The stored shape. ``image`` is only ever set by the upload endpoint.
+    Extra keys are ignored on read so a setting we've since dropped (``repeat``)
+    doesn't make an already-stored background disappear."""
+
+    model_config = ConfigDict(extra="ignore")
 
     image: str = Field(pattern=BACKGROUND_IMAGE_PATTERN)
 

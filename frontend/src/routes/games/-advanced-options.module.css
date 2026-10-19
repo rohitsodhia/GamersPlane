@@ -4,44 +4,50 @@
 		font-weight: bold;
 	}
 
+	/* Columns come from the global `.grid-layout`, which also flattens this
+	   block's direct child divs. The wrappers nested inside `.background` need to
+	   be flattened here so their labels and controls become cells of the grid. */
 	.content {
 		margin-top: 0.75em;
-		display: flex;
-		flex-direction: column;
-		gap: 0.75em;
-	}
+		align-items: start;
 
-	.field label {
-		display: block;
-		margin-bottom: 0.25em;
-	}
-
-	.checked-row {
-		display: flex;
-		align-items: center;
-		gap: 0.5em;
-	}
-
-	.background {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75em;
-
-		h3 {
+		/* The grid's gap handles the spacing. */
+		h3,
+		p {
 			margin: 0;
 		}
 	}
 
+	.field,
+	.checked-row,
+	.settings {
+		display: contents;
+	}
+
+	/* A field with text under its control: a subgrid, so it keeps the label and
+	   control columns but has its own rows. The label centers on the control's
+	   row alone, and the hint rows get their own, tighter gap. */
+	.field-with-hint {
+		display: grid;
+		grid-template-columns: subgrid;
+		grid-column: 1 / -1;
+		row-gap: 0.25em;
+	}
+
+	/* Helper and error text under a control: its own row, in the control column. */
+	.hint {
+		grid-column: 2;
+	}
+
 	.preview {
+		grid-column: 2;
 		width: min(100%, 400px);
 		aspect-ratio: 16 / 9;
 		border: 1px solid var(--text);
 		background-color: var(--bg);
 	}
 
-	.settings {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75em;
+	.actions {
+		grid-column: 2;
 	}
 }

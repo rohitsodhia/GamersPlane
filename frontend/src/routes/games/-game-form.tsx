@@ -91,7 +91,6 @@ export function GameForm({
 					? {
 							position: existingBackground.position,
 							size: existingBackground.size,
-							repeat: existingBackground.repeat,
 							fixed: existingBackground.fixed,
 						}
 					: DEFAULT_BACKGROUND_SETTINGS,

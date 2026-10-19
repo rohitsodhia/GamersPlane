@@ -3,9 +3,8 @@ import type { GameBackgroundSettings } from "#/queries/game";
 
 export const DEFAULT_BACKGROUND_SETTINGS: GameBackgroundSettings = {
 	position: "top",
-	size: "cover",
-	repeat: "no-repeat",
-	fixed: false,
+	size: "width",
+	fixed: true,
 };
 
 export const BACKGROUND_MAX_BYTES = 10 * 1024 * 1024;
@@ -33,7 +32,7 @@ export function backgroundStyle(
 		backgroundImage: `url(${JSON.stringify(url)})`,
 		backgroundPosition: settings.position,
 		backgroundSize: settings.size === "width" ? "100% auto" : settings.size,
-		backgroundRepeat: settings.repeat,
+		backgroundRepeat: "no-repeat",
 		backgroundAttachment: settings.fixed ? "fixed" : "scroll",
 	};
 }
