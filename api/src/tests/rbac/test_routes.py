@@ -132,6 +132,7 @@ class TestGetPermissions:
             "access_acp",
             "manage_users",
             "manage_faqs",
+            "manage_reports",
             "role_admin",
             "forum_read",
             "forum_write",

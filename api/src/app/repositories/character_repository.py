@@ -452,6 +452,23 @@ class CharacterRepository:
 
         return avatar
 
+    async def get_avatar(self, avatar_id: int) -> CharacterAvatar | None:
+        """An avatar of a live character, whoever owns it."""
+        return await self.db_session.scalar(
+            select(CharacterAvatar)
+            .join(CharacterAvatar.character)
+            .where(CharacterAvatar.id == avatar_id)
+        )
+
+    async def delete_avatar_by_id(self, avatar_id: int) -> CharacterAvatar | None:
+        """Delete any live character's avatar (for staff; ``delete_avatar`` needs
+        the owner's character loaded), promoting another to primary if needed."""
+        avatar = await self.get_avatar(avatar_id)
+        if avatar is None:
+            return None
+        character = await self.get_with_avatars(avatar.character_id)
+        return await self.delete_avatar(character, avatar_id)
+
     async def set_primary_avatar(
         self, character: Character, avatar_id: int
     ) -> CharacterAvatar | None:

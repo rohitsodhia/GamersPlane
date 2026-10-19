@@ -24,6 +24,8 @@ class ConfigStore:
         self.UPLOADS_DIR = self.IMAGES_DIR + "/uploads"
         self.AVATARS_DIR = self.UPLOADS_DIR + "/avatars"
         self.BACKGROUNDS_DIR = self.UPLOADS_DIR + "/backgrounds"
+        # Reported and staff-removed images; nginx must never serve this.
+        self.QUARANTINE_DIR = self.UPLOADS_DIR + "/quarantine"
 
         self.JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")

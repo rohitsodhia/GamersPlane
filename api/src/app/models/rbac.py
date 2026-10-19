@@ -52,6 +52,7 @@ class ValidPermissions(LabelEnum):
     ACP_ACCESS = "access_acp", "Access ACP", frozenset({None}), True
     MANAGE_USERS = "manage_users", "Manage Users", frozenset({None}), True
     MANAGE_FAQS = "manage_faqs", "Manage FAQs", frozenset({None}), True
+    MANAGE_REPORTS = "manage_reports", "Manage Reports", frozenset({None}), True
     ROLE_ADMIN = "role_admin", "Manage Role", frozenset({ScopeTypes.ROLE}), True
     FORUM_READ = "forum_read", "View Forum", frozenset({ScopeTypes.FORUM}), True
     FORUM_WRITE = "forum_write", "Write Posts", frozenset({ScopeTypes.FORUM}), True

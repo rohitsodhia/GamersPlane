@@ -225,6 +225,7 @@ async def cli_seed():
         moderator_role.grant(RolePermission.ValidPermissions.ACP_ACCESS)
         moderator_role.grant(RolePermission.ValidPermissions.MANAGE_USERS)
         moderator_role.grant(RolePermission.ValidPermissions.MANAGE_FAQS)
+        moderator_role.grant(RolePermission.ValidPermissions.MANAGE_REPORTS)
         moderator_role.grant(
             RolePermission.ValidPermissions.FORUM_MODERATE,
             scope_type=RolePermission.ScopeTypes.FORUM,
