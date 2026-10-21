@@ -11,6 +11,7 @@ import { Select } from "#/components/Select";
 import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
 import { DEBOUNCE_MS } from "#/lib/constants";
 import { useHbMargined } from "#/lib/use-hb-margined";
+import { DEFAULT_AVATAR_FILE } from "#/lib/users";
 import {
 	GAMERS_PER_PAGE,
 	type Gamer,
@@ -56,8 +57,6 @@ export const Route = createFileRoute("/gamers")({
 		),
 	component: RouteComponent,
 });
-
-const DEFAULT_AVATAR_FILE = "avatar.png";
 
 function GamerCard({ gamer }: { gamer: Gamer }) {
 	return (

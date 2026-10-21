@@ -27,6 +27,8 @@ import { InactiveMarker } from "#/components/InactiveMarker";
 import LockIcon from "#/components/LockIcon";
 import Paginate from "#/components/Paginate";
 import PinIcon from "#/components/PinIcon";
+import { ReportDialog } from "#/components/ReportDialog";
+import { ReportLink } from "#/components/ReportLink";
 import { TiptapContent } from "#/components/TiptapContent";
 import { flattenNpcBlocks } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker";
 import { ApiError } from "#/lib/api";
@@ -175,6 +177,7 @@ function PostItem({
 	canEdit,
 	canDelete,
 	isAuthor,
+	canReport,
 	canToggleDraws,
 	onQuote,
 	onDelete,
@@ -191,6 +194,8 @@ function PostItem({
 	canDelete: boolean;
 	// The viewer wrote the post: they see every drawn card.
 	isAuthor: boolean;
+	// A logged-in viewer who isn't the author.
+	canReport: boolean;
 	// Revealing or hiding cards: not allowed in a locked thread without moderating.
 	canToggleDraws: boolean;
 	onQuote: (post: Post) => void;
@@ -200,6 +205,7 @@ function PostItem({
 }) {
 	const navigate = useNavigate();
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
+	const [reporting, setReporting] = useState(false);
 	const menuActions: MenuAction[] = [];
 	if (onMarkUnread) {
 		menuActions.push({ label: "Mark as unread", onAction: onMarkUnread });
@@ -213,6 +219,9 @@ function PostItem({
 	}
 	if (canDelete) {
 		menuActions.push({ label: "Delete", onAction: () => setConfirmingDelete(true) });
+	}
+	if (canReport) {
+		menuActions.push({ label: "Report", onAction: () => setReporting(true) });
 	}
 	const postedAs = post.posted_as;
 	// A quick NPC takes the same slots as a character, with no sheet to link to.
@@ -335,6 +344,15 @@ function PostItem({
 					onConfirm={() => onDelete(post)}
 				/>
 			)}
+			{canReport && (
+				<ReportDialog
+					isOpen={reporting}
+					onOpenChange={setReporting}
+					targetType="post"
+					targetId={post.id}
+					targetLabel="this post"
+				/>
+			)}
 		</div>
 	);
 }
@@ -418,6 +436,11 @@ function RouteComponent() {
 
 	const { data: me } = useQuery({ ...meFullQueryOptions, enabled: loggedIn });
 	const postSide: PostSide = me?.postSide ?? "r";
+
+	// The thread's author is the first post's, which is only known while that post is
+	// on this page; on later pages the link shows even for the author's own thread.
+	const firstPost = posts.find((post) => post.id === thread.first_post_id);
+	const canReportThread = me !== undefined && firstPost?.author.id !== me.id;
 
 	const isModerator = thread.permissions.includes("forum_moderate");
 	const [modError, setModError] = useState<string | null>(null);
@@ -574,6 +597,15 @@ function RouteComponent() {
 							Be sure to read and follow the{" "}
 							<Link to="/community-guidelines">community guidelines</Link>.
 						</div>
+						{canReportThread && (
+							<ReportLink
+								targetType="thread"
+								targetId={thread.id}
+								targetLabel="this thread"
+							>
+								Report thread
+							</ReportLink>
+						)}
 					</div>
 
 					{isModerator && (
@@ -644,6 +676,7 @@ function RouteComponent() {
 									: "forum_delete",
 							)}
 							isAuthor={me !== undefined && post.author.id === me.id}
+							canReport={me !== undefined && post.author.id !== me.id}
 							canToggleDraws={canToggleDraws}
 							onQuote={handleQuote}
 							onDelete={(post) => deleteMutation.mutate(post.id)}

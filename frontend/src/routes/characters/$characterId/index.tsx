@@ -2,6 +2,7 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import clsx from "clsx";
 import { DismissibleBanner } from "#/components/DismissibleBanner";
+import { ReportLink } from "#/components/ReportLink";
 import { redirectToLoginOnAuthFailure } from "#/lib/auth-route";
 import {
 	forbiddenOnDenied,
@@ -56,6 +57,10 @@ function RouteComponent() {
 		...characterSheetMovesQueryOptions(characterId),
 		enabled: isOwner,
 	});
+	// The page doesn't show the avatars themselves, so only the primary one (the one
+	// posts use) is offered for reporting.
+	const reportableAvatar =
+		character.avatars.find((avatar) => avatar.is_primary) ?? character.avatars[0];
 	const latestUpgrade = sheetMoves?.versions[0]?.number;
 
 	const hbMargined = useHbMargined<HTMLHeadingElement>();
@@ -122,6 +127,28 @@ function RouteComponent() {
 					<span>Type</span>
 					<span>{character.type.toLocaleUpperCase()}</span>
 				</div>
+				{!isOwner && (
+					<div>
+						<ReportLink
+							targetType="character"
+							targetId={character.id}
+							targetLabel="this character"
+						>
+							Report character
+						</ReportLink>
+					</div>
+				)}
+				{!isOwner && reportableAvatar && (
+					<div>
+						<ReportLink
+							targetType="character_avatar"
+							targetId={reportableAvatar.id}
+							targetLabel="this character's avatar"
+						>
+							Report avatar
+						</ReportLink>
+					</div>
+				)}
 			</div>
 
 			<SheetValuesProvider

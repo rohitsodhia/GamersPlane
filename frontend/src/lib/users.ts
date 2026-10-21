@@ -1,5 +1,14 @@
 type LastActivity = Date | string | number;
 
+/** File name of the avatar served for users with no custom one. */
+export const DEFAULT_AVATAR_FILE = "avatar.png";
+
+/** True when the avatar URL is a user's own upload rather than the default. */
+export function hasCustomAvatar(avatarUrl: string) {
+	const file = avatarUrl.split(/[?#]/)[0].split("/").pop();
+	return file !== DEFAULT_AVATAR_FILE;
+}
+
 const INACTIVE_LIMIT = 14;
 
 function daysSince(lastActivity: LastActivity) {
