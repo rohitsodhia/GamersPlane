@@ -57,13 +57,36 @@ type Props = {
  * `ensureQueryData(systemsQueryOptions({ basic: true }))` in their loader.
  */
 export function ListFilters({ filters, idPrefix = "list", children }: Props) {
+	const { urlSearch, setFilters } = useFilterSearch();
+	// Held here, not in SystemsFilter, so Apply can be the bar's last item.
+	const [selectedSystemIds, setSelectedSystemIds] = useState(urlSearch.systems ?? []);
+
 	return (
 		<div className={styles["list-filters"]}>
 			{filters.includes("search") && <SearchFilter />}
-			{filters.includes("systems") && <SystemsFilter idPrefix={idPrefix} />}
+			{filters.includes("systems") && (
+				<SystemsFilter
+					idPrefix={idPrefix}
+					selectedSystemIds={selectedSystemIds}
+					onChange={setSelectedSystemIds}
+				/>
+			)}
 			{filters.includes("system") && <SystemFilter idPrefix={idPrefix} />}
 			{filters.includes("type") && <TypeFilter idPrefix={idPrefix} />}
 			{children}
+			{filters.includes("systems") && (
+				<button
+					type="button"
+					className="skew-btn"
+					onClick={() =>
+						setFilters({
+							systems: selectedSystemIds.length > 0 ? selectedSystemIds : undefined,
+						})
+					}
+				>
+					Apply
+				</button>
+			)}
 		</div>
 	);
 }
@@ -137,10 +160,16 @@ function SystemFilter({ idPrefix }: { idPrefix: string }) {
 	);
 }
 
-function SystemsFilter({ idPrefix }: { idPrefix: string }) {
-	const { urlSearch, setFilters } = useFilterSearch();
+function SystemsFilter({
+	idPrefix,
+	selectedSystemIds,
+	onChange: setSelectedSystemIds,
+}: {
+	idPrefix: string;
+	selectedSystemIds: string[];
+	onChange: (update: (prev: string[]) => string[]) => void;
+}) {
 	const { data: systems } = useSuspenseQuery(systemsQueryOptions({ basic: true }));
-	const [selectedSystemIds, setSelectedSystemIds] = useState(urlSearch.systems ?? []);
 
 	const availableSystems = systems.filter(
 		(system) => !selectedSystemIds.includes(system.id),
@@ -180,17 +209,6 @@ function SystemsFilter({ idPrefix }: { idPrefix: string }) {
 					})}
 				</ul>
 			)}
-			<button
-				type="button"
-				className="skew-btn"
-				onClick={() =>
-					setFilters({
-						systems: selectedSystemIds.length > 0 ? selectedSystemIds : undefined,
-					})
-				}
-			>
-				Apply
-			</button>
 		</div>
 	);
 }
