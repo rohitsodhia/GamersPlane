@@ -6,7 +6,9 @@ class ConfigStore:
     def __init__(self):
         self.LOGIN_COOKIE = "loginHash"
         self._from_env()
-        self.AVATARS_ROOT = self.IMAGES_HOST_NAME + "/avatars"
+        self.UPLOADS_ROOT = self.IMAGES_HOST_NAME + "/uploads"
+        self.AVATARS_ROOT = self.UPLOADS_ROOT + "/avatars"
+        self.BACKGROUNDS_ROOT = self.UPLOADS_ROOT + "/backgrounds"
 
     def _from_env(self):
         self.ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
@@ -19,7 +21,11 @@ class ConfigStore:
         self.COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", "")
         self.ROOT_DIR = os.getenv("ROOT_DIR", "")
         self.IMAGES_DIR = os.getenv("IMAGES_DIR", "")
-        self.AVATARS_DIR = self.IMAGES_DIR + "/avatars"
+        self.UPLOADS_DIR = self.IMAGES_DIR + "/uploads"
+        self.AVATARS_DIR = self.UPLOADS_DIR + "/avatars"
+        self.BACKGROUNDS_DIR = self.UPLOADS_DIR + "/backgrounds"
+        # Reported and staff-removed images; nginx must never serve this.
+        self.QUARANTINE_DIR = self.UPLOADS_DIR + "/quarantine"
 
         self.JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")

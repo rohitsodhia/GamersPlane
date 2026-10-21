@@ -11,6 +11,7 @@ import { Autocomplete } from "#/components/Autocomplete";
 import GMBadge from "#/components/GMBadge";
 import { characterDisplayName, ownerLabelHint } from "#/components/game-bar";
 import { QuickNpcList } from "#/components/QuickNpcList";
+import { ReportLink } from "#/components/ReportLink";
 import { TiptapContent } from "#/components/TiptapContent";
 import { ApiError } from "#/lib/api";
 import { formatDate } from "#/lib/format-date";
@@ -496,6 +497,22 @@ function RouteComponent() {
 			</h1>
 
 			<div style={{ marginInline: `${hbMarginedH1.margin}px` }}>
+				{me && !isGM && !isPrimaryGM && (
+					<div className={styles["report-links"]}>
+						<ReportLink targetType="game" targetId={game.id} targetLabel="this game">
+							Report game
+						</ReportLink>
+						{game.advanced_options?.background && (
+							<ReportLink
+								targetType="game_background"
+								targetId={game.id}
+								targetLabel="this game's background"
+							>
+								Report background
+							</ReportLink>
+						)}
+					</div>
+				)}
 				{retired && (
 					<div className="banner error-banner">
 						This game has been retired! That means it's no longer being run.

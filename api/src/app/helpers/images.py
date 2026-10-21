@@ -1,4 +1,5 @@
 import io
+import shutil
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
@@ -84,6 +85,19 @@ def process_image_upload(
         image = image.convert("RGB")
 
     return image, ext
+
+
+def quarantine_image(src: Path, dest: Path, *, move: bool) -> bool:
+    """Copy (or, with ``move``, move) an image into quarantine, making ``dest``'s
+    folders. Returns False, touching nothing, if ``src`` is missing."""
+    if not src.is_file():
+        return False
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if move:
+        shutil.move(src, dest)
+    else:
+        shutil.copy2(src, dest)
+    return True
 
 
 def save_image(image: Image.Image, path: Path) -> None:

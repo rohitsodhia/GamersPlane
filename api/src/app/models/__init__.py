@@ -23,6 +23,7 @@ from .publisher import Publisher
 from .quick_npc import QuickNPC
 from .rbac import Role, RolePermission, UserRole
 from .referral_link import ReferralLink
+from .report import Report
 from .system import System
 from .system_genres import SystemGenre
 from .thread import Thread

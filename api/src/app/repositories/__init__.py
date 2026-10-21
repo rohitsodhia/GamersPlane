@@ -16,6 +16,7 @@ from .quick_npc_repository import NPCOwner, QuickNPCRepository
 from .rbac_repository import RBACkRepository
 from .read_tracking_repository import ReadTrackingRepository
 from .referral_link_repository import ReferralLinkRepository
+from .report_repository import ReportRepository
 from .system_repository import SystemRepository
 from .thread_repository import ThreadRepository
 from .user_repository import UserRepository

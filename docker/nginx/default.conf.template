@@ -46,6 +46,11 @@ server {
 
     add_header X-Content-Type-Options nosniff always;
 
+    # Reported and staff-removed images are kept for evidence, never served.
+    location ^~ /uploads/quarantine/ {
+        return 404;
+    }
+
     location / {
         try_files $uri =404;
     }

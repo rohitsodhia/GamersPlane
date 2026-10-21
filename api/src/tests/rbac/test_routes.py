@@ -129,9 +129,9 @@ class TestGetPermissions:
         # Exact set: the seed-only `admin` verb (api_grantable=False) must be
         # filtered out, every other verb must be present.
         assert {p["value"] for p in permissions} == {
-            "access_acp",
             "manage_users",
             "manage_faqs",
+            "manage_reports",
             "role_admin",
             "forum_read",
             "forum_write",
@@ -144,10 +144,10 @@ class TestGetPermissions:
             "forum_add_draws",
             "forum_moderate",
         }
-        acp = next(p for p in permissions if p["value"] == "access_acp")
-        assert acp["label"] == "Access ACP"
+        faqs = next(p for p in permissions if p["value"] == "manage_faqs")
+        assert faqs["label"] == "Manage FAQs"
         by_value = {p["value"]: p["scopes"] for p in permissions}
-        assert by_value["access_acp"] == ["global"]
+        assert by_value["manage_faqs"] == ["global"]
         assert by_value["forum_read"] == ["forum"]
         assert by_value["role_admin"] == ["role"]
 
@@ -220,7 +220,7 @@ class TestGetRoles:
         role = await make_role(
             db_session,
             members=[member_one, member_two],
-            grants=[(Verbs.ACP_ACCESS, None, None)],
+            grants=[(Verbs.MANAGE_FAQS, None, None)],
         )
 
         response = await client.get("/rbac/roles", params={"filter": role.name})
@@ -389,7 +389,7 @@ class TestGetRole:
         role = await make_role(
             db_session,
             members=[member],
-            grants=[(Verbs.ACP_ACCESS, None, None)],
+            grants=[(Verbs.MANAGE_FAQS, None, None)],
         )
 
         body = (await client.get(f"/rbac/roles/{role.id}")).json()
@@ -397,11 +397,11 @@ class TestGetRole:
         assert body["owner"]["id"] == role.owner.id
         assert [u["id"] for u in body["users"]] == [member.id]
         grant = body["grants"][0]
-        assert grant["permission"] == {"value": "access_acp", "label": "Access ACP"}
+        assert grant["permission"] == {"value": "manage_faqs", "label": "Manage FAQs"}
         assert grant["effect"] == "allow"
         assert grant["scope_type"] is None
         assert grant["scope_id"] is None
-        assert grant["description"] == "Access ACP"
+        assert grant["description"] == "Manage FAQs"
 
     async def test_forum_scoped_grant_description_resolves_forum_title(
         self, authed_client, db_session, create
@@ -472,7 +472,7 @@ class TestGetRole:
         role = await make_role(
             db_session,
             grants=[
-                (Verbs.ACP_ACCESS, None, None),
+                (Verbs.MANAGE_FAQS, None, None),
                 (Verbs.ROLE_ADMIN, Scopes.ROLE, target.id),
             ],
         )
@@ -627,7 +627,7 @@ class TestCreateGrant:
         client, _user = authed_client
 
         response = await client.post(
-            "/rbac/roles/1/grants", json={"permission": "access_acp"}
+            "/rbac/roles/1/grants", json={"permission": "manage_faqs"}
         )
 
         assert response.status_code == 403
@@ -637,7 +637,7 @@ class TestCreateGrant:
         await make_admin(db_session, user)
 
         response = await client.post(
-            "/rbac/roles/999999/grants", json={"permission": "access_acp"}
+            "/rbac/roles/999999/grants", json={"permission": "manage_faqs"}
         )
 
         assert response.status_code == 404
@@ -648,12 +648,12 @@ class TestCreateGrant:
         role = await make_role(db_session)
 
         response = await client.post(
-            f"/rbac/roles/{role.id}/grants", json={"permission": "access_acp"}
+            f"/rbac/roles/{role.id}/grants", json={"permission": "manage_faqs"}
         )
 
         assert response.status_code == 204
         body = (await client.get(f"/rbac/roles/{role.id}")).json()
-        assert body["grants"][0]["permission"]["value"] == "access_acp"
+        assert body["grants"][0]["permission"]["value"] == "manage_faqs"
         assert body["grants"][0]["effect"] == "allow"
 
     async def test_adds_a_forum_scoped_grant(self, authed_client, db_session, create):
@@ -683,7 +683,7 @@ class TestCreateGrant:
 
         response = await client.post(
             f"/rbac/roles/{role.id}/grants",
-            json={"permission": "access_acp", "scope_type": "forum", "scope_id": 1},
+            json={"permission": "manage_faqs", "scope_type": "forum", "scope_id": 1},
         )
 
         assert response.status_code == 400
@@ -763,7 +763,7 @@ class TestCreateGrant:
         client, user = authed_client
         await make_admin(db_session, user)
         role = await make_role(db_session)
-        payload = {"permission": "access_acp"}
+        payload = {"permission": "manage_faqs"}
         await client.post(f"/rbac/roles/{role.id}/grants", json=payload)
 
         response = await client.post(f"/rbac/roles/{role.id}/grants", json=payload)
@@ -780,7 +780,7 @@ class TestCreateGrant:
         protect_role(role)
 
         response = await client.post(
-            f"/rbac/roles/{role.id}/grants", json={"permission": "access_acp"}
+            f"/rbac/roles/{role.id}/grants", json={"permission": "manage_faqs"}
         )
 
         assert response.status_code == 403
@@ -795,19 +795,19 @@ class TestCreateGrant:
         implicit_role(role)
 
         response = await client.post(
-            f"/rbac/roles/{role.id}/grants", json={"permission": "access_acp"}
+            f"/rbac/roles/{role.id}/grants", json={"permission": "manage_faqs"}
         )
 
         assert response.status_code == 204
         grants = (await client.get(f"/rbac/roles/{role.id}")).json()["grants"]
-        assert [g["permission"]["value"] for g in grants] == ["access_acp"]
+        assert [g["permission"]["value"] for g in grants] == ["manage_faqs"]
 
 
 class TestUpdateGrant:
     async def test_toggles_effect(self, authed_client, db_session):
         client, user = authed_client
         await make_admin(db_session, user)
-        role = await make_role(db_session, grants=[(Verbs.ACP_ACCESS, None, None)])
+        role = await make_role(db_session, grants=[(Verbs.MANAGE_FAQS, None, None)])
         grant_id = role.grants[0].id
 
         response = await client.patch(
@@ -833,7 +833,7 @@ class TestUpdateGrant:
     ):
         client, user = authed_client
         await make_admin(db_session, user)
-        other = await make_role(db_session, grants=[(Verbs.ACP_ACCESS, None, None)])
+        other = await make_role(db_session, grants=[(Verbs.MANAGE_FAQS, None, None)])
         role = await make_role(db_session)
 
         response = await client.patch(
@@ -848,7 +848,7 @@ class TestUpdateGrant:
     ):
         client, user = authed_client
         await make_admin(db_session, user)
-        role = await make_role(db_session, grants=[(Verbs.ACP_ACCESS, None, None)])
+        role = await make_role(db_session, grants=[(Verbs.MANAGE_FAQS, None, None)])
         protect_role(role)
         grant_id = role.grants[0].id
 
@@ -865,7 +865,7 @@ class TestDeleteGrant:
     async def test_hard_deletes_the_grant(self, authed_client, db_session):
         client, user = authed_client
         await make_admin(db_session, user)
-        role = await make_role(db_session, grants=[(Verbs.ACP_ACCESS, None, None)])
+        role = await make_role(db_session, grants=[(Verbs.MANAGE_FAQS, None, None)])
         grant_id = role.grants[0].id
 
         response = await client.delete(f"/rbac/roles/{role.id}/grants/{grant_id}")
@@ -896,7 +896,7 @@ class TestDeleteGrant:
     ):
         client, user = authed_client
         await make_admin(db_session, user)
-        other = await make_role(db_session, grants=[(Verbs.ACP_ACCESS, None, None)])
+        other = await make_role(db_session, grants=[(Verbs.MANAGE_FAQS, None, None)])
         role = await make_role(db_session)
 
         response = await client.delete(
@@ -912,7 +912,7 @@ class TestDeleteGrant:
     ):
         client, user = authed_client
         await make_admin(db_session, user)
-        role = await make_role(db_session, grants=[(Verbs.ACP_ACCESS, None, None)])
+        role = await make_role(db_session, grants=[(Verbs.MANAGE_FAQS, None, None)])
         protect_role(role)
         grant_id = role.grants[0].id
 
@@ -1089,7 +1089,7 @@ class TestGameBackedRoles:
         grant_id = gm_role.grants[0].id
 
         created = await client.post(
-            f"/rbac/roles/{gm_role.id}/grants", json={"permission": "access_acp"}
+            f"/rbac/roles/{gm_role.id}/grants", json={"permission": "manage_faqs"}
         )
         updated = await client.patch(
             f"/rbac/roles/{gm_role.id}/grants/{grant_id}", json={"effect": "deny"}
@@ -1143,7 +1143,7 @@ class TestGameBackedRoles:
             f"/rbac/roles/{player_role.id}", json={"name": "Adventurers"}
         )
         granted = await client.post(
-            f"/rbac/roles/{player_role.id}/grants", json={"permission": "access_acp"}
+            f"/rbac/roles/{player_role.id}/grants", json={"permission": "manage_faqs"}
         )
 
         assert (renamed.status_code, granted.status_code) == (204, 204)
@@ -1226,7 +1226,7 @@ class TestSiteRoleDelegation:
     async def test_cannot_touch_grants_or_create_roles(self, authed_client, db_session):
         client, user = authed_client
         role = await make_managed_role(
-            db_session, user, "owner", grants=[(Verbs.ACP_ACCESS, None, None)]
+            db_session, user, "owner", grants=[(Verbs.MANAGE_FAQS, None, None)]
         )
         grant_id = role.grants[0].id
 

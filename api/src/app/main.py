@@ -43,6 +43,7 @@ from app.pms.routes import pms
 from app.posts.routes import posts
 from app.rbac.routes import rbac
 from app.referral_links.routes import referral_links
+from app.reports.routes import reports
 from app.schemas import ErrorItem
 from app.systems.legacy_routes import systems as legacy_systems
 from app.systems.routes import systems
@@ -223,5 +224,6 @@ def create_app(init_db=True) -> FastAPI:
     app.include_router(characters)
     app.include_router(contact)
     app.include_router(faqs)
+    app.include_router(reports)
 
     return app

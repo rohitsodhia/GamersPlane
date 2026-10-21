@@ -507,7 +507,7 @@ class TestSetForumPermissions:
         role = await make_role(db_session)
 
         response = await self.put(
-            moderator, board["lounge"], (role, {"access_acp": "allow"})
+            moderator, board["lounge"], (role, {"manage_faqs": "allow"})
         )
 
         assert response.status_code == 400

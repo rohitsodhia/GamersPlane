@@ -71,6 +71,23 @@ class QuickNPCRepository:
         await self.db_session.flush()
         return image
 
+    async def remove_image(self, image: NPCImage) -> None:
+        """Delete a library image. NPCs using it lose their image; one that would
+        then duplicate a live NPC with the same name and no image is deleted."""
+        using = await self.db_session.scalars(
+            select(QuickNPC).where(
+                QuickNPC.image_id == image.id, QuickNPC.deleted.is_(None)
+            )
+        )
+        for npc in list(using):
+            owner = NPCOwner(game_id=npc.game_id, user_id=npc.user_id)
+            if await self.find_live(owner, npc.name, None) is not None:
+                npc.deleted = datetime.now(UTC)
+            npc.image = None
+            await self.db_session.flush()
+        await self.db_session.delete(image)
+        await self.db_session.flush()
+
     async def get_npcs(self, owner: NPCOwner) -> list[QuickNPC]:
         """The owner's live NPCs, most recently used first, then by name."""
         result = await self.db_session.scalars(

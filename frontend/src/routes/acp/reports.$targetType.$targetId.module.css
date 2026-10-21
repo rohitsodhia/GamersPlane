@@ -1,0 +1,65 @@
+.target,
+.actions {
+	margin-bottom: 1.5em;
+}
+
+.actions {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5em;
+	max-width: 40em;
+}
+
+.action-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+}
+
+.snapshot {
+	padding: 0.5em 0.75em;
+	border-left: 3px solid light-dark(#ccc, #444);
+}
+
+.snapshot-body {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.snapshot-image {
+	display: block;
+	max-width: 100%;
+	max-height: 24em;
+}
+
+.report {
+	padding: 0.5em 0.75em;
+	margin-bottom: 0.75em;
+	border: 1px solid light-dark(#ddd, #333);
+}
+
+.report-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.25em 1em;
+}
+
+.reason {
+	font-weight: bold;
+}
+
+.reason-illegal {
+	color: light-dark(#b00020, #ff6b6b);
+}
+
+.status {
+	text-transform: capitalize;
+	color: #666;
+}
+
+.resolution,
+.hint {
+	font-size: 0.9em;
+	color: #666;
+}

@@ -46,6 +46,7 @@ import { Route as ToolsDiceRouteImport } from './routes/tools/dice'
 import { Route as UserUserIdRouteImport } from './routes/user.$userId'
 import { Route as AcpForumsIndexRouteImport } from './routes/acp/forums/index'
 import { Route as AcpForumsForumIdRouteImport } from './routes/acp/forums/$forumId'
+import { Route as AcpReportsIndexRouteImport } from './routes/acp/reports.index'
 import { Route as AcpRoleRoleIdRouteImport } from './routes/acp/role.$roleId'
 import { Route as CharactersCharacterIdIndexRouteImport } from './routes/characters/$characterId/index'
 import { Route as CharactersCharacterIdChangeSheetRouteImport } from './routes/characters/$characterId/change-sheet'
@@ -64,6 +65,7 @@ import { Route as AcpForumsForumIdDetailsRouteImport } from './routes/acp/forums
 import { Route as AcpForumsForumIdPermissionsRouteImport } from './routes/acp/forums/$forumId.permissions'
 import { Route as AcpForumsForumIdRolesRouteImport } from './routes/acp/forums/$forumId.roles'
 import { Route as AcpForumsForumIdSubforumsRouteImport } from './routes/acp/forums/$forumId.subforums'
+import { Route as AcpReportsTargetTypeTargetIdRouteImport } from './routes/acp/reports.$targetType.$targetId'
 import { Route as CharactersSheetsSheetIdIndexRouteImport } from './routes/characters/sheets/$sheetId/index'
 import { Route as CharactersSheetsSheetIdChangelogRouteImport } from './routes/characters/sheets/$sheetId/changelog'
 
@@ -253,6 +255,11 @@ const AcpForumsForumIdRoute = AcpForumsForumIdRouteImport.update({
   path: '/forums/$forumId',
   getParentRoute: () => AcpRouteRoute,
 } as any)
+const AcpReportsIndexRoute = AcpReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => AcpRouteRoute,
+} as any)
 const AcpRoleRoleIdRoute = AcpRoleRoleIdRouteImport.update({
   id: '/role/$roleId',
   path: '/role/$roleId',
@@ -349,6 +356,12 @@ const AcpForumsForumIdSubforumsRoute =
     path: '/subforums',
     getParentRoute: () => AcpForumsForumIdRoute,
   } as any)
+const AcpReportsTargetTypeTargetIdRoute =
+  AcpReportsTargetTypeTargetIdRouteImport.update({
+    id: '/reports/$targetType/$targetId',
+    path: '/reports/$targetType/$targetId',
+    getParentRoute: () => AcpRouteRoute,
+  } as any)
 const CharactersSheetsSheetIdIndexRoute =
   CharactersSheetsSheetIdIndexRouteImport.update({
     id: '/characters/sheets/$sheetId/',
@@ -409,6 +422,7 @@ export interface FileRoutesByFullPath {
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
   '/acp/forums/': typeof AcpForumsIndexRoute
+  '/acp/reports/': typeof AcpReportsIndexRoute
   '/characters/$characterId/': typeof CharactersCharacterIdIndexRoute
   '/characters/sheets/': typeof CharactersSheetsIndexRoute
   '/games/$gameId/': typeof GamesGameIdIndexRoute
@@ -417,6 +431,7 @@ export interface FileRoutesByFullPath {
   '/acp/forums/$forumId/permissions': typeof AcpForumsForumIdPermissionsRoute
   '/acp/forums/$forumId/roles': typeof AcpForumsForumIdRolesRoute
   '/acp/forums/$forumId/subforums': typeof AcpForumsForumIdSubforumsRoute
+  '/acp/reports/$targetType/$targetId': typeof AcpReportsTargetTypeTargetIdRoute
   '/characters/sheets/$sheetId/changelog': typeof CharactersSheetsSheetIdChangelogRoute
   '/acp/forums/$forumId/': typeof AcpForumsForumIdIndexRoute
   '/characters/sheets/$sheetId/': typeof CharactersSheetsSheetIdIndexRoute
@@ -465,6 +480,7 @@ export interface FileRoutesByTo {
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
   '/acp/forums': typeof AcpForumsIndexRoute
+  '/acp/reports': typeof AcpReportsIndexRoute
   '/characters/$characterId': typeof CharactersCharacterIdIndexRoute
   '/characters/sheets': typeof CharactersSheetsIndexRoute
   '/games/$gameId': typeof GamesGameIdIndexRoute
@@ -473,6 +489,7 @@ export interface FileRoutesByTo {
   '/acp/forums/$forumId/permissions': typeof AcpForumsForumIdPermissionsRoute
   '/acp/forums/$forumId/roles': typeof AcpForumsForumIdRolesRoute
   '/acp/forums/$forumId/subforums': typeof AcpForumsForumIdSubforumsRoute
+  '/acp/reports/$targetType/$targetId': typeof AcpReportsTargetTypeTargetIdRoute
   '/characters/sheets/$sheetId/changelog': typeof CharactersSheetsSheetIdChangelogRoute
   '/acp/forums/$forumId': typeof AcpForumsForumIdIndexRoute
   '/characters/sheets/$sheetId': typeof CharactersSheetsSheetIdIndexRoute
@@ -525,6 +542,7 @@ export interface FileRoutesById {
   '/forums/thread/$threadId': typeof ForumsThreadThreadIdRoute
   '/games/$gameId/edit': typeof GamesGameIdEditRoute
   '/acp/forums/': typeof AcpForumsIndexRoute
+  '/acp/reports/': typeof AcpReportsIndexRoute
   '/characters/$characterId/': typeof CharactersCharacterIdIndexRoute
   '/characters/sheets/': typeof CharactersSheetsIndexRoute
   '/games/$gameId/': typeof GamesGameIdIndexRoute
@@ -533,6 +551,7 @@ export interface FileRoutesById {
   '/acp/forums/$forumId/permissions': typeof AcpForumsForumIdPermissionsRoute
   '/acp/forums/$forumId/roles': typeof AcpForumsForumIdRolesRoute
   '/acp/forums/$forumId/subforums': typeof AcpForumsForumIdSubforumsRoute
+  '/acp/reports/$targetType/$targetId': typeof AcpReportsTargetTypeTargetIdRoute
   '/characters/sheets/$sheetId/changelog': typeof CharactersSheetsSheetIdChangelogRoute
   '/acp/forums/$forumId/': typeof AcpForumsForumIdIndexRoute
   '/characters/sheets/$sheetId/': typeof CharactersSheetsSheetIdIndexRoute
@@ -586,6 +605,7 @@ export interface FileRouteTypes {
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
     | '/acp/forums/'
+    | '/acp/reports/'
     | '/characters/$characterId/'
     | '/characters/sheets/'
     | '/games/$gameId/'
@@ -594,6 +614,7 @@ export interface FileRouteTypes {
     | '/acp/forums/$forumId/permissions'
     | '/acp/forums/$forumId/roles'
     | '/acp/forums/$forumId/subforums'
+    | '/acp/reports/$targetType/$targetId'
     | '/characters/sheets/$sheetId/changelog'
     | '/acp/forums/$forumId/'
     | '/characters/sheets/$sheetId/'
@@ -642,6 +663,7 @@ export interface FileRouteTypes {
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
     | '/acp/forums'
+    | '/acp/reports'
     | '/characters/$characterId'
     | '/characters/sheets'
     | '/games/$gameId'
@@ -650,6 +672,7 @@ export interface FileRouteTypes {
     | '/acp/forums/$forumId/permissions'
     | '/acp/forums/$forumId/roles'
     | '/acp/forums/$forumId/subforums'
+    | '/acp/reports/$targetType/$targetId'
     | '/characters/sheets/$sheetId/changelog'
     | '/acp/forums/$forumId'
     | '/characters/sheets/$sheetId'
@@ -701,6 +724,7 @@ export interface FileRouteTypes {
     | '/forums/thread/$threadId'
     | '/games/$gameId/edit'
     | '/acp/forums/'
+    | '/acp/reports/'
     | '/characters/$characterId/'
     | '/characters/sheets/'
     | '/games/$gameId/'
@@ -709,6 +733,7 @@ export interface FileRouteTypes {
     | '/acp/forums/$forumId/permissions'
     | '/acp/forums/$forumId/roles'
     | '/acp/forums/$forumId/subforums'
+    | '/acp/reports/$targetType/$targetId'
     | '/characters/sheets/$sheetId/changelog'
     | '/acp/forums/$forumId/'
     | '/characters/sheets/$sheetId/'
@@ -1022,6 +1047,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AcpForumsForumIdRouteImport
       parentRoute: typeof AcpRouteRoute
     }
+    '/acp/reports/': {
+      id: '/acp/reports/'
+      path: '/reports'
+      fullPath: '/acp/reports/'
+      preLoaderRoute: typeof AcpReportsIndexRouteImport
+      parentRoute: typeof AcpRouteRoute
+    }
     '/acp/role/$roleId': {
       id: '/acp/role/$roleId'
       path: '/role/$roleId'
@@ -1148,6 +1180,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AcpForumsForumIdSubforumsRouteImport
       parentRoute: typeof AcpForumsForumIdRoute
     }
+    '/acp/reports/$targetType/$targetId': {
+      id: '/acp/reports/$targetType/$targetId'
+      path: '/reports/$targetType/$targetId'
+      fullPath: '/acp/reports/$targetType/$targetId'
+      preLoaderRoute: typeof AcpReportsTargetTypeTargetIdRouteImport
+      parentRoute: typeof AcpRouteRoute
+    }
     '/characters/sheets/$sheetId/': {
       id: '/characters/sheets/$sheetId/'
       path: '/characters/sheets/$sheetId'
@@ -1192,6 +1231,8 @@ interface AcpRouteRouteChildren {
   AcpForumsForumIdRoute: typeof AcpForumsForumIdRouteWithChildren
   AcpRoleRoleIdRoute: typeof AcpRoleRoleIdRoute
   AcpForumsIndexRoute: typeof AcpForumsIndexRoute
+  AcpReportsIndexRoute: typeof AcpReportsIndexRoute
+  AcpReportsTargetTypeTargetIdRoute: typeof AcpReportsTargetTypeTargetIdRoute
 }
 
 const AcpRouteRouteChildren: AcpRouteRouteChildren = {
@@ -1202,6 +1243,8 @@ const AcpRouteRouteChildren: AcpRouteRouteChildren = {
   AcpForumsForumIdRoute: AcpForumsForumIdRouteWithChildren,
   AcpRoleRoleIdRoute: AcpRoleRoleIdRoute,
   AcpForumsIndexRoute: AcpForumsIndexRoute,
+  AcpReportsIndexRoute: AcpReportsIndexRoute,
+  AcpReportsTargetTypeTargetIdRoute: AcpReportsTargetTypeTargetIdRoute,
 }
 
 const AcpRouteRouteWithChildren = AcpRouteRoute._addFileChildren(

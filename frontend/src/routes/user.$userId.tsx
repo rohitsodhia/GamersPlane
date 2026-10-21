@@ -7,9 +7,10 @@ import {
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { InactiveMarker } from "#/components/InactiveMarker";
 import RAIcon from "#/components/RAIcon";
+import { ReportLink } from "#/components/ReportLink";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { lastActivityText } from "#/lib/users";
+import { hasCustomAvatar, lastActivityText } from "#/lib/users";
 import { hasPermission, meQueryOptions } from "#/queries/me";
 import { toggleUserBan, userQueryOptions } from "#/queries/users";
 import { useAuthStore } from "#/stores/auth";
@@ -71,6 +72,30 @@ function RouteComponent() {
 							Send Private Message
 						</Link>
 					</div>
+					{me && me.id !== user.id && (
+						<>
+							<div>
+								<ReportLink
+									targetType="user"
+									targetId={user.id}
+									targetLabel={`user ${user.username}`}
+								>
+									Report user
+								</ReportLink>
+							</div>
+							{hasCustomAvatar(user.avatar) && (
+								<div>
+									<ReportLink
+										targetType="user_avatar"
+										targetId={user.id}
+										targetLabel={`avatar of ${user.username}`}
+									>
+										Report avatar
+									</ReportLink>
+								</div>
+							)}
+						</>
+					)}
 				</div>
 				<div className={styles["user-profile-info"]}>
 					{allowBan && (
