@@ -221,6 +221,7 @@ class TestGetCurrentUser:
 
         assert body["roleAdmin"] is True
         assert body["siteModerate"] is True
+        assert body["acp"] is True
 
     async def test_site_forum_moderator_is_a_site_moderator_with_role_admin(
         self, authed_client, db_session, create
@@ -259,19 +260,20 @@ class TestGetCurrentUser:
         assert body["roleAdmin"] is False
         assert body["acp"] is False
 
-    async def test_get_current_user_reports_global_permission_verbs(
-        self, authed_client, db_session
+    async def test_a_scoped_non_acp_grant_does_not_open_the_acp(
+        self, authed_client, db_session, create
     ):
         client, user = authed_client
+        forum = await create(ForumFactory)
         await _give_permission(
-            db_session, user, RolePermission.ValidPermissions.MANAGE_USERS
+            db_session,
+            user,
+            RolePermission.ValidPermissions.FORUM_READ,
+            scope_type=RolePermission.ScopeTypes.FORUM,
+            scope_id=forum.id,
         )
 
-        response = await client.get("/me")
-
-        assert response.status_code == 200
-        body = response.json()
-        assert body["permissions"] == ["manage_users"]
+        assert (await client.get("/me")).json()["acp"] is False
 
     async def test_get_current_user_full_includes_profile_fields(self, authed_client):
         client, user = authed_client

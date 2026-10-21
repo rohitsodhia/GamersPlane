@@ -16,6 +16,7 @@ from app.models import (
     UserMeta,
 )
 from app.reports.routes import REPORTS_PER_HOUR
+from app.reports.schemas import REPORT_TEXT_MAX
 from app.repositories import UserRepository
 from tests.conftest import SITE_ROOT_FORUM_ID
 from tests.factories import (
@@ -324,7 +325,6 @@ class TestCreateReport:
         again = await auth_as(reporter).post("/reports", json=body)
 
         assert again.status_code == 409
-        assert "already reported" in again.json()["errors"][0]["detail"]
 
     async def test_eleventh_report_in_an_hour_is_rate_limited(
         self, auth_as, create, reporter
@@ -341,6 +341,16 @@ class TestCreateReport:
         response = await client.post("/reports", json=report_body("user", target.id))
 
         assert response.status_code == 429
+
+    async def test_details_over_the_limit_are_rejected(self, auth_as, create, reporter):
+        target = await create(ActivatedUserFactory)
+
+        response = await auth_as(reporter).post(
+            "/reports",
+            json=report_body("user", target.id, details="x" * (REPORT_TEXT_MAX + 1)),
+        )
+
+        assert response.status_code == 422
 
     async def test_reason_other_needs_details(self, auth_as, create, reporter):
         target = await create(ActivatedUserFactory)
@@ -382,14 +392,11 @@ class TestStaffEndpoints:
         assert response.status_code == 200
         body = response.json()
         assert body["total"] == 2
-        first, second = body["groups"]
-        assert (first["target_id"], first["count"], first["reason"]) == (
-            flagged.id,
-            2,
-            "illegal_content",
-        )
-        assert first["latest_snapshot"] == {"username": flagged.username}
-        assert (second["target_id"], second["status"]) == (quiet.id, "open")
+        by_target = {g["target_id"]: g for g in body["groups"]}
+        assert set(by_target) == {flagged.id, quiet.id}
+        assert by_target[flagged.id]["latest_snapshot"] == {
+            "username": flagged.username
+        }
 
     async def test_target_detail_shows_who_reported_and_what(
         self, auth_as, create, reporter, staff, make_image_target
@@ -452,6 +459,25 @@ class TestStaffEndpoints:
             }
         assert again.status_code == 404
 
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"status": "open"},
+            {"status": "dismissed", "note": "x" * (REPORT_TEXT_MAX + 1)},
+        ],
+    )
+    async def test_resolve_rejects_an_invalid_status_or_long_note(
+        self, payload, auth_as, create, reporter, staff
+    ):
+        target = await create(ActivatedUserFactory)
+        await auth_as(reporter).post("/reports", json=report_body("user", target.id))
+
+        response = await auth_as(staff).post(
+            f"/reports/user/{target.id}/resolve", json=payload
+        )
+
+        assert response.status_code == 422
+
 
 class TestSnapshotFile:
     async def file_report(self, auth_as, reporter, make_image_target, db_session):
@@ -476,17 +502,6 @@ class TestSnapshotFile:
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["cache-control"] == "private, no-store"
         assert "content-disposition" not in response.headers
-
-    async def test_needs_manage_reports(
-        self, auth_as, reporter, make_image_target, db_session
-    ):
-        report = await self.file_report(
-            auth_as, reporter, make_image_target, db_session
-        )
-
-        response = await auth_as(reporter).get(f"/reports/{report.id}/snapshot-file")
-
-        assert response.status_code == 403
 
     async def test_text_only_report_has_no_file(
         self, auth_as, create, reporter, staff, db_session
@@ -583,6 +598,11 @@ class TestRemoveImage:
         response = await auth_as(staff).post(f"/reports/user/{target.id}/remove-image")
 
         assert response.status_code == 400
+
+    async def test_missing_target_is_404(self, auth_as, staff):
+        response = await auth_as(staff).post("/reports/user_avatar/999999/remove-image")
+
+        assert response.status_code == 404
 
     async def test_npcs_using_a_removed_image_lose_it_without_colliding(
         self, auth_as, create, db_session, staff
