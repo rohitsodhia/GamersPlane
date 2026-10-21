@@ -453,6 +453,87 @@ class TestStaffEndpoints:
         assert again.status_code == 404
 
 
+class TestSnapshotFile:
+    async def file_report(self, auth_as, reporter, make_image_target, db_session):
+        target = await make_image_target("npc_image")
+        filed = await auth_as(reporter).post(
+            "/reports", json=report_body("npc_image", target.id)
+        )
+        return await db_session.get(Report, filed.json()["id"])
+
+    async def test_staff_get_the_quarantined_copy_inline(
+        self, auth_as, reporter, staff, make_image_target, db_session
+    ):
+        report = await self.file_report(
+            auth_as, reporter, make_image_target, db_session
+        )
+
+        response = await auth_as(staff).get(f"/reports/{report.id}/snapshot-file")
+
+        assert response.status_code == 200
+        assert response.content == b"image-bytes"
+        assert response.headers["content-type"] == "image/png"
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["cache-control"] == "private, no-store"
+        assert "content-disposition" not in response.headers
+
+    async def test_needs_manage_reports(
+        self, auth_as, reporter, make_image_target, db_session
+    ):
+        report = await self.file_report(
+            auth_as, reporter, make_image_target, db_session
+        )
+
+        response = await auth_as(reporter).get(f"/reports/{report.id}/snapshot-file")
+
+        assert response.status_code == 403
+
+    async def test_text_only_report_has_no_file(
+        self, auth_as, create, reporter, staff, db_session
+    ):
+        target = await create(ActivatedUserFactory)
+        filed = await auth_as(reporter).post(
+            "/reports", json=report_body("user", target.id)
+        )
+
+        response = await auth_as(staff).get(
+            f"/reports/{filed.json()['id']}/snapshot-file"
+        )
+
+        assert response.status_code == 404
+
+    async def test_unknown_report_is_404(self, auth_as, staff):
+        response = await auth_as(staff).get("/reports/999999/snapshot-file")
+
+        assert response.status_code == 404
+
+    async def test_file_deleted_from_disk_is_404(
+        self, auth_as, reporter, staff, make_image_target, db_session, tmp_path
+    ):
+        report = await self.file_report(
+            auth_as, reporter, make_image_target, db_session
+        )
+        (tmp_path / "quarantine" / report.snapshot_file).unlink()
+
+        response = await auth_as(staff).get(f"/reports/{report.id}/snapshot-file")
+
+        assert response.status_code == 404
+
+    async def test_a_path_outside_quarantine_is_404(
+        self, auth_as, reporter, staff, make_image_target, db_session, tmp_path
+    ):
+        report = await self.file_report(
+            auth_as, reporter, make_image_target, db_session
+        )
+        write_file(tmp_path / "secret.png")
+        report.snapshot_file = "../secret.png"
+        await db_session.flush()
+
+        response = await auth_as(staff).get(f"/reports/{report.id}/snapshot-file")
+
+        assert response.status_code == 404
+
+
 class TestRemoveImage:
     @pytest.mark.parametrize("kind", IMAGE_KINDS)
     async def test_resets_the_image_and_moves_the_file_to_quarantine(

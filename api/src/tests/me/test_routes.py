@@ -162,6 +162,27 @@ class TestGetCurrentUser:
         assert body["forumModerate"] is True
         assert body["permissions"] == []
 
+    @pytest.mark.parametrize(
+        "verb",
+        [
+            RolePermission.ValidPermissions.MANAGE_USERS,
+            RolePermission.ValidPermissions.MANAGE_FAQS,
+            RolePermission.ValidPermissions.MANAGE_REPORTS,
+        ],
+    )
+    async def test_a_global_acp_section_permission_alone_opens_the_acp(
+        self, authed_client, db_session, verb
+    ):
+        client, user = authed_client
+        await _give_permission(db_session, user, verb)
+
+        body = (await client.get("/me")).json()
+
+        assert body["acp"] is True
+        assert body["forumModerate"] is False
+        assert body["roleAdmin"] is False
+        assert body["permissions"] == [verb.value]
+
     async def test_owning_a_site_role_grants_role_admin_and_acp(
         self, authed_client, db_session
     ):
@@ -251,7 +272,6 @@ class TestGetCurrentUser:
         assert response.status_code == 200
         body = response.json()
         assert body["permissions"] == ["manage_users"]
-        assert body["acp"] is False
 
     async def test_get_current_user_full_includes_profile_fields(self, authed_client):
         client, user = authed_client

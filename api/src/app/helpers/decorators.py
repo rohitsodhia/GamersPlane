@@ -11,7 +11,7 @@ def requires(*permissions: str):
     ``app.middleware``). Place below the router decorator:
 
         @router.get("/roles")
-        @requires("access_acp")
+        @requires("manage_faqs")
         async def list_roles(...): ...
     """
 

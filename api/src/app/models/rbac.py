@@ -49,7 +49,6 @@ class ValidPermissions(LabelEnum):
     # Forum verbs are always forum-scoped: there is no global forum grant. To
     # cover every forum, grant against the root forum (id 0); it cascades down.
     ADMIN = "admin", "Administrator", frozenset({None}), False
-    ACP_ACCESS = "access_acp", "Access ACP", frozenset({None}), True
     MANAGE_USERS = "manage_users", "Manage Users", frozenset({None}), True
     MANAGE_FAQS = "manage_faqs", "Manage FAQs", frozenset({None}), True
     MANAGE_REPORTS = "manage_reports", "Manage Reports", frozenset({None}), True
@@ -216,7 +215,7 @@ class RolePermission(Base, TimestampMixin, SoftDeleteMixin):
         ),
         # A grant is either global (both NULL) or bound to one resource (both set).
         # This does not check that the scope_type is valid for the permission verb
-        # (e.g. access_acp must be global) — that stays in the route/repo layer.
+        # (e.g. manage_faqs must be global) — that stays in the route/repo layer.
         CheckConstraint(
             "(scope_type IS NULL) = (scope_id IS NULL)",
             name="ck_role_permissions_scope_complete",
@@ -230,7 +229,7 @@ class RolePermission(Base, TimestampMixin, SoftDeleteMixin):
         LabelEnumType(ValidPermissions, String(64))
     )
     # scope_type/scope_id bind the grant to one resource (e.g. forum 4). Both NULL
-    # means the grant is global (e.g. access_acp).
+    # means the grant is global (e.g. manage_faqs).
     scope_type: Mapped[ScopeTypes | None] = mapped_column(
         LabelEnumType(ScopeTypes, String(16)), nullable=True
     )

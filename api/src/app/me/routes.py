@@ -56,8 +56,8 @@ _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
 async def get_current_user(
     current_user: Principal, db_session: DBSessionDependency, full: bool = False
 ):
-    # Forum moderation is scoped, so moderators reach the ACP without a global
-    # access_acp grant.
+    # The ACP door is derived: forum moderators, role admins, and holders of any
+    # global ACP section permission (manage_users/faqs/reports; admin satisfies all).
     roots = await moderated_roots(db_session, current_user)
     forum_moderate = bool(roots)
     # Admins and moderators of a site (non-game) forum can create site roles; a
@@ -89,7 +89,9 @@ async def get_current_user(
         "acp": forum_moderate
         or role_admin
         or current_user.has_global_permission(
-            RolePermission.ValidPermissions.ACP_ACCESS.value
+            RolePermission.ValidPermissions.MANAGE_USERS.value,
+            RolePermission.ValidPermissions.MANAGE_FAQS.value,
+            RolePermission.ValidPermissions.MANAGE_REPORTS.value,
         ),
         "forumModerate": forum_moderate,
         "siteModerate": site_moderate,

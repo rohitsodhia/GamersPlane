@@ -106,7 +106,7 @@ class TestValidateJwt:
     ):
         user = await create(UserFactory)
         role = Role(name="ACP Admins", owner=user)
-        role.grant(RolePermission.ValidPermissions.ACP_ACCESS)
+        role.grant(RolePermission.ValidPermissions.MANAGE_FAQS)
         user.roles.append(role)
         await db_session.flush()
         token = user.generate_jwt()
@@ -118,25 +118,25 @@ class TestValidateJwt:
         await validate_jwt(request, db_session)
 
         assert request.scope["user"].id == user.id
-        assert request.scope["auth"] == {"access_acp"}
+        assert request.scope["auth"] == {"manage_faqs"}
 
     async def test_valid_token_adds_registered_global_grants(
         self, db_session, create, registered_with, guest_with
     ):
-        await registered_with(RolePermission.ValidPermissions.ACP_ACCESS)
+        await registered_with(RolePermission.ValidPermissions.MANAGE_FAQS)
         await guest_with(RolePermission.ValidPermissions.ROLE_ADMIN)
         user = await create(UserFactory)
         request = make_request({"Authorization": f"Bearer {user.generate_jwt()}"})
 
         await validate_jwt(request, db_session)
 
-        assert request.scope["auth"] == {"access_acp"}
-        assert request.scope["user"].has_global_permission("access_acp")
+        assert request.scope["auth"] == {"manage_faqs"}
+        assert request.scope["user"].has_global_permission("manage_faqs")
 
     async def test_registered_deny_overrides_assigned_role_allow(
         self, db_session, create, registered_with
     ):
-        verb = RolePermission.ValidPermissions.ACP_ACCESS
+        verb = RolePermission.ValidPermissions.MANAGE_FAQS
         await registered_with(verb, effect=RolePermission.Effects.DENY)
         user = await create(UserFactory)
         role = Role(name="ACP Admins", owner=user)
@@ -152,7 +152,7 @@ class TestValidateJwt:
     async def test_anonymous_request_gets_guest_global_grants(
         self, db_session, registered_with, guest_with
     ):
-        await registered_with(RolePermission.ValidPermissions.ACP_ACCESS)
+        await registered_with(RolePermission.ValidPermissions.MANAGE_FAQS)
         await guest_with(RolePermission.ValidPermissions.ROLE_ADMIN)
         request = make_request()
 
@@ -222,16 +222,16 @@ class TestCheckAuthorization:
     @pytest.mark.parametrize(
         ("required", "auth", "expect_forbidden"),
         [
-            pytest.param(["access_acp"], ["access_acp"], False, id="held"),
-            pytest.param(["access_acp"], ["forum_moderate"], True, id="missing"),
+            pytest.param(["manage_faqs"], ["manage_faqs"], False, id="held"),
+            pytest.param(["manage_faqs"], ["forum_moderate"], True, id="missing"),
             pytest.param(
-                ["access_acp", "forum_moderate"],
+                ["manage_faqs", "forum_moderate"],
                 ["forum_moderate"],
                 False,
                 id="any_one_suffices",
             ),
-            pytest.param(["access_acp"], ["admin"], False, id="admin_overrides"),
-            pytest.param(["access_acp"], _OMIT, True, id="no_auth_in_scope"),
+            pytest.param(["manage_faqs"], ["admin"], False, id="admin_overrides"),
+            pytest.param(["manage_faqs"], _OMIT, True, id="no_auth_in_scope"),
             pytest.param([], [], False, id="empty_requires_ignored"),
         ],
     )
@@ -266,7 +266,7 @@ class TestCheckAuthorization:
             await self.authorize(request)
 
     async def test_blocked_user_on_public_route_is_treated_as_guest(self, guest_with):
-        await guest_with(RolePermission.ValidPermissions.ACP_ACCESS)
+        await guest_with(RolePermission.ValidPermissions.MANAGE_FAQS)
         request = make_request(
             scope=self.route_scope(
                 is_public=True, user=fake_user(block="banned"), auth=["forum_moderate"]
@@ -276,15 +276,15 @@ class TestCheckAuthorization:
         await self.authorize(request)
 
         assert request.scope["user"] is None
-        assert request.scope["auth"] == {"access_acp"}
+        assert request.scope["auth"] == {"manage_faqs"}
 
     async def test_blocked_user_loses_required_permission_on_public_route(self):
         request = make_request(
             scope=self.route_scope(
                 is_public=True,
                 user=fake_user(block="banned"),
-                required=["access_acp"],
-                auth=["access_acp"],
+                required=["manage_faqs"],
+                auth=["manage_faqs"],
             )
         )
 

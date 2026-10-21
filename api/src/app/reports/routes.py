@@ -1,5 +1,9 @@
-from fastapi import APIRouter, Query, status
+from pathlib import Path
 
+from fastapi import APIRouter, Query, status
+from fastapi.responses import FileResponse
+
+from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import NotFoundException
 from app.helpers.decorators import requires
@@ -21,6 +25,12 @@ reports = APIRouter(prefix="/reports")
 REPORTS_PER_HOUR = 10
 REPORT_GROUPS_PER_PAGE = 25
 IMAGE_REMOVED_NOTE = "Image removed"
+SNAPSHOT_MEDIA_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+}
 
 
 @reports.post(
@@ -72,6 +82,33 @@ async def get_report_groups(
         ),
         "total": await report_repository.count_groups(status_filter),
     }
+
+
+@reports.get("/{report_id}/snapshot-file")
+@requires("manage_reports")
+async def get_snapshot_file(report_id: int, db_session: DBSessionDependency):
+    """The quarantined copy of a reported image (nginx doesn't serve quarantine).
+
+    Declared before ``/{target_type}/{target_id}``, which has the same segment
+    count and would otherwise try to parse ``snapshot-file`` as an id.
+    """
+    report = await ReportRepository(db_session).get(report_id)
+    if report is None or report.snapshot_file is None:
+        raise NotFoundException("No snapshot image for that report")
+    root = Path(configs.QUARANTINE_DIR).resolve()
+    path = (root / report.snapshot_file).resolve()
+    media_type = SNAPSHOT_MEDIA_TYPES.get(path.suffix.lower())
+    if not path.is_relative_to(root) or media_type is None or not path.is_file():
+        raise NotFoundException("No snapshot image for that report")
+    return FileResponse(
+        path,
+        media_type=media_type,
+        content_disposition_type="inline",
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 @reports.get(

@@ -93,13 +93,13 @@ class TestGlobalPermissions:
         shared = RolePermission.ValidPermissions.ADMIN
         admins = Role(name="Admins", owner=user)
         admins.grant(shared)
-        admins.grant(RolePermission.ValidPermissions.ACP_ACCESS)
+        admins.grant(RolePermission.ValidPermissions.MANAGE_FAQS)
         mods = Role(name="Moderators", owner=user)
         mods.grant(shared)
         mods.grant(RolePermission.ValidPermissions.ROLE_ADMIN)
         user.roles.extend([admins, mods])
 
-        assert user.global_permissions == {"admin", "access_acp", "role_admin"}
+        assert user.global_permissions == {"admin", "manage_faqs", "role_admin"}
 
     def test_global_deny_overrides_global_allow_from_another_role(self):
         user = _user()
@@ -145,7 +145,7 @@ class TestGlobalPermissions:
         assigned.grant(RolePermission.ValidPermissions.ROLE_ADMIN)
         user.roles.append(assigned)
         registered = Role(name="Registered", owner=user)
-        registered.grant(RolePermission.ValidPermissions.ACP_ACCESS)
+        registered.grant(RolePermission.ValidPermissions.MANAGE_FAQS)
         user.implicit_roles = (registered,)
 
-        assert user.global_permissions == {"role_admin", "access_acp"}
+        assert user.global_permissions == {"role_admin", "manage_faqs"}

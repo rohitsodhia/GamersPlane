@@ -115,7 +115,7 @@ Checklist:
 
 - [ ] **Needs decision:** write a `compose.staging.yml` (publish proxy ports 80/443 or add TLS termination, frontend service, anything else per the decisions in section 0).
 - [ ] Create `./images` (bind-mounted into the API and proxy): `mkdir -p images/uploads`
-- [ ] Check `https://<images host>/uploads/quarantine/anything` returns 404 (reported and removed images live there; the nginx images block denies it).
+- [ ] Check `https://<images host>/uploads/quarantine/anything` returns 404 (reported and removed images live there; the nginx images block denies it). Staff view a report's quarantined copy through `GET /reports/{id}/snapshot-file` (needs `manage_reports`) instead.
 - [ ] Start the stack:
 
   ```bash

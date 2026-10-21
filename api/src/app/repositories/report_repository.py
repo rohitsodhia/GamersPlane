@@ -162,6 +162,9 @@ class ReportRepository:
             )
         return groups
 
+    async def get(self, report_id: int) -> Report | None:
+        return await self.db_session.get(Report, report_id)
+
     async def get_for_target(
         self, target_type: TargetTypes, target_id: int
     ) -> list[Report]:
