@@ -26,4 +26,8 @@ ssh_key.pub
 logs/
 .pytest_cache
 __pycache__
-images/uploads/*
+# Uploaded files are ignored, but the folder structure (via .gitkeep) is tracked
+images/uploads/**/*
+!images/uploads/**/
+!images/uploads/**/.gitkeep
+!images/uploads/avatars/users/avatar.png

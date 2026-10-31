@@ -79,6 +79,7 @@ dependencies = [
     { name = "bcrypt" },
     { name = "email-validator" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "inflect" },
     { name = "jinja2" },
     { name = "paramiko" },
@@ -95,7 +96,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "icecream" },
     { name = "mimesis" },
     { name = "pre-commit" },
@@ -114,6 +114,7 @@ requires-dist = [
     { name = "bcrypt", specifier = "~=4.3" },
     { name = "email-validator", specifier = "~=2.2" },
     { name = "fastapi", specifier = "~=0.115" },
+    { name = "httpx", specifier = "~=0.28" },
     { name = "inflect", specifier = "~=7.5" },
     { name = "jinja2", specifier = "~=3.1" },
     { name = "paramiko", specifier = "<4.0.0" },
@@ -130,7 +131,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = "~=0.28" },
     { name = "icecream", specifier = "~=2.1" },
     { name = "mimesis", specifier = "~=18.0" },
     { name = "pre-commit", specifier = "~=4.0" },
