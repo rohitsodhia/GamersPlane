@@ -28,8 +28,10 @@ class DedupedPipelineSchema(SchemaBase):
 
 
 class TestApplyPipelines:
-    def test_default_pipeline_applies_nl2br_then_strips(self):
-        schema = DefaultPipelineSchema(text="  hello\nworld  ")
+    def test_default_pipeline_strips_then_applies_nl2br(self):
+        # Stripping first means a trailing/leading newline never becomes a
+        # <br> that strip_whitespace can't remove.
+        schema = DefaultPipelineSchema(text="\n hello\nworld \n")
 
         assert schema.text == "hello<br>world"
 
