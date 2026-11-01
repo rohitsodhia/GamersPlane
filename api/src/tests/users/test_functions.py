@@ -132,6 +132,7 @@ class TestRegisterUser:
 
         meta = {m.key: m.value for m in user.meta}
         assert meta == {
+            UserMeta.MetaKeys.GAME_MAIL.value: True,
             UserMeta.MetaKeys.GM_MAIL.value: True,
             UserMeta.MetaKeys.NEW_GAME_MAIL.value: True,
             UserMeta.MetaKeys.PM_MAIL.value: True,

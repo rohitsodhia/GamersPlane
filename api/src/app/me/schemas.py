@@ -30,6 +30,7 @@ class UserOutput(SchemaBase):
     pmMail: bool | None = None
     newGameMail: bool | None = None
     gmMail: bool | None = None
+    gameMail: bool | None = None
     postSide: PostSide = "r"
     lookingForAGame: bool | None = None
     gameInterests: str | None = filtered_str(pipelines=[strip_whitespace])
@@ -43,6 +44,7 @@ class UpdateProfileInput(SchemaBase):
     pmMail: bool | None = None
     newGameMail: bool | None = None
     gmMail: bool | None = None
+    gameMail: bool | None = None
     postSide: PostSide = "r"
     lookingForAGame: bool | None = None
     gameInterests: str | None = filtered_str(pipelines=[strip_whitespace])
@@ -63,6 +65,7 @@ class UpdatedProfileFields(SchemaBase):
     pmMail: bool | None = None
     newGameMail: bool | None = None
     gmMail: bool | None = None
+    gameMail: bool | None = None
     postSide: PostSide | None = None
     lookingForAGame: bool | None = None
     gameInterests: str | None = None

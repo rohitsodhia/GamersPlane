@@ -247,6 +247,38 @@ class UserRepository:
             ).all()
         )
 
+    async def get_mail_recipients(
+        self, user_ids: Iterable[int], pref: UserMeta.MetaKeys
+    ) -> list[str]:
+        """Emails of the active users in ``user_ids`` who haven't opted out of
+        ``pref``. These prefs default to on: a missing row counts as opted in,
+        and only an explicit row that isn't "1" opts out."""
+        ids = set(user_ids)
+        if not ids:
+            return []
+        now = datetime.now(timezone.utc)
+        return list(
+            (
+                await self.db_session.scalars(
+                    select(User.email)
+                    .where(
+                        User.id.in_(ids),
+                        User.activated_on.is_not(None),
+                        User.banned.is_(None),
+                        or_(
+                            User.suspended_until.is_(None), User.suspended_until <= now
+                        ),
+                        ~exists().where(
+                            UserMeta.user_id == User.id,
+                            UserMeta.key == pref.value,
+                            UserMeta._value != "1",
+                        ),
+                    )
+                    .order_by(User.id)
+                )
+            ).all()
+        )
+
     async def set_lfg_systems(self, user_id: int, system_ids: Iterable[str]) -> None:
         """Replace the user's LFG systems with exactly ``system_ids``."""
         wanted = set(system_ids)

@@ -54,6 +54,20 @@ class PlayerRepository:
             query = query.where(Player.state == Player.States.ACCEPTED)
         return await self.db_session.scalars(query)
 
+    async def get_gm_ids(self, game_id: int) -> list[int]:
+        """User ids of the game's accepted GMs, the primary GM included."""
+        return list(
+            (
+                await self.db_session.scalars(
+                    select(Player.user_id).where(
+                        Player.game_id == game_id,
+                        Player.is_gm.is_(True),
+                        Player.state == Player.States.ACCEPTED,
+                    )
+                )
+            ).all()
+        )
+
     async def get_player(self, game_id: int, user_id: int) -> Player | None:
         return await self.db_session.get(
             Player, {"game_id": game_id, "user_id": user_id}
