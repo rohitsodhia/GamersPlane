@@ -2,9 +2,10 @@ import secrets
 from datetime import UTC, datetime
 from typing import Literal
 
-from fastapi import APIRouter, File, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, File, Query, UploadFile, status
 
 from app.characters.functions import can_view_character
+from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import (
     ConflictException,
@@ -25,6 +26,7 @@ from app.games.functions import (
     require_game_exists,
     require_gm,
     require_not_retired,
+    send_new_game_email,
     unread_game_ids,
 )
 from app.helpers.avatars import read_avatar_upload
@@ -73,6 +75,7 @@ async def create_game(
     db_session: DBSessionDependency,
     principal: Principal,
     game_data: schemas.NewGameInput,
+    background_tasks: BackgroundTasks,
 ):
     system_repository = SystemRepository(db_session)
     system = await system_repository.get_by_id(game_data.system_id)
@@ -98,6 +101,28 @@ async def create_game(
         game_data.recruitment_thread_id,
         merge_advanced_options(None, game_data.advanced_options),
     )
+
+    if (
+        game.public
+        and game.status is Game.Statuses.OPEN
+        and configs.EMAIL_ENABLED
+        and configs.MASS_EMAIL_ENABLED
+    ):
+        recipients = await UserRepository(db_session).get_new_game_mail_recipients(
+            system.id, principal.id
+        )
+        if recipients:
+            background_tasks.add_task(
+                send_new_game_email,
+                recipients,
+                game_id=game.id,
+                title=game.title,
+                num_players=game.num_players,
+                system_id=system.id,
+                system_name=system.name,
+                gm_id=principal.id,
+                gm_username=principal.username,
+            )
 
     return schemas.GameIdResponse(id=game.id)
 

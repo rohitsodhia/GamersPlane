@@ -95,7 +95,8 @@ Set per environment:
   - `OPENDKIM_KEY=./docker/opendkim/keys/<staging-host>/<selector>.private`
   - `OPENDKIM_SELECTOR=<selector>`
   - `POSTFIX_MYHOSTNAME=<staging-host>` (must equal the From domain, or mail is sent unsigned)
-  - Leave `EMAIL_ENABLED` unset (defaults to true outside dev)
+  - Leave `EMAIL_ENABLED` unset (defaults to true outside dev) so activation and password-reset mail works
+  - Leave `MASS_EMAIL_ENABLED` unset (defaults to true only when `ENVIRONMENT=prod`, so off on staging): staging must never mass-mail real users (new game emails). It also requires `EMAIL_ENABLED`.
 
 Not in `.env.example` (add them to the example too):
 

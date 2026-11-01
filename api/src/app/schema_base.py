@@ -21,7 +21,7 @@ def strip_whitespace(v: str) -> str:
 
 
 PipelineMap = list[Callable[[str], str]]
-DEFAULT_PIPELINES = [nl2br, strip_whitespace]
+DEFAULT_PIPELINES = [strip_whitespace, nl2br]
 
 
 def filtered_str(

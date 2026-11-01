@@ -41,6 +41,13 @@ class ConfigStore:
             if not email_enabled
             else email_enabled.strip().lower() in ("1", "true", "yes", "on")
         )
+        # Bulk mail (e.g. new game emails) to real users; prod only by default
+        mass_email_enabled = os.getenv("MASS_EMAIL_ENABLED")
+        self.MASS_EMAIL_ENABLED = (
+            self.ENVIRONMENT == "prod"
+            if not mass_email_enabled
+            else mass_email_enabled.strip().lower() in ("1", "true", "yes", "on")
+        )
 
         # Where the Contact Us form delivers
         self.CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "contact@gamersplane.com")
