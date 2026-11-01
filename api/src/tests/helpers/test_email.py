@@ -93,6 +93,72 @@ class TestSendEmail:
 
         assert "Failed to send email to a@example.com" in caplog.text
 
+    @pytest.mark.parametrize(
+        ("email_enabled", "mass_enabled", "sends"),
+        [(False, True, 0), (True, False, 0), (True, True, 1)],
+    )
+    async def test_mass_requires_both_flags(
+        self, monkeypatch, smtp_calls, caplog, email_enabled, mass_enabled, sends
+    ):
+        monkeypatch.setattr(configs, "EMAIL_ENABLED", email_enabled)
+        monkeypatch.setattr(configs, "MASS_EMAIL_ENABLED", mass_enabled)
+
+        with caplog.at_level(logging.INFO, logger=email_module.logger.name):
+            await send_email(
+                "a@example.com",
+                "Mass subj",
+                "<p>secret body</p>",
+                bcc=["b@example.com"],
+                mass=True,
+            )
+
+        assert len(smtp_calls) == sends
+        if not sends:
+            assert "Mass subj" in caplog.text
+            assert "secret body" not in caplog.text
+            assert "b@example.com" not in caplog.text
+
+    async def test_non_mass_ignores_mass_flag(self, monkeypatch, smtp_calls):
+        monkeypatch.setattr(configs, "EMAIL_ENABLED", True)
+        monkeypatch.setattr(configs, "MASS_EMAIL_ENABLED", False)
+
+        await send_email("a@example.com", "Hello subj", "<p>body</p>")
+
+        assert len(smtp_calls) == 1
+
+    async def test_bcc_is_sent_in_batches_of_100(self, monkeypatch, smtp_calls):
+        monkeypatch.setattr(configs, "EMAIL_ENABLED", True)
+        recipients = [f"user{n}@example.com" for n in range(250)]
+
+        await send_email("a@example.com", "Hello subj", "<p>body</p>", bcc=recipients)
+
+        messages = [message for message, _ in smtp_calls]
+        batches = [message["Bcc"].split(", ") for message in messages]
+        assert [len(batch) for batch in batches] == [100, 100, 50]
+        assert [address for batch in batches for address in batch] == recipients
+        assert {message["To"] for message in messages} == {"a@example.com"}
+        assert len({message["Message-ID"] for message in messages}) == 3
+
+    async def test_failing_batch_does_not_stop_later_batches(self, monkeypatch, caplog):
+        monkeypatch.setattr(configs, "EMAIL_ENABLED", True)
+        attempts = []
+
+        async def flaky_send(message, **kwargs):
+            attempts.append(message)
+            if len(attempts) == 1:
+                raise aiosmtplib.SMTPException("boom")
+
+        monkeypatch.setattr(email_module.aiosmtplib, "send", flaky_send)
+        recipients = [f"user{n}@example.com" for n in range(150)]
+
+        with caplog.at_level(logging.ERROR, logger=email_module.logger.name):
+            await send_email(
+                "a@example.com", "Hello subj", "<p>body</p>", bcc=recipients
+            )
+
+        assert len(attempts) == 2
+        assert "Failed to send email" in caplog.text
+
 
 class TestGetTemplate:
     def test_autoescapes_injected_values(self):

@@ -5,6 +5,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
 from app.configs import configs
+from app.games import functions as game_functions
 from app.models import (
     Deck,
     DeckPermission,
@@ -13,6 +14,8 @@ from app.models import (
     Game,
     Player,
     RolePermission,
+    UserLFGSystem,
+    UserMeta,
 )
 from app.repositories import (
     CharacterRepository,
@@ -135,6 +138,72 @@ class TestCreateGame:
         game = await db_session.get(Game, response.json()["id"])
         assert game.title == "Line one<br>Line two"
         assert game.gm_id == user.id
+
+    @pytest.fixture
+    def mass_mail(self, monkeypatch):
+        monkeypatch.setattr(configs, "EMAIL_ENABLED", True)
+        monkeypatch.setattr(configs, "MASS_EMAIL_ENABLED", True)
+        calls = []
+
+        async def fake_send_email(to, subject, content, **kwargs):
+            calls.append({"to": to, "subject": subject, "content": content, **kwargs})
+
+        monkeypatch.setattr(game_functions, "send_email", fake_send_email)
+        return calls
+
+    @pytest.fixture
+    async def lfg_user(self, create, db_session, system):
+        user = await create(ActivatedUserFactory)
+        db_session.add_all(
+            [
+                UserLFGSystem(user_id=user.id, system_id=system.id),
+                UserMeta(
+                    user_id=user.id,
+                    key=UserMeta.MetaKeys.NEW_GAME_MAIL.value,
+                    value=True,
+                ),
+            ]
+        )
+        await db_session.flush()
+        return user
+
+    async def test_create_public_game_sends_new_game_email(
+        self, authed_client, system, lfg_user, mass_mail
+    ):
+        client, gm = authed_client
+
+        response = await client.post("/games/", json=_payload(title="Fresh\nGame"))
+
+        assert response.status_code == 200
+        assert len(mass_mail) == 1
+        sent = mass_mail[0]
+        assert sent["to"] == configs.CONTACT_EMAIL
+        assert sent["subject"] == f"New {system.name} Game: Fresh Game"
+        assert "<br>" not in sent["content"]
+        assert sent["bcc"] == [lfg_user.email]
+        assert sent["mass"] is True
+        assert f"/games/{response.json()['id']}" in sent["content"]
+        assert gm.username in sent["content"]
+
+    async def test_create_private_game_sends_nothing(
+        self, authed_client, system, lfg_user, mass_mail
+    ):
+        client, _gm = authed_client
+
+        response = await client.post("/games/", json=_payload(public=False))
+
+        assert response.status_code == 200
+        assert mass_mail == []
+
+    async def test_create_game_without_recipients_sends_nothing(
+        self, authed_client, system, mass_mail
+    ):
+        client, _gm = authed_client
+
+        response = await client.post("/games/", json=_payload())
+
+        assert response.status_code == 200
+        assert mass_mail == []
 
 
 class TestGetGame:

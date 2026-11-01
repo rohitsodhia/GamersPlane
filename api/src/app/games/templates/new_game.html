@@ -1,0 +1,14 @@
+{% extends 'helpers/templates/base_template.html' %}
+
+{% block title %}New Game!{% endblock %}
+
+{% block content %}
+<h1 style="background-color:#C60;color:#FFF;margin:.3em 0;">New Game!</h1>
+{% if system_id != 'custom' %}
+<p style="text-align: center"><img src="{{ site_domain }}/images/logos/{{ system_id }}.png" alt="{{ system_name }}" style="max-width: 300px;"></p>
+{% endif %}
+<p>A new {{ system_name }} game has been started on Gamers Plane!</p>
+<p><a href="{{ site_domain }}/user/{{ gm_id }}">{{ gm_username }}</a> has started up a game for {{ num_players }} players called "{{ title }}". Check out the <a href="{{ site_domain }}/games/{{ game_id }}">game's details</a> and submit a character before the slots fill!</p>
+<p style="text-align: right;">- The Gamers Plane Team</p>
+<p style="font-size: .8em; margin-top: 2em;">If you'd like to stop receiving emails about new games, head to your <a href="{{ site_domain }}/profile">profile settings</a> and change the option labeled "Receive new game emails?" to "No".</p>
+{% endblock %}

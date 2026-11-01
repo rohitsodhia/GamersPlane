@@ -217,6 +217,36 @@ class UserRepository:
             )
         ).all()
 
+    async def get_new_game_mail_recipients(
+        self, system_id: str, exclude_user_id: int
+    ) -> list[str]:
+        """Emails of active users looking for ``system_id`` who opted in to new
+        game mail. A missing newGameMail row counts as opted out."""
+        now = datetime.now(timezone.utc)
+        return list(
+            (
+                await self.db_session.scalars(
+                    select(User.email)
+                    .join(UserLFGSystem, UserLFGSystem.user_id == User.id)
+                    .where(
+                        UserLFGSystem.system_id == system_id,
+                        User.id != exclude_user_id,
+                        User.activated_on.is_not(None),
+                        User.banned.is_(None),
+                        or_(
+                            User.suspended_until.is_(None), User.suspended_until <= now
+                        ),
+                        exists().where(
+                            UserMeta.user_id == User.id,
+                            UserMeta.key == UserMeta.MetaKeys.NEW_GAME_MAIL.value,
+                            UserMeta._value == "1",
+                        ),
+                    )
+                    .order_by(User.id)
+                )
+            ).all()
+        )
+
     async def set_lfg_systems(self, user_id: int, system_ids: Iterable[str]) -> None:
         """Replace the user's LFG systems with exactly ``system_ids``."""
         wanted = set(system_ids)

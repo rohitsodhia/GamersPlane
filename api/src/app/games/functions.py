@@ -9,12 +9,47 @@ from app.forums.functions import filter_readable_forum_ids
 from app.games import schemas
 from app.middleware import Principal
 from app.models import Deck, Game, Player
+from app.helpers.email import get_template, send_email
 from app.repositories import (
     DeckRepository,
     GameRepository,
     PlayerRepository,
     ReadTrackingRepository,
 )
+
+
+async def send_new_game_email(
+    recipients: list[str],
+    *,
+    game_id: int,
+    title: str,
+    num_players: int,
+    system_id: str,
+    system_name: str,
+    gm_id: int,
+    gm_username: str,
+) -> None:
+    """Mail the LFG opt-ins about a new game. Takes plain values only: it runs
+    as a background task, after the request's DB session is gone."""
+    # Titles are stored with newlines as <br>
+    title = title.replace("<br>", " ")
+    content = get_template(
+        "games/templates/new_game.html",
+        game_id=game_id,
+        title=title,
+        num_players=num_players,
+        system_id=system_id,
+        system_name=system_name,
+        gm_id=gm_id,
+        gm_username=gm_username,
+    )
+    await send_email(
+        configs.CONTACT_EMAIL,
+        f"New {system_name} Game: {title}",
+        content,
+        bcc=recipients,
+        mass=True,
+    )
 
 
 async def unread_game_ids(

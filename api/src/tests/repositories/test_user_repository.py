@@ -2,9 +2,14 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.models import UserMeta, UserRole
+from app.models import UserLFGSystem, UserMeta, UserRole
 from app.repositories.user_repository import UserRepository
-from tests.factories import ActivatedUserFactory, RoleFactory, UserFactory
+from tests.factories import (
+    ActivatedUserFactory,
+    RoleFactory,
+    SystemFactory,
+    UserFactory,
+)
 
 
 class TestUserRepository:
@@ -182,3 +187,106 @@ class TestUserRepository:
         await repository.update_last_activity(user)
 
         assert user.last_activity == recent
+
+
+class TestGetNewGameMailRecipients:
+    @pytest.fixture
+    async def repository(self, db_session, wrap_in_savepoint):
+        return UserRepository(db_session)
+
+    @pytest.fixture
+    async def system(self, create):
+        return await create(SystemFactory)
+
+    @pytest.fixture
+    async def gm(self, create):
+        return await create(ActivatedUserFactory)
+
+    @pytest.fixture
+    def make_recipient(self, create, db_session, system):
+        async def _make(
+            *, system_id=None, mail: bool | None = True, factory=ActivatedUserFactory
+        ):
+            user = await create(factory)
+            db_session.add(
+                UserLFGSystem(user_id=user.id, system_id=system_id or system.id)
+            )
+            if mail is not None:
+                db_session.add(
+                    UserMeta(
+                        user_id=user.id,
+                        key=UserMeta.MetaKeys.NEW_GAME_MAIL.value,
+                        value=mail,
+                    )
+                )
+            await db_session.flush()
+            return user
+
+        return _make
+
+    async def test_includes_opted_in_user_for_the_system(
+        self, repository, system, gm, make_recipient
+    ):
+        user = await make_recipient()
+
+        assert await repository.get_new_game_mail_recipients(system.id, gm.id) == [
+            user.email
+        ]
+
+    async def test_excludes_other_system(
+        self, repository, system, gm, make_recipient, create
+    ):
+        other = await create(SystemFactory)
+        await make_recipient(system_id=other.id)
+
+        assert await repository.get_new_game_mail_recipients(system.id, gm.id) == []
+
+    async def test_excludes_opted_out(self, repository, system, gm, make_recipient):
+        await make_recipient(mail=False)
+
+        assert await repository.get_new_game_mail_recipients(system.id, gm.id) == []
+
+    async def test_excludes_missing_meta_row(
+        self, repository, system, gm, make_recipient
+    ):
+        await make_recipient(mail=None)
+
+        assert await repository.get_new_game_mail_recipients(system.id, gm.id) == []
+
+    async def test_excludes_the_gm(self, repository, system, gm, db_session):
+        db_session.add_all(
+            [
+                UserLFGSystem(user_id=gm.id, system_id=system.id),
+                UserMeta(
+                    user_id=gm.id,
+                    key=UserMeta.MetaKeys.NEW_GAME_MAIL.value,
+                    value=True,
+                ),
+            ]
+        )
+        await db_session.flush()
+
+        assert await repository.get_new_game_mail_recipients(system.id, gm.id) == []
+
+    async def test_excludes_banned(self, repository, system, gm, make_recipient):
+        user = await make_recipient()
+        user.banned = datetime.now(timezone.utc)
+
+        assert await repository.get_new_game_mail_recipients(system.id, gm.id) == []
+
+    async def test_excludes_currently_suspended_but_not_expired(
+        self, repository, system, gm, make_recipient
+    ):
+        suspended = await make_recipient()
+        suspended.suspended_until = datetime.now(timezone.utc) + timedelta(days=1)
+        expired = await make_recipient()
+        expired.suspended_until = datetime.now(timezone.utc) - timedelta(days=1)
+
+        assert await repository.get_new_game_mail_recipients(system.id, gm.id) == [
+            expired.email
+        ]
+
+    async def test_excludes_unactivated(self, repository, system, gm, make_recipient):
+        await make_recipient(factory=UserFactory)
+
+        assert await repository.get_new_game_mail_recipients(system.id, gm.id) == []
