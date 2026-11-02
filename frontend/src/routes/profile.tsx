@@ -73,6 +73,7 @@ function RouteComponent() {
 			pmMail: me.pmMail ?? undefined,
 			newGameMail: me.newGameMail ?? undefined,
 			gmMail: me.gmMail ?? undefined,
+			gameMail: me.gameMail ?? undefined,
 			postSide: me.postSide,
 			lookingForAGame: me.lookingForAGame ?? false,
 			gameInterests: me.gameInterests ?? "",
@@ -302,6 +303,32 @@ function RouteComponent() {
 									onChange={() => field.handleChange(false)}
 								/>
 								<label htmlFor="edit-settings_gm-mail-no">No</label>
+							</div>
+						</div>
+					)}
+				</profileSettingsForm.Field>
+
+				<profileSettingsForm.Field name="gameMail">
+					{(field) => (
+						<div>
+							<div>Receive game emails?</div>
+							<div>
+								<input
+									id="edit-settings_game-mail-yes"
+									type="radio"
+									name={field.name}
+									checked={field.state.value === true}
+									onChange={() => field.handleChange(true)}
+								/>
+								<label htmlFor="edit-settings_game-mail-yes">Yes</label>
+								<input
+									id="edit-settings_game-mail-no"
+									type="radio"
+									name={field.name}
+									checked={field.state.value === false}
+									onChange={() => field.handleChange(false)}
+								/>
+								<label htmlFor="edit-settings_game-mail-no">No</label>
 							</div>
 						</div>
 					)}
