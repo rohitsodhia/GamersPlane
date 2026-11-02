@@ -156,14 +156,6 @@
 	}
 }
 
-.player-info {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 0.5em;
-}
-
 /* A player or character row: the label takes the free space (wrapping long
    names) and any actions sit at the end. */
 .row {
