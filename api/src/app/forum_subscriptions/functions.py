@@ -74,16 +74,17 @@ async def select_recipients(
         thread, {user.id for user, mode in candidates if mode == "new content"}
     )
 
-    recipients = []
-    for user, mode in candidates:
-        if mode == "new content" and user.id not in due:
-            continue
-        # One lookup per remaining subscriber: permissions are per user and, with
-        # roles and player mode involved, aren't worth re-deriving in bulk here.
-        permissions = await ForumPermissions.load(db_session, user, [forum])
-        if permissions.has(forum, Verbs.FORUM_READ):
-            recipients.append(Recipient(user.id, user.email, mode, kinds[user.id]))
-    return recipients
+    candidates = [
+        (user, mode) for user, mode in candidates if mode == "all" or user.id in due
+    ]
+    permissions = await ForumPermissions.load_for_users(
+        db_session, [user for user, _ in candidates], forum
+    )
+    return [
+        Recipient(user.id, user.email, mode, kinds[user.id])
+        for user, mode in candidates
+        if permissions[user.id].has(forum, Verbs.FORUM_READ)
+    ]
 
 
 async def send_subscription_email(
