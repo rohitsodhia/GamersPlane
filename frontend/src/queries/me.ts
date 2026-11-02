@@ -50,6 +50,7 @@ type MeFullApiResponse = MeResponse & {
 	pmMail: boolean | null;
 	newGameMail: boolean | null;
 	gmMail: boolean | null;
+	gameMail: boolean | null;
 	postSide: PostSide;
 	lookingForAGame: boolean | null;
 	gameInterests: string | null;
@@ -153,6 +154,7 @@ export const updateUserSettings = async (userData: {
 	pmMail?: boolean;
 	newGameMail?: boolean;
 	gmMail?: boolean;
+	gameMail?: boolean;
 	postSide?: PostSide;
 	lookingForAGame?: boolean;
 	gameInterests?: string;

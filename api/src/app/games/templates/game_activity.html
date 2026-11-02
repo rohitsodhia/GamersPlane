@@ -1,0 +1,15 @@
+{% extends 'helpers/templates/base_template.html' %}
+
+{% block title %}{{ headline }}{% endblock %}
+
+{% block content %}
+<h1 style="background-color:#C60;color:#FFF;margin:.3em 0;">{{ headline }}</h1>
+{% if intro == 'former' %}
+<p>There's been an update about the {{ system_name }} game <a href="{{ site_domain }}/games/{{ game_id }}">{{ title }}</a>:</p>
+{% else %}
+<p>There's been some activity in your {{ system_name }} game, <a href="{{ site_domain }}/games/{{ game_id }}">{{ title }}</a>:</p>
+{% endif %}
+<p>{{ message }}</p>
+<p style="text-align: right;">- The Gamers Plane Team</p>
+<p style="font-size: .8em; margin-top: 2em;">If you'd like to stop receiving these emails, head to your <a href="{{ site_domain }}/profile">profile settings</a> and change the option labeled "{{ preference_label }}" to "No".</p>
+{% endblock %}

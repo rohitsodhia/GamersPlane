@@ -799,8 +799,8 @@ function RouteComponent() {
 									>
 										{playersAwaitingApproval.map((player) => (
 											<li key={player.id}>
-												<div className={styles["player-info"]}>
-													<div>
+												<div className={styles["row"]}>
+													<div className={styles["row-label"]}>
 														<Link
 															to="/user/$userId"
 															params={{ userId: player.id }}
@@ -848,11 +848,19 @@ function RouteComponent() {
 										{playersInvited.length === 0 ? (
 											<p className={styles["notice"]}>No pending invites.</p>
 										) : (
-											<ul className={styles["player-list"]}>
+											<ul className={styles["row-list"]}>
 												{playersInvited.map((player) => (
 													<li key={player.id}>
-														<div className={styles["player-info"]}>
-															<div>{player.username}</div>
+														<div className={styles["row"]}>
+															<div className={styles["row-label"]}>
+																<Link
+																	to="/user/$userId"
+																	params={{ userId: player.id }}
+																	className="username"
+																>
+																	{player.username}
+																</Link>
+															</div>
 															{isGM && (
 																<div className={styles["action-links"]}>
 																	<button

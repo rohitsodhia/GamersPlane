@@ -151,6 +151,17 @@ Checklist:
 - [ ] Password reset: the email is sent, but its link points to `<HOST_NAME>/reset-password?token=...` and that frontend page does not exist yet (`TODO` in `api/src/app/auth/routes.py`). Verify only that the email arrives with a correct-looking link.
 - [ ] Clean up a stuck queue if you tested before DNS was ready: `docker exec gamersplane-postfix postsuper -d ALL`
 
+### Game activity emails
+
+Built on `dev/gm_emails`. In dev only the invite email has been seen in a real send (it bounced because the dev user's address is `test@test.com`); the rest are covered by tests only.
+
+- [ ] **Staging data must not mail real users.** Per-event game emails (invite, apply, accept, character approved, ...) are not `mass`, so `MASS_EMAIL_ENABLED` does not gate them. With `EMAIL_ENABLED` on (the default outside dev), any game action on staging mails the address on the account. If staging holds imported prod users, scrub their emails first or set `EMAIL_ENABLED=false` for those runs. Decide this before the prod import reaches staging. An `EMAIL_ALLOWLIST` guard in `send_email` is planned for after release, so until then this checklist item is the only safeguard.
+- [ ] Real-send walkthrough with three accounts on real addresses (GM, co-GM, player): apply -> GMs mailed; invite -> player mailed with the system logo (and none for a `custom` system); accept invite -> GMs; approve player; submit a character -> GMs; approve / reject / remove a character -> owner; make / remove GM -> that player; player leaves -> GMs; GM removes a player (and a co-GM) -> that person.
+- [ ] Confirm these send nothing: a GM acting on their own character or on another GM's, a player declining an invite, a GM withdrawing an invite, an owner withdrawing their own character.
+- [ ] Logos: emails load `<HOST_NAME>/images/logos/<system_id>.png` and `<HOST_NAME>/images/bodyComponents/logo.png`, so those must be served from the frontend origin in `HOST_NAME`. Open an invite in Gmail and check the images show.
+- [ ] Preferences: with "Receive GM emails?" / "Receive game emails?" set to No in profile settings, the matching mail stops. A user with no stored row receives it (both default on).
+- [ ] With email disabled, each trigger writes a "would have mailed" line to the API log (confirms the hooks fire). Check `docker logs gamersplane-api` on a dev run.
+
 ## 8. Known gaps before inviting testers
 
 - [ ] No `compose.staging.yml`, no frontend service, `docker/Dockerfile-nextjs` is stale (section 0 and 6).
@@ -158,6 +169,9 @@ Checklist:
 - [ ] Frontend `/reset-password` page does not exist; password reset cannot be completed.
 - [ ] Postfix `main.cf` has `compatibility_level = 3.8` while Alpine installs Postfix 3.11; postfix logs a compatibility warning at startup. Harmless, but bump the level deliberately after reading the 3.9-3.11 release notes.
 - [ ] No postfix queue monitoring or bounce handling: failures are only in `logs/postfix/postfix.log` (root-owned on the host; read via `docker exec gamersplane-postfix cat /var/log/postfix.log`). The API logs and swallows SMTP errors, so a user never sees a failed activation email.
+- [ ] Bounces pile up: mail to an undeliverable address (seen in dev with `test@test.com`) produces a bounce addressed to `no-reply@<staging-host>`, which has no mailbox, so it sits in the postfix queue. Decide whether to discard those bounces or route them somewhere read.
+- [ ] Prod `user_meta` import must carry `gmMail`, `newGameMail` (and `pmMail`) in the `"1"`/`"0"` format. A missing `gmMail`, `gameMail` or `pmMail` row means ON; a missing `newGameMail` row means OFF. Check v1's convention for a missing `gmMail` row before the import, so nobody who opted out in v1 starts receiving GM mail.
+- [ ] `gameMail` is new, so every existing user receives player-facing game emails (invited, accepted, character approved, ...) without having opted in. Consider telling users in the release notes where to turn it off (profile settings, "Receive game emails?").
 - [ ] `docker/opendkim/opendkim.conf` sets `ReportAddress postmaster@gamersplane.com` and `SendReports yes`; make sure that mailbox exists and is read, since DMARC reports (`rua=mailto:postmaster@gamersplane.com`) go there too.
 - [ ] No backups for the `gp_postgres_db` volume or `./images`. **Needs decision:** backup approach, even for staging.
 - [x] Avatar upload hardening (Pillow decompression-bomb limit, error handling, size check) before opening uploads to outside testers.

@@ -46,9 +46,18 @@ _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
     "pmMail": UserMeta.MetaKeys.PM_MAIL,
     "newGameMail": UserMeta.MetaKeys.NEW_GAME_MAIL,
     "gmMail": UserMeta.MetaKeys.GM_MAIL,
+    "gameMail": UserMeta.MetaKeys.GAME_MAIL,
     "postSide": UserMeta.MetaKeys.POST_SIDE,
     "lookingForAGame": UserMeta.MetaKeys.LOOKING_FOR_A_GAME,
     "gameInterests": UserMeta.MetaKeys.GAME_INTERESTS,
+}
+
+# These mail prefs are on unless the user has explicitly opted out, so a missing
+# row reads as True (matching how the mailer treats it).
+_DEFAULT_ON_META_KEYS = {
+    UserMeta.MetaKeys.GM_MAIL,
+    UserMeta.MetaKeys.GAME_MAIL,
+    UserMeta.MetaKeys.PM_MAIL,
 }
 
 
@@ -105,6 +114,8 @@ async def get_current_user(
         meta_by_key = {meta.key: meta.value for meta in current_user.meta}
         for field, key in _PROFILE_META_KEYS.items():
             value = meta_by_key.get(key.value)
+            if value is None and key in _DEFAULT_ON_META_KEYS:
+                value = True
             if value is not None:
                 output[field] = value
     return output

@@ -15,6 +15,7 @@ from app.exceptions import (
 )
 from app.games import schemas
 from app.games.functions import (
+    INVITE_TEMPLATE,
     background_path,
     build_advanced_options_data,
     build_background_data,
@@ -23,6 +24,8 @@ from app.games.functions import (
     get_game_or_404,
     get_player_or_404,
     merge_advanced_options,
+    queue_gm_email,
+    queue_player_email,
     require_game_exists,
     require_gm,
     require_not_retired,
@@ -473,9 +476,10 @@ async def invite_player(
     request_body: schemas.InvitePlayerInput,
     db_session: DBSessionDependency,
     principal: Principal,
+    background_tasks: BackgroundTasks,
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    await require_game_exists(game_repository, game_id)
+    game = await get_game_or_404(game_repository, game_id)
 
     player_repository = PlayerRepository(db_session, principal=principal)
     await require_gm(
@@ -495,12 +499,25 @@ async def invite_player(
     except DuplicatePlayerError as e:
         raise ConflictException("Player already invited to game") from e
 
+    await queue_player_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        user.id,
+        subject="Game invite",
+        headline="You're invited!",
+        template=INVITE_TEMPLATE,
+        inviter_username=principal.username,
+    )
+
 
 @games.post("/{game_id}/apply", status_code=status.HTTP_204_NO_CONTENT)
 async def apply_to_game(
     game_id: int,
     db_session: DBSessionDependency,
     principal: Principal,
+    background_tasks: BackgroundTasks,
 ):
     game_repository = GameRepository(db_session, principal=principal)
     game = await get_game_or_404(game_repository, game_id)
@@ -516,6 +533,17 @@ async def apply_to_game(
     except DuplicatePlayerError as e:
         raise ConflictException("Player already in game") from e
 
+    await queue_gm_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        exclude_user_ids=[principal.id],
+        subject="New application",
+        headline="New application",
+        message=f"{principal.username} has applied to join this game.",
+    )
+
 
 @games.post(
     "/{game_id}/player/{user_id}/approve", status_code=status.HTTP_204_NO_CONTENT
@@ -525,9 +553,10 @@ async def approve_player(
     user_id: int,
     db_session: DBSessionDependency,
     principal: Principal,
+    background_tasks: BackgroundTasks,
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    await require_game_exists(game_repository, game_id)
+    game = await get_game_or_404(game_repository, game_id)
 
     player_repository = PlayerRepository(db_session, principal=principal)
     await require_gm(
@@ -543,15 +572,27 @@ async def approve_player(
 
     await player_repository.update_state(player, state=Player.States.ACCEPTED)
 
+    await queue_player_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        user_id,
+        subject="You're in!",
+        headline="You're in!",
+        message="Your application was accepted. Welcome to the game!",
+    )
+
 
 @games.post("/{game_id}/accept_invite", status_code=status.HTTP_204_NO_CONTENT)
 async def accept_invite(
     game_id: int,
     db_session: DBSessionDependency,
     principal: Principal,
+    background_tasks: BackgroundTasks,
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    await require_game_exists(game_repository, game_id)
+    game = await get_game_or_404(game_repository, game_id)
 
     player_repository = PlayerRepository(db_session, principal=principal)
     player = await get_player_or_404(player_repository, game_id, principal.id)
@@ -559,6 +600,17 @@ async def accept_invite(
         raise ConflictException("No pending invite for this game")
 
     await player_repository.update_state(player, state=Player.States.ACCEPTED)
+
+    await queue_gm_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        exclude_user_ids=[principal.id],
+        subject="Invite accepted",
+        headline="Invite accepted",
+        message=f"{principal.username} accepted their invite to this game.",
+    )
 
 
 @games.post(
@@ -569,6 +621,7 @@ async def toggle_gm(
     user_id: int,
     db_session: DBSessionDependency,
     principal: Principal,
+    background_tasks: BackgroundTasks,
 ):
     game_repository = GameRepository(db_session, principal=principal)
     game = await get_game_or_404(game_repository, game_id)
@@ -590,6 +643,29 @@ async def toggle_gm(
 
     await player_repository.update_state(player, is_gm=not player.is_gm)
 
+    if player.is_gm:
+        subject, message = (
+            "You're now a GM",
+            f"{principal.username} made you a GM of this game.",
+        )
+    else:
+        subject, message = (
+            "You're no longer a GM",
+            f"{principal.username} removed you as a GM of this game. "
+            "You're still a player in it.",
+        )
+    await queue_player_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        user_id,
+        subject=subject,
+        headline=subject,
+        message=message,
+        to_gms=True,
+    )
+
 
 @games.delete("/{game_id}/player/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_player(
@@ -597,6 +673,7 @@ async def delete_player(
     user_id: int,
     db_session: DBSessionDependency,
     principal: Principal,
+    background_tasks: BackgroundTasks,
 ):
     game_repository = GameRepository(db_session, principal=principal)
     game = await get_game_or_404(game_repository, game_id)
@@ -614,7 +691,65 @@ async def delete_player(
 
     character_repository = CharacterRepository(db_session, principal=principal)
     await character_repository.remove_user_characters_from_game(game_id, user_id)
+    was_state, was_gm = player.state, player.is_gm
     await player_repository.delete_player(player)
+
+    # Declining an invite, or a GM withdrawing one, isn't mailed to anyone.
+    if was_state is Player.States.INVITED:
+        return
+
+    if principal.id == user_id:
+        # The leaver isn't told, but the other GMs are (a co-GM leaving included).
+        if was_state is Player.States.APPLIED:
+            subject, message = (
+                "Application withdrawn",
+                f"{principal.username} withdrew their application.",
+            )
+        elif was_gm:
+            subject, message = (
+                "A GM left the game",
+                f"{principal.username}, a GM of this game, has left it.",
+            )
+        else:
+            subject, message = (
+                "A player left the game",
+                f"{principal.username} has left this game.",
+            )
+        await queue_gm_email(
+            background_tasks,
+            db_session,
+            game,
+            principal,
+            exclude_user_ids=[principal.id],
+            subject=subject,
+            headline=subject,
+            message=message,
+        )
+        return
+
+    if was_state is Player.States.APPLIED:
+        subject, message = (
+            "Application declined",
+            f"{principal.username} declined your application to join this game.",
+        )
+    else:
+        subject, message = (
+            "Removed from the game",
+            f"{principal.username} removed you from this game.",
+        )
+    # A removed co-GM is told too: losing the game outright isn't a routine GM action.
+    await queue_player_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        user_id,
+        subject=subject,
+        headline=subject,
+        message=message,
+        to_gms=was_gm,
+        intro="former",
+    )
 
 
 async def _get_game_character_or_404(
@@ -632,6 +767,7 @@ async def submit_character(
     data: schemas.SubmitCharacterInput,
     db_session: DBSessionDependency,
     principal: Principal,
+    background_tasks: BackgroundTasks,
 ):
     game_repository = GameRepository(db_session, principal=principal)
     game = await get_game_or_404(game_repository, game_id)
@@ -669,6 +805,19 @@ async def submit_character(
     # A GM would only be approving their own submission, so it skips the queue.
     await character_repository.submit_to_game(character, game_id, approved=player.is_gm)
 
+    if not player.is_gm:
+        await queue_gm_email(
+            background_tasks,
+            db_session,
+            game,
+            principal,
+            exclude_user_ids=[principal.id],
+            subject="Character submitted",
+            headline="Character submitted",
+            message=f"{principal.username} submitted the character "
+            f'"{character.name}" for approval.',
+        )
+
 
 @games.post(
     "/{game_id}/characters/{character_id}/approve",
@@ -679,9 +828,10 @@ async def approve_character(
     character_id: int,
     db_session: DBSessionDependency,
     principal: Principal,
+    background_tasks: BackgroundTasks,
 ):
     game_repository = GameRepository(db_session, principal=principal)
-    await require_game_exists(game_repository, game_id)
+    game = await get_game_or_404(game_repository, game_id)
 
     player_repository = PlayerRepository(db_session, principal=principal)
     await require_gm(
@@ -702,6 +852,17 @@ async def approve_character(
 
     await character_repository.approve(character)
 
+    await queue_player_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        character.user_id,
+        subject="Character approved",
+        headline="Character approved",
+        message=f'{principal.username} approved your character "{character.name}".',
+    )
+
 
 @games.delete(
     "/{game_id}/characters/{character_id}", status_code=status.HTTP_204_NO_CONTENT
@@ -711,11 +872,12 @@ async def remove_character(
     character_id: int,
     db_session: DBSessionDependency,
     principal: Principal,
+    background_tasks: BackgroundTasks,
 ):
     """Reject a pending character, remove an approved one, or (for the owner)
     withdraw either."""
     game_repository = GameRepository(db_session, principal=principal)
-    await require_game_exists(game_repository, game_id)
+    game = await get_game_or_404(game_repository, game_id)
 
     character_repository = CharacterRepository(db_session, principal=principal)
     character = await _get_game_character_or_404(
@@ -730,7 +892,27 @@ async def remove_character(
             "Only game masters can remove other players' characters"
         )
 
+    was_approved = character.approved
     await character_repository.remove_from_game(character)
+
+    # An owner withdrawing their own character isn't mailed (queue_player_email
+    # skips the actor).
+    if was_approved:
+        subject = "Character removed"
+        message = f'{principal.username} removed your character "{character.name}".'
+    else:
+        subject = "Character rejected"
+        message = f'{principal.username} rejected your character "{character.name}".'
+    await queue_player_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        character.user_id,
+        subject=subject,
+        headline=subject,
+        message=message,
+    )
 
 
 def _deck_to_data(deck: Deck) -> schemas.DeckData:

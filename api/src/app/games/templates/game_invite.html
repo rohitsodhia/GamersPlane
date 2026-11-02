@@ -1,0 +1,13 @@
+{% extends 'helpers/templates/base_template.html' %}
+
+{% block title %}{{ headline }}{% endblock %}
+
+{% block content %}
+<h1 style="background-color:#C60;color:#FFF;margin:.3em 0;">{{ headline }}</h1>
+{% if system_id != 'custom' %}
+<p style="text-align: center"><img src="{{ site_domain }}/images/logos/{{ system_id }}.png" alt="{{ system_name }}" style="max-width: 300px;"></p>
+{% endif %}
+<p>{{ inviter_username }} has invited you to their {{ system_name }} game, "<a href="{{ site_domain }}/games/{{ game_id }}">{{ title }}</a>"! Head to the game's page to accept or decline.</p>
+<p style="text-align: right;">- The Gamers Plane Team</p>
+<p style="font-size: .8em; margin-top: 2em;">If you'd like to stop receiving these emails, head to your <a href="{{ site_domain }}/profile">profile settings</a> and change the option labeled "{{ preference_label }}" to "No".</p>
+{% endblock %}

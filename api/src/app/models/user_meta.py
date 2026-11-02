@@ -15,6 +15,7 @@ class UserMeta(Base):
         AVATAR_EXT = "avatarExt", "Avatar Extension", str
         BIRTHDAY = "birthday", "Birthday", str
         GAME_INTERESTS = "gameInterests", "Game Interests", str
+        GAME_MAIL = "gameMail", "Game Mail", bool
         GM_MAIL = "gmMail", "GM Mail", bool
         LOCATION = "location", "Location", str
         LOOKING_FOR_A_GAME = "lookingForAGame", "Looking For A Game", bool

@@ -290,3 +290,60 @@ class TestGetNewGameMailRecipients:
         await make_recipient(factory=UserFactory)
 
         assert await repository.get_new_game_mail_recipients(system.id, gm.id) == []
+
+
+class TestGetMailRecipients:
+    """Opt-out prefs (gmMail/gameMail): a missing row means on."""
+
+    pref = UserMeta.MetaKeys.GAME_MAIL
+
+    @pytest.fixture
+    async def repository(self, db_session, wrap_in_savepoint):
+        return UserRepository(db_session)
+
+    async def test_missing_row_is_opted_in(self, repository, create):
+        user = await create(ActivatedUserFactory)
+
+        assert await repository.get_mail_recipients([user.id], self.pref) == [
+            user.email
+        ]
+
+    async def test_only_an_explicit_off_row_opts_out(
+        self, repository, create, db_session
+    ):
+        on = await create(ActivatedUserFactory)
+        off = await create(ActivatedUserFactory)
+        other_pref_off = await create(ActivatedUserFactory)
+        db_session.add_all(
+            [
+                UserMeta(user_id=on.id, key=self.pref.value, value=True),
+                UserMeta(user_id=off.id, key=self.pref.value, value=False),
+                UserMeta(
+                    user_id=other_pref_off.id,
+                    key=UserMeta.MetaKeys.GM_MAIL.value,
+                    value=False,
+                ),
+            ]
+        )
+        await db_session.flush()
+
+        found = await repository.get_mail_recipients(
+            [on.id, off.id, other_pref_off.id], self.pref
+        )
+
+        assert found == [on.email, other_pref_off.email]
+
+    async def test_only_returns_requested_active_users(self, repository, create):
+        wanted = await create(ActivatedUserFactory)
+        await create(ActivatedUserFactory)  # not requested
+        banned = await create(ActivatedUserFactory)
+        banned.banned = datetime.now(timezone.utc)
+        suspended = await create(ActivatedUserFactory)
+        suspended.suspended_until = datetime.now(timezone.utc) + timedelta(days=1)
+        unactivated = await create(UserFactory)
+
+        found = await repository.get_mail_recipients(
+            [wanted.id, banned.id, suspended.id, unactivated.id], self.pref
+        )
+
+        assert found == [wanted.email]
