@@ -1,13 +1,13 @@
 from typing import Literal
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, BackgroundTasks, status
 
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.helpers.functions import error_response
 from app.middleware import Principal
 from app.pms import schemas
-from app.pms.functions import build_pm_data
+from app.pms.functions import build_pm_data, queue_pm_email
 from app.repositories.pm_repository import (
     NoRecipientException,
     PMRepository,
@@ -83,13 +83,14 @@ async def get_pm(
     response_model=schemas.NewPMResponse,
 )
 async def send_pm(
+    background_tasks: BackgroundTasks,
     db_session: DBSessionDependency,
     principal: Principal,
     new_pm: schemas.NewPM,
 ):
     pm_repository = PMRepository(db_session, principal=principal)
     try:
-        await pm_repository.send_pm(
+        pm = await pm_repository.send_pm(
             recipient_username=new_pm.username,
             title=new_pm.title,
             message=new_pm.message,
@@ -105,6 +106,8 @@ async def send_pm(
             status_code=status.HTTP_400_BAD_REQUEST,
             errors=[ErrorItem(code="pm_self", detail="PM self")],
         )
+
+    await queue_pm_email(background_tasks, db_session, pm, principal.username)
 
     return {"sent": True}
 
