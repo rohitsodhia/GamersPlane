@@ -27,7 +27,15 @@ def _roster_text(attrs: dict, npc_names: dict[int, str]) -> str:
     return title or listed
 
 
-def _collect(node: dict, parts: list[str], npc_names: dict[int, str]) -> None:
+IMAGE_NODE_TYPES = frozenset({"image", "imageUpload"})
+
+
+def _collect(
+    node: dict,
+    parts: list[str],
+    npc_names: dict[int, str],
+    image_placeholder: str | None = None,
+) -> None:
     node_type = node.get("type")
     if node_type in EXCLUDED_NODE_TYPES:
         # Still a block boundary, so the text around it doesn't run together.
@@ -35,6 +43,9 @@ def _collect(node: dict, parts: list[str], npc_names: dict[int, str]) -> None:
         return
     if node_type == "text":
         parts.append(node.get("text", ""))
+        return
+    if node_type in IMAGE_NODE_TYPES and image_placeholder is not None:
+        parts.append(f" {image_placeholder} ")
         return
     if node_type == SPEAKER_NODE_TYPE:
         npc_id = (node.get("attrs") or {}).get("npcId")
@@ -44,20 +55,25 @@ def _collect(node: dict, parts: list[str], npc_names: dict[int, str]) -> None:
     if node_type == ROSTER_NODE_TYPE:
         parts.append(f" {_roster_text(node.get('attrs') or {}, npc_names)} ")
     for child in node.get("content") or []:
-        _collect(child, parts, npc_names)
+        _collect(child, parts, npc_names, image_placeholder)
     # Block nodes, hard breaks and rules all separate the text around them.
     parts.append(" ")
 
 
-def prose_to_text(body: dict, npc_names: dict[int, str] | None = None) -> str:
+def prose_to_text(
+    body: dict,
+    npc_names: dict[int, str] | None = None,
+    image_placeholder: str | None = None,
+) -> str:
     """The visible text of a document, with whitespace collapsed to single spaces.
 
     A quick NPC speaker block's text is kept, prefixed with ``"Name: "`` when its
     id is in ``npc_names`` (this function has no database access). A roster block
-    becomes ``"Title: Name, Name"`` from the same names.
+    becomes ``"Title: Name, Name"`` from the same names. Images contribute nothing
+    unless ``image_placeholder`` is given, which then stands in for each one.
     """
     parts: list[str] = []
-    _collect(body, parts, npc_names or {})
+    _collect(body, parts, npc_names or {}, image_placeholder)
     return " ".join("".join(parts).split())
 
 
@@ -116,11 +132,14 @@ def content_npc_ids(body: dict) -> list[int]:
 
 
 def prose_snippet(
-    body: dict, limit: int, npc_names: dict[int, str] | None = None
+    body: dict,
+    limit: int,
+    npc_names: dict[int, str] | None = None,
+    image_placeholder: str | None = None,
 ) -> str:
     """``prose_to_text`` cut to at most ``limit`` characters, ending in an ellipsis
     when it was cut."""
-    text = prose_to_text(body, npc_names)
+    text = prose_to_text(body, npc_names, image_placeholder)
     if len(text) <= limit:
         return text
     return text[: limit - 1].rstrip() + "…"

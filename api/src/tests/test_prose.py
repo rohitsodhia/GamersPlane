@@ -77,6 +77,26 @@ class TestProseToText:
         assert prose_to_text({"type": "doc", "content": []}) == ""
 
 
+class TestImagePlaceholder:
+    def test_images_are_dropped_by_default(self):
+        body = doc(para("before"), {"type": "image"}, para("after"))
+
+        assert prose_to_text(body) == "before after"
+
+    def test_placeholder_stands_in_for_each_image_without_running_into_text(self):
+        inline = {
+            "type": "paragraph",
+            "content": [
+                {"type": "text", "text": "a"},
+                {"type": "image", "attrs": {"src": "x"}},
+                {"type": "text", "text": "b"},
+            ],
+        }
+        body = doc(inline, {"type": "imageUpload"})
+
+        assert prose_to_text(body, image_placeholder="[image]") == "a [image] b [image]"
+
+
 def speaker(npc_id, *blocks):
     return {"type": "npcSpeaker", "attrs": {"npcId": npc_id}, "content": list(blocks)}
 
