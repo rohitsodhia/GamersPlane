@@ -224,6 +224,8 @@ class TestGMActsMailsPlayer(_GameEmailFixtures):
         assert response.status_code == 204
         assert self.recipients(sent) == [invitee.email]
         assert sent[0]["subject"] == "[My Campaign] Game invite"
+        assert f"{gm.username} has invited you to their" in sent[0]["content"]
+        assert "/images/logos/dnd5e.png" in sent[0]["content"]
 
     async def test_email_disabled_sends_nothing_to_players(
         self, auth_as, client, game, gm, add_player, sent, monkeypatch
@@ -290,6 +292,7 @@ class TestGMActsMailsPlayer(_GameEmailFixtures):
 
         assert response.status_code == 204
         assert self.recipients(sent) == [applicant.email]
+        assert "activity in your" in sent[0]["content"]
 
     @pytest.mark.parametrize(
         ("state", "subject"),
@@ -310,6 +313,7 @@ class TestGMActsMailsPlayer(_GameEmailFixtures):
         assert response.status_code == 204
         assert self.recipients(sent) == [target.email]
         assert subject in sent[0]["subject"]
+        assert "an update about the" in sent[0]["content"]
 
     async def test_gm_removing_co_gm_mails_the_removed_co_gm_only(
         self, auth_as, client, game, gm, add_player, sent

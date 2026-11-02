@@ -15,6 +15,7 @@ from app.exceptions import (
 )
 from app.games import schemas
 from app.games.functions import (
+    INVITE_TEMPLATE,
     background_path,
     build_advanced_options_data,
     build_background_data,
@@ -506,8 +507,8 @@ async def invite_player(
         user.id,
         subject="Game invite",
         headline="You're invited!",
-        message=f"{principal.username} has invited you to join this game. "
-        "Visit the game's page to accept or decline.",
+        template=INVITE_TEMPLATE,
+        inviter_username=principal.username,
     )
 
 
@@ -753,6 +754,7 @@ async def delete_player(
         headline=subject,
         message=message,
         to_gms=was_gm,
+        intro="former",
     )
 
 

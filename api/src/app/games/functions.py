@@ -58,6 +58,8 @@ async def send_new_game_email(
 
 GM_PREFERENCE_LABEL = "Receive GM emails?"
 PLAYER_PREFERENCE_LABEL = "Receive game emails?"
+ACTIVITY_TEMPLATE = "games/templates/game_activity.html"
+INVITE_TEMPLATE = "games/templates/game_invite.html"
 
 
 async def send_game_activity_email(
@@ -65,25 +67,34 @@ async def send_game_activity_email(
     *,
     game_id: int,
     title: str,
+    system_id: str,
     system_name: str,
     subject: str,
     headline: str,
-    message: str,
+    message: str = "",
     preference_label: str,
+    template: str = ACTIVITY_TEMPLATE,
+    intro: str = "member",
+    inviter_username: str = "",
 ) -> None:
     """Mail each recipient (one message apiece) about something that happened in a
     game. Takes plain values only: it runs as a background task, after the
     request's DB session is gone. ``message`` is plain text; the template
-    escapes it."""
+    escapes it. ``intro`` picks the activity template's opening sentence:
+    "member" for someone in the game, "former" for someone who isn't (or
+    is no longer). ``inviter_username`` is only used by the invite template."""
     title = title.replace("<br>", " ")
     content = get_template(
-        "games/templates/game_activity.html",
+        template,
         game_id=game_id,
         title=title,
+        system_id=system_id,
         system_name=system_name,
         headline=headline,
         message=message,
         preference_label=preference_label,
+        intro=intro,
+        inviter_username=inviter_username,
     )
     for recipient in recipients:
         await send_email(recipient, f"[{title}] {subject}", content)
@@ -97,8 +108,11 @@ async def _queue_game_activity_email(
     *,
     subject: str,
     headline: str,
-    message: str,
+    message: str = "",
     preference_label: str,
+    template: str = ACTIVITY_TEMPLATE,
+    intro: str = "member",
+    inviter_username: str = "",
 ) -> None:
     if not recipients:
         return
@@ -108,11 +122,15 @@ async def _queue_game_activity_email(
         recipients,
         game_id=game.id,
         title=game.title,
+        system_id=game.system_id,
         system_name=system.name if system else game.system_id,
         subject=subject,
         headline=headline,
         message=message,
         preference_label=preference_label,
+        template=template,
+        intro=intro,
+        inviter_username=inviter_username,
     )
 
 
@@ -158,12 +176,16 @@ async def queue_player_email(
     *,
     subject: str,
     headline: str,
-    message: str,
+    message: str = "",
     to_gms: bool = False,
+    template: str = ACTIVITY_TEMPLATE,
+    intro: str = "member",
+    inviter_username: str = "",
 ) -> None:
     """Tell one player what the acting GM (``principal``) did, honoring their
     gameMail preference. Never mails the actor. A player who is themselves a GM
-    is skipped unless ``to_gms`` is set (being made, or removed as, a GM)."""
+    is skipped unless ``to_gms`` is set (being made, or removed as, a GM).
+    Pass ``intro="former"`` when the recipient isn't in the game."""
     if not configs.EMAIL_ENABLED or user_id == principal.id:
         return
     if not to_gms:
@@ -184,6 +206,9 @@ async def queue_player_email(
         headline=headline,
         message=message,
         preference_label=PLAYER_PREFERENCE_LABEL,
+        template=template,
+        intro=intro,
+        inviter_username=inviter_username,
     )
 
 
