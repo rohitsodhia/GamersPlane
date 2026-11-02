@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -20,6 +21,8 @@ from app.repositories import (
     SystemRepository,
     UserRepository,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def send_new_game_email(
@@ -134,6 +137,10 @@ async def _queue_game_activity_email(
     )
 
 
+def _log_title(game: Game) -> str:
+    return game.title.replace("<br>", " ")
+
+
 async def queue_gm_email(
     background_tasks: BackgroundTasks,
     db_session: AsyncSession,
@@ -149,6 +156,12 @@ async def queue_gm_email(
     something happened, honoring their gmMail preference. Resolves recipients
     now, inside the request, and schedules the send."""
     if not configs.EMAIL_ENABLED:
+        logger.info(
+            "Email disabled; would have mailed game %s GMs: [%s] %s",
+            game.id,
+            _log_title(game),
+            subject,
+        )
         return
     excluded = set(exclude_user_ids)
     gm_ids = await PlayerRepository(db_session, principal=principal).get_gm_ids(game.id)
@@ -186,7 +199,16 @@ async def queue_player_email(
     gameMail preference. Never mails the actor. A player who is themselves a GM
     is skipped unless ``to_gms`` is set (being made, or removed as, a GM).
     Pass ``intro="former"`` when the recipient isn't in the game."""
-    if not configs.EMAIL_ENABLED or user_id == principal.id:
+    if user_id == principal.id:
+        return
+    if not configs.EMAIL_ENABLED:
+        logger.info(
+            "Email disabled; would have mailed game %s player %s: [%s] %s",
+            game.id,
+            user_id,
+            _log_title(game),
+            subject,
+        )
         return
     if not to_gms:
         player = await PlayerRepository(db_session, principal=principal).get_player(

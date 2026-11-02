@@ -694,17 +694,16 @@ async def delete_player(
     was_state, was_gm = player.state, player.is_gm
     await player_repository.delete_player(player)
 
+    # Declining an invite, or a GM withdrawing one, isn't mailed to anyone.
+    if was_state is Player.States.INVITED:
+        return
+
     if principal.id == user_id:
         # The leaver isn't told, but the other GMs are (a co-GM leaving included).
         if was_state is Player.States.APPLIED:
             subject, message = (
                 "Application withdrawn",
                 f"{principal.username} withdrew their application.",
-            )
-        elif was_state is Player.States.INVITED:
-            subject, message = (
-                "Invite declined",
-                f"{principal.username} declined their invite to this game.",
             )
         elif was_gm:
             subject, message = (
@@ -732,11 +731,6 @@ async def delete_player(
         subject, message = (
             "Application declined",
             f"{principal.username} declined your application to join this game.",
-        )
-    elif was_state is Player.States.INVITED:
-        subject, message = (
-            "Invite withdrawn",
-            f"{principal.username} withdrew your invite to join this game.",
         )
     else:
         subject, message = (

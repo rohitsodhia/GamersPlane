@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from sqlalchemy import text
 
@@ -22,6 +24,12 @@ class _GameEmailFixtures:
             )
         )
         return forum
+
+    @pytest.fixture(autouse=True)
+    def _enable_game_logger(self, monkeypatch):
+        # Alembic's fileConfig (run by the test DB setup) disables loggers that
+        # already existed at import time, which would hide our log records.
+        monkeypatch.setattr(game_functions.logger, "disabled", False)
 
     @pytest.fixture
     def sent(self, monkeypatch):
@@ -123,23 +131,27 @@ class TestPlayerActsMailsGMs(_GameEmailFixtures):
 
         assert self.recipients(sent) == [gm.email]
 
-    async def test_email_disabled_sends_nothing(
-        self, auth_as, client, create, game, sent, monkeypatch
+    async def test_email_disabled_sends_nothing_and_logs(
+        self, auth_as, client, create, game, sent, monkeypatch, caplog
     ):
         monkeypatch.setattr(configs, "EMAIL_ENABLED", False)
         client = auth_as(await create(ActivatedUserFactory))
 
-        response = await client.post(f"/games/{game.id}/apply")
+        with caplog.at_level(logging.INFO, logger=game_functions.logger.name):
+            response = await client.post(f"/games/{game.id}/apply")
 
         assert response.status_code == 204
         assert sent == []
+        assert (
+            f"would have mailed game {game.id} GMs: [My Campaign] New application"
+            in caplog.text
+        )
 
     @pytest.mark.parametrize(
         ("state", "subject"),
         [
             (Player.States.ACCEPTED, "A player left the game"),
             (Player.States.APPLIED, "Application withdrawn"),
-            (Player.States.INVITED, "Invite declined"),
         ],
     )
     async def test_leaving_mails_gms_by_state(
@@ -153,6 +165,17 @@ class TestPlayerActsMailsGMs(_GameEmailFixtures):
         assert response.status_code == 204
         assert self.recipients(sent) == [gm.email]
         assert subject in sent[0]["subject"]
+
+    async def test_declining_an_invite_sends_nothing(
+        self, auth_as, client, game, add_player, sent
+    ):
+        invitee = await add_player(state=Player.States.INVITED)
+        client = auth_as(invitee)
+
+        response = await client.delete(f"/games/{game.id}/player/{invitee.id}")
+
+        assert response.status_code == 204
+        assert sent == []
 
     async def test_co_gm_leaving_mails_other_gms_but_not_themselves(
         self, auth_as, client, game, gm, add_player, sent
@@ -227,17 +250,21 @@ class TestGMActsMailsPlayer(_GameEmailFixtures):
         assert f"{gm.username} has invited you to their" in sent[0]["content"]
         assert "/images/logos/dnd5e.png" in sent[0]["content"]
 
-    async def test_email_disabled_sends_nothing_to_players(
-        self, auth_as, client, game, gm, add_player, sent, monkeypatch
+    async def test_email_disabled_sends_nothing_to_players_and_logs(
+        self, auth_as, client, game, gm, add_player, sent, monkeypatch, caplog
     ):
         monkeypatch.setattr(configs, "EMAIL_ENABLED", False)
         applicant = await add_player(state=Player.States.APPLIED)
         client = auth_as(gm)
 
-        response = await client.post(f"/games/{game.id}/player/{applicant.id}/approve")
+        with caplog.at_level(logging.INFO, logger=game_functions.logger.name):
+            response = await client.post(
+                f"/games/{game.id}/player/{applicant.id}/approve"
+            )
 
         assert response.status_code == 204
         assert sent == []
+        assert f"would have mailed game {game.id} player {applicant.id}" in caplog.text
 
     async def test_co_gm_approving_applicant_mails_only_the_applicant(
         self, auth_as, client, game, gm, add_player, sent
@@ -299,7 +326,6 @@ class TestGMActsMailsPlayer(_GameEmailFixtures):
         [
             (Player.States.APPLIED, "Application declined"),
             (Player.States.ACCEPTED, "Removed from the game"),
-            (Player.States.INVITED, "Invite withdrawn"),
         ],
     )
     async def test_gm_removing_player_mails_player_by_state(
@@ -314,6 +340,17 @@ class TestGMActsMailsPlayer(_GameEmailFixtures):
         assert self.recipients(sent) == [target.email]
         assert subject in sent[0]["subject"]
         assert "an update about the" in sent[0]["content"]
+
+    async def test_gm_withdrawing_an_invite_sends_nothing(
+        self, auth_as, client, game, gm, add_player, sent
+    ):
+        invitee = await add_player(state=Player.States.INVITED)
+        client = auth_as(gm)
+
+        response = await client.delete(f"/games/{game.id}/player/{invitee.id}")
+
+        assert response.status_code == 204
+        assert sent == []
 
     async def test_gm_removing_co_gm_mails_the_removed_co_gm_only(
         self, auth_as, client, game, gm, add_player, sent
