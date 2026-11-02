@@ -1,0 +1,62 @@
+.content {
+	h2 {
+		margin-block: 1.25em 0.5em;
+	}
+
+	h3 {
+		margin-block: 0.75em 0.25em;
+		overflow-wrap: anywhere;
+	}
+}
+
+.setting-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5em 0.75em;
+}
+
+.saved {
+	color: var(--gp-success-green);
+	font-weight: bold;
+}
+
+.option-help {
+	margin-block: 0.75em 0;
+	padding-left: 1.25em;
+	font-size: var(--font-size-sm);
+}
+
+.tree {
+	margin: 0;
+	padding-left: 1.25em;
+	list-style: none;
+
+	&.root {
+		padding-left: 0;
+	}
+}
+
+.row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.25em 1em;
+	padding-block: 0.25em;
+}
+
+/* min-width: 0 plus anywhere-wrapping lets long titles wrap instead of widening the page. */
+.title {
+	flex: 1 1 12em;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.heading-only {
+	opacity: 0.65;
+}
+
+.thread-group {
+	margin-bottom: 0.5em;
+}

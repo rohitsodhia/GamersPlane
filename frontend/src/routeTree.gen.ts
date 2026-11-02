@@ -30,6 +30,7 @@ import { Route as CharactersIndexRouteImport } from './routes/characters/index'
 import { Route as CharactersLibraryRouteImport } from './routes/characters/library'
 import { Route as ForumsRecentRouteImport } from './routes/forums/recent'
 import { Route as ForumsSearchRouteImport } from './routes/forums/search'
+import { Route as ForumsSubscriptionsRouteImport } from './routes/forums/subscriptions'
 import { Route as ForumsChar123ForumIdChar125RouteImport } from './routes/forums/{-$forumId}'
 import { Route as GamesIndexRouteImport } from './routes/games/index'
 import { Route as GamesListRouteImport } from './routes/games/list'
@@ -172,6 +173,11 @@ const ForumsRecentRoute = ForumsRecentRouteImport.update({
 const ForumsSearchRoute = ForumsSearchRouteImport.update({
   id: '/forums/search',
   path: '/forums/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForumsSubscriptionsRoute = ForumsSubscriptionsRouteImport.update({
+  id: '/forums/subscriptions',
+  path: '/forums/subscriptions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForumsChar123ForumIdChar125Route =
@@ -395,6 +401,7 @@ export interface FileRoutesByFullPath {
   '/characters/library': typeof CharactersLibraryRoute
   '/forums/recent': typeof ForumsRecentRoute
   '/forums/search': typeof ForumsSearchRoute
+  '/forums/subscriptions': typeof ForumsSubscriptionsRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
   '/games/new': typeof GamesNewRoute
@@ -455,6 +462,7 @@ export interface FileRoutesByTo {
   '/characters/library': typeof CharactersLibraryRoute
   '/forums/recent': typeof ForumsRecentRoute
   '/forums/search': typeof ForumsSearchRoute
+  '/forums/subscriptions': typeof ForumsSubscriptionsRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/new': typeof GamesNewRoute
   '/pms/$pmId': typeof PmsPmIdRoute
@@ -515,6 +523,7 @@ export interface FileRoutesById {
   '/characters/library': typeof CharactersLibraryRoute
   '/forums/recent': typeof ForumsRecentRoute
   '/forums/search': typeof ForumsSearchRoute
+  '/forums/subscriptions': typeof ForumsSubscriptionsRoute
   '/forums/{-$forumId}': typeof ForumsChar123ForumIdChar125Route
   '/games/list': typeof GamesListRouteWithChildren
   '/games/new': typeof GamesNewRoute
@@ -578,6 +587,7 @@ export interface FileRouteTypes {
     | '/characters/library'
     | '/forums/recent'
     | '/forums/search'
+    | '/forums/subscriptions'
     | '/forums/{-$forumId}'
     | '/games/list'
     | '/games/new'
@@ -638,6 +648,7 @@ export interface FileRouteTypes {
     | '/characters/library'
     | '/forums/recent'
     | '/forums/search'
+    | '/forums/subscriptions'
     | '/forums/{-$forumId}'
     | '/games/new'
     | '/pms/$pmId'
@@ -697,6 +708,7 @@ export interface FileRouteTypes {
     | '/characters/library'
     | '/forums/recent'
     | '/forums/search'
+    | '/forums/subscriptions'
     | '/forums/{-$forumId}'
     | '/games/list'
     | '/games/new'
@@ -756,6 +768,7 @@ export interface RootRouteChildren {
   CharactersLibraryRoute: typeof CharactersLibraryRoute
   ForumsRecentRoute: typeof ForumsRecentRoute
   ForumsSearchRoute: typeof ForumsSearchRoute
+  ForumsSubscriptionsRoute: typeof ForumsSubscriptionsRoute
   ForumsChar123ForumIdChar125Route: typeof ForumsChar123ForumIdChar125Route
   GamesListRoute: typeof GamesListRouteWithChildren
   GamesNewRoute: typeof GamesNewRoute
@@ -933,6 +946,13 @@ declare module '@tanstack/react-router' {
       path: '/forums/search'
       fullPath: '/forums/search'
       preLoaderRoute: typeof ForumsSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forums/subscriptions': {
+      id: '/forums/subscriptions'
+      path: '/forums/subscriptions'
+      fullPath: '/forums/subscriptions'
+      preLoaderRoute: typeof ForumsSubscriptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forums/{-$forumId}': {
@@ -1280,6 +1300,7 @@ const rootRouteChildren: RootRouteChildren = {
   CharactersLibraryRoute: CharactersLibraryRoute,
   ForumsRecentRoute: ForumsRecentRoute,
   ForumsSearchRoute: ForumsSearchRoute,
+  ForumsSubscriptionsRoute: ForumsSubscriptionsRoute,
   ForumsChar123ForumIdChar125Route: ForumsChar123ForumIdChar125Route,
   GamesListRoute: GamesListRouteWithChildren,
   GamesNewRoute: GamesNewRoute,
