@@ -2,6 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, status
 
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException, ValidationError
+from app.forum_subscriptions.functions import Trigger, queue_subscription_emails
 from app.forums.permissions import ForumPermissions, Verbs
 from app.helpers.decorators import public
 from app.middleware import Principal
@@ -267,6 +268,9 @@ async def create_post(
         post,
         principal,
     )
+    await queue_subscription_emails(
+        background_tasks, db_session, thread, post, principal, Trigger.NEW_POST
+    )
 
     return schemas.NewPostResponse(id=post.id)
 
@@ -414,6 +418,9 @@ async def edit_post(
             post,
             post.author,
             edited=True,
+        )
+        await queue_subscription_emails(
+            background_tasks, db_session, post.thread, post, principal, Trigger.EDIT
         )
 
     return schemas.EditPostResponse(id=post.id)

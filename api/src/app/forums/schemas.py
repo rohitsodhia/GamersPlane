@@ -118,6 +118,8 @@ class GetForum(SchemaBase):
     thread_count: int
     # As on ChildForumData, for this forum itself (false unless it's readable).
     has_unread: bool = False
+    # The principal subscribes to this forum itself (false for guests).
+    subscribed: bool = False
     # Forum verbs the principal holds here. A forum shown only because it has
     # readable subforums lacks forum_read, and has no threads to list.
     permissions: list[str]
