@@ -297,7 +297,7 @@ class TestGetCurrentUser:
         assert response.status_code == 200
         assert response.json()["postSide"] == "r"
 
-    async def test_game_activity_mail_prefs_default_on_and_can_be_turned_off(
+    async def test_default_on_mail_prefs_read_true_and_can_be_turned_off(
         self, authed_client
     ):
         client, _user = authed_client
@@ -305,12 +305,20 @@ class TestGetCurrentUser:
         body = (await client.get("/me?full=true")).json()
         assert body["gmMail"] is True
         assert body["gameMail"] is True
+        assert body["pmMail"] is True
 
-        response = await client.post("/me", json={"gmMail": False, "gameMail": False})
-        assert response.json()["updated"] == {"gmMail": False, "gameMail": False}
+        response = await client.post(
+            "/me", json={"gmMail": False, "gameMail": False, "pmMail": False}
+        )
+        assert response.json()["updated"] == {
+            "gmMail": False,
+            "gameMail": False,
+            "pmMail": False,
+        }
         body = (await client.get("/me?full=true")).json()
         assert body["gmMail"] is False
         assert body["gameMail"] is False
+        assert body["pmMail"] is False
 
 
 class TestUpdateCurrentUser:

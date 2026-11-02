@@ -52,9 +52,13 @@ _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
     "gameInterests": UserMeta.MetaKeys.GAME_INTERESTS,
 }
 
-# Game activity mail is on unless the user has explicitly opted out, so a missing
+# These mail prefs are on unless the user has explicitly opted out, so a missing
 # row reads as True (matching how the mailer treats it).
-_DEFAULT_ON_META_KEYS = {UserMeta.MetaKeys.GM_MAIL, UserMeta.MetaKeys.GAME_MAIL}
+_DEFAULT_ON_META_KEYS = {
+    UserMeta.MetaKeys.GM_MAIL,
+    UserMeta.MetaKeys.GAME_MAIL,
+    UserMeta.MetaKeys.PM_MAIL,
+}
 
 
 @me.get("", response_model=schemas.UserOutput, response_model_exclude_none=True)

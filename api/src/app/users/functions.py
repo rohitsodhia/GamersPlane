@@ -53,14 +53,12 @@ async def register_user(
     if errors:
         raise UserExists(errors)
 
-    new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.GAME_MAIL.value, value=True))
-    new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.GM_MAIL.value, value=True))
+    # Only prefs whose missing-row meaning isn't the default we want get a row here.
+    # gmMail/gameMail/pmMail read as on and postSide as "r" without one, but a missing
+    # newGameMail row means opted out.
     new_user.meta.append(
         UserMeta(key=UserMeta.MetaKeys.NEW_GAME_MAIL.value, value=True)
     )
-    new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.PM_MAIL.value, value=True))
-    new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.POST_SIDE.value, value="r"))
-    new_user.meta.append(UserMeta(key=UserMeta.MetaKeys.SHOW_AVATARS.value, value=True))
 
     db_session.add(new_user)
     await db_session.flush()

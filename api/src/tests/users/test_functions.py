@@ -131,14 +131,7 @@ class TestRegisterUser:
         assert user.id is not None
 
         meta = {m.key: m.value for m in user.meta}
-        assert meta == {
-            UserMeta.MetaKeys.GAME_MAIL.value: True,
-            UserMeta.MetaKeys.GM_MAIL.value: True,
-            UserMeta.MetaKeys.NEW_GAME_MAIL.value: True,
-            UserMeta.MetaKeys.PM_MAIL.value: True,
-            UserMeta.MetaKeys.POST_SIDE.value: "r",
-            UserMeta.MetaKeys.SHOW_AVATARS.value: True,
-        }
+        assert meta == {UserMeta.MetaKeys.NEW_GAME_MAIL.value: True}
 
     async def test_existing_user_raises_user_exists(self, db_session, create):
         existing = await create(UserFactory)
