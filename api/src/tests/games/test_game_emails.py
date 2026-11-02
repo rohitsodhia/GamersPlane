@@ -101,6 +101,17 @@ class TestPlayerActsMailsGMs(_GameEmailFixtures):
         assert applicant.username in sent[0]["content"]
         assert sent[0]["subject"] == "[My Campaign] New application"
 
+    async def test_primary_gm_can_opt_out_of_gm_mail(
+        self, auth_as, client, create, game, gm, add_player, set_pref, sent
+    ):
+        co_gm = await add_player(is_gm=True)
+        await set_pref(gm, UserMeta.MetaKeys.GM_MAIL, False)
+        client = auth_as(await create(ActivatedUserFactory))
+
+        await client.post(f"/games/{game.id}/apply")
+
+        assert self.recipients(sent) == [co_gm.email]
+
     async def test_game_mail_off_does_not_silence_gm_mail(
         self, auth_as, client, create, game, gm, set_pref, sent
     ):
@@ -213,6 +224,46 @@ class TestGMActsMailsPlayer(_GameEmailFixtures):
         assert response.status_code == 204
         assert self.recipients(sent) == [invitee.email]
         assert sent[0]["subject"] == "[My Campaign] Game invite"
+
+    async def test_email_disabled_sends_nothing_to_players(
+        self, auth_as, client, game, gm, add_player, sent, monkeypatch
+    ):
+        monkeypatch.setattr(configs, "EMAIL_ENABLED", False)
+        applicant = await add_player(state=Player.States.APPLIED)
+        client = auth_as(gm)
+
+        response = await client.post(f"/games/{game.id}/player/{applicant.id}/approve")
+
+        assert response.status_code == 204
+        assert sent == []
+
+    async def test_co_gm_approving_applicant_mails_only_the_applicant(
+        self, auth_as, client, game, gm, add_player, sent
+    ):
+        co_gm = await add_player(is_gm=True)
+        applicant = await add_player(state=Player.States.APPLIED)
+        client = auth_as(co_gm)
+
+        response = await client.post(f"/games/{game.id}/player/{applicant.id}/approve")
+
+        assert response.status_code == 204
+        assert self.recipients(sent) == [applicant.email]
+
+    async def test_co_gm_approving_character_mails_only_the_owner(
+        self, auth_as, client, db_session, game, gm, add_player, sent
+    ):
+        co_gm = await add_player(is_gm=True)
+        player = await add_player()
+        character = await _make_character(db_session, player)
+        await _put_in_game(db_session, character, game.id)
+        client = auth_as(co_gm)
+
+        response = await client.post(
+            f"/games/{game.id}/characters/{character.id}/approve"
+        )
+
+        assert response.status_code == 204
+        assert self.recipients(sent) == [player.email]
 
     async def test_game_mail_opt_out_blocks_player_mail(
         self, auth_as, client, create, game, gm, set_pref, sent

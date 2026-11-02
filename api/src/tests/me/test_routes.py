@@ -6,6 +6,7 @@ from PIL import Image
 from app.configs import configs
 from app.models import RolePermission
 from app.repositories.user_repository import UserRepository
+from app.users.functions import register_user
 from tests.factories import (
     ActivatedUserFactory,
     ForumFactory,
@@ -320,8 +321,36 @@ class TestGetCurrentUser:
         assert body["gameMail"] is False
         assert body["pmMail"] is False
 
+    async def test_newly_registered_user_reads_the_expected_defaults(
+        self, client, auth_as, db_session, site_root_forum
+    ):
+        user = await register_user(
+            db_session,
+            email="fresh@example.com",
+            username="fresh",
+            password="ValidPass1!",
+        )
+        user.activate()
+        await db_session.flush()
+        auth_as(user)
+
+        body = (await client.get("/me?full=true")).json()
+
+        assert body["newGameMail"] is True
+        assert body["gmMail"] is True
+        assert body["gameMail"] is True
+        assert body["pmMail"] is True
+        assert body["postSide"] == "r"
+
 
 class TestUpdateCurrentUser:
+    async def test_new_game_mail_opt_out_round_trips(self, authed_client):
+        client, _user = authed_client
+        response = await client.post("/me", json={"newGameMail": False})
+
+        assert response.json()["updated"] == {"newGameMail": False}
+        assert (await client.get("/me?full=true")).json()["newGameMail"] is False
+
     async def test_update_current_user_sets_only_provided_fields(self, authed_client):
         client, _user = authed_client
 
