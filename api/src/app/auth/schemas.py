@@ -47,7 +47,6 @@ class RefreshResponse(SchemaBase):
 
 
 class ResetPasswordInput(SchemaBase):
-    email: EmailStr
     token: str
     password: Password
     confirm_password: Password

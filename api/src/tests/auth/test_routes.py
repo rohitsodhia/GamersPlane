@@ -60,12 +60,29 @@ class TestLogin:
         assert response.status_code == 404
         assert response.json()["errors"][0]["code"] == "invalid_user"
 
-    async def test_login_unactivated_user(self, client, create):
-        await create(UserFactory, username="unactivated", password="ValidPass1!")
+    async def test_login_unactivated_user_is_told_to_activate(self, client, create):
+        user = await create(UserFactory, username="unactivated", password="ValidPass1!")
 
         response = await client.post(
             "/auth/login",
             json={"identifier": "unactivated", "password": "ValidPass1!"},
+        )
+
+        assert response.status_code == 403
+        body = response.json()
+        assert body["errors"][0]["code"] == "not_activated"
+        assert body["email"] == user.email
+        assert "jwt" not in body
+        assert user.last_activity is None
+
+    async def test_login_unactivated_wrong_password_is_not_disclosed(
+        self, client, create
+    ):
+        await create(UserFactory, username="unactivated", password="ValidPass1!")
+
+        response = await client.post(
+            "/auth/login",
+            json={"identifier": "unactivated", "password": "WrongPass1!"},
         )
 
         assert response.status_code == 404
@@ -303,122 +320,165 @@ class TestActivateUser:
         assert response.json()["errors"][0]["code"] == "invalid_token"
 
 
+@pytest.fixture
+def sent_emails(monkeypatch):
+    sent = []
+
+    async def fake_send_email(to, subject, content, **kwargs):
+        sent.append((to, content))
+
+    monkeypatch.setattr("app.auth.functions.send_email", fake_send_email)
+    return sent
+
+
+async def _reset_tokens(db_session, user):
+    return (
+        await db_session.scalars(
+            select(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
+        )
+    ).all()
+
+
 class TestGeneratePasswordReset:
-    async def test_generate_for_existing_user(self, client, create, db_session):
+    async def test_activated_user_gets_token_and_email(
+        self, client, create, db_session, sent_emails
+    ):
         user = await create(ActivatedUserFactory)
 
         response = await client.post("/auth/password_reset", json={"email": user.email})
 
         assert response.status_code == 200
         assert response.json() == {"success": True}
+        (token,) = await _reset_tokens(db_session, user)
+        assert len(sent_emails) == 1
+        assert sent_emails[0][0] == user.email
+        assert f"/reset-password?token={token.token}" in sent_emails[0][1]
 
-        token = await db_session.scalar(
-            select(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
-        )
-        assert token is not None
-
-    async def test_reset_email_link_contains_real_token(
-        self, client, create, db_session, monkeypatch
+    async def test_unknown_email_looks_identical_and_sends_nothing(
+        self, client, db_session, sent_emails
     ):
-        sent = []
-
-        async def fake_send_email(to, subject, content):
-            sent.append((to, content))
-
-        monkeypatch.setattr("app.auth.routes.send_email", fake_send_email)
-        user = await create(ActivatedUserFactory)
-
-        await client.post("/auth/password_reset", json={"email": user.email})
-
-        token = await db_session.scalar(
-            select(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
-        )
-        assert len(sent) == 1
-        assert sent[0][0] == user.email
-        assert f"/reset-password?token={token.token}" in sent[0][1]
-
-    async def test_generate_for_unknown_email(self, client):
         response = await client.post(
             "/auth/password_reset", json={"email": "nobody@example.com"}
         )
 
-        assert response.status_code == 404
-        assert response.json()["errors"][0]["code"] == "no_account"
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+        assert sent_emails == []
+
+    async def test_unactivated_user_looks_identical_and_gets_nothing(
+        self, client, create, db_session, sent_emails
+    ):
+        user = await create(UserFactory)
+
+        response = await client.post("/auth/password_reset", json={"email": user.email})
+
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+        assert await _reset_tokens(db_session, user) == []
+        assert sent_emails == []
+
+    async def test_second_request_retires_the_first_token(
+        self, client, create, db_session, sent_emails
+    ):
+        user = await create(ActivatedUserFactory)
+
+        await client.post("/auth/password_reset", json={"email": user.email})
+        await client.post("/auth/password_reset", json={"email": user.email})
+
+        tokens = await _reset_tokens(db_session, user)
+        assert len(tokens) == 2
+        assert sorted(t.used is None for t in tokens) == [False, True]
+        assert len(sent_emails) == 2
 
 
 class TestCheckPasswordReset:
     async def test_valid_token(self, client, create):
-        user = await create(ActivatedUserFactory)
-        token = await create(PasswordResetTokenFactory, user=user)
+        token = await create(PasswordResetTokenFactory)
 
         response = await client.get(
-            "/auth/password_reset",
-            params={"email": user.email, "token": str(token.token)},
+            "/auth/password_reset", params={"token": str(token.token)}
         )
 
         assert response.status_code == 200
         assert response.json() == {"valid_token": True}
 
-    async def test_invalid_token(self, client, create):
-        user = await create(ActivatedUserFactory)
-
+    async def test_unknown_token(self, client):
         response = await client.get(
             "/auth/password_reset",
-            params={
-                "email": user.email,
-                "token": "00000000-0000-0000-0000-000000000000",
-            },
+            params={"token": "00000000-0000-0000-0000-000000000000"},
         )
 
         assert response.status_code == 200
         assert response.json() == {"valid_token": False}
 
+    async def test_used_token(self, client, create, db_session):
+        token = await create(PasswordResetTokenFactory)
+        token.use()
+        await db_session.flush()
+
+        response = await client.get(
+            "/auth/password_reset", params={"token": str(token.token)}
+        )
+
+        assert response.json() == {"valid_token": False}
+
+    async def test_expired_token(self, client, create, db_session):
+        token = await create(PasswordResetTokenFactory)
+        token.requested_on = datetime.now(timezone.utc) - PasswordResetToken.TTL * 2
+        await db_session.flush()
+
+        response = await client.get(
+            "/auth/password_reset", params={"token": str(token.token)}
+        )
+
+        assert response.json() == {"valid_token": False}
+
+    async def test_activation_token_is_not_a_reset_token(self, client, create):
+        token = await create(AccountActivationTokenFactory)
+
+        response = await client.get(
+            "/auth/password_reset", params={"token": str(token.token)}
+        )
+
+        assert response.json() == {"valid_token": False}
+
 
 class TestResetPassword:
-    async def test_reset_password_success(self, client, create):
+    @staticmethod
+    def _body(token, password="NewPass1!", confirm="NewPass1!"):
+        return {
+            "token": str(token.token),
+            "password": password,
+            "confirm_password": confirm,
+        }
+
+    async def test_success_changes_password_and_burns_token(self, client, create):
         user = await create(ActivatedUserFactory, password="OldPass1!")
         token = await create(PasswordResetTokenFactory, user=user)
 
-        response = await client.patch(
-            "/auth/password_reset",
-            json={
-                "email": user.email,
-                "token": str(token.token),
-                "password": "NewPass1!",
-                "confirm_password": "NewPass1!",
-            },
-        )
+        response = await client.patch("/auth/password_reset", json=self._body(token))
 
         assert response.status_code == 200
         assert response.json() == {"success": True}
-
         assert user.check_pass("NewPass1!")
         assert token.used is not None
 
-    async def test_reset_password_mismatched_confirmation(self, client, create):
-        user = await create(ActivatedUserFactory)
-        token = await create(PasswordResetTokenFactory, user=user)
-
-        response = await client.patch(
-            "/auth/password_reset",
-            json={
-                "email": user.email,
-                "token": str(token.token),
-                "password": "NewPass1!",
-                "confirm_password": "Different1!",
-            },
+        login = await client.post(
+            "/auth/login",
+            json={"identifier": user.username, "password": "NewPass1!"},
         )
+        assert login.status_code == 200
 
-        assert response.status_code == 400
-        assert response.json()["errors"][0]["code"] == "password_mismatch"
+        again = await client.patch(
+            "/auth/password_reset", json=self._body(token, "Another1!", "Another1!")
+        )
+        assert again.status_code == 404
+        assert again.json()["errors"][0]["code"] == "invalid_token"
 
-    async def test_reset_password_invalid_token(self, client, create):
-        user = await create(ActivatedUserFactory)
-
+    async def test_unknown_token(self, client):
         response = await client.patch(
             "/auth/password_reset",
             json={
-                "email": user.email,
                 "token": "00000000-0000-0000-0000-000000000000",
                 "password": "NewPass1!",
                 "confirm_password": "NewPass1!",
@@ -427,3 +487,16 @@ class TestResetPassword:
 
         assert response.status_code == 404
         assert response.json()["errors"][0]["code"] == "invalid_token"
+
+    async def test_mismatched_confirmation_leaves_token_usable(self, client, create):
+        user = await create(ActivatedUserFactory, password="OldPass1!")
+        token = await create(PasswordResetTokenFactory, user=user)
+
+        response = await client.patch(
+            "/auth/password_reset", json=self._body(token, confirm="Different1!")
+        )
+
+        assert response.status_code == 400
+        assert response.json()["errors"][0]["code"] == "password_mismatch"
+        assert user.check_pass("OldPass1!")
+        assert token.used is None
