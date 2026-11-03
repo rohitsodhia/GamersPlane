@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useCallback, useRef } from "react";
 import { NotificationEntry } from "#/components/NotificationEntry";
-import { buildNotificationItems, dropdownItems } from "#/components/notificationText";
+import { dropdownItems } from "#/components/notificationText";
 import ThemeToggle from "#/components/ThemeToggle";
 import {
 	meHeaderQueryOptions,
@@ -67,8 +67,8 @@ function Header() {
 	});
 	const notificationCount = notifications?.count ?? 0;
 	const { shown: shownNotifications, hasMore: hasMoreNotifications } = dropdownItems(
-		notifications ? buildNotificationItems(notifications) : [],
-		notifications?.hasMoreMentions,
+		notifications?.items ?? [],
+		notifications?.hasMore,
 	);
 
 	const { buttonRef: toolsButtonRef, popoverRef: toolsPopoverRef } = usePopoverAnchor(
@@ -222,7 +222,7 @@ function Header() {
 											</li>
 										)}
 										{shownNotifications.map((item) => (
-											<li key={item.key}>
+											<li key={item.eventId}>
 												<NotificationEntry item={item} />
 											</li>
 										))}

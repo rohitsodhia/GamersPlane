@@ -6,10 +6,13 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "react-aria-components";
 import { NotificationEntry } from "#/components/NotificationEntry";
-import { buildNotificationItems } from "#/components/notificationText";
+import { flattenPages } from "#/components/notificationText";
 import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
 import { useHbMargined } from "#/lib/use-hb-margined";
-import { markAllMentionsRead, meNotificationsPagesQueryOptions } from "#/queries/me";
+import {
+	markAllNotificationsRead,
+	meNotificationsPagesQueryOptions,
+} from "#/queries/me";
 import styles from "./notifications.module.css";
 
 export const Route = createFileRoute("/notifications")({
@@ -36,17 +39,11 @@ function RouteComponent() {
 	const queryClient = useQueryClient();
 	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } =
 		useSuspenseInfiniteQuery(meNotificationsPagesQueryOptions);
-	// Invites and pending games ride along on every page; the first is current.
-	const first = data.pages[0];
-	const items = buildNotificationItems({
-		pending: first.pending,
-		invites: first.invites,
-		mentions: data.pages.flatMap((page) => page.mentions),
-	});
-	const hasUnread = items.some((item) => item.kind === "mention" && !item.read);
+	const items = flattenPages(data.pages);
+	const hasUnread = items.some((item) => !item.read);
 
 	const markAllRead = useMutation({
-		mutationFn: markAllMentionsRead,
+		mutationFn: markAllNotificationsRead,
 		onSettled: () =>
 			queryClient.invalidateQueries({ queryKey: ["me", "notifications"] }),
 	});
@@ -68,7 +65,7 @@ function RouteComponent() {
 				)}
 				{markAllRead.isError && (
 					<div className="error" role="alert">
-						Couldn't mark your mentions as read. Please try again.
+						Couldn't mark your notifications as read. Please try again.
 					</div>
 				)}
 				{items.length === 0 ? (
@@ -76,7 +73,7 @@ function RouteComponent() {
 				) : (
 					<ul className={styles["list"]}>
 						{items.map((item) => (
-							<li key={item.key} className={styles["item"]}>
+							<li key={item.eventId} className={styles["item"]}>
 								<NotificationEntry item={item} />
 							</li>
 						))}
@@ -84,7 +81,7 @@ function RouteComponent() {
 				)}
 				{isFetchNextPageError && (
 					<div className="error" role="alert">
-						Couldn't load more mentions. Please try again.
+						Couldn't load more notifications. Please try again.
 					</div>
 				)}
 				{hasNextPage && (

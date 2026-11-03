@@ -1,59 +1,75 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Button } from "react-aria-components";
-import { dismissMention, markMentionRead } from "#/queries/me";
+import {
+	dismissNotification,
+	markNotificationRead,
+	type Notification,
+} from "#/queries/me";
 import styles from "./NotificationEntry.module.css";
-import type { NotificationItem } from "./notificationText";
+import { notificationPlainText, notificationSegments } from "./notificationText";
 
 /**
  * One bell/page entry. Render it as the only content of the row's `<li>`: a
- * mention is a link plus a dismiss button (siblings, so the button never sits
- * inside the `<a>`), and the row is laid out by the parent's flex styles.
+ * link plus a dismiss button (siblings, so the button never sits inside the
+ * `<a>`), and the row is laid out by the parent's flex styles.
  *
- * A mention marks itself read on click, in the background: the Link navigates
- * to the post right away, and a failed mark-read never holds that up (the bell
+ * An unread entry marks itself read on click, in the background: the Link
+ * navigates right away, and a failed mark-read never holds that up (the bell
  * just refetches and still shows it). Dismissing hides it for good, so a failure
  * there is shown. The dismiss button carries `data-keep-open` so the bell's
  * popover stays open when it is pressed.
  */
-export function NotificationEntry({ item }: { item: NotificationItem }) {
+export function NotificationEntry({ item }: { item: Notification }) {
 	const queryClient = useQueryClient();
 	const invalidate = () =>
 		queryClient.invalidateQueries({ queryKey: ["me", "notifications"] });
 	const markRead = useMutation({
-		mutationFn: markMentionRead,
+		mutationFn: markNotificationRead,
 		onSettled: invalidate,
 	});
 	const dismiss = useMutation({
-		mutationFn: dismissMention,
+		mutationFn: dismissNotification,
 		onSettled: invalidate,
 	});
 
-	if (item.kind === "game") {
-		return (
-			<Link to="/games/$gameId" params={{ gameId: item.gameId }}>
-				{item.text}
-			</Link>
-		);
-	}
+	const className = item.read ? undefined : styles["unread"];
+	const onClick = () => {
+		if (!item.read) markRead.mutate(item.eventId);
+	};
+	const content = notificationSegments(item).map((segment, index) => {
+		const key = `${index}-${segment.text}`;
+		if (segment.style === "strong") return <strong key={key}>{segment.text}</strong>;
+		if (segment.style === "em") return <em key={key}>{segment.text}</em>;
+		return <span key={key}>{segment.text}</span>;
+	});
 
 	return (
 		<>
-			<Link
-				to="/forums/thread/$threadId"
-				params={{ threadId: item.threadId }}
-				search={{ p: item.postId }}
-				className={item.read ? undefined : styles["unread"]}
-				onClick={() => {
-					if (!item.read) markRead.mutate(item.eventId);
-				}}
-			>
-				<strong>{item.actorName}</strong> mentioned you in <em>{item.threadTitle}</em>
-			</Link>
+			{item.type === "mention" ? (
+				<Link
+					to="/forums/thread/$threadId"
+					params={{ threadId: item.threadId }}
+					search={{ p: item.postId }}
+					className={className}
+					onClick={onClick}
+				>
+					{content}
+				</Link>
+			) : (
+				<Link
+					to="/games/$gameId"
+					params={{ gameId: item.gameId }}
+					className={className}
+					onClick={onClick}
+				>
+					{content}
+				</Link>
+			)}
 			<Button
 				className={styles["dismiss"]}
 				data-keep-open
-				aria-label={`Dismiss notification from ${item.actorName} in ${item.threadTitle}`}
+				aria-label={`Dismiss: ${notificationPlainText(item)}`}
 				isDisabled={dismiss.isPending}
 				onPress={() => dismiss.mutate(item.eventId)}
 			>
