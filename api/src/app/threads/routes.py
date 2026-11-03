@@ -3,6 +3,7 @@ from fastapi import APIRouter, BackgroundTasks, Query, status
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException, ValidationError
+from app.events.functions import sync_post_mentions
 from app.forum_subscriptions.functions import Trigger, queue_subscription_emails
 from app.forums.functions import get_readable_forum
 from app.forums.permissions import Verbs
@@ -255,6 +256,7 @@ async def create_thread(
         await QuickNPCRepository(db_session, principal=principal).mark_used(npc)
     await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)
+    await sync_post_mentions(db_session, post, thread, forum)
     if thread_data.poll is not None:
         await PollRepository(db_session, principal=principal).create(
             thread.id, thread_data.poll

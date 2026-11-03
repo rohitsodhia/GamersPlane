@@ -1,6 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, status
 
 from app.database import DBSessionDependency
+from app.events.functions import sync_post_mentions
 from app.exceptions import ForbiddenException, NotFoundException, ValidationError
 from app.forum_subscriptions.functions import Trigger, queue_subscription_emails
 from app.forums.permissions import ForumPermissions, Verbs
@@ -265,6 +266,7 @@ async def create_post(
     await ThreadRepository(db_session, principal=principal).attach_new_post(
         thread, post
     )
+    await sync_post_mentions(db_session, post, thread, thread.forum)
     assert post.published_at is not None
     await ReadTrackingRepository(db_session, principal=principal).mark_viewed(
         thread, post.published_at
@@ -419,6 +421,9 @@ async def edit_post(
             roll, change.hide_reason, change.hide_dice, change.hide_result
         )
     await save_attachments(db_session, principal, post, attachments)
+    # Even a minor edit: a mention it adds still notifies, and one it removes is
+    # still retracted.
+    await sync_post_mentions(db_session, post, post.thread, post.thread.forum)
     if not post_data.minor_edit:
         await queue_post_webhook(
             background_tasks,

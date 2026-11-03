@@ -99,7 +99,13 @@ class TestGetNotifications:
 
         body = (await client.get("/me/notifications")).json()
 
-        assert body == {"pending": [], "invites": [], "count": 0}
+        assert body == {
+            "pending": [],
+            "invites": [],
+            "mentions": [],
+            "hasMoreMentions": False,
+            "count": 0,
+        }
 
     async def test_retired_game_is_excluded(self, auth_as, create, db_session, gf):
         applicant = await create(ActivatedUserFactory)

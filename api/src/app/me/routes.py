@@ -1,10 +1,13 @@
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, File, UploadFile, status
+from fastapi import APIRouter, File, Query, UploadFile, status
 
 from app.auth.functions import validate_password_change
 from app.configs import configs
 from app.database import DBSessionDependency
+from app.events.functions import build_mentions, count_unread_mentions
+from app.exceptions import NotFoundException
 from app.forum_subscriptions.functions import build_subscriptions
 from app.forum_subscriptions.schemas import GetSubscriptionsResponse
 from app.forums.permissions import moderated_roots
@@ -31,7 +34,7 @@ from app.quick_npcs.schemas import (
     NPCImageData,
     PostedNPCInput,
 )
-from app.repositories import NPCOwner, QuickNPCRepository
+from app.repositories import EventRepository, NPCOwner, QuickNPCRepository
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
 from app.repositories.player_repository import PlayerRepository
 from app.repositories.pm_repository import PMRepository
@@ -41,6 +44,8 @@ from app.repositories.user_repository import UserRepository
 from app.schemas import ErrorItem
 
 me = APIRouter(prefix="/me")
+
+MAX_MENTIONS_PAGE = 50
 
 _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
     "pronouns": UserMeta.MetaKeys.PRONOUNS,
@@ -213,11 +218,39 @@ async def get_header(db_session: DBSessionDependency, principal: Principal):
 
 
 @me.get("/notifications", response_model=schemas.GetNotificationsResponse)
-async def get_notifications(db_session: DBSessionDependency, principal: Principal):
+async def get_notifications(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    limit: Annotated[int, Query(ge=1, le=MAX_MENTIONS_PAGE)] = 20,
+    before: Annotated[int | None, Query(ge=1)] = None,
+):
     items = await PlayerRepository(db_session, principal=principal).get_attention_items(
         principal.id
     )
-    return {**items, "count": len(items["pending"]) + len(items["invites"])}
+    mentions, has_more = await build_mentions(db_session, principal, limit, before)
+    return {
+        **items,
+        "mentions": mentions,
+        "hasMoreMentions": has_more,
+        "count": len(items["pending"])
+        + len(items["invites"])
+        + await count_unread_mentions(db_session, principal),
+    }
+
+
+@me.post("/notifications/mentions/read-all", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_all_mentions_read(db_session: DBSessionDependency, principal: Principal):
+    await EventRepository(db_session).mark_all_read(principal.id)
+
+
+@me.post(
+    "/notifications/mentions/{event_id}/read", status_code=status.HTTP_204_NO_CONTENT
+)
+async def mark_mention_read(
+    event_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    if not await EventRepository(db_session).mark_read(principal.id, event_id):
+        raise NotFoundException("Mention not found")
 
 
 @me.post(

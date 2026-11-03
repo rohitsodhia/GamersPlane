@@ -4,6 +4,7 @@ from typing import Annotated
 from annotated_types import Len
 from pydantic import field_validator
 
+from app.events.schemas import MentionItem
 from app.models import User
 from app.models.user_meta import ForumSubType, PostSide
 from app.schema_base import SchemaBase, filtered_str, strip_whitespace
@@ -126,6 +127,10 @@ class InviteItem(SchemaBase):
 class GetNotificationsResponse(SchemaBase):
     pending: list[PendingGameItem]
     invites: list[InviteItem]
+    # The page of mentions asked for, newest first.
+    mentions: list[MentionItem]
+    hasMoreMentions: bool
+    # Pending games, invites, and every unread mention (not just this page's).
     count: int
 
 
