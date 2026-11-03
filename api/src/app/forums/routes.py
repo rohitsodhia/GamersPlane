@@ -27,6 +27,7 @@ from app.repositories import (
     CharacterRepository,
     DeckRepository,
     ForumRepository,
+    ForumSubscriptionRepository,
     GameRepository,
     NPCOwner,
     PlayerRepository,
@@ -382,8 +383,33 @@ async def get_forum(
         game_id=forum.game_id,
         thread_count=forum.thread_count if Verbs.FORUM_READ in forum_permissions else 0,
         has_unread=forum.id in unread_ids,
+        subscribed=principal is not None
+        and await ForumSubscriptionRepository(db_session).is_subscribed(
+            principal.id, forum_id=forum.id
+        ),
         permissions=sorted(verb.value for verb in forum_permissions),
         children=children_forums_data,
+    )
+
+
+@forums.put("/{forum_id}/subscription", status_code=status.HTTP_204_NO_CONTENT)
+async def subscribe_to_forum(
+    forum_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    """Subscribe to email notices for the forum's own threads (not its subforums'),
+    as set by the profile's forum subscription type. Idempotent."""
+    forum, _ = await get_readable_forum(db_session, principal, forum_id)
+    await ForumSubscriptionRepository(db_session).add(principal.id, forum_id=forum.id)
+
+
+@forums.delete("/{forum_id}/subscription", status_code=status.HTTP_204_NO_CONTENT)
+async def unsubscribe_from_forum(
+    forum_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    """Idempotent. Needs no read access, so someone who lost access can still
+    drop the subscription."""
+    await ForumSubscriptionRepository(db_session).remove(
+        principal.id, forum_id=forum_id
     )
 
 

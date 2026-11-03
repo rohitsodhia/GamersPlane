@@ -82,6 +82,8 @@ export type Forum = {
 	// user can read, and has no threads to list.
 	permissions: ForumPermission[];
 	has_unread: boolean;
+	// The user is subscribed to this forum itself (not just one above it).
+	subscribed: boolean;
 	children: ChildForum[];
 };
 

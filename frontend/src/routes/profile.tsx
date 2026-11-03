@@ -1,12 +1,17 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { FadeOut } from "#/components/FadeOut";
 import { FilterableListBox } from "#/components/FilterableListBox";
+import { Select } from "#/components/Select";
 import { ApiError } from "#/lib/api";
 import { redirectToLoginOnAuthFailure, requireAuth } from "#/lib/auth-route";
 import { useFlash } from "#/lib/use-flash";
 import { useHbMargined } from "#/lib/use-hb-margined";
+import {
+	FORUM_SUB_TYPE_OPTIONS,
+	type ForumSubType,
+} from "#/queries/forumSubscriptions";
 import {
 	deleteUserAvatar,
 	lfgSystemsQueryOptions,
@@ -74,6 +79,7 @@ function RouteComponent() {
 			newGameMail: me.newGameMail ?? undefined,
 			gmMail: me.gmMail ?? undefined,
 			gameMail: me.gameMail ?? undefined,
+			forumSubType: me.forumSubType,
 			postSide: me.postSide,
 			lookingForAGame: me.lookingForAGame ?? false,
 			gameInterests: me.gameInterests ?? "",
@@ -329,6 +335,35 @@ function RouteComponent() {
 									onChange={() => field.handleChange(false)}
 								/>
 								<label htmlFor="edit-settings_game-mail-no">No</label>
+							</div>
+						</div>
+					)}
+				</profileSettingsForm.Field>
+
+				<profileSettingsForm.Field name="forumSubType">
+					{(field) => (
+						<div>
+							<div id="edit-settings_forum-sub-type-label">
+								Forum subscription emails
+							</div>
+							<div>
+								<Select
+									id="edit-settings_forum-sub-type"
+									ariaLabelledBy="edit-settings_forum-sub-type-label"
+									items={FORUM_SUB_TYPE_OPTIONS}
+									getId={(option) => option.id}
+									getLabel={(option) => option.label}
+									selectedId={field.state.value}
+									onChange={(id) => field.handleChange(id as ForumSubType)}
+								/>
+								<div className="explanation">
+									{
+										FORUM_SUB_TYPE_OPTIONS.find(
+											(option) => option.id === field.state.value,
+										)?.description
+									}{" "}
+									<Link to="/forums/subscriptions">Manage subscriptions</Link>
+								</div>
 							</div>
 						</div>
 					)}

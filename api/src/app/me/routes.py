@@ -5,6 +5,8 @@ from fastapi import APIRouter, File, UploadFile, status
 from app.auth.functions import validate_password_change
 from app.configs import configs
 from app.database import DBSessionDependency
+from app.forum_subscriptions.functions import build_subscriptions
+from app.forum_subscriptions.schemas import GetSubscriptionsResponse
 from app.forums.permissions import moderated_roots
 from app.helpers.avatars import (
     process_avatar_upload,
@@ -16,6 +18,7 @@ from app.helpers.remote_image import fetch_remote_image
 from app.me import schemas
 from app.middleware import Principal
 from app.models import Forum, RolePermission, UserMeta
+from app.models.user_meta import DEFAULT_FORUM_SUB_TYPE
 from app.quick_npcs.functions import (
     build_image_data,
     build_npc_data,
@@ -47,6 +50,7 @@ _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
     "newGameMail": UserMeta.MetaKeys.NEW_GAME_MAIL,
     "gmMail": UserMeta.MetaKeys.GM_MAIL,
     "gameMail": UserMeta.MetaKeys.GAME_MAIL,
+    "forumSubType": UserMeta.MetaKeys.FORUM_SUB_TYPE,
     "postSide": UserMeta.MetaKeys.POST_SIDE,
     "lookingForAGame": UserMeta.MetaKeys.LOOKING_FOR_A_GAME,
     "gameInterests": UserMeta.MetaKeys.GAME_INTERESTS,
@@ -116,6 +120,8 @@ async def get_current_user(
             value = meta_by_key.get(key.value)
             if value is None and key in _DEFAULT_ON_META_KEYS:
                 value = True
+            if value is None and key == UserMeta.MetaKeys.FORUM_SUB_TYPE:
+                value = DEFAULT_FORUM_SUB_TYPE
             if value is not None:
                 output[field] = value
     return output
@@ -147,6 +153,11 @@ async def update_current_user(
     await user_repo.update_user_meta(current_user, updates)
 
     return {"success": True, "updated": updated_fields}
+
+
+@me.get("/subscriptions", response_model=GetSubscriptionsResponse)
+async def get_subscriptions(current_user: Principal, db_session: DBSessionDependency):
+    return await build_subscriptions(db_session, current_user)
 
 
 @me.get("/lfg-systems", response_model=schemas.LFGSystemsResponse)

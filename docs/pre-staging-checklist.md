@@ -162,6 +162,21 @@ Built on `dev/gm_emails`. In dev only the invite email has been seen in a real s
 - [ ] Preferences: with "Receive GM emails?" / "Receive game emails?" set to No in profile settings, the matching mail stops. A user with no stored row receives it (both default on).
 - [ ] With email disabled, each trigger writes a "would have mailed" line to the API log (confirms the hooks fire). Check `docker logs gamersplane-api` on a dev run.
 
+### Forum subscription emails
+
+Built on `dev/forum_subs`. Subscribers choose `forumSubType` (`all`, `new content`, or `none`; a missing row means `new content`). Covered by tests only; nothing has been real-sent yet.
+
+- [ ] **These are `mass` emails.** Unlike the per-event game and PM emails, subscription mail is sent BCC in batches of 100 with `mass=True`, so it is gated by `MASS_EMAIL_ENABLED` (on by default only when `ENVIRONMENT=prod`). A real-send test in dev or staging needs `MASS_EMAIL_ENABLED=true` as well as `EMAIL_ENABLED=true`, and with `MASS_EMAIL_ENABLED` unset nothing is sent. Subscriptions only exist for users who (or whose imported rows) subscribed, so staging data is a risk only after the `forumSubs` import; imported users are set to `none` (see section 8).
+- [ ] Real-send walkthrough with three accounts on real addresses (a poster, an `all` subscriber, a `new content` subscriber):
+  - new thread in a forum with a forum subscription -> both are mailed, the poster is not;
+  - reply in a subscribed thread -> `all` gets one email per reply; `new content` gets one email, then none until it visits the thread, then one again on the next reply;
+  - edit a post normally -> only `all` is mailed; tick "minor edit" -> nobody is;
+  - a user with both a thread and a forum subscription gets one email, not two;
+  - a `none` subscriber, and someone who no longer has read access to the forum, get nothing.
+- [ ] Wording and links: the `all` email names who, the thread, and the forum (new post, new thread, and edit variants); the `new content` email says "There's new activity in your subscribed forum/thread" and does not name the poster. Check the thread, post (`?p=...#p...`), forum, and Manage Subscriptions links open the right pages, and no post text appears in either email.
+- [ ] BCC: the message is addressed `To: CONTACT_EMAIL`. Confirm in "Show original" that other subscribers' addresses are not visible, and that the sender address is one that can take replies or bounces.
+- [ ] Dev with email off: each trigger writes a "would have mailed subscribers" line to the API log. Check `docker logs gamersplane-api`.
+
 ## 8. Known gaps before inviting testers
 
 - [ ] No `compose.staging.yml`, no frontend service, `docker/Dockerfile-nextjs` is stale (section 0 and 6).
@@ -173,6 +188,8 @@ Built on `dev/gm_emails`. In dev only the invite email has been seen in a real s
 - [ ] Prod `user_meta` import must carry `gmMail`, `newGameMail` (and `pmMail`) in the `"1"`/`"0"` format. A missing `gmMail`, `gameMail` or `pmMail` row means ON; a missing `newGameMail` row means OFF. Check v1's convention for a missing `gmMail` row before the import, so nobody who opted out in v1 starts receiving GM mail.
 - [ ] **PM notification emails** (every new PM mails the recipient, gated on `pmMail`, default on; the body has a 300-character plain-text preview with images shown as `[image]` and quotes dropped). Real-send one PM and one reply, confirm the preview and the `/pms/<id>` link. Like the game emails these are not `mass`-gated, so the staging-data item above applies. Check v1's convention for a missing `pmMail` row at the `user_meta` import, as for `gmMail`.
 - [ ] `gameMail` is new, so every existing user receives player-facing game emails (invited, accepted, character approved, ...) without having opted in. Consider telling users in the release notes where to turn it off (profile settings, "Receive game emails?").
+- [ ] **Forum subscription import** (`migration/`, unbuilt): import v1 `forumSubs` (`type` `f`/`t`, `ID`) into `forum_subscriptions`, dropping rows whose forum or thread no longer exists, and write `forumSubType = none` explicitly for every imported user so members who have left are not mailed. Users who then want email must switch it on in profile settings or on Manage Subscriptions; mention that in the release notes. New users and anyone without a row default to `new content`.
+- [ ] Subscription emails call the BCC send once per (mode, subscription kind) group of up to 100 recipients; a forum with thousands of subscribers sends many messages from a request background task. Watch postfix queue and API logs on the first busy forum after launch.
 - [ ] `docker/opendkim/opendkim.conf` sets `ReportAddress postmaster@gamersplane.com` and `SendReports yes`; make sure that mailbox exists and is read, since DMARC reports (`rua=mailto:postmaster@gamersplane.com`) go there too.
 - [ ] No backups for the `gp_postgres_db` volume or `./images`. **Needs decision:** backup approach, even for staging.
 - [x] Avatar upload hardening (Pillow decompression-bomb limit, error handling, size check) before opening uploads to outside testers.

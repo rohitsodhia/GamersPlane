@@ -1,0 +1,28 @@
+{% extends 'helpers/templates/base_template.html' %}
+
+{% block title %}{{ headline }}{% endblock %}
+
+{% block content %}
+{% set thread_link = site_domain ~ '/forums/thread/' ~ thread_id %}
+{% set post_link = thread_link ~ ('?p=' ~ post_id ~ '#p' ~ post_id if post_id else '') %}
+{% set forum_link = site_domain ~ '/forums/' ~ forum_id %}
+<h1 style="background-color:#C60;color:#FFF;margin:.3em 0;">{{ headline }}</h1>
+{% if mode == 'all' %}
+{% if trigger == 'new_thread' %}
+<p>{{ actor }} started a new thread "<a href="{{ thread_link }}">{{ thread_title }}</a>" in the <a href="{{ forum_link }}">{{ forum_title }}</a> forum.</p>
+{% elif trigger == 'edit' %}
+<p>{{ actor }} edited a post in the thread "<a href="{{ post_link }}">{{ thread_title }}</a>" in the <a href="{{ forum_link }}">{{ forum_title }}</a> forum.</p>
+{% else %}
+<p>{{ actor }} made a new post in the thread "<a href="{{ post_link }}">{{ thread_title }}</a>" in the <a href="{{ forum_link }}">{{ forum_title }}</a> forum.</p>
+{% endif %}
+{% elif kind == 'thread' %}
+<p>There's new activity in your subscribed thread: <a href="{{ thread_link }}">{{ thread_title }}</a>.</p>
+{% else %}
+<p>There's new activity in your subscribed forum: <a href="{{ forum_link }}">{{ forum_title }}</a>.</p>
+{% if trigger == 'new_thread' %}
+<p>New thread: <a href="{{ thread_link }}">{{ thread_title }}</a></p>
+{% endif %}
+{% endif %}
+<p style="text-align: right;">- The Gamers Plane Team</p>
+<p style="font-size: .8em; margin-top: 2em;">You're receiving this because you're subscribed to {% if kind == 'thread' %}this thread{% else %}this forum{% endif %}. To unsubscribe, or to change how often you're emailed, head to your <a href="{{ site_domain }}/forums/subscriptions">subscriptions</a>.</p>
+{% endblock %}

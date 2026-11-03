@@ -29,6 +29,7 @@ import Paginate from "#/components/Paginate";
 import PinIcon from "#/components/PinIcon";
 import { ReportDialog } from "#/components/ReportDialog";
 import { ReportLink } from "#/components/ReportLink";
+import { SubscribeToggle } from "#/components/SubscribeToggle";
 import { TiptapContent } from "#/components/TiptapContent";
 import { flattenNpcBlocks } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker";
 import { ApiError } from "#/lib/api";
@@ -605,6 +606,16 @@ function RouteComponent() {
 							>
 								Report thread
 							</ReportLink>
+						)}
+						{loggedIn && (
+							<div className={styles["subscription-links"]}>
+								<SubscribeToggle
+									kind="thread"
+									id={thread.id}
+									subscribed={thread.subscribed}
+								/>
+								<Link to="/forums/subscriptions">Manage Subscriptions</Link>
+							</div>
 						)}
 					</div>
 

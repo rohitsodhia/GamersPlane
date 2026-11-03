@@ -8,12 +8,16 @@ from app.helpers.enums import LabelEnum
 from app.models.base import Base
 
 PostSide = Literal["r", "l", "c"]
+ForumSubType = Literal["all", "new content", "none"]
+# Read for a user with no forumSubType row
+DEFAULT_FORUM_SUB_TYPE: ForumSubType = "new content"
 
 
 class UserMeta(Base):
     class MetaKeys(LabelEnum):
         AVATAR_EXT = "avatarExt", "Avatar Extension", str
         BIRTHDAY = "birthday", "Birthday", str
+        FORUM_SUB_TYPE = "forumSubType", "Forum Subscription Type", str
         GAME_INTERESTS = "gameInterests", "Game Interests", str
         GAME_MAIL = "gameMail", "Game Mail", bool
         GM_MAIL = "gmMail", "GM Mail", bool
@@ -58,6 +62,11 @@ class UserMeta(Base):
             value = value.lower()
             if value not in get_args(PostSide):
                 raise ValidationError("Post Side must either be 'r', 'l', or 'c'")
+        elif self.key == self.MetaKeys.FORUM_SUB_TYPE.value:
+            if value not in get_args(ForumSubType):
+                raise ValidationError(
+                    "Forum Subscription Type must be 'all', 'new content', or 'none'"
+                )
         elif cast_type is bool:
             value = 1 if value else 0
 

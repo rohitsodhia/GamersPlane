@@ -4,6 +4,13 @@
 	}
 }
 
+.subscription-links {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.25em 1em;
+}
+
 .thread-menu {
 	display: flex;
 	justify-content: space-between;

@@ -167,6 +167,21 @@ class ForumPermissions:
             )
 
         implicit_role_id = Role.GUEST_ID if principal is None else Role.REGISTERED_ID
+        await cls._add_public_game_reads(
+            db_session, grants, implicit_role_id, chain_ids
+        )
+
+        return cls(forum_ids, grants, is_admin, chain_games)
+
+    @staticmethod
+    async def _add_public_game_reads(
+        db_session: AsyncSession,
+        grants: dict[int, dict[int, list[tuple[Verbs, Effects]]]],
+        implicit_role_id: int,
+        chain_ids: set[int],
+    ) -> None:
+        """Add the implicit ``forum_read`` allow that a public game's root forum
+        gives the implicit role, into ``grants``."""
         implicit_grants = grants.setdefault(implicit_role_id, {})
 
         public_game_roots = await db_session.scalars(
@@ -180,7 +195,107 @@ class ForumPermissions:
             if not any(permission is Verbs.FORUM_READ for permission, _ in root_grants):
                 root_grants.append((Verbs.FORUM_READ, Effects.ALLOW))
 
-        return cls(forum_ids, grants, is_admin, chain_games)
+    @classmethod
+    async def load_for_users(
+        cls,
+        db_session: AsyncSession,
+        users: Iterable[User],
+        forum: Forum,
+    ) -> dict[int, "ForumPermissions"]:
+        """Each user's permissions on one forum (user id -> permissions), in a
+        fixed handful of queries however many users there are. Results match
+        ``load(db_session, user, [forum])`` for every logged-in user; there is no
+        guest here.
+
+        Queries: the users' role assignments; every role's forum grants along
+        the forum's ancestor chain (narrowed per user in Python to their assigned
+        roles plus Registered); the admin verb's global grants, for the admin
+        check (what ``User.global_permissions`` computes, without its per-user
+        lazy loads: a global deny beats an allow, over assigned plus the user's
+        ``implicit_roles``); the public-game-root check; and, only if some user is
+        in player mode, the chain's game ids. Player mode is honored per user
+        exactly as in ``load()``.
+        """
+        users = list(users)
+        if not users:
+            return {}
+        forum_ids = {forum.id}
+        chain_ids = {*forum.heritage, forum.id}
+
+        assigned: dict[int, set[int]] = {user.id: set() for user in users}
+        for user_id, role_id in await db_session.execute(
+            select(UserRole.user_id, UserRole.role_id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(UserRole.user_id.in_(assigned))
+        ):
+            assigned[user_id].add(role_id)
+        # Registered applies to every logged-in user (``held_by``).
+        held = {user.id: assigned[user.id] | {Role.REGISTERED_ID} for user in users}
+        all_role_ids = set().union(*held.values())
+
+        rows = await db_session.execute(
+            select(
+                RolePermission.role_id,
+                RolePermission.scope_id,
+                RolePermission.permission,
+                RolePermission.effect,
+            )
+            .join(Role)
+            .where(
+                RolePermission.scope_type == RolePermission.ScopeTypes.FORUM,
+                RolePermission.scope_id.in_(chain_ids),
+                RolePermission.role_id.in_(all_role_ids),
+            )
+        )
+        grants: dict[int, dict[int, list[tuple[Verbs, Effects]]]] = {}
+        for role_id, scope_id, permission, effect in rows:
+            grants.setdefault(role_id, {}).setdefault(scope_id, []).append(
+                (permission, effect)
+            )
+        await cls._add_public_game_reads(
+            db_session, grants, Role.REGISTERED_ID, chain_ids
+        )
+
+        # The admin verb at global scope, per role, for ``global_permissions_of``.
+        implicit = {user.id: {r.id for r in user.implicit_roles} for user in users}
+        global_role_ids = all_role_ids.union(*implicit.values())
+        admin_allowed: set[int] = set()
+        admin_denied: set[int] = set()
+        for role_id, effect in await db_session.execute(
+            select(RolePermission.role_id, RolePermission.effect)
+            .join(Role)
+            .where(
+                RolePermission.scope_type.is_(None),
+                RolePermission.permission == Verbs.ADMIN,
+                RolePermission.role_id.in_(global_role_ids),
+            )
+        ):
+            (admin_denied if effect is Effects.DENY else admin_allowed).add(role_id)
+
+        chain_games = None
+        if any(not user.moderator_mode for user in users):
+            game_rows = await db_session.execute(
+                select(Forum.id, Forum.game_id).where(Forum.id.in_(chain_ids))
+            )
+            chain_games = {forum_id: game_id for forum_id, game_id in game_rows}
+
+        permissions = {}
+        for user in users:
+            # As ``User.effective_roles``: assigned roles plus the implicit ones
+            # attached to the user object (Registered only if a request set it).
+            effective = assigned[user.id] | implicit[user.id]
+            is_admin = bool(effective & admin_allowed) and not effective & admin_denied
+            permissions[user.id] = cls(
+                forum_ids,
+                {
+                    role_id: grants[role_id]
+                    for role_id in held[user.id]
+                    if role_id in grants
+                },
+                is_admin,
+                None if user.moderator_mode else chain_games,
+            )
+        return permissions
 
     def has(self, forum: Forum, verb: Verbs) -> bool:
         if forum.id not in self._forum_ids:

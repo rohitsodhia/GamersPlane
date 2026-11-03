@@ -126,6 +126,8 @@ class GetThreadResponse(SchemaBase):
     # null for guests and when the thread is fully read.
     first_unread_post_id: int | None
     first_unread_page: int | None
+    # The principal subscribes to this thread itself (false for guests).
+    subscribed: bool = False
     # The principal's verbs on the thread's forum.
     permissions: list[str]
     poll: PollData | None = None

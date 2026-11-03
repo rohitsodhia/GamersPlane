@@ -3,6 +3,7 @@ from fastapi import APIRouter, BackgroundTasks, Query, status
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException, ValidationError
+from app.forum_subscriptions.functions import Trigger, queue_subscription_emails
 from app.forums.functions import get_readable_forum
 from app.forums.permissions import Verbs
 from app.helpers.decorators import public
@@ -20,6 +21,7 @@ from app.posts.functions import (
 )
 from app.posts.schemas import AuthorData, PostData
 from app.repositories import (
+    ForumSubscriptionRepository,
     PollRepository,
     PostRepository,
     QuickNPCRepository,
@@ -180,6 +182,10 @@ async def get_thread(
         first_post_id=thread.first_post.id,
         first_unread_post_id=first_unread_post.id if first_unread_post else None,
         first_unread_page=first_unread_page,
+        subscribed=principal is not None
+        and await ForumSubscriptionRepository(db_session).is_subscribed(
+            principal.id, thread_id=thread.id
+        ),
         permissions=sorted(verb.value for verb in permissions.allowed(thread.forum)),
         poll=poll,
     )
@@ -258,6 +264,9 @@ async def create_thread(
         post,
         principal,
     )
+    await queue_subscription_emails(
+        background_tasks, db_session, thread, post, principal, Trigger.NEW_THREAD
+    )
 
     return schemas.NewThreadResponse(id=thread.id)
 
@@ -282,6 +291,27 @@ async def update_thread(
         thread, options
     )
     return schemas.ThreadOptionsData.model_validate(options)
+
+
+@threads.put("/{thread_id}/subscription", status_code=status.HTTP_204_NO_CONTENT)
+async def subscribe_to_thread(
+    db_session: DBSessionDependency, principal: Principal, thread_id: int
+):
+    """Subscribe to email notices for the thread, as set by the profile's forum
+    subscription type. Idempotent."""
+    thread, _ = await get_readable_thread(db_session, principal, thread_id)
+    await ForumSubscriptionRepository(db_session).add(principal.id, thread_id=thread.id)
+
+
+@threads.delete("/{thread_id}/subscription", status_code=status.HTTP_204_NO_CONTENT)
+async def unsubscribe_from_thread(
+    db_session: DBSessionDependency, principal: Principal, thread_id: int
+):
+    """Idempotent. Needs no read access, so someone who lost access can still
+    drop the subscription."""
+    await ForumSubscriptionRepository(db_session).remove(
+        principal.id, thread_id=thread_id
+    )
 
 
 @threads.post("/{thread_id}/read", status_code=status.HTTP_204_NO_CONTENT)

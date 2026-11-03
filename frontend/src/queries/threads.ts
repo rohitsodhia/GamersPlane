@@ -158,6 +158,8 @@ export type ThreadDetails = {
 	first_unread_post_id: number | null;
 	first_unread_page: number | null;
 	poll: PollData | null;
+	// The user is subscribed to this thread itself (not just its forum).
+	subscribed: boolean;
 };
 
 export function threadsQueryOptions(forumId: number, page = 1) {

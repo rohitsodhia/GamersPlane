@@ -7,6 +7,7 @@ import DieIcon from "#/components/DieIcon";
 import ForumSearchForm from "#/components/ForumSearchForm";
 import Paginate from "#/components/Paginate";
 import RAIcon from "#/components/RAIcon";
+import { SubscribeToggle } from "#/components/SubscribeToggle";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { useResizeObserver } from "#/lib/use-resize-observer";
 import {
@@ -208,8 +209,6 @@ function RouteComponent() {
 		(child) => child.forum_type !== "c",
 	);
 
-	const subscribed: boolean = false;
-
 	return (
 		<div className={styles["forum-page"]}>
 			<h1 className="headerbar" ref={hbMarginedHeader.ref}>
@@ -306,15 +305,22 @@ function RouteComponent() {
 						</button>
 					</p>
 				)}
-				<p>
-					<a href={`/forums/process/subscribe/?forumID=${forum.id}`}>
-						{subscribed ? "Unsubscribe from" : "Subscribe to"} forum
-					</a>
-				</p>
 				{loggedIn && (
-					<p>
-						<a href="/forums/subscriptions/">Manage Subscriptions</a>
-					</p>
+					<>
+						{/* Subscribing needs a forum with threads; unsubscribing is always allowed. */}
+						{(hasThreads(forum) || forum.subscribed) && (
+							<p>
+								<SubscribeToggle
+									kind="forum"
+									id={forum.id}
+									subscribed={forum.subscribed}
+								/>
+							</p>
+						)}
+						<p>
+							<Link to="/forums/subscriptions">Manage Subscriptions</Link>
+						</p>
+					</>
 				)}
 			</div>
 		</div>

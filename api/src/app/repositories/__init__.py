@@ -5,6 +5,7 @@ from .faq_repository import FAQRepository
 from .favorites_repository import FavoritesRepository
 from .forum_acp_repository import ForumACPRepository
 from .forum_repository import ForumRepository
+from .forum_subscription_repository import ForumSubscriptionRepository
 from .game_repository import GameRepository
 from .genre_repository import GenreRepository
 from .player_repository import PlayerRepository

@@ -9,6 +9,7 @@ from .faq import FAQ
 from .favorites import FavoriteCharacter, FavoriteGame
 from .forum import Forum
 from .forum_read import ForumRead
+from .forum_subscription import ForumSubscription, ForumSubscriptionNotice
 from .game import Game
 from .game_allowed_char_sheets import GameAllowedSystem
 from .genre import Genre

@@ -1,5 +1,6 @@
 import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import { ApiError, apiFetch } from "#/lib/api";
+import type { ForumSubType } from "#/queries/forumSubscriptions";
 import { useAuthStore } from "#/stores/auth";
 
 export type PostSide = "r" | "l" | "c";
@@ -51,6 +52,7 @@ type MeFullApiResponse = MeResponse & {
 	newGameMail: boolean | null;
 	gmMail: boolean | null;
 	gameMail: boolean | null;
+	forumSubType: ForumSubType;
 	postSide: PostSide;
 	lookingForAGame: boolean | null;
 	gameInterests: string | null;
@@ -155,6 +157,7 @@ export const updateUserSettings = async (userData: {
 	newGameMail?: boolean;
 	gmMail?: boolean;
 	gameMail?: boolean;
+	forumSubType?: ForumSubType;
 	postSide?: PostSide;
 	lookingForAGame?: boolean;
 	gameInterests?: string;
