@@ -1,4 +1,8 @@
-import { type QueryClient, queryOptions } from "@tanstack/react-query";
+import {
+	infiniteQueryOptions,
+	type QueryClient,
+	queryOptions,
+} from "@tanstack/react-query";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { ForumSubType } from "#/queries/forumSubscriptions";
 import { useAuthStore } from "#/stores/auth";
@@ -134,14 +138,32 @@ export type InviteNotification = {
 	title: string;
 };
 
+export type MentionNotification = {
+	eventId: number;
+	actor: { id: number; username: string };
+	threadId: number;
+	threadTitle: string;
+	postId: number;
+	forumId: number;
+	createdAt: string;
+	read: boolean;
+};
+
 export type MeNotificationsResponse = {
 	pending: PendingGameNotification[];
 	invites: InviteNotification[];
+	// Newest first; read ones included.
+	mentions: MentionNotification[];
+	hasMoreMentions: boolean;
+	// Pending games, invites, and every unread mention (not only this page's).
 	count: number;
 };
 
-const fetchMeNotifications = async (): Promise<MeNotificationsResponse> => {
-	const res = await apiFetch("/me/notifications");
+const fetchMeNotifications = async (
+	before?: number,
+): Promise<MeNotificationsResponse> => {
+	const query = before === undefined ? "" : `?before=${before}`;
+	const res = await apiFetch(`/me/notifications${query}`);
 	if (!res.ok) return handleMeError(res);
 	return res.json();
 };
@@ -151,12 +173,41 @@ const fetchMeNotifications = async (): Promise<MeNotificationsResponse> => {
 // Nested under "me" so logout and a blanket ["me"] invalidation cover it too.
 export const meNotificationsQueryOptions = queryOptions({
 	queryKey: ["me", "notifications"],
-	queryFn: fetchMeNotifications,
+	queryFn: () => fetchMeNotifications(),
 	staleTime: 1000 * 60,
 	// Poll every two minutes while the tab is visible; sockets would replace this.
 	refetchInterval: 1000 * 60 * 2,
 	retry: retryUnlessForbidden,
 });
+
+// The /notifications page's paged view. Its key extends the first-page key, so
+// invalidating ["me", "notifications"] refreshes the bell and this page together.
+export const meNotificationsPagesQueryOptions = infiniteQueryOptions({
+	queryKey: ["me", "notifications", "pages"],
+	queryFn: ({ pageParam }) => fetchMeNotifications(pageParam),
+	initialPageParam: undefined as number | undefined,
+	getNextPageParam: (lastPage) =>
+		lastPage.hasMoreMentions
+			? lastPage.mentions[lastPage.mentions.length - 1]?.eventId
+			: undefined,
+	staleTime: 1000 * 60,
+	retry: retryUnlessForbidden,
+});
+
+/** Marks one mention read. A 404 means it is already gone, which is fine. */
+export const markMentionRead = async (eventId: number): Promise<void> => {
+	const res = await apiFetch(`/me/notifications/mentions/${eventId}/read`, {
+		method: "POST",
+	});
+	if (!res.ok && res.status !== 404) return handleMeError(res);
+};
+
+export const markAllMentionsRead = async (): Promise<void> => {
+	const res = await apiFetch("/me/notifications/mentions/read-all", {
+		method: "POST",
+	});
+	if (!res.ok) return handleMeError(res);
+};
 
 // Nested under the "me" key so invalidating ["me"] invalidates this too.
 export const meFullQueryOptions = queryOptions({

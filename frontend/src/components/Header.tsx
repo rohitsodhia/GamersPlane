@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useCallback, useRef } from "react";
+import { NotificationEntry } from "#/components/NotificationEntry";
 import { buildNotificationItems, dropdownItems } from "#/components/notificationText";
 import ThemeToggle from "#/components/ThemeToggle";
 import {
@@ -67,6 +68,7 @@ function Header() {
 	const notificationCount = notifications?.count ?? 0;
 	const { shown: shownNotifications, hasMore: hasMoreNotifications } = dropdownItems(
 		notifications ? buildNotificationItems(notifications) : [],
+		notifications?.hasMoreMentions,
 	);
 
 	const { buttonRef: toolsButtonRef, popoverRef: toolsPopoverRef } = usePopoverAnchor(
@@ -211,21 +213,22 @@ function Header() {
 											}
 										}}
 									>
-										{notificationCount === 0 && (
+										{shownNotifications.length === 0 && (
 											<li className={styles["notification-empty"]}>
 												Nothing needs your attention.
 											</li>
 										)}
 										{shownNotifications.map((item) => (
 											<li key={item.key}>
-												<Link to="/games/$gameId" params={{ gameId: item.gameId }}>
-													{item.text}
-												</Link>
+												<NotificationEntry item={item} />
 											</li>
 										))}
 										{hasMoreNotifications && (
 											<li>
-												<Link to="/notifications">View all ({notificationCount})</Link>
+												<Link to="/notifications">
+													View all
+													{notificationCount > 0 ? ` (${notificationCount})` : ""}
+												</Link>
 											</li>
 										)}
 									</ul>

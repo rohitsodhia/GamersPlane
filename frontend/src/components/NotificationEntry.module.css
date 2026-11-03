@@ -1,0 +1,5 @@
+/* Unread mentions read heavier than read ones; the actor is already bold, so
+   the weight shows on the rest of the line. */
+.unread {
+	font-weight: bold;
+}
