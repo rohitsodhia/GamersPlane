@@ -1,54 +1,74 @@
-import type { MeNotificationsResponse } from "#/queries/me";
+import type { Notification } from "#/queries/me";
 
-const plural = (count: number, singular: string) =>
-	`${count} ${singular}${count === 1 ? "" : "s"}`;
-
-/**
- * The bell line for a game with things waiting on its GM, e.g.
- * "2 players and 1 character pending in Campaign". A zero count is left out.
- */
-export function pendingText(
-	players: number,
-	characters: number,
-	title: string,
-): string {
-	const parts = [
-		players > 0 ? plural(players, "player") : null,
-		characters > 0 ? plural(characters, "character") : null,
-	].filter((part) => part !== null);
-	return `${parts.join(" and ")} pending in ${title}`;
-}
-
-export type NotificationItem = { key: string; gameId: number; text: string };
+/** One run of a notification's text: plain, the actor (bold), or a name (italic). */
+export type TextSegment = {
+	text: string;
+	style: "plain" | "strong" | "em";
+};
 
 /** The most items the header dropdown shows before linking to the full page. */
 export const DROPDOWN_LIMIT = 5;
 
-/** Every current notification, invites first, then pending, each in API order. */
-export function buildNotificationItems(
-	notifications: MeNotificationsResponse,
-): NotificationItem[] {
-	return [
-		...notifications.invites.map((item) => ({
-			key: `invite-${item.gameId}`,
-			gameId: item.gameId,
-			text: `You've been invited to ${item.title}`,
-		})),
-		...notifications.pending.map((item) => ({
-			key: `pending-${item.gameId}`,
-			gameId: item.gameId,
-			text: pendingText(item.players, item.characters, item.title),
-		})),
-	];
+/** The notification's sentence as styled runs, so it renders without HTML injection. */
+export function notificationSegments(item: Notification): TextSegment[] {
+	const actor: TextSegment = { text: item.actor.username, style: "strong" };
+	const name = (text: string): TextSegment => ({ text, style: "em" });
+	const plain = (text: string): TextSegment => ({ text, style: "plain" });
+	switch (item.type) {
+		case "mention":
+			return [actor, plain(" mentioned you in "), name(item.threadTitle)];
+		case "game_invite":
+			return [actor, plain(" invited you to "), name(item.gameTitle)];
+		case "game_application":
+			return [actor, plain(" applied to "), name(item.gameTitle)];
+		case "character_submitted":
+			return [
+				actor,
+				plain(" submitted "),
+				name(item.characterName),
+				plain(" to "),
+				name(item.gameTitle),
+			];
+	}
 }
 
-/** The items the dropdown shows, and whether a "View all" line is needed. */
-export function dropdownItems(items: NotificationItem[]): {
-	shown: NotificationItem[];
+/** The notification's sentence without styling, e.g. for an aria-label. */
+export function notificationPlainText(item: Notification): string {
+	return notificationSegments(item)
+		.map((segment) => segment.text)
+		.join("");
+}
+
+/**
+ * The items the dropdown shows, and whether a "View all" line is needed: more
+ * items than the cap, or more on the server than were fetched.
+ */
+export function dropdownItems(
+	items: Notification[],
+	hasMore = false,
+): {
+	shown: Notification[];
 	hasMore: boolean;
 } {
 	return {
 		shown: items.slice(0, DROPDOWN_LIMIT),
-		hasMore: items.length > DROPDOWN_LIMIT,
+		hasMore: items.length > DROPDOWN_LIMIT || hasMore,
 	};
+}
+
+/**
+ * Concatenates pages of notifications, keeping the first occurrence of each
+ * event. Reuse can move an event between pages, so a later page may repeat one.
+ */
+export function flattenPages(pages: { items: Notification[] }[]): Notification[] {
+	const seen = new Set<number>();
+	const result: Notification[] = [];
+	for (const page of pages) {
+		for (const item of page.items) {
+			if (seen.has(item.eventId)) continue;
+			seen.add(item.eventId);
+			result.push(item);
+		}
+	}
+	return result;
 }

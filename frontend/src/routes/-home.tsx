@@ -51,7 +51,13 @@ function AnnouncementWidget() {
 				</span>
 			}
 		>
-			{open && <TiptapContent content={data.post.body} npcs={data.post.content_npcs} />}
+			{open && (
+				<TiptapContent
+					content={data.post.body}
+					npcs={data.post.content_npcs}
+					mentions={data.post.content_mentions}
+				/>
+			)}
 		</Widget>
 	);
 }

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, status
 
 from app.database import DBSessionDependency
+from app.events.functions import sync_post_mentions
 from app.exceptions import ForbiddenException, NotFoundException, ValidationError
 from app.forum_subscriptions.functions import Trigger, queue_subscription_emails
 from app.forums.permissions import ForumPermissions, Verbs
@@ -12,9 +13,11 @@ from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import (
     build_posted_as,
     build_posted_npc,
+    build_content_mentions,
     build_content_npcs,
     check_post_change,
     is_same_npc,
+    load_content_mentions,
     load_content_npcs,
     require_one_poster,
     resolve_posted_npc,
@@ -22,6 +25,7 @@ from app.posts.functions import (
     validate_poster,
     validate_posted_avatar,
     validate_roll_visibility,
+    validate_content_mentions,
     validate_content_npcs,
     viewer_gm_game_id,
 )
@@ -99,6 +103,7 @@ async def get_posts(
     speakers = await load_content_npcs(
         db_session, principal, [post.body for post in posts]
     )
+    mentions = await load_content_mentions(db_session, [post.body for post in posts])
 
     posts_data = []
     for post in posts:
@@ -119,6 +124,7 @@ async def get_posts(
                 posted_npc=build_posted_npc(post),
                 body=post.body,
                 content_npcs=build_content_npcs(post.body, speakers),
+                content_mentions=build_content_mentions(post.body, mentions),
                 rolls=[
                     redact_roll(roll, full_view=is_author or is_moderator)
                     for roll in rolls[post.id]
@@ -156,6 +162,7 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
         db_session, principal, post.thread.forum, [post]
     )
     speakers = await load_content_npcs(db_session, principal, [post.body])
+    mentions = await load_content_mentions(db_session, [post.body])
     # The edit form needs the counts (to warn before dropping voted options), so
     # the poll goes to whoever may edit the first post, whatever they'd see on the
     # thread page.
@@ -188,6 +195,7 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
         posted_npc=build_posted_npc(post),
         body=post.body,
         content_npcs=build_content_npcs(post.body, speakers),
+        content_mentions=build_content_mentions(post.body, mentions),
         rolls=[redact_roll(roll, full_view=full_view) for roll in rolls],
         draws=[
             redact_draw(draw, is_author=principal.id == post.author_id)
@@ -229,6 +237,7 @@ async def create_post(
     )
 
     await validate_content_npcs(db_session, principal, thread.forum, post_data.body)
+    await validate_content_mentions(db_session, post_data.body)
 
     attachments = await plan_attachments(
         db_session,
@@ -257,6 +266,7 @@ async def create_post(
     await ThreadRepository(db_session, principal=principal).attach_new_post(
         thread, post
     )
+    await sync_post_mentions(db_session, post, thread, thread.forum)
     assert post.published_at is not None
     await ReadTrackingRepository(db_session, principal=principal).mark_viewed(
         thread, post.published_at
@@ -350,6 +360,7 @@ async def edit_post(
     await validate_content_npcs(
         db_session, post.author, post.thread.forum, post_data.body, post.body
     )
+    await validate_content_mentions(db_session, post_data.body)
     existing_rolls = (await post_repository.get_rolls([post.id]))[post.id]
     visibility_changes = validate_roll_visibility(
         existing_rolls, post_data.roll_visibility
@@ -410,6 +421,9 @@ async def edit_post(
             roll, change.hide_reason, change.hide_dice, change.hide_result
         )
     await save_attachments(db_session, principal, post, attachments)
+    # Even a minor edit: a mention it adds still notifies, and one it removes is
+    # still retracted.
+    await sync_post_mentions(db_session, post, post.thread, post.thread.forum)
     if not post_data.minor_edit:
         await queue_post_webhook(
             background_tasks,

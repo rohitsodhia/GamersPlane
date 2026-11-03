@@ -3,6 +3,7 @@ from fastapi import APIRouter, BackgroundTasks, Query, status
 from app.configs import configs
 from app.database import DBSessionDependency
 from app.exceptions import ForbiddenException, NotFoundException, ValidationError
+from app.events.functions import sync_post_mentions
 from app.forum_subscriptions.functions import Trigger, queue_subscription_emails
 from app.forums.functions import get_readable_forum
 from app.forums.permissions import Verbs
@@ -11,16 +12,20 @@ from app.middleware import Principal
 from app.models import Post
 from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import (
+    build_content_mentions,
     build_content_npcs,
     build_posted_as,
     build_posted_npc,
     check_post_change,
+    load_content_mentions,
     load_content_npcs,
+    validate_content_mentions,
     validate_content_npcs,
     validate_poster,
 )
 from app.posts.schemas import AuthorData, PostData
 from app.repositories import (
+    EventRepository,
     ForumSubscriptionRepository,
     PollRepository,
     PostRepository,
@@ -127,6 +132,7 @@ async def get_announcement(db_session: DBSessionDependency, principal: Principal
     assert post is not None and post.published_at is not None
 
     speakers = await load_content_npcs(db_session, principal, [post.body])
+    mentions = await load_content_mentions(db_session, [post.body])
     return schemas.AnnouncementResponse(
         id=thread.id,
         title=post.title,
@@ -145,6 +151,7 @@ async def get_announcement(db_session: DBSessionDependency, principal: Principal
             posted_npc=build_posted_npc(post),
             body=post.body,
             content_npcs=build_content_npcs(post.body, speakers),
+            content_mentions=build_content_mentions(post.body, mentions),
         ),
     )
 
@@ -218,6 +225,7 @@ async def create_thread(
         thread_data.posted_npc,
     )
     await validate_content_npcs(db_session, principal, forum, thread_data.body)
+    await validate_content_mentions(db_session, thread_data.body)
     attachments = await plan_attachments(
         db_session,
         principal,
@@ -249,6 +257,7 @@ async def create_thread(
         await QuickNPCRepository(db_session, principal=principal).mark_used(npc)
     await save_attachments(db_session, principal, post, attachments)
     await thread_repository.attach_new_post(thread, post)
+    await sync_post_mentions(db_session, post, thread, forum)
     if thread_data.poll is not None:
         await PollRepository(db_session, principal=principal).create(
             thread.id, thread_data.poll
@@ -321,7 +330,8 @@ async def mark_thread_viewed(
     thread_id: int,
     data: schemas.MarkThreadViewedInput,
 ):
-    """Record that the principal has seen the thread up to the given post."""
+    """Record that the principal has seen the thread up to the given post, and
+    dismiss their mentions in the posts that loaded on the page (``post_ids``)."""
     thread, _ = await get_readable_thread(db_session, principal, thread_id)
     post = await PostRepository(db_session, principal=principal).get(data.post_id)
     if (
@@ -334,6 +344,9 @@ async def mark_thread_viewed(
 
     await ReadTrackingRepository(db_session, principal=principal).mark_viewed(
         thread, post.published_at
+    )
+    await EventRepository(db_session).dismiss_for_posts(
+        principal.id, thread.id, data.post_ids
     )
 
 

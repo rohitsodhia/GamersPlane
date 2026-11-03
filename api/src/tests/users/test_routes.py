@@ -89,6 +89,18 @@ class TestAutocompleteUsers:
             "Zeta",
         ]
 
+    async def test_excludes_the_searcher(self, authed_client, create):
+        client, user = authed_client
+        await create(ActivatedUserFactory, username=f"{user.username}-other")
+
+        response = await client.get(
+            "/users/autocomplete", params={"username": user.username}
+        )
+
+        assert [u["username"] for u in response.json()["users"]] == [
+            f"{user.username}-other"
+        ]
+
     async def test_excludes_unactivated_users(self, authed_client, create):
         client, _user = authed_client
         await create(UserFactory, username="pending")

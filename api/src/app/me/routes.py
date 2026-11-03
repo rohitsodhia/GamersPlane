@@ -1,10 +1,13 @@
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, File, UploadFile, status
+from fastapi import APIRouter, File, Query, UploadFile, status
 
 from app.auth.functions import validate_password_change
 from app.configs import configs
 from app.database import DBSessionDependency
+from app.events.functions import build_notifications, count_unread_notifications
+from app.exceptions import NotFoundException, ValidationError
 from app.forum_subscriptions.functions import build_subscriptions
 from app.forum_subscriptions.schemas import GetSubscriptionsResponse
 from app.forums.permissions import moderated_roots
@@ -31,9 +34,8 @@ from app.quick_npcs.schemas import (
     NPCImageData,
     PostedNPCInput,
 )
-from app.repositories import NPCOwner, QuickNPCRepository
+from app.repositories import EventRepository, NPCOwner, QuickNPCRepository
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
-from app.repositories.player_repository import PlayerRepository
 from app.repositories.pm_repository import PMRepository
 from app.repositories.rbac_repository import RBACkRepository
 from app.repositories.system_repository import SystemRepository
@@ -41,6 +43,8 @@ from app.repositories.user_repository import UserRepository
 from app.schemas import ErrorItem
 
 me = APIRouter(prefix="/me")
+
+MAX_NOTIFICATIONS_PAGE = 50
 
 _PROFILE_META_KEYS: dict[str, UserMeta.MetaKeys] = {
     "pronouns": UserMeta.MetaKeys.PRONOUNS,
@@ -213,11 +217,53 @@ async def get_header(db_session: DBSessionDependency, principal: Principal):
 
 
 @me.get("/notifications", response_model=schemas.GetNotificationsResponse)
-async def get_notifications(db_session: DBSessionDependency, principal: Principal):
-    items = await PlayerRepository(db_session, principal=principal).get_attention_items(
-        principal.id
+async def get_notifications(
+    db_session: DBSessionDependency,
+    principal: Principal,
+    limit: Annotated[int, Query(ge=1, le=MAX_NOTIFICATIONS_PAGE)] = 20,
+    before: Annotated[str | None, Query()] = None,
+):
+    """The user's notifications, newest first. ``before`` is the ``nextCursor`` of
+    the previous page."""
+    cursor = None
+    if before is not None:
+        try:
+            cursor = EventRepository.parse_cursor(before)
+        except (ValueError, OverflowError):
+            raise ValidationError("Invalid cursor") from None
+    items, has_more, next_cursor = await build_notifications(
+        db_session, principal, limit, cursor
     )
-    return {**items, "count": len(items["pending"]) + len(items["invites"])}
+    return {
+        "items": items,
+        "hasMore": has_more,
+        "nextCursor": next_cursor,
+        "count": await count_unread_notifications(db_session, principal),
+    }
+
+
+@me.post("/notifications/read-all", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_all_notifications_read(
+    db_session: DBSessionDependency, principal: Principal
+):
+    await EventRepository(db_session).mark_all_read(principal.id)
+
+
+@me.post("/notifications/{event_id}/read", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_notification_read(
+    event_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    if not await EventRepository(db_session).mark_read(principal.id, event_id):
+        raise NotFoundException("Notification not found")
+
+
+@me.post("/notifications/{event_id}/dismiss", status_code=status.HTTP_204_NO_CONTENT)
+async def dismiss_notification(
+    event_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    """Hide the notification from the user's list for good (reading it too)."""
+    if not await EventRepository(db_session).dismiss(principal.id, event_id):
+        raise NotFoundException("Notification not found")
 
 
 @me.post(

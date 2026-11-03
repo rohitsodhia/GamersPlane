@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
+import type { ContentMention } from "#/components/tiptap/tiptap-node/mention-node/mention";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { DiceSystem, FengShuiRollType, RollDiceResult } from "#/queries/dice";
 import type { ContentNpc } from "#/queries/quick-npcs";
@@ -84,6 +85,8 @@ export type Post = {
 	body: JSONContent;
 	// The quick NPCs the body's speaker blocks name.
 	content_npcs: ContentNpc[];
+	// The users the body's @mentions name (quoted ones too); unknown users are left out.
+	content_mentions: ContentMention[];
 	rolls: PostRoll[];
 	draws: PostDraw[];
 };

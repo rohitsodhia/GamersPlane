@@ -4,8 +4,17 @@
 	list-style: none;
 }
 
-/* Anywhere-wrapping lets long game titles wrap instead of widening the page. */
+/* Anywhere-wrapping lets long game titles wrap instead of widening the page.
+   A mention row is its link plus a dismiss button; the link takes the rest. */
 .item {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
 	padding-block: 0.4em;
 	overflow-wrap: anywhere;
+
+	& > a {
+		flex: 1 1 0;
+		min-width: 0;
+	}
 }

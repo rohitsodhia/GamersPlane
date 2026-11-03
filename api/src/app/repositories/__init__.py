@@ -1,6 +1,7 @@
 from .character_repository import CharacterRepository
 from .character_sheet_repository import CharacterSheetRepository
 from .deck_repository import DeckRepository
+from .event_repository import EventRepository
 from .faq_repository import FAQRepository
 from .favorites_repository import FavoritesRepository
 from .forum_acp_repository import ForumACPRepository

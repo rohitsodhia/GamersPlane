@@ -119,6 +119,7 @@ function RouteComponent() {
 			defaultPostedAs={post.posted_as}
 			defaultPostedNpc={post.posted_npc}
 			defaultContentNpcs={post.content_npcs}
+			defaultContentMentions={post.content_mentions}
 			submitLabel="Save Changes"
 			apiErrors={apiErrors}
 			isSubmitting={mutation.isPending}

@@ -19,6 +19,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // --- Tiptap node styles ---
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
+import {
+	addMentions,
+	type ContentMention,
+	findMentionNames,
+} from "#/components/tiptap/tiptap-node/mention-node/mention";
+import {
+	Mention,
+	MentionContext,
+} from "#/components/tiptap/tiptap-node/mention-node/mention-node-extension";
+import { useMentionPicker } from "#/components/tiptap/tiptap-node/mention-node/mention-picker";
 import { Note } from "#/components/tiptap/tiptap-node/note-node/note-node-extension";
 import { NpcRoster } from "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node-extension";
 import {
@@ -33,6 +43,7 @@ import "#/components/tiptap/tiptap-node/list-node/list-node.scss";
 import "#/components/tiptap/tiptap-node/image-node/image-node.scss";
 import "#/components/tiptap/tiptap-node/heading-node/heading-node.scss";
 import "#/components/tiptap/tiptap-node/paragraph-node/paragraph-node.scss";
+import "#/components/tiptap/tiptap-node/mention-node/mention-node.scss";
 import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
 import "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node.scss";
 import "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node.scss";
@@ -411,9 +422,20 @@ type EditorProps = {
 	 * library still shows its name and image.
 	 */
 	contentNpcs?: readonly ContentNpc[];
+	/**
+	 * The edited post's own `content_mentions`, so a mention in an old post shows
+	 * its user's current name.
+	 */
+	contentMentions?: readonly ContentMention[];
+	/**
+	 * Whether `@` opens a user picker and the document may hold mention nodes. Only
+	 * for post editors: the API validates mentions on posts alone.
+	 */
+	mentions?: boolean;
 };
 
 const NO_CONTENT_NPCS: readonly ContentNpc[] = [];
+const NO_CONTENT_MENTIONS: readonly ContentMention[] = [];
 
 const Editor = ({
 	id,
@@ -424,7 +446,14 @@ const Editor = ({
 	ariaLabelledBy,
 	npcLibrary = null,
 	contentNpcs = NO_CONTENT_NPCS,
+	contentMentions = NO_CONTENT_MENTIONS,
+	mentions = false,
 }: EditorProps) => {
+	// Users picked since the editor opened, whom the post's own lookup doesn't list.
+	const [pickedMentions, setPickedMentions] = useState<ContentMention[]>([]);
+	const mentionPicker = useMentionPicker((user) =>
+		setPickedMentions((picked) => addMentions(picked, [user])),
+	);
 	const isMobile = useIsBreakpoint();
 	const { height } = useWindowSize();
 	const [mobileView, setMobileView] = useState<"main" | "color" | "link">("main");
@@ -449,6 +478,9 @@ const Editor = ({
 			NpcSpeaker,
 			NpcRoster,
 			Quote,
+			...(mentions
+				? [Mention.configure({ suggestion: mentionPicker.suggestion })]
+				: []),
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			TaskList,
 			TaskItem.configure({ nested: true }),
@@ -586,12 +618,17 @@ const Editor = ({
 				{/* The speech blocks' node views render under EditorContent, so they
 				    read the library from here. */}
 				<NpcSpeakerContext.Provider value={speakerContext}>
-					<EditorContent
-						editor={editor}
-						role="presentation"
-						className={clsx("simple-editor-content", className)}
-					/>
+					<MentionContext.Provider
+						value={findMentionNames(pickedMentions, contentMentions)}
+					>
+						<EditorContent
+							editor={editor}
+							role="presentation"
+							className={clsx("simple-editor-content", className)}
+						/>
+					</MentionContext.Provider>
 				</NpcSpeakerContext.Provider>
+				{mentions && mentionPicker.popup}
 			</EditorContext.Provider>
 		</div>
 	);

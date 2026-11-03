@@ -55,6 +55,17 @@ class UserRepository:
             .limit(1)
         )
 
+    async def get_usernames(self, user_ids: Iterable[int]) -> dict[int, str]:
+        """The username of each existing user in ``user_ids`` (banned and
+        unactivated ones too), in one query. Unknown ids are left out."""
+        ids = set(user_ids)
+        if not ids:
+            return {}
+        rows = await self.db_session.execute(
+            select(User.id, User.username).where(User.id.in_(ids))
+        )
+        return {user_id: username for user_id, username in rows}
+
     async def get_role_members(self, role_id: int) -> Sequence[User]:
         """Active, unbanned users explicitly in the role, by username (A-Z, any
         case). A soft-deleted role has no members (its join is filtered out)."""
@@ -73,17 +84,17 @@ class UserRepository:
         ).all()
 
     async def search_users_by_username_prefix(
-        self, prefix: str, limit: int = 10
+        self, prefix: str, limit: int = 10, exclude_user_id: int | None = None
     ) -> Sequence[User]:
+        query = select(User).where(
+            func.lower(User.username).startswith(prefix.lower()),
+            User.activated_on.is_not(None),
+        )
+        if exclude_user_id is not None:
+            query = query.where(User.id != exclude_user_id)
         return (
             await self.db_session.scalars(
-                select(User)
-                .where(
-                    func.lower(User.username).startswith(prefix.lower()),
-                    User.activated_on.is_not(None),
-                )
-                .order_by(func.lower(User.username))
-                .limit(limit)
+                query.order_by(func.lower(User.username)).limit(limit)
             )
         ).all()
 

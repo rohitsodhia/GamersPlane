@@ -145,6 +145,20 @@ export const searchUsers = async (username: string): Promise<SearchUser[]> => {
 	return ((await res.json()) as { users: SearchUser[] }).users;
 };
 
+// Users whose name starts with `prefix`, for the editor's @mention picker.
+export const usersAutocompleteQueryOptions = (prefix: string, limit = 8) =>
+	queryOptions({
+		queryKey: ["users", "autocomplete", prefix, limit],
+		queryFn: async (): Promise<SearchUser[]> => {
+			const res = await apiFetch(
+				`/users/autocomplete?username=${encodeURIComponent(prefix)}&limit=${limit}`,
+			);
+			if (!res.ok) throw new Error("Failed to search users");
+			return ((await res.json()) as { users: SearchUser[] }).users;
+		},
+		staleTime: 1000 * 30,
+	});
+
 export const searchUserByUsername = async (
 	username: string,
 ): Promise<SearchUser | null> => {

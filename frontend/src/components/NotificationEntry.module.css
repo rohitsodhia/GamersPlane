@@ -1,0 +1,33 @@
+/* Unread mentions read heavier than read ones; the actor is already bold, so
+   the weight shows on the rest of the line. */
+.unread {
+	font-weight: bold;
+}
+
+/* The cross beside a mention's link, stretching to the row's height. */
+.dismiss {
+	flex: none;
+	align-self: stretch;
+	padding: 0 0.7em;
+	border: 0;
+	background: none;
+	color: var(--text);
+	font-size: 1.2em;
+	line-height: 1;
+	cursor: pointer;
+
+	&:hover,
+	&[data-focus-visible] {
+		color: var(--gp-red);
+	}
+
+	&[data-disabled] {
+		opacity: 0.5;
+		cursor: default;
+	}
+}
+
+.dismiss-error {
+	flex-basis: 100%;
+	padding: 0.2em 10px;
+}

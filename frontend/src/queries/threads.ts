@@ -195,9 +195,13 @@ const threadAction = async (path: string, body?: unknown): Promise<void> => {
 	}
 };
 
-// postId is the last post shown on the page the user is viewing.
-export const recordThreadRead = (threadId: number, postId: number) =>
-	threadAction(`/threads/${threadId}/read`, { post_id: postId });
+// postId is the last post shown on the page the user is viewing; postIds are all
+// the posts on it, whose mention notifications the server dismisses.
+export const recordThreadRead = (threadId: number, postId: number, postIds: number[]) =>
+	threadAction(`/threads/${threadId}/read`, {
+		post_id: postId,
+		post_ids: postIds,
+	});
 
 // Makes the newest post unread again.
 export const markThreadUnread = (threadId: number) =>

@@ -31,6 +31,10 @@ import { ReportDialog } from "#/components/ReportDialog";
 import { ReportLink } from "#/components/ReportLink";
 import { SubscribeToggle } from "#/components/SubscribeToggle";
 import { TiptapContent } from "#/components/TiptapContent";
+import {
+	addMentions,
+	type ContentMention,
+} from "#/components/tiptap/tiptap-node/mention-node/mention";
 import { flattenNpcBlocks } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker";
 import { ApiError } from "#/lib/api";
 import { PAGINATE_PER_PAGE } from "#/lib/config";
@@ -314,6 +318,7 @@ function PostItem({
 						content={post.body}
 						className="post-body"
 						npcs={post.content_npcs}
+						mentions={post.content_mentions}
 					/>
 					<PostRollList rolls={post.rolls} />
 					<PostDrawList
@@ -391,25 +396,29 @@ function RouteComponent() {
 
 	// Record what the user has seen, once per (thread, page) view. The ref keeps
 	// refetches of the details (e.g. after mark-unread) from firing it again and
-	// undoing the change.
+	// undoing the change. It fires for every loaded page, even one already read,
+	// because the server also dismisses the user's mention notifications for the
+	// page's posts; the read point itself never moves backwards, so a read page
+	// is harmless to send.
 	const recordedRef = useRef<string | null>(null);
 	const lastPostId = posts.at(-1)?.id;
-	const firstUnreadPage = thread.first_unread_page;
+	const postIdsKey = posts.map((post) => post.id).join(",");
 	useEffect(() => {
 		if (!loggedIn || lastPostId === undefined) return;
-		if (firstUnreadPage == null || page < firstUnreadPage) return;
 		const key = `${threadId}:${page}`;
 		if (recordedRef.current === key) return;
 		recordedRef.current = key;
-		recordThreadRead(threadId, lastPostId)
+		const postIds = postIdsKey.split(",").map(Number);
+		recordThreadRead(threadId, lastPostId, postIds)
 			.then(() =>
 				Promise.all([
 					queryClient.invalidateQueries({ queryKey: ["threads"] }),
 					queryClient.invalidateQueries({ queryKey: ["forums"] }),
+					queryClient.invalidateQueries({ queryKey: ["me", "notifications"] }),
 				]),
 			)
 			.catch(() => {});
-	}, [loggedIn, threadId, page, lastPostId, firstUnreadPage, queryClient]);
+	}, [loggedIn, threadId, page, lastPostId, postIdsKey, queryClient]);
 
 	const isLastPage = page >= Math.ceil(count / PAGINATE_PER_PAGE);
 	const markUnreadMutation = useMutation({
@@ -483,6 +492,8 @@ function RouteComponent() {
 	});
 
 	const quickReplyRef = useRef<HTMLFormElement>(null);
+	// Users named in the posts quoted into the reply, so their chips show names.
+	const [quotedMentions, setQuotedMentions] = useState<ContentMention[]>([]);
 
 	const [attachments, setAttachments] = useState<Attachments>(emptyAttachments);
 	const [attachmentsOpen, setAttachmentsOpen] = useState(false);
@@ -570,6 +581,7 @@ function RouteComponent() {
 					: [{ type: "paragraph" }],
 		};
 
+		setQuotedMentions((quoted) => addMentions(quoted, post.content_mentions));
 		replyForm.setFieldValue("body", (current) => {
 			const base = isContentEmpty(current) ? emptyContent : current;
 			// Always follow the quote with a real (not just tiptap's implicit
@@ -766,6 +778,8 @@ function RouteComponent() {
 										onChange={(value) => field.handleChange(value)}
 										className={field.state.meta.isValid ? "" : "field-invalid"}
 										npcLibrary={npcLibrary}
+										mentions
+										contentMentions={quotedMentions}
 									/>
 									{field.state.meta.errors[0] && (
 										<div className="error" role="alert">

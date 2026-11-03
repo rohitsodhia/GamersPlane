@@ -61,12 +61,14 @@ async def search_user(
 )
 async def autocomplete_users(
     db_session: DBSessionDependency,
+    principal: Principal,
     username: str,
     limit: int = 10,
 ):
     user_repository = UserRepository(db_session)
+    # The searcher never gets themselves back.
     users = await user_repository.search_users_by_username_prefix(
-        username, limit=min(limit, 25)
+        username, limit=min(limit, 25), exclude_user_id=principal.id
     )
     return {"users": [{"id": user.id, "username": user.username} for user in users]}
 

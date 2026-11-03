@@ -4,6 +4,7 @@ from enum import StrEnum
 
 from pydantic import Field, field_validator
 
+from app.configs import configs
 from app.quick_npcs.schemas import PostedNPCInput
 from app.models import Thread
 from app.posts.schemas import (
@@ -136,6 +137,9 @@ class GetThreadResponse(SchemaBase):
 class MarkThreadViewedInput(SchemaBase):
     # The last post shown on the page the principal just viewed.
     post_id: int
+    # Every post that loaded on that page; mentions of the principal in these are
+    # dismissed. Ids that aren't published posts of the thread are ignored.
+    post_ids: list[int] = Field(default=[], max_length=configs.PAGINATE_PER_PAGE)
 
 
 class NewThreadInput(SchemaBase):

@@ -1,4 +1,8 @@
-import { type QueryClient, queryOptions } from "@tanstack/react-query";
+import {
+	infiniteQueryOptions,
+	type QueryClient,
+	queryOptions,
+} from "@tanstack/react-query";
 import { ApiError, apiFetch } from "#/lib/api";
 import type { ForumSubType } from "#/queries/forumSubscriptions";
 import { useAuthStore } from "#/stores/auth";
@@ -122,41 +126,112 @@ export const meHeaderQueryOptions = queryOptions({
 	retry: retryUnlessForbidden,
 });
 
-export type PendingGameNotification = {
-	gameId: number;
-	title: string;
-	players: number;
-	characters: number;
+type NotificationBase = {
+	eventId: number;
+	actor: { id: number; username: string };
+	createdAt: string;
+	read: boolean;
 };
 
-export type InviteNotification = {
-	gameId: number;
-	title: string;
+export type MentionNotification = NotificationBase & {
+	type: "mention";
+	threadId: number;
+	threadTitle: string;
+	postId: number;
+	forumId: number;
 };
+
+export type GameInviteNotification = NotificationBase & {
+	type: "game_invite";
+	gameId: number;
+	gameTitle: string;
+};
+
+export type GameApplicationNotification = NotificationBase & {
+	type: "game_application";
+	gameId: number;
+	gameTitle: string;
+};
+
+export type CharacterSubmittedNotification = NotificationBase & {
+	type: "character_submitted";
+	gameId: number;
+	gameTitle: string;
+	characterId: number;
+	characterName: string;
+};
+
+export type Notification =
+	| MentionNotification
+	| GameInviteNotification
+	| GameApplicationNotification
+	| CharacterSubmittedNotification;
 
 export type MeNotificationsResponse = {
-	pending: PendingGameNotification[];
-	invites: InviteNotification[];
+	// Every type interleaved, newest first; read ones included.
+	items: Notification[];
+	hasMore: boolean;
+	// Opaque; pass it back untouched as `before`.
+	nextCursor: string | null;
+	// Every unread, undismissed item of all types (not only this page's).
 	count: number;
 };
 
-const fetchMeNotifications = async (): Promise<MeNotificationsResponse> => {
-	const res = await apiFetch("/me/notifications");
+const fetchMeNotifications = async (
+	before?: string,
+): Promise<MeNotificationsResponse> => {
+	const query = before === undefined ? "" : `?before=${encodeURIComponent(before)}`;
+	const res = await apiFetch(`/me/notifications${query}`);
 	if (!res.ok) return handleMeError(res);
 	return res.json();
 };
 
-// Derived server-side from game state (applicants, unapproved characters,
-// invites), so anything that changes that state should invalidate this key.
+// Stored server-side per user, so anything that creates one (or changes what
+// it shows) should invalidate this key.
 // Nested under "me" so logout and a blanket ["me"] invalidation cover it too.
 export const meNotificationsQueryOptions = queryOptions({
 	queryKey: ["me", "notifications"],
-	queryFn: fetchMeNotifications,
+	queryFn: () => fetchMeNotifications(),
 	staleTime: 1000 * 60,
 	// Poll every two minutes while the tab is visible; sockets would replace this.
 	refetchInterval: 1000 * 60 * 2,
 	retry: retryUnlessForbidden,
 });
+
+// The /notifications page's paged view. Its key extends the first-page key, so
+// invalidating ["me", "notifications"] refreshes the bell and this page together.
+export const meNotificationsPagesQueryOptions = infiniteQueryOptions({
+	queryKey: ["me", "notifications", "pages"],
+	queryFn: ({ pageParam }) => fetchMeNotifications(pageParam),
+	initialPageParam: undefined as string | undefined,
+	getNextPageParam: (lastPage) =>
+		lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined,
+	staleTime: 1000 * 60,
+	retry: retryUnlessForbidden,
+});
+
+/** Marks one notification read. A 404 means it is already gone, which is fine. */
+export const markNotificationRead = async (eventId: number): Promise<void> => {
+	const res = await apiFetch(`/me/notifications/${eventId}/read`, {
+		method: "POST",
+	});
+	if (!res.ok && res.status !== 404) return handleMeError(res);
+};
+
+/** Hides one notification for good (reading it too). A 404 means it is already gone. */
+export const dismissNotification = async (eventId: number): Promise<void> => {
+	const res = await apiFetch(`/me/notifications/${eventId}/dismiss`, {
+		method: "POST",
+	});
+	if (!res.ok && res.status !== 404) return handleMeError(res);
+};
+
+export const markAllNotificationsRead = async (): Promise<void> => {
+	const res = await apiFetch("/me/notifications/read-all", {
+		method: "POST",
+	});
+	if (!res.ok) return handleMeError(res);
+};
 
 // Nested under the "me" key so invalidating ["me"] invalidates this too.
 export const meFullQueryOptions = queryOptions({
