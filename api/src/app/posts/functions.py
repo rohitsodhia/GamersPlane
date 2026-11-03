@@ -12,12 +12,20 @@ from app.models import (
     QuickNPC,
     User,
 )
-from app.posts.schemas import PostedAsData, PostedNPCData, RollVisibilityInput
+from app.posts.schemas import (
+    ContentMentionData,
+    PostedAsData,
+    PostedNPCData,
+    RollVisibilityInput,
+)
 from app.helpers.prose import (
     MAX_ROSTER_TITLE_LENGTH,
+    all_mention_user_ids,
     content_npc_ids,
     is_valid_id,
+    mentioned_user_ids,
     raw_content_npc_ids,
+    raw_mention_user_ids,
     roster_attrs,
 )
 from app.quick_npcs.functions import (
@@ -31,7 +39,12 @@ from app.repositories import (
     NPCOwner,
     PlayerRepository,
     QuickNPCRepository,
+    UserRepository,
 )
+
+# Most distinct users one post may mention (the notifications built on this would
+# otherwise be a spam vector).
+MAX_MENTIONS_PER_POST = 10
 
 
 def can_post_as(
@@ -212,6 +225,43 @@ def build_content_npcs(
 ) -> list[ContentNPCData]:
     """The NPCs ``body``'s speaker and roster blocks name, from ``load_content_npcs``' result."""
     return [loaded[i] for i in content_npc_ids(body) if i in loaded]
+
+
+async def validate_content_mentions(db_session: AsyncSession, body: dict) -> None:
+    """Raise ``ValidationError`` unless every mention node in ``body`` has a valid
+    ``userId``, the users mentioned outside quotes and notes all exist, and there
+    are at most ``MAX_MENTIONS_PER_POST`` distinct ones. Banned users can still
+    be mentioned."""
+    if not all(is_valid_id(user_id) for user_id in raw_mention_user_ids(body)):
+        raise ValidationError("A mention needs a valid user")
+    ids = mentioned_user_ids(body)
+    if len(ids) > MAX_MENTIONS_PER_POST:
+        raise ValidationError(
+            f"A post can mention at most {MAX_MENTIONS_PER_POST} different users"
+        )
+    known = await UserRepository(db_session).get_usernames(ids)
+    if len(known) != len(ids):
+        raise ValidationError("A mention names a user who doesn't exist")
+
+
+async def load_content_mentions(
+    db_session: AsyncSession, bodies: list[dict]
+) -> dict[int, ContentMentionData]:
+    """Every user the mentions of ``bodies`` name, by id, in one query. Unknown
+    users are left out."""
+    ids = list(dict.fromkeys(i for body in bodies for i in all_mention_user_ids(body)))
+    names = await UserRepository(db_session).get_usernames(ids)
+    return {
+        user_id: ContentMentionData(id=user_id, username=username)
+        for user_id, username in names.items()
+    }
+
+
+def build_content_mentions(
+    body: dict, loaded: dict[int, ContentMentionData]
+) -> list[ContentMentionData]:
+    """The users ``body``'s mentions name, from ``load_content_mentions``' result."""
+    return [loaded[i] for i in all_mention_user_ids(body) if i in loaded]
 
 
 def is_same_npc(npc: QuickNPC | None, posted_npc: PostedNPCInput | None) -> bool:

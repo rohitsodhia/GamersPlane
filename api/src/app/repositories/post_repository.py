@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.configs import configs
-from app.helpers.prose import prose_to_text
+from app.helpers.prose import mentioned_user_ids, prose_to_text
 from app.helpers.sql import in_array
 from app.models import (
     Character,
@@ -21,6 +21,7 @@ from app.models import (
     User,
 )
 from app.repositories.character_repository import CharacterRepository
+from app.repositories.user_repository import UserRepository
 
 
 # Wrap the matched words in a search snippet. Private-use characters rather than
@@ -291,6 +292,14 @@ class PostRepository:
             .offset((page - 1) * limit)
         )
 
+    async def _body_text(self, body: dict) -> str:
+        """The search text for ``body``, with its @mentions spelled with the
+        users' current names."""
+        names = await UserRepository(self.db_session).get_usernames(
+            mentioned_user_ids(body)
+        )
+        return prose_to_text(body, user_names=names)
+
     async def create(
         self,
         thread_id: int,
@@ -307,7 +316,7 @@ class PostRepository:
             author_id=author_id,
             title=title,
             body=body,
-            body_text=prose_to_text(body),
+            body_text=await self._body_text(body),
             state=state,
             posted_as_id=posted_as_id,
             posted_avatar_id=posted_avatar_id,
@@ -387,7 +396,7 @@ class PostRepository:
     async def update(self, post: Post, title: str, body: dict) -> Post:
         post.title = title
         post.body = body
-        post.body_text = prose_to_text(body)
+        post.body_text = await self._body_text(body)
         self.db_session.add(post)
         await self.db_session.flush()
         return post

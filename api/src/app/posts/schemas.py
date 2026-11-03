@@ -79,6 +79,13 @@ class PostedNPCData(SchemaBase):
     image: str | None
 
 
+class ContentMentionData(SchemaBase):
+    """A user an @mention in a post's body names; the body only holds the id."""
+
+    id: int
+    username: str
+
+
 class PostData(SchemaBase):
     id: int
     title: str
@@ -91,6 +98,9 @@ class PostData(SchemaBase):
     body: dict
     # The quick NPCs the body's speaker blocks name (deleted ones too), once each.
     content_npcs: list[ContentNPCData] = []
+    # The users the body's @mentions name (quoted ones too), once each. Unknown
+    # users are left out; the UI shows those as "@[deleted]".
+    content_mentions: list[ContentMentionData] = []
     rolls: list[PostRollData] = []
     draws: list[PostDrawData] = []
 

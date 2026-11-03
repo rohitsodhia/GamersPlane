@@ -28,6 +28,9 @@ def _roster_text(attrs: dict, npc_names: dict[int, str]) -> str:
 
 
 IMAGE_NODE_TYPES = frozenset({"image", "imageUpload"})
+MENTION_NODE_TYPE = "mention"
+# What an @mention reads as when its user is gone or unknown.
+DELETED_MENTION_NAME = "[deleted]"
 
 
 def _collect(
@@ -35,6 +38,7 @@ def _collect(
     parts: list[str],
     npc_names: dict[int, str],
     image_placeholder: str | None = None,
+    user_names: dict[int, str] | None = None,
 ) -> None:
     node_type = node.get("type")
     if node_type in EXCLUDED_NODE_TYPES:
@@ -43,6 +47,12 @@ def _collect(
         return
     if node_type == "text":
         parts.append(node.get("text", ""))
+        return
+    if node_type == MENTION_NODE_TYPE:
+        # Inline, so no trailing separator: "@bob, hi" must not become "@bob , hi".
+        user_id = (node.get("attrs") or {}).get("userId")
+        name = (user_names or {}).get(user_id) if isinstance(user_id, int) else None
+        parts.append(f"@{name or DELETED_MENTION_NAME}")
         return
     if node_type in IMAGE_NODE_TYPES and image_placeholder is not None:
         parts.append(f" {image_placeholder} ")
@@ -55,7 +65,7 @@ def _collect(
     if node_type == ROSTER_NODE_TYPE:
         parts.append(f" {_roster_text(node.get('attrs') or {}, npc_names)} ")
     for child in node.get("content") or []:
-        _collect(child, parts, npc_names, image_placeholder)
+        _collect(child, parts, npc_names, image_placeholder, user_names)
     # Block nodes, hard breaks and rules all separate the text around them.
     parts.append(" ")
 
@@ -64,16 +74,19 @@ def prose_to_text(
     body: dict,
     npc_names: dict[int, str] | None = None,
     image_placeholder: str | None = None,
+    user_names: dict[int, str] | None = None,
 ) -> str:
     """The visible text of a document, with whitespace collapsed to single spaces.
 
     A quick NPC speaker block's text is kept, prefixed with ``"Name: "`` when its
     id is in ``npc_names`` (this function has no database access). A roster block
     becomes ``"Title: Name, Name"`` from the same names. Images contribute nothing
-    unless ``image_placeholder`` is given, which then stands in for each one.
+    unless ``image_placeholder`` is given, which then stands in for each one. An
+    @mention becomes ``"@username"`` from ``user_names``, or ``"@[deleted]"`` when
+    its id isn't in there.
     """
     parts: list[str] = []
-    _collect(body, parts, npc_names or {}, image_placeholder)
+    _collect(body, parts, npc_names or {}, image_placeholder, user_names)
     return " ".join("".join(parts).split())
 
 
@@ -131,15 +144,62 @@ def content_npc_ids(body: dict) -> list[int]:
     return list(dict.fromkeys(ids))
 
 
+def _walk_visible(node: object):
+    """Like ``_walk``, but without descending into quotes and notes (and not
+    yielding them either)."""
+    if not isinstance(node, dict) or node.get("type") in EXCLUDED_NODE_TYPES:
+        return
+    yield node
+    content = node.get("content")
+    for child in content if isinstance(content, list) else []:
+        yield from _walk_visible(child)
+
+
+def _mention_user_id(node: dict) -> object:
+    attrs = node.get("attrs")
+    return attrs.get("userId") if isinstance(attrs, dict) else None
+
+
+def raw_mention_user_ids(body: dict) -> list:
+    """The ``userId`` of every mention node in the document, quoted ones too, as
+    stored (so possibly missing or not an int), in document order."""
+    return [
+        _mention_user_id(node)
+        for node in _walk(body)
+        if node.get("type") == MENTION_NODE_TYPE
+    ]
+
+
+def all_mention_user_ids(body: dict) -> list[int]:
+    """The distinct, well-formed user ids of every mention node in the document,
+    quoted ones too (they still render), in order of first appearance."""
+    ids = [i for i in raw_mention_user_ids(body) if is_valid_id(i)]
+    return list(dict.fromkeys(ids))
+
+
+def mentioned_user_ids(body: dict) -> list[int]:
+    """The distinct, well-formed ids of the users the document actually mentions,
+    in order of first appearance. Mentions inside a quote (someone else's words),
+    blockquote or note don't count."""
+    ids = [
+        user_id
+        for node in _walk_visible(body)
+        if node.get("type") == MENTION_NODE_TYPE
+        and is_valid_id(user_id := _mention_user_id(node))
+    ]
+    return list(dict.fromkeys(ids))
+
+
 def prose_snippet(
     body: dict,
     limit: int,
     npc_names: dict[int, str] | None = None,
     image_placeholder: str | None = None,
+    user_names: dict[int, str] | None = None,
 ) -> str:
     """``prose_to_text`` cut to at most ``limit`` characters, ending in an ellipsis
     when it was cut."""
-    text = prose_to_text(body, npc_names, image_placeholder)
+    text = prose_to_text(body, npc_names, image_placeholder, user_names)
     if len(text) <= limit:
         return text
     return text[: limit - 1].rstrip() + "…"

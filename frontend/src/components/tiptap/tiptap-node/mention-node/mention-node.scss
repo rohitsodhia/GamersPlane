@@ -1,0 +1,24 @@
+/* =====================
+     MENTION
+     An @username chip, linking to the user's profile. Shared by the editor's node
+     view and the read-only render, so it is scoped to .ProseMirror rather than the
+     editor-only .tiptap.
+     ===================== */
+.ProseMirror .mention {
+  padding: 0 0.25em;
+  border-radius: 0.25em;
+  background-color: color-mix(in srgb, var(--text) 10%, transparent);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &.mention-deleted {
+    font-weight: 400;
+    font-style: italic;
+    opacity: 0.7;
+  }
+
+  &.ProseMirror-selectednode {
+    outline: 2px solid var(--text);
+  }
+}

@@ -1,7 +1,10 @@
 from app.helpers.prose import (
+    all_mention_user_ids,
+    mentioned_user_ids,
     prose_snippet,
     prose_to_text,
     raw_content_npc_ids,
+    raw_mention_user_ids,
     content_npc_ids,
 )
 from tests.factories import prose_doc
@@ -188,6 +191,71 @@ class TestContentNpcIds:
         body = doc({"type": "npcSpeaker", "content": []})
 
         assert raw_content_npc_ids(body) == [None]
+
+
+def mention(user_id):
+    return {"type": "mention", "attrs": {"userId": user_id}}
+
+
+def inline(*nodes):
+    return {"type": "paragraph", "content": list(nodes)}
+
+
+def text(value):
+    return {"type": "text", "text": value}
+
+
+class TestMentionText:
+    def test_a_mention_reads_as_the_users_name_without_running_into_text(self):
+        body = doc(inline(text("Hi "), mention(3), text(", welcome")))
+
+        assert prose_to_text(body, user_names={3: "Bob"}) == "Hi @Bob, welcome"
+
+    def test_an_unknown_or_malformed_user_reads_as_deleted(self):
+        body = doc(inline(mention(3), text(" "), mention("3"), text(" "), mention(9)))
+
+        assert (
+            prose_to_text(body, user_names={9: "Zed"}) == "@[deleted] @[deleted] @Zed"
+        )
+
+    def test_a_mention_inside_a_quote_adds_nothing(self):
+        quote = {"type": "quote", "content": [inline(mention(3))]}
+
+        assert prose_to_text(doc(para("a"), quote), user_names={3: "Bob"}) == "a"
+
+    def test_snippet_passes_names_through(self):
+        assert prose_snippet(doc(inline(mention(3))), 200, user_names={3: "Bob"}) == (
+            "@Bob"
+        )
+
+
+class TestMentionIds:
+    def test_mentions_are_collected_recursively_in_order_without_repeats(self):
+        nested = {
+            "type": "bulletList",
+            "content": [{"type": "listItem", "content": [inline(mention(7))]}],
+        }
+        body = doc(inline(mention(3)), nested, inline(mention(3), mention(5)))
+
+        assert mentioned_user_ids(body) == [3, 7, 5]
+
+    def test_quotes_and_notes_are_skipped_but_still_listed_for_rendering(self):
+        quote = {"type": "quote", "content": [inline(mention(4))]}
+        blockquote = {"type": "blockquote", "content": [inline(mention(5))]}
+        note = {"type": "note", "content": [inline(mention(6))]}
+        body = doc(inline(mention(3)), quote, blockquote, note)
+
+        assert mentioned_user_ids(body) == [3]
+        assert all_mention_user_ids(body) == [3, 4, 5, 6]
+
+    def test_malformed_ids_are_skipped_but_visible_in_the_raw_list(self):
+        body = doc(
+            inline(mention("3"), mention(None), mention(True), mention(2**40)),
+            inline(mention(6), {"type": "mention"}),
+        )
+
+        assert mentioned_user_ids(body) == [6]
+        assert raw_mention_user_ids(body) == ["3", None, True, 2**40, 6, None]
 
 
 class TestProseSnippet:

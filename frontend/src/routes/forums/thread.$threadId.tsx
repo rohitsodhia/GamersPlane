@@ -31,6 +31,10 @@ import { ReportDialog } from "#/components/ReportDialog";
 import { ReportLink } from "#/components/ReportLink";
 import { SubscribeToggle } from "#/components/SubscribeToggle";
 import { TiptapContent } from "#/components/TiptapContent";
+import {
+	addMentions,
+	type ContentMention,
+} from "#/components/tiptap/tiptap-node/mention-node/mention";
 import { flattenNpcBlocks } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker";
 import { ApiError } from "#/lib/api";
 import { PAGINATE_PER_PAGE } from "#/lib/config";
@@ -314,6 +318,7 @@ function PostItem({
 						content={post.body}
 						className="post-body"
 						npcs={post.content_npcs}
+						mentions={post.content_mentions}
 					/>
 					<PostRollList rolls={post.rolls} />
 					<PostDrawList
@@ -483,6 +488,8 @@ function RouteComponent() {
 	});
 
 	const quickReplyRef = useRef<HTMLFormElement>(null);
+	// Users named in the posts quoted into the reply, so their chips show names.
+	const [quotedMentions, setQuotedMentions] = useState<ContentMention[]>([]);
 
 	const [attachments, setAttachments] = useState<Attachments>(emptyAttachments);
 	const [attachmentsOpen, setAttachmentsOpen] = useState(false);
@@ -570,6 +577,7 @@ function RouteComponent() {
 					: [{ type: "paragraph" }],
 		};
 
+		setQuotedMentions((quoted) => addMentions(quoted, post.content_mentions));
 		replyForm.setFieldValue("body", (current) => {
 			const base = isContentEmpty(current) ? emptyContent : current;
 			// Always follow the quote with a real (not just tiptap's implicit
@@ -766,6 +774,8 @@ function RouteComponent() {
 										onChange={(value) => field.handleChange(value)}
 										className={field.state.meta.isValid ? "" : "field-invalid"}
 										npcLibrary={npcLibrary}
+										mentions
+										contentMentions={quotedMentions}
 									/>
 									{field.state.meta.errors[0] && (
 										<div className="error" role="alert">

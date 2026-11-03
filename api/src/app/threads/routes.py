@@ -11,11 +11,14 @@ from app.middleware import Principal
 from app.models import Post
 from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import (
+    build_content_mentions,
     build_content_npcs,
     build_posted_as,
     build_posted_npc,
     check_post_change,
+    load_content_mentions,
     load_content_npcs,
+    validate_content_mentions,
     validate_content_npcs,
     validate_poster,
 )
@@ -127,6 +130,7 @@ async def get_announcement(db_session: DBSessionDependency, principal: Principal
     assert post is not None and post.published_at is not None
 
     speakers = await load_content_npcs(db_session, principal, [post.body])
+    mentions = await load_content_mentions(db_session, [post.body])
     return schemas.AnnouncementResponse(
         id=thread.id,
         title=post.title,
@@ -145,6 +149,7 @@ async def get_announcement(db_session: DBSessionDependency, principal: Principal
             posted_npc=build_posted_npc(post),
             body=post.body,
             content_npcs=build_content_npcs(post.body, speakers),
+            content_mentions=build_content_mentions(post.body, mentions),
         ),
     )
 
@@ -218,6 +223,7 @@ async def create_thread(
         thread_data.posted_npc,
     )
     await validate_content_npcs(db_session, principal, forum, thread_data.body)
+    await validate_content_mentions(db_session, thread_data.body)
     attachments = await plan_attachments(
         db_session,
         principal,

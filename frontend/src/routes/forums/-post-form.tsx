@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { useState } from "react";
 import { Checkbox } from "#/components/Checkbox";
 import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
+import type { ContentMention } from "#/components/tiptap/tiptap-node/mention-node/mention";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	type ForumBreadcrumbs,
@@ -125,6 +126,7 @@ export function PostForm({
 	defaultPostedAs = null,
 	defaultPostedNpc = null,
 	defaultContentNpcs = [],
+	defaultContentMentions = [],
 	submitLabel,
 	isSubmitting = false,
 	apiErrors,
@@ -167,6 +169,8 @@ export function PostForm({
 	// The quick NPCs the existing body's speech blocks name (editing), so one that
 	// has since been deleted still shows.
 	defaultContentNpcs?: ContentNpc[];
+	// The users the existing body's mentions name (editing), so the chips show names.
+	defaultContentMentions?: ContentMention[];
 	submitLabel: string;
 	isSubmitting?: boolean;
 	apiErrors: string[];
@@ -465,6 +469,8 @@ export function PostForm({
 									className={field.state.meta.isValid ? "" : "field-invalid"}
 									npcLibrary={npcLibrary}
 									contentNpcs={defaultContentNpcs}
+									contentMentions={defaultContentMentions}
+									mentions
 								/>
 								{field.state.meta.errors[0] && (
 									<div className="error" role="alert">
