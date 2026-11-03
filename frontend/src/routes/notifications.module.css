@@ -1,0 +1,11 @@
+.list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* Anywhere-wrapping lets long game titles wrap instead of widening the page. */
+.item {
+	padding-block: 0.4em;
+	overflow-wrap: anywhere;
+}

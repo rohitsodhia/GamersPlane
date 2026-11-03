@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useCallback, useRef } from "react";
-import { pendingText } from "#/components/notificationText";
+import { buildNotificationItems, dropdownItems } from "#/components/notificationText";
 import ThemeToggle from "#/components/ThemeToggle";
 import {
 	meHeaderQueryOptions,
@@ -65,6 +65,9 @@ function Header() {
 		enabled: !!token,
 	});
 	const notificationCount = notifications?.count ?? 0;
+	const { shown: shownNotifications, hasMore: hasMoreNotifications } = dropdownItems(
+		notifications ? buildNotificationItems(notifications) : [],
+	);
 
 	const { buttonRef: toolsButtonRef, popoverRef: toolsPopoverRef } = usePopoverAnchor(
 		(rect) => ({ top: rect.bottom, left: rect.left }),
@@ -213,20 +216,18 @@ function Header() {
 												Nothing needs your attention.
 											</li>
 										)}
-										{notifications?.pending.map((item) => (
-											<li key={`pending-${item.gameId}`}>
+										{shownNotifications.map((item) => (
+											<li key={item.key}>
 												<Link to="/games/$gameId" params={{ gameId: item.gameId }}>
-													{pendingText(item.players, item.characters, item.title)}
+													{item.text}
 												</Link>
 											</li>
 										))}
-										{notifications?.invites.map((item) => (
-											<li key={`invite-${item.gameId}`}>
-												<Link to="/games/$gameId" params={{ gameId: item.gameId }}>
-													You've been invited to {item.title}
-												</Link>
+										{hasMoreNotifications && (
+											<li>
+												<Link to="/notifications">View all ({notificationCount})</Link>
 											</li>
-										))}
+										)}
 									</ul>
 								</li>
 
