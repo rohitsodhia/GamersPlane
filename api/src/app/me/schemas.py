@@ -111,6 +111,24 @@ class UpdatePasswordResponse(SchemaBase):
     success: bool = True
 
 
+class PendingGameItem(SchemaBase):
+    gameId: int
+    title: str
+    players: int
+    characters: int
+
+
+class InviteItem(SchemaBase):
+    gameId: int
+    title: str
+
+
+class GetNotificationsResponse(SchemaBase):
+    pending: list[PendingGameItem]
+    invites: list[InviteItem]
+    count: int
+
+
 class GetHeaderResponse(SchemaBase):
     characters: list = []
     games: list = []

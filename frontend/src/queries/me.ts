@@ -122,6 +122,42 @@ export const meHeaderQueryOptions = queryOptions({
 	retry: retryUnlessForbidden,
 });
 
+export type PendingGameNotification = {
+	gameId: number;
+	title: string;
+	players: number;
+	characters: number;
+};
+
+export type InviteNotification = {
+	gameId: number;
+	title: string;
+};
+
+export type MeNotificationsResponse = {
+	pending: PendingGameNotification[];
+	invites: InviteNotification[];
+	count: number;
+};
+
+const fetchMeNotifications = async (): Promise<MeNotificationsResponse> => {
+	const res = await apiFetch("/me/notifications");
+	if (!res.ok) return handleMeError(res);
+	return res.json();
+};
+
+// Derived server-side from game state (applicants, unapproved characters,
+// invites), so anything that changes that state should invalidate this key.
+// Nested under "me" so logout and a blanket ["me"] invalidation cover it too.
+export const meNotificationsQueryOptions = queryOptions({
+	queryKey: ["me", "notifications"],
+	queryFn: fetchMeNotifications,
+	staleTime: 1000 * 60,
+	// Poll every two minutes while the tab is visible; sockets would replace this.
+	refetchInterval: 1000 * 60 * 2,
+	retry: retryUnlessForbidden,
+});
+
 // Nested under the "me" key so invalidating ["me"] invalidates this too.
 export const meFullQueryOptions = queryOptions({
 	queryKey: ["me", "full"],

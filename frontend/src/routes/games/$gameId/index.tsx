@@ -38,7 +38,7 @@ import {
 	toggleGm,
 	toggleRetireGame,
 } from "#/queries/game";
-import { meQueryOptions } from "#/queries/me";
+import { meNotificationsQueryOptions, meQueryOptions } from "#/queries/me";
 import { type BasicSystem, systemsQueryOptions } from "#/queries/systems";
 import { searchUserByUsername } from "#/queries/users";
 import { useAuthStore } from "#/stores/auth";
@@ -108,6 +108,12 @@ function getRightPanel(args: {
 function RouteComponent() {
 	const { gameId } = Route.useParams();
 	const queryClient = useQueryClient();
+	// The header bell is derived from game state, so refresh it after any change
+	// to applicants, invites, characters, or the game's retired flag.
+	const refreshNotifications = () =>
+		queryClient.invalidateQueries({
+			queryKey: meNotificationsQueryOptions.queryKey,
+		});
 	const { data: game } = useSuspenseQuery(gameDetailsQueryOptions(gameId));
 	useGameBarGame(gameId);
 	const { data: systems } = useSuspenseQuery(systemsQueryOptions({ basic: true }));
@@ -150,6 +156,7 @@ function RouteComponent() {
 		onSuccess: () => {
 			setRetired((r) => (r ? null : new Date().toISOString()));
 			setDisplayRetireConfirm(false);
+			refreshNotifications();
 		},
 		onError: () => setRetireError("Failed to update retired status"),
 	});
@@ -167,7 +174,10 @@ function RouteComponent() {
 	const [applyError, setApplyError] = useState<string | null>(null);
 	const applyMutation = useMutation({
 		mutationFn: () => applyToGame(gameId),
-		onSuccess: () => setViewerPlayerState("applied"),
+		onSuccess: () => {
+			setViewerPlayerState("applied");
+			refreshNotifications();
+		},
 		onError: (error: unknown) => {
 			if (error instanceof ApiError && error.errors[0]?.detail) {
 				setApplyError(error.errors[0].detail);
@@ -215,6 +225,7 @@ function RouteComponent() {
 		onSuccess: (_data, userId) => {
 			setPlayers((prev) => prev.filter((player) => player.id !== userId));
 			if (userId === me?.id) setViewerPlayerState(null);
+			refreshNotifications();
 		},
 		onError: () => setDeletePlayerError("Failed to remove player"),
 	});
@@ -228,6 +239,7 @@ function RouteComponent() {
 					player.id === userId ? { ...player, state: "accepted" } : player,
 				),
 			);
+			refreshNotifications();
 		},
 		onError: () => setApprovePlayerError("Failed to approve player"),
 	});
@@ -255,6 +267,7 @@ function RouteComponent() {
 					player.id === userId ? { ...player, is_gm: !player.is_gm } : player,
 				),
 			);
+			refreshNotifications();
 		},
 		onError: () => setToggleGmError("Failed to toggle GM status"),
 	});
@@ -329,6 +342,7 @@ function RouteComponent() {
 		);
 	// A character leaving or joining a game changes who can submit it.
 	const refreshCharacterLists = () => {
+		refreshNotifications();
 		queryClient.invalidateQueries({ queryKey: ["characters"] });
 		queryClient.invalidateQueries({
 			queryKey: gameDetailsQueryOptions(gameId).queryKey,
@@ -394,6 +408,7 @@ function RouteComponent() {
 			queryClient.invalidateQueries({
 				queryKey: gameDetailsQueryOptions(gameId).queryKey,
 			});
+			refreshNotifications();
 		},
 		onError: (error: unknown) =>
 			setCharacterActionError(
@@ -427,6 +442,7 @@ function RouteComponent() {
 		onSuccess: () => {
 			if (!me) return;
 			setViewerPlayerState("accepted");
+			refreshNotifications();
 			setPlayers((prev) => [
 				...prev,
 				{

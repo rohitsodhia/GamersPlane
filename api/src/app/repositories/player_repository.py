@@ -1,12 +1,12 @@
 from collections.abc import Iterable
 
-from sqlalchemy import ScalarResult, Select, delete, select
+from sqlalchemy import ScalarResult, Select, delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Forum, Game, Player, Role, User, UserRole
+from app.models import Character, Forum, Game, Player, Role, User, UserRole
 from app.repositories.read_tracking_repository import ReadTrackingRepository
 
 
@@ -150,6 +150,64 @@ class PlayerRepository:
         if keep_role_id is not None:
             game_role_ids = game_role_ids.where(Role.id != keep_role_id)
         await self._remove_from_roles(player.user_id, game_role_ids)
+
+    async def get_attention_items(self, user_id: int) -> dict:
+        """Derived header-bell items for the user, from existing state only.
+
+        ``pending`` lists the live games the user runs that have applicants or
+        submitted-but-unapproved characters waiting; ``invites`` lists the live
+        games the user has been invited to.
+        """
+        applied = (
+            select(func.count())
+            .select_from(Player)
+            .where(Player.game_id == Game.id, Player.state == Player.States.APPLIED)
+            .correlate(Game)
+            .scalar_subquery()
+        )
+        unapproved = (
+            select(func.count())
+            .select_from(Character)
+            .where(Character.game_id == Game.id, Character.approved.is_(False))
+            .correlate(Game)
+            .scalar_subquery()
+        )
+        pending_rows = await self.db_session.execute(
+            select(Game.id, Game.title, applied, unapproved)
+            .join(Player, Player.game_id == Game.id)
+            .where(
+                Player.user_id == user_id,
+                Player.is_gm.is_(True),
+                Player.state == Player.States.ACCEPTED,
+                Game.retired.is_(None),
+            )
+            .order_by(Game.title, Game.id)
+        )
+        invite_rows = await self.db_session.execute(
+            select(Game.id, Game.title)
+            .join(Player, Player.game_id == Game.id)
+            .where(
+                Player.user_id == user_id,
+                Player.state == Player.States.INVITED,
+                Game.retired.is_(None),
+            )
+            .order_by(Game.title, Game.id)
+        )
+        return {
+            "pending": [
+                {
+                    "gameId": game_id,
+                    "title": title,
+                    "players": players,
+                    "characters": characters,
+                }
+                for game_id, title, players, characters in pending_rows
+                if players or characters
+            ],
+            "invites": [
+                {"gameId": game_id, "title": title} for game_id, title in invite_rows
+            ],
+        }
 
     async def is_gm(self, game_id: int, user_id: int) -> bool:
         player = await self.get_player(game_id, user_id)
