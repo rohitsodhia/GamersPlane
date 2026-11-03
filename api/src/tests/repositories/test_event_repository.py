@@ -288,6 +288,47 @@ class TestDismissForPosts:
             and key != (events["post"].id, user.id)
         ] == []
 
+    async def test_an_earlier_read_is_kept_and_a_dismissed_row_is_left_alone(
+        self, create, db_session
+    ):
+        user = await create(ActivatedUserFactory)
+        thread = await create(ThreadFactory)
+        read_post = await create(PostFactory, thread=thread)
+        dismissed_post = await create(PostFactory, thread=thread)
+        earlier = datetime(2026, 1, 1, tzinfo=UTC)
+        later = datetime(2026, 2, 1, tzinfo=UTC)
+        rows = {}
+        for name, post, columns in (
+            ("read", read_post, {"read_at": earlier}),
+            (
+                "dismissed",
+                dismissed_post,
+                {"read_at": earlier, "dismissed_at": later},
+            ),
+        ):
+            mention = Event(
+                type=Event.Types.MENTION,
+                actor_id=post.author_id,
+                post_id=post.id,
+                thread_id=thread.id,
+            )
+            db_session.add(mention)
+            await db_session.flush()
+            rows[name] = EventRecipient(event_id=mention.id, user_id=user.id, **columns)
+            db_session.add(rows[name])
+        await db_session.flush()
+
+        changed = await EventRepository(db_session).dismiss_for_posts(
+            user.id, thread.id, [read_post.id, dismissed_post.id]
+        )
+
+        assert changed == 1
+        await db_session.refresh(rows["read"])
+        await db_session.refresh(rows["dismissed"])
+        assert rows["read"].read_at == earlier
+        assert rows["read"].dismissed_at is not None
+        assert rows["dismissed"].dismissed_at == later
+
     async def test_an_empty_list_changes_nothing(self, create, db_session, event):
         user = await create(ActivatedUserFactory)
         db_session.add(EventRecipient(event_id=event.id, user_id=user.id))

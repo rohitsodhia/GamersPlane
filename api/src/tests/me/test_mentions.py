@@ -139,6 +139,20 @@ class TestGetMentions:
         assert body["items"] == []
         assert body["count"] == 0
 
+    async def test_a_mention_in_a_thread_whose_first_post_is_deleted_is_hidden(
+        self, auth_as, create, db_session, make_mention, reader, actor
+    ):
+        thread = await create(ThreadFactory)
+        _, first_post = await make_mention(actor, thread=thread)
+        await make_mention(reader, thread=thread)
+        first_post.deleted = datetime(2026, 1, 1, tzinfo=UTC)
+        await db_session.flush()
+
+        body = (await auth_as(reader).get("/me/notifications")).json()
+
+        assert body["items"] == []
+        assert body["count"] == 0
+
     async def test_a_scan_cut_short_by_the_cap_with_nothing_visible_ends_the_page(
         self, auth_as, create, make_mention, reader, monkeypatch
     ):

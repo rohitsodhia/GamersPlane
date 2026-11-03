@@ -14,7 +14,7 @@ from tests.games.test_routes import _make_character
 
 
 @pytest.fixture(autouse=True)
-async def games_root_forum(create, db_session):
+async def games_root_forum(wrap_in_savepoint, create, db_session):
     forum = await create(ForumFactory, id=2, heritage=[])
     # An explicit id bypasses the forums sequence, so move it past that id.
     await db_session.execute(
@@ -151,10 +151,30 @@ class TestInvite:
         assert again["read"] is False
         assert again["actor"]["id"] == co_gm.id
 
+    async def test_two_invitees_get_separate_events(
+        self, auth_as, create, game, gm, listed
+    ):
+        first = await create(ActivatedUserFactory)
+        second = await create(ActivatedUserFactory)
+        for invitee in (first, second):
+            await auth_as(gm).post(
+                f"/games/{game.id}/invite", json={"username": invitee.username}
+            )
+
+        [first_item] = (await listed(first))["items"]
+        [second_item] = (await listed(second))["items"]
+        assert first_item["eventId"] != second_item["eventId"]
+
+        await auth_as(first).post(f"/me/notifications/{first_item['eventId']}/dismiss")
+        assert (await listed(first))["items"] == []
+        assert [i["eventId"] for i in (await listed(second))["items"]] == [
+            second_item["eventId"]
+        ]
+
 
 class TestApplication:
     async def test_notifies_every_accepted_gm_but_nobody_else(
-        self, auth_as, create, db_session, game, gm, add_player, listed
+        self, auth_as, create, db_session, game, gm, add_player, listed, events
     ):
         co_gm = await add_player(is_gm=True)
         invited_gm = await add_player(state=Player.States.INVITED, is_gm=True)
@@ -174,11 +194,32 @@ class TestApplication:
             assert (item["gameId"], item["gameTitle"]) == (game.id, "My Campaign")
         for other in (invited_gm, member, applicant):
             assert (await listed(other))["items"] == []
-        recipient_ids = set(await db_session.scalars(select(EventRecipient.user_id)))
+        applications = await events(Event.Types.GAME_APPLICATION)
+        recipient_ids = set(
+            await db_session.scalars(
+                select(EventRecipient.user_id).where(
+                    EventRecipient.event_id.in_([e.id for e in applications])
+                )
+            )
+        )
         assert recipient_ids == {gm.id, co_gm.id}
 
+    async def test_two_applicants_give_the_gm_separate_events(
+        self, auth_as, create, game, gm, listed
+    ):
+        for _ in range(2):
+            await auth_as(await create(ActivatedUserFactory)).post(
+                f"/games/{game.id}/apply"
+            )
+
+        body = await listed(gm)
+
+        assert body["count"] == 2
+        assert len({i["eventId"] for i in body["items"]}) == 2
+        assert len({i["actor"]["id"] for i in body["items"]}) == 2
+
     async def test_a_banned_gm_is_skipped(
-        self, auth_as, create, db_session, game, gm, add_player
+        self, auth_as, create, db_session, game, gm, add_player, events
     ):
         co_gm = await add_player(is_gm=True)
         co_gm.banned = datetime.now(UTC)
@@ -187,7 +228,14 @@ class TestApplication:
 
         await auth_as(applicant).post(f"/games/{game.id}/apply")
 
-        recipient_ids = set(await db_session.scalars(select(EventRecipient.user_id)))
+        [application] = await events(Event.Types.GAME_APPLICATION)
+        recipient_ids = set(
+            await db_session.scalars(
+                select(EventRecipient.user_id).where(
+                    EventRecipient.event_id == application.id
+                )
+            )
+        )
         assert recipient_ids == {gm.id}
 
     async def test_a_rejected_application_raises_nothing(
@@ -303,31 +351,23 @@ class TestResolution:
     """Nothing is deleted when the thing is dealt with; the item just stops
     showing once the live state no longer matches."""
 
-    async def test_an_invite_goes_when_accepted(
+    async def test_an_invite_goes_when_accepted_or_declined(
         self, auth_as, create, game, gm, listed
     ):
-        invitee = await create(ActivatedUserFactory)
-        await auth_as(gm).post(
-            f"/games/{game.id}/invite", json={"username": invitee.username}
-        )
+        accepter = await create(ActivatedUserFactory)
+        decliner = await create(ActivatedUserFactory)
+        for invitee in (accepter, decliner):
+            await auth_as(gm).post(
+                f"/games/{game.id}/invite", json={"username": invitee.username}
+            )
 
-        await auth_as(invitee).post(f"/games/{game.id}/accept_invite")
+        await auth_as(accepter).post(f"/games/{game.id}/accept_invite")
+        await auth_as(decliner).delete(f"/games/{game.id}/player/{decliner.id}")
 
-        body = await listed(invitee)
-        assert body["items"] == []
-        assert body["count"] == 0
-
-    async def test_an_invite_goes_when_declined(
-        self, auth_as, create, game, gm, listed
-    ):
-        invitee = await create(ActivatedUserFactory)
-        await auth_as(gm).post(
-            f"/games/{game.id}/invite", json={"username": invitee.username}
-        )
-
-        await auth_as(invitee).delete(f"/games/{game.id}/player/{invitee.id}")
-
-        assert (await listed(invitee))["items"] == []
+        for invitee in (accepter, decliner):
+            body = await listed(invitee)
+            assert body["items"] == []
+            assert body["count"] == 0
 
     async def test_an_application_goes_when_approved(
         self, auth_as, create, game, gm, listed

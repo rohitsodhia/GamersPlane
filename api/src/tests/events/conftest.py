@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models import Event, EventRecipient, RolePermission
 from tests.conftest import SITE_ROOT_FORUM_ID
@@ -12,8 +12,11 @@ from tests.factories import (
 
 
 @pytest.fixture(autouse=True)
-async def _open_site_root(wrap_in_savepoint, open_forums):
-    """Start every test with ordinary member access under the site root."""
+async def _open_site_root(wrap_in_savepoint, open_forums, db_session):
+    """Start every test with ordinary member access under the site root, and fail
+    loudly if an earlier test leaked events (these tests count on a clean table)."""
+    leaked = await db_session.scalar(select(func.count()).select_from(Event))
+    assert leaked == 0, "events leaked from an earlier test"
     await open_forums(SITE_ROOT_FORUM_ID)
 
 

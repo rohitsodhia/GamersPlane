@@ -207,12 +207,62 @@ class TestGetNotifications:
         assert [i["eventId"] for i in page_two["items"]] == [second.id]
         assert page_two["hasMore"] is False
 
-    async def test_a_malformed_cursor_is_rejected(self, auth_as, gf):
+    @pytest.mark.parametrize(
+        "cursor",
+        [
+            "nonsense",
+            "a_b",
+            "1_2_3",
+            "99999999999999999999999_1",
+            "1_99999999999999999999",
+        ],
+        ids=[
+            "no_separator",
+            "non_numeric",
+            "extra_part",
+            "date_out_of_range",
+            "event_id_out_of_range",
+        ],
+    )
+    async def test_a_malformed_cursor_is_rejected(self, auth_as, gf, cursor):
         response = await auth_as(gf.gm).get(
-            "/me/notifications", params={"before": "nonsense"}
+            "/me/notifications", params={"before": cursor}
         )
 
         assert response.status_code == 400
+
+    async def test_a_page_ending_exactly_at_the_end_has_no_more(
+        self, auth_as, gf, make_application
+    ):
+        for month in (1, 2):
+            await make_application(created_at=_at(month))
+
+        body = (
+            await auth_as(gf.gm).get("/me/notifications", params={"limit": 2})
+        ).json()
+
+        assert len(body["items"]) == 2
+        assert body["hasMore"] is False
+        assert body["nextCursor"] is None
+
+    async def test_a_cursor_from_a_since_dismissed_event_still_pages(
+        self, auth_as, gf, make_application
+    ):
+        newest = await make_application(created_at=_at(3))
+        middle = await make_application(created_at=_at(2))
+        oldest = await make_application(created_at=_at(1))
+        client = auth_as(gf.gm)
+        page_one = (await client.get("/me/notifications", params={"limit": 2})).json()
+        assert [i["eventId"] for i in page_one["items"]] == [newest.id, middle.id]
+        await client.post(f"/me/notifications/{middle.id}/dismiss")
+
+        page_two = (
+            await client.get(
+                "/me/notifications", params={"before": page_one["nextCursor"]}
+            )
+        ).json()
+
+        assert [i["eventId"] for i in page_two["items"]] == [oldest.id]
 
     async def test_count_covers_every_unread_item_beyond_the_page(
         self, auth_as, gf, make_application
@@ -261,7 +311,9 @@ class TestReadAndDismiss:
         assert [i["eventId"] for i in body["items"]] == [kept.id]
         assert body["count"] == 1
 
-    async def test_read_all_marks_every_type_read(self, auth_as, gf, make_application):
+    async def test_read_all_route_reads_the_callers_rows(
+        self, auth_as, gf, make_application
+    ):
         await make_application(created_at=_at(1))
         await make_application(created_at=_at(2))
         client = auth_as(gf.gm)
@@ -271,7 +323,7 @@ class TestReadAndDismiss:
         assert response.status_code == 204
         body = (await client.get("/me/notifications")).json()
         assert body["count"] == 0
-        assert [i["read"] for i in body["items"]] == [True, True]
+        assert all(item["read"] for item in body["items"])
 
     async def test_someone_elses_event_is_a_404_and_unchanged(
         self, auth_as, db_session, gf, other, make_invite

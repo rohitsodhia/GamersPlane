@@ -18,6 +18,10 @@ from app.models import (
 )
 
 
+# Largest id a Postgres integer column holds; a cursor naming a bigger one is bogus.
+MAX_EVENT_ID = 2**31 - 1
+
+
 class EventRepository:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
@@ -249,7 +253,10 @@ class EventRepository:
         created_at = datetime(1970, 1, 1, tzinfo=UTC) + timedelta(
             microseconds=int(micros)
         )
-        return created_at, int(event_id)
+        event_id = int(event_id)
+        if not 0 < event_id <= MAX_EVENT_ID:
+            raise ValueError("Event id out of range")
+        return created_at, event_id
 
     async def get_notification_rows(
         self, user_id: int, limit: int, before: tuple[datetime, int] | None

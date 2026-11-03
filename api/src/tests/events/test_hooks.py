@@ -24,10 +24,12 @@ class TestRoutesSyncMentions:
         )
 
         assert response.status_code == 200
-        event = await db_session.scalar(select(Event))
-        assert event.post_id == response.json()["id"]
-        rows = (await db_session.scalars(select(EventRecipient.user_id))).all()
-        assert rows == [mentioned.id]
+        post_id = response.json()["id"]
+        event = await db_session.scalar(select(Event).where(Event.post_id == post_id))
+        rows = await db_session.scalars(
+            select(EventRecipient.user_id).where(EventRecipient.event_id == event.id)
+        )
+        assert rows.all() == [mentioned.id]
 
     async def test_a_new_thread_notifies_from_its_first_post(
         self, authed_client, create, thread, db_session
@@ -45,10 +47,15 @@ class TestRoutesSyncMentions:
         )
 
         assert response.status_code == 200
-        event = await db_session.scalar(select(Event))
-        assert (event.thread_id, event.actor_id) == (response.json()["id"], user.id)
-        rows = (await db_session.scalars(select(EventRecipient.user_id))).all()
-        assert rows == [mentioned.id]
+        thread_id = response.json()["id"]
+        event = await db_session.scalar(
+            select(Event).where(Event.thread_id == thread_id)
+        )
+        assert event.actor_id == user.id
+        rows = await db_session.scalars(
+            select(EventRecipient.user_id).where(EventRecipient.event_id == event.id)
+        )
+        assert rows.all() == [mentioned.id]
 
     async def test_a_minor_edit_still_syncs_both_ways(
         self, authed_client, create, thread, make_post, db_session
@@ -73,7 +80,10 @@ class TestRoutesSyncMentions:
         )
 
         assert response.status_code == 200
-        rows = (await db_session.scalars(select(EventRecipient.user_id))).all()
+        event = await db_session.scalar(select(Event).where(Event.post_id == post.id))
+        rows = await db_session.scalars(
+            select(EventRecipient.user_id).where(EventRecipient.event_id == event.id)
+        )
         assert set(rows) == {kept.id, added.id}
 
     async def test_a_moderators_edit_still_notifies_as_the_author(
@@ -91,5 +101,5 @@ class TestRoutesSyncMentions:
         )
 
         assert response.status_code == 200
-        event = await db_session.scalar(select(Event))
+        event = await db_session.scalar(select(Event).where(Event.post_id == post.id))
         assert event.actor_id == author.id
