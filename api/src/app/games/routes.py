@@ -13,6 +13,11 @@ from app.exceptions import (
     NotFoundException,
     ValidationError,
 )
+from app.events.functions import (
+    notify_character_submitted,
+    notify_game_application,
+    notify_game_invite,
+)
 from app.games import schemas
 from app.games.functions import (
     INVITE_TEMPLATE,
@@ -499,6 +504,8 @@ async def invite_player(
     except DuplicatePlayerError as e:
         raise ConflictException("Player already invited to game") from e
 
+    await notify_game_invite(db_session, principal, game_id, user.id)
+
     await queue_player_email(
         background_tasks,
         db_session,
@@ -532,6 +539,8 @@ async def apply_to_game(
         )
     except DuplicatePlayerError as e:
         raise ConflictException("Player already in game") from e
+
+    await notify_game_application(db_session, principal, game_id)
 
     await queue_gm_email(
         background_tasks,
@@ -806,6 +815,7 @@ async def submit_character(
     await character_repository.submit_to_game(character, game_id, approved=player.is_gm)
 
     if not player.is_gm:
+        await notify_character_submitted(db_session, principal, game_id, character.id)
         await queue_gm_email(
             background_tasks,
             db_session,

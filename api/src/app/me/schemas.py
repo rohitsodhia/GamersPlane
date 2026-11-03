@@ -4,7 +4,7 @@ from typing import Annotated
 from annotated_types import Len
 from pydantic import field_validator
 
-from app.events.schemas import MentionItem
+from app.events.schemas import Notification
 from app.models import User
 from app.models.user_meta import ForumSubType, PostSide
 from app.schema_base import SchemaBase, filtered_str, strip_whitespace
@@ -112,25 +112,13 @@ class UpdatePasswordResponse(SchemaBase):
     success: bool = True
 
 
-class PendingGameItem(SchemaBase):
-    gameId: int
-    title: str
-    players: int
-    characters: int
-
-
-class InviteItem(SchemaBase):
-    gameId: int
-    title: str
-
-
 class GetNotificationsResponse(SchemaBase):
-    pending: list[PendingGameItem]
-    invites: list[InviteItem]
-    # The page of mentions asked for, newest first.
-    mentions: list[MentionItem]
-    hasMoreMentions: bool
-    # Pending games, invites, and every unread mention (not just this page's).
+    # The page asked for, newest first, of every notification type.
+    items: list[Notification]
+    hasMore: bool
+    # Pass as `before` to get the next page; null when there is none.
+    nextCursor: str | None = None
+    # Every unread notification the user can see (not just this page's).
     count: int
 
 

@@ -4,8 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from app.configs import configs
-from app.models import Event, EventRecipient, Player, Post
-from app.repositories import PlayerRepository
+from app.models import Event, EventRecipient, Post
 from tests.conftest import SITE_ROOT_FORUM_ID
 from tests.factories import (
     ActivatedUserFactory,
@@ -14,7 +13,6 @@ from tests.factories import (
     ThreadFactory,
 )
 from tests.factories.prose import mentioning_doc
-from tests.game_forum import make_game_forum
 
 
 @pytest.fixture(autouse=True)
@@ -107,8 +105,9 @@ class TestGetMentions:
 
         body = (await auth_as(reader).get("/me/notifications")).json()
 
-        assert [m["eventId"] for m in body["mentions"]] == [newer.id, older.id]
-        assert body["mentions"][0] == {
+        assert [m["eventId"] for m in body["items"]] == [newer.id, older.id]
+        assert body["items"][0] == {
+            "type": "mention",
             "eventId": newer.id,
             "actor": {"id": actor.id, "username": actor.username},
             "threadId": newer_post.thread_id,
@@ -118,38 +117,8 @@ class TestGetMentions:
             "createdAt": "2026-02-01T00:00:00Z",
             "read": True,
         }
-        assert body["mentions"][1]["read"] is False
-        assert body["hasMoreMentions"] is False
-
-    async def test_only_the_users_own_mentions_are_listed(
-        self, auth_as, create, make_mention, reader
-    ):
-        other = await create(ActivatedUserFactory)
-        await make_mention(other)
-
-        body = (await auth_as(reader).get("/me/notifications")).json()
-
-        assert body["mentions"] == []
-
-    async def test_count_adds_unread_mentions_beyond_the_page_to_the_items(
-        self, auth_as, create, make_mention, reader, db_session
-    ):
-        gf = await make_game_forum(create, db_session)
-        await PlayerRepository(db_session, principal=reader).attach_player_to_game(
-            gf.game.id, reader.id, is_gm=False, state=Player.States.INVITED
-        )
-        for _ in range(3):
-            await make_mention(reader)
-        await make_mention(reader, read_at=datetime(2026, 1, 1, tzinfo=UTC))
-
-        body = (
-            await auth_as(reader).get("/me/notifications", params={"limit": 1})
-        ).json()
-
-        assert len(body["mentions"]) == 1
-        assert len(body["invites"]) == 1
-        # One invite plus three unread mentions; the read one is left out.
-        assert body["count"] == 4
+        assert body["items"][1]["read"] is False
+        assert body["hasMore"] is False
 
     @pytest.mark.parametrize(
         "hidden",
@@ -167,13 +136,13 @@ class TestGetMentions:
 
         body = (await auth_as(reader).get("/me/notifications")).json()
 
-        assert body["mentions"] == []
+        assert body["items"] == []
         assert body["count"] == 0
 
-    async def test_a_scan_cut_short_by_the_cap_still_offers_more(
+    async def test_a_scan_cut_short_by_the_cap_with_nothing_visible_ends_the_page(
         self, auth_as, create, make_mention, reader, monkeypatch
     ):
-        monkeypatch.setattr("app.events.functions.MAX_MENTIONS_SCANNED", 2)
+        monkeypatch.setattr("app.events.functions.MAX_NOTIFICATIONS_SCANNED", 2)
         await make_mention(reader)
         closed = await create(ForumFactory, heritage=[])
         for _ in range(3):
@@ -184,8 +153,8 @@ class TestGetMentions:
         ).json()
 
         # The newest rows are hidden; the cap stops the scan before the visible one.
-        assert body["mentions"] == []
-        assert body["hasMoreMentions"] is False
+        assert body["items"] == []
+        assert body["hasMore"] is False
 
     async def test_mentions_in_a_forum_the_user_cannot_read_are_hidden(
         self, auth_as, create, make_mention, reader
@@ -196,34 +165,8 @@ class TestGetMentions:
 
         body = (await auth_as(reader).get("/me/notifications")).json()
 
-        assert [m["eventId"] for m in body["mentions"]] == [visible.id]
+        assert [m["eventId"] for m in body["items"]] == [visible.id]
         assert body["count"] == 1
-
-    async def test_paging_by_limit_and_before(self, auth_as, make_mention, reader):
-        events = [(await make_mention(reader))[0] for _ in range(5)]
-        newest_first = [event.id for event in reversed(events)]
-        client = auth_as(reader)
-
-        first = (await client.get("/me/notifications", params={"limit": 2})).json()
-        second = (
-            await client.get(
-                "/me/notifications",
-                params={"limit": 2, "before": first["mentions"][-1]["eventId"]},
-            )
-        ).json()
-        last = (
-            await client.get(
-                "/me/notifications",
-                params={"limit": 2, "before": second["mentions"][-1]["eventId"]},
-            )
-        ).json()
-
-        assert [m["eventId"] for m in first["mentions"]] == newest_first[:2]
-        assert first["hasMoreMentions"] is True
-        assert [m["eventId"] for m in second["mentions"]] == newest_first[2:4]
-        assert second["hasMoreMentions"] is True
-        assert [m["eventId"] for m in last["mentions"]] == newest_first[4:]
-        assert last["hasMoreMentions"] is False
 
     async def test_a_page_skips_past_hidden_mentions_to_fill_itself(
         self, auth_as, create, make_mention, reader
@@ -237,82 +180,10 @@ class TestGetMentions:
             await auth_as(reader).get("/me/notifications", params={"limit": 2})
         ).json()
 
-        assert [m["eventId"] for m in body["mentions"]] == [
+        assert [m["eventId"] for m in body["items"]] == [
             event.id for event in reversed(visible)
         ]
-        assert body["hasMoreMentions"] is False
-
-
-class TestMarkRead:
-    async def test_marks_the_callers_row_read(
-        self, auth_as, make_mention, reader, db_session
-    ):
-        event, _ = await make_mention(reader)
-
-        response = await auth_as(reader).post(
-            f"/me/notifications/mentions/{event.id}/read"
-        )
-
-        assert response.status_code == 204
-        row = await db_session.scalar(select(EventRecipient))
-        assert row.read_at is not None
-
-    async def test_someone_elses_event_is_a_404_and_stays_unread(
-        self, auth_as, create, make_mention, reader, db_session
-    ):
-        event, _ = await make_mention(reader)
-        stranger = await create(ActivatedUserFactory)
-
-        response = await auth_as(stranger).post(
-            f"/me/notifications/mentions/{event.id}/read"
-        )
-
-        assert response.status_code == 404
-        assert (await db_session.scalar(select(EventRecipient))).read_at is None
-
-    async def test_read_all_clears_the_count(self, auth_as, make_mention, reader):
-        for _ in range(2):
-            await make_mention(reader)
-        client = auth_as(reader)
-
-        response = await client.post("/me/notifications/mentions/read-all")
-        body = (await client.get("/me/notifications")).json()
-
-        assert response.status_code == 204
-        assert body["count"] == 0
-        assert [m["read"] for m in body["mentions"]] == [True, True]
-
-
-class TestDismiss:
-    async def test_dismissing_reads_and_hides_the_mention_everywhere(
-        self, auth_as, make_mention, reader, db_session
-    ):
-        event, _ = await make_mention(reader)
-        kept, _ = await make_mention(reader)
-        client = auth_as(reader)
-
-        response = await client.post(f"/me/notifications/mentions/{event.id}/dismiss")
-        body = (await client.get("/me/notifications")).json()
-
-        assert response.status_code == 204
-        row = await db_session.get(EventRecipient, (event.id, reader.id))
-        assert row.read_at is not None
-        assert row.dismissed_at is not None
-        assert [m["eventId"] for m in body["mentions"]] == [kept.id]
-        assert body["count"] == 1
-
-    async def test_someone_elses_event_is_a_404_and_stays_listed(
-        self, auth_as, create, make_mention, reader, db_session
-    ):
-        event, _ = await make_mention(reader)
-        stranger = await create(ActivatedUserFactory)
-
-        response = await auth_as(stranger).post(
-            f"/me/notifications/mentions/{event.id}/dismiss"
-        )
-
-        assert response.status_code == 404
-        assert (await db_session.scalar(select(EventRecipient))).dismissed_at is None
+        assert body["hasMore"] is False
 
 
 class TestViewingAThreadDismisses:

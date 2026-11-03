@@ -1,12 +1,21 @@
 from collections.abc import Collection
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Row, delete, func, or_, select, update
+from sqlalchemy import Row, and_, delete, func, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from app.models import Event, EventRecipient, Post, Thread, User
+from app.models import (
+    Character,
+    Event,
+    EventRecipient,
+    Game,
+    Player,
+    Post,
+    Thread,
+    User,
+)
 
 
 class EventRepository:
@@ -35,6 +44,65 @@ class EventRepository:
         )
         self.db_session.add(event)
         await self.db_session.flush()
+        return event
+
+    async def upsert_event(
+        self,
+        type: Event.Types,
+        actor_id: int,
+        recipient_ids: Collection[int],
+        *,
+        game_id: int,
+        subject_user_id: int | None = None,
+        character_id: int | None = None,
+    ) -> Event | None:
+        """Raise a game event for the recipients, reusing the event with the same
+        key (``type`` + ``game_id`` + ``subject_user_id`` for invites and
+        applications, ``character_id`` for submissions) when there is one.
+
+        A reused event takes the new actor and the current time, and every current
+        recipient gets a fresh unread, undismissed row. Recipients no longer in the
+        set keep their rows. With no recipients nothing is written and None is
+        returned.
+        """
+        if not recipient_ids:
+            return None
+        now = datetime.now(UTC)
+        if type is Event.Types.CHARACTER_SUBMITTED:
+            key = (Event.character_id == character_id,)
+        else:
+            key = (
+                Event.game_id == game_id,
+                Event.subject_user_id == subject_user_id,
+            )
+        event = await self.db_session.scalar(
+            select(Event).where(Event.type == type, *key)
+        )
+        if event is None:
+            event = Event(
+                type=type,
+                actor_id=actor_id,
+                game_id=game_id,
+                subject_user_id=subject_user_id,
+                character_id=character_id,
+                created_at=now,
+            )
+            self.db_session.add(event)
+            await self.db_session.flush()
+        else:
+            event.actor_id = actor_id
+            event.created_at = now
+            await self.db_session.flush()
+        await self.add_recipients(event.id, recipient_ids)
+        await self.db_session.execute(
+            update(EventRecipient)
+            .where(
+                EventRecipient.event_id == event.id,
+                EventRecipient.user_id.in_(recipient_ids),
+            )
+            .values(read_at=None, dismissed_at=None)
+            .execution_options(synchronize_session="fetch")
+        )
         return event
 
     async def add_recipients(self, event_id: int, user_ids: Collection[int]) -> None:
@@ -83,73 +151,166 @@ class EventRepository:
         )
         return list(result)
 
-    # Reading a user's mentions
+    # Reading a user's notifications
 
     @staticmethod
-    def _visible(user_id: int, first_post):
-        """Conditions for the user's mention rows whose post is still published and
-        whose post and thread aren't deleted. Whether they can still read the
-        forum is for the caller to check, using each row's ``forum_id``."""
-        return (
-            EventRecipient.user_id == user_id,
+    def _visible_statement(columns, user_id: int, first_post, subject, gm):
+        """``select(*columns)`` over the user's undismissed rows that still hold:
+
+        - mention: the post is published and neither it, its thread, nor the
+          thread's first post is deleted. Whether the user can still read the
+          forum is for the caller to check, using each row's ``forum_id``.
+        - invite: the user is still invited and the game is live (not retired or
+          deleted).
+        - application: the applicant is still applied, the game is live, and the
+          user is still an accepted GM of it.
+        - character: the character is still in the event's game, unapproved, and
+          not deleted, the game is live, and the user is still an accepted GM.
+
+        ``first_post`` is an alias of Post, ``subject`` and ``gm`` are aliases of
+        Player (the event's subject in the game, and the user in the game).
+        """
+        game_live = and_(
+            Game.id.is_not(None), Game.retired.is_(None), Game.deleted.is_(None)
+        )
+        user_is_gm = and_(gm.is_gm.is_(True), gm.state == Player.States.ACCEPTED)
+        mention = and_(
             Event.type == Event.Types.MENTION,
             Post.state == Post.States.PUBLISHED,
             Post.deleted.is_(None),
+            Thread.id.is_not(None),
             Thread.deleted.is_(None),
+            first_post.id.is_not(None),
             first_post.deleted.is_(None),
-            EventRecipient.dismissed_at.is_(None),
         )
-
-    async def get_mention_rows(
-        self, user_id: int, limit: int, before: int | None
-    ) -> list[Row]:
-        """The user's mentions, newest first, up to ``limit`` of them after the
-        event id ``before``: ``event_id``, ``created_at``, ``actor_id``,
-        ``actor_username``, ``post_id``, ``thread_id``, ``thread_title``,
-        ``forum_id``, ``read_at``."""
-        # A thread's title is its first post's.
-        first_post = aliased(Post)
-        statement = (
-            select(
-                Event.id.label("event_id"),
-                Event.created_at,
-                Event.actor_id,
-                User.username.label("actor_username"),
-                Event.post_id,
-                Post.thread_id,
-                first_post.title.label("thread_title"),
-                Thread.forum_id,
-                EventRecipient.read_at,
-            )
+        invite = and_(
+            Event.type == Event.Types.GAME_INVITE,
+            subject.state == Player.States.INVITED,
+            game_live,
+        )
+        application = and_(
+            Event.type == Event.Types.GAME_APPLICATION,
+            subject.state == Player.States.APPLIED,
+            game_live,
+            user_is_gm,
+        )
+        character = and_(
+            Event.type == Event.Types.CHARACTER_SUBMITTED,
+            Character.id.is_not(None),
+            Character.deleted.is_(None),
+            Character.game_id == Event.game_id,
+            Character.approved.is_(False),
+            game_live,
+            user_is_gm,
+        )
+        return (
+            select(*columns)
             .select_from(EventRecipient)
             .join(Event, Event.id == EventRecipient.event_id)
-            .join(Post, Post.id == Event.post_id)
-            .join(Thread, Thread.id == Post.thread_id)
-            .join(first_post, first_post.id == Thread.first_post_id)
             .join(User, User.id == Event.actor_id)
-            .where(*self._visible(user_id, first_post))
+            .outerjoin(Post, Post.id == Event.post_id)
+            .outerjoin(Thread, Thread.id == Post.thread_id)
+            .outerjoin(first_post, first_post.id == Thread.first_post_id)
+            .outerjoin(Game, Game.id == Event.game_id)
+            .outerjoin(Character, Character.id == Event.character_id)
+            .outerjoin(
+                subject,
+                and_(
+                    subject.game_id == Event.game_id,
+                    subject.user_id == Event.subject_user_id,
+                ),
+            )
+            .outerjoin(
+                gm,
+                and_(
+                    gm.game_id == Event.game_id,
+                    gm.user_id == EventRecipient.user_id,
+                ),
+            )
+            .where(
+                EventRecipient.user_id == user_id,
+                EventRecipient.dismissed_at.is_(None),
+                or_(mention, invite, application, character),
+            )
+        )
+
+    @staticmethod
+    def cursor_for(created_at: datetime, event_id: int) -> str:
+        """The opaque ``before`` value that continues after the given row."""
+        micros = (created_at - datetime(1970, 1, 1, tzinfo=UTC)) // timedelta(
+            microseconds=1
+        )
+        return f"{micros}_{event_id}"
+
+    @staticmethod
+    def parse_cursor(cursor: str) -> tuple[datetime, int]:
+        """Inverse of ``cursor_for``; ValueError when it isn't one."""
+        micros, event_id = cursor.split("_")
+        created_at = datetime(1970, 1, 1, tzinfo=UTC) + timedelta(
+            microseconds=int(micros)
+        )
+        return created_at, int(event_id)
+
+    async def get_notification_rows(
+        self, user_id: int, limit: int, before: tuple[datetime, int] | None
+    ) -> list[Row]:
+        """The user's visible notifications of every type, newest first (by
+        ``created_at``, then event id), up to ``limit`` of them after the
+        ``(created_at, event_id)`` key ``before``. Columns: ``event_id``,
+        ``type``, ``created_at``, ``actor_id``, ``actor_username``, ``read_at``,
+        ``post_id``, ``thread_id``, ``thread_title``, ``forum_id``, ``game_id``,
+        ``game_title``, ``character_id``, ``character_name``; the ones a type
+        doesn't use are NULL."""
+        # A thread's title is its first post's.
+        first_post = aliased(Post)
+        subject = aliased(Player)
+        gm = aliased(Player)
+        statement = (
+            self._visible_statement(
+                (
+                    Event.id.label("event_id"),
+                    Event.type,
+                    Event.created_at,
+                    Event.actor_id,
+                    User.username.label("actor_username"),
+                    EventRecipient.read_at,
+                    Event.post_id,
+                    Post.thread_id,
+                    first_post.title.label("thread_title"),
+                    Thread.forum_id,
+                    Event.game_id,
+                    Game.title.label("game_title"),
+                    Event.character_id,
+                    Character.name.label("character_name"),
+                ),
+                user_id,
+                first_post,
+                subject,
+                gm,
+            )
             .order_by(Event.created_at.desc(), Event.id.desc())
             .limit(limit)
         )
         if before is not None:
-            statement = statement.where(Event.id < before)
+            statement = statement.where(
+                tuple_(Event.created_at, Event.id) < tuple_(*before)
+            )
         return list((await self.db_session.execute(statement)).all())
 
-    async def count_unread_mentions_by_forum(self, user_id: int) -> dict[int, int]:
-        """How many unread, still-visible mentions the user has in each forum
-        (forums they can no longer read aren't weeded out here)."""
+    async def count_unread_by_forum(self, user_id: int) -> dict[int | None, int]:
+        """How many unread, still-visible notifications the user has, keyed by the
+        forum of a mention's thread; everything that isn't a mention is under
+        None. Forums the user can no longer read aren't weeded out here."""
         first_post = aliased(Post)
         rows = await self.db_session.execute(
-            select(Thread.forum_id, func.count())
-            .select_from(EventRecipient)
-            .join(Event, Event.id == EventRecipient.event_id)
-            .join(Post, Post.id == Event.post_id)
-            .join(Thread, Thread.id == Post.thread_id)
-            .join(first_post, first_post.id == Thread.first_post_id)
-            .where(
-                *self._visible(user_id, first_post),
-                EventRecipient.read_at.is_(None),
+            self._visible_statement(
+                (Thread.forum_id, func.count()),
+                user_id,
+                first_post,
+                aliased(Player),
+                aliased(Player),
             )
+            .where(EventRecipient.read_at.is_(None))
             .group_by(Thread.forum_id)
         )
         return {forum_id: count for forum_id, count in rows}

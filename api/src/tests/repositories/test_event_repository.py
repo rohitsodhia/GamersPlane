@@ -2,10 +2,17 @@ from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.models import Event, EventRecipient, Post
 from app.repositories import EventRepository
 from tests.factories import ActivatedUserFactory, PostFactory, ThreadFactory
+from tests.game_forum import make_character, make_game_forum
+
+
+@pytest.fixture(autouse=True)
+async def _isolate(wrap_in_savepoint):
+    """Roll each test back (the tests here don't use the client fixture)."""
 
 
 @pytest.fixture
@@ -20,6 +27,105 @@ async def event(create, db_session):
     db_session.add(event)
     await db_session.flush()
     return event
+
+
+class TestUpsertEvent:
+    async def test_a_repeat_reuses_the_event_and_resets_current_recipients(
+        self, create, db_session
+    ):
+        gf = await make_game_forum(create, db_session)
+        applicant = await create(ActivatedUserFactory)
+        new_actor = await create(ActivatedUserFactory)
+        stayer = await create(ActivatedUserFactory)
+        newcomer = await create(ActivatedUserFactory)
+        former = await create(ActivatedUserFactory)
+        repo = EventRepository(db_session)
+        first = await repo.upsert_event(
+            Event.Types.GAME_APPLICATION,
+            applicant.id,
+            {stayer.id, former.id},
+            game_id=gf.game.id,
+            subject_user_id=applicant.id,
+        )
+        old_created_at = first.created_at
+        read_at = datetime(2026, 1, 1, tzinfo=UTC)
+        for user in (stayer, former):
+            row = await db_session.get(EventRecipient, (first.id, user.id))
+            row.read_at = row.dismissed_at = read_at
+        await db_session.flush()
+
+        again = await repo.upsert_event(
+            Event.Types.GAME_APPLICATION,
+            new_actor.id,
+            {stayer.id, newcomer.id},
+            game_id=gf.game.id,
+            subject_user_id=applicant.id,
+        )
+
+        assert again.id == first.id
+        assert again.actor_id == new_actor.id
+        assert again.created_at > old_created_at
+        rows = {
+            row.user_id: row for row in await db_session.scalars(select(EventRecipient))
+        }
+        assert set(rows) == {stayer.id, newcomer.id, former.id}
+        for user in (stayer, newcomer):
+            assert (rows[user.id].read_at, rows[user.id].dismissed_at) == (None, None)
+        # Someone no longer a recipient keeps their row as it was.
+        assert rows[former.id].dismissed_at == read_at
+
+    async def test_a_character_is_keyed_by_the_character_alone(
+        self, create, db_session
+    ):
+        gf = await make_game_forum(create, db_session)
+        owner = await create(ActivatedUserFactory)
+        character = await make_character(db_session, owner, gf.game, approved=False)
+        other_character = await make_character(
+            db_session, owner, gf.game, approved=False
+        )
+        repo = EventRepository(db_session)
+
+        events = [
+            await repo.upsert_event(
+                Event.Types.CHARACTER_SUBMITTED,
+                owner.id,
+                {gf.gm.id},
+                game_id=gf.game.id,
+                character_id=target.id,
+            )
+            for target in (character, other_character, character)
+        ]
+
+        assert events[0].id == events[2].id
+        assert events[0].id != events[1].id
+
+    async def test_no_recipients_writes_nothing(self, create, db_session):
+        gf = await make_game_forum(create, db_session)
+        user = await create(ActivatedUserFactory)
+
+        result = await EventRepository(db_session).upsert_event(
+            Event.Types.GAME_INVITE,
+            gf.gm.id,
+            set(),
+            game_id=gf.game.id,
+            subject_user_id=user.id,
+        )
+
+        assert result is None
+        assert await db_session.scalar(select(Event)) is None
+
+
+class TestEventConstraints:
+    async def test_an_event_missing_its_types_columns_is_rejected(
+        self, create, db_session
+    ):
+        user = await create(ActivatedUserFactory)
+
+        with pytest.raises(IntegrityError):
+            async with db_session.begin_nested():
+                # An invite needs its game and subject.
+                db_session.add(Event(type=Event.Types.GAME_INVITE, actor_id=user.id))
+                await db_session.flush()
 
 
 class TestAddRecipients:
