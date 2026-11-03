@@ -33,6 +33,9 @@ class TestAllVariant:
             f'<a href="{configs.HOST_NAME}/forums/3">Tavern</a> forum.'
         ) in email["content"]
         assert email["subject"] == 'New post in "Dragon Hunt"'
+        assert email["to"] == configs.CONTACT_EMAIL
+        assert email["bcc"] == ["a@example.com"]
+        assert email["mass"] is True
 
     async def test_new_thread_wording(self, sent):
         email = await render(sent, trigger=Trigger.NEW_THREAD)
@@ -106,10 +109,3 @@ class TestCommon:
         assert "&lt;b&gt;Hi&lt;/b&gt;" in email["content"]
         assert "&amp;amp;" not in email["content"]
         assert email["subject"] == 'New post in "Rock & Roll Part 2"'
-
-    async def test_sent_as_a_bcc_mass_mail(self, sent):
-        email = await render(sent)
-
-        assert email["to"] == configs.CONTACT_EMAIL
-        assert email["bcc"] == ["a@example.com"]
-        assert email["mass"] is True

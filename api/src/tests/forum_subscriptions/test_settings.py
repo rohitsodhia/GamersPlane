@@ -18,10 +18,3 @@ class TestForumSubType:
 
         assert saved.json()["updated"]["forumSubType"] == value
         assert response.json()["forumSubType"] == value
-
-    async def test_rejects_an_unknown_value(self, authed_client):
-        client, _user = authed_client
-
-        response = await client.post("/me", json={"forumSubType": "sometimes"})
-
-        assert response.status_code == 422

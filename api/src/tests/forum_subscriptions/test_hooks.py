@@ -1,6 +1,9 @@
 """The post, thread and edit routes send subscription emails."""
 
+from sqlalchemy import func, select
+
 from app.configs import configs
+from app.models import ForumSubscriptionNotice
 from tests.factories import ActivatedUserFactory, ForumFactory, prose_doc
 
 SECRET = "the secret plot twist"
@@ -38,6 +41,30 @@ class TestNewThread:
         assert email["subject"] == "New thread in Tavern: Hello"
         assert poster.username in email["content"]
         assert SECRET not in email["content"]
+
+    async def test_new_content_forum_subscriber_is_mailed_and_noticed(
+        self, authed_client, create, subscribe, db_session, sent
+    ):
+        client, _poster = authed_client
+        forum = await create(ForumFactory, title="Tavern", heritage=[0])
+        watcher = await create(ActivatedUserFactory)
+        await subscribe(watcher, forum=forum)
+
+        response = await client.post(
+            "/threads",
+            json={"forum_id": forum.id, "title": "Hello", "body": prose_doc(SECRET)},
+        )
+
+        [email] = sent
+        assert email["bcc"] == [watcher.email]
+        assert email["subject"] == "New activity in the Tavern forum"
+        notice = await db_session.scalar(
+            select(ForumSubscriptionNotice).where(
+                ForumSubscriptionNotice.user_id == watcher.id,
+                ForumSubscriptionNotice.thread_id == response.json()["id"],
+            )
+        )
+        assert notice is not None
 
 
 class TestNewReply:
@@ -99,7 +126,14 @@ class TestNewReply:
         assert all(SECRET not in email["content"] for email in sent)
 
     async def test_nothing_is_sent_or_recorded_when_email_is_disabled(
-        self, authed_client, make_thread, create, subscribe, monkeypatch, sent
+        self,
+        authed_client,
+        make_thread,
+        create,
+        subscribe,
+        db_session,
+        monkeypatch,
+        sent,
     ):
         client, poster = authed_client
         monkeypatch.setattr(configs, "EMAIL_ENABLED", False)
@@ -107,9 +141,14 @@ class TestNewReply:
         subscriber = await create(ActivatedUserFactory)
         await subscribe(subscriber, thread=thread)
 
-        await client.post("/posts", json=reply_payload(thread))
+        response = await client.post("/posts", json=reply_payload(thread))
 
+        assert response.status_code == 200
         assert sent == []
+        assert (
+            await db_session.scalar(select(func.count(ForumSubscriptionNotice.user_id)))
+            == 0
+        )
 
 
 class TestEdit:

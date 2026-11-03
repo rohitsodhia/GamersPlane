@@ -84,6 +84,18 @@ class TestModes:
 
 
 class TestWhoIsConsidered:
+    async def test_deleted_thread_emails_nobody(
+        self, create, db_session, setup, subscribe, set_mode
+    ):
+        thread, reply, actor = setup
+        subscriber = await create(ActivatedUserFactory)
+        await subscribe(subscriber, thread=thread)
+        await set_mode(subscriber, "all")
+        thread.deleted = datetime.now(UTC)
+        await db_session.flush()
+
+        assert await recipients_for(db_session, thread, reply, actor) == {}
+
     async def test_the_actor_is_never_a_recipient(
         self, db_session, setup, subscribe, set_mode
     ):

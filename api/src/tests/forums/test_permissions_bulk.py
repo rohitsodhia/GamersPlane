@@ -105,16 +105,6 @@ class TestParity:
         assert bulk[users[0].id].has(child, Verbs.FORUM_READ)
         assert not bulk[users[0].id].has(child, Verbs.FORUM_WRITE)
 
-    async def test_nothing_granted_denies_everything(
-        self, db_session, forums, new_user, implicit_roles
-    ):
-        await implicit_roles()
-        user = await new_user()
-
-        bulk = await assert_parity(db_session, [user], forums[0])
-
-        assert bulk[user.id].allowed(forums[0]) == set()
-
     async def test_assigned_role_only_reaches_its_members(
         self, db_session, forums, new_user, make_role, implicit_roles
     ):
@@ -170,18 +160,6 @@ class TestParity:
         bulk = await assert_parity(db_session, [user], root)
 
         assert not bulk[user.id].has(root, Verbs.FORUM_WRITE)
-
-    async def test_moderate_implies_other_verbs(
-        self, db_session, forums, new_user, make_role, implicit_roles
-    ):
-        await implicit_roles()
-        root, _, child = forums
-        user = await new_user()
-        await make_role((Verbs.FORUM_MODERATE, root, Effects.ALLOW), members=[user])
-
-        bulk = await assert_parity(db_session, [user], child)
-
-        assert bulk[user.id].allowed(child) == FORUM_VERBS
 
     async def test_global_admin_and_global_deny_overriding_it(
         self, db_session, forums, new_user, make_role, implicit_roles

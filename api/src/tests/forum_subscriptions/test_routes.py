@@ -117,6 +117,19 @@ class TestThreadSubscription:
         assert (first.status_code, second.status_code) == (204, 204)
         assert detail.json()["subscribed"] is False
 
+    async def test_can_unsubscribe_after_losing_access(
+        self, authed_client, create, make_thread, db_session, subscribe
+    ):
+        client, user = authed_client
+        closed = await create(ForumFactory, heritage=[])
+        thread, _ = await make_thread(user, forum=closed)
+        await subscribe(user, thread=thread)
+
+        response = await client.delete(f"/threads/{thread.id}/subscription")
+
+        assert response.status_code == 204
+        assert await count_subscriptions(db_session, user) == 0
+
     async def test_anonymous_viewer_sees_not_subscribed(
         self, client, make_thread, create
     ):
