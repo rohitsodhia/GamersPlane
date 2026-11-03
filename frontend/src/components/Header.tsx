@@ -208,7 +208,10 @@ function Header() {
 										popover="auto"
 										ref={bellPopoverRef}
 										onClick={(e) => {
-											if (e.target instanceof HTMLElement) {
+											if (
+												e.target instanceof HTMLElement &&
+												!e.target.closest("[data-keep-open]")
+											) {
 												e.currentTarget.hidePopover();
 											}
 										}}

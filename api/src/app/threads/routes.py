@@ -25,6 +25,7 @@ from app.posts.functions import (
 )
 from app.posts.schemas import AuthorData, PostData
 from app.repositories import (
+    EventRepository,
     ForumSubscriptionRepository,
     PollRepository,
     PostRepository,
@@ -329,7 +330,8 @@ async def mark_thread_viewed(
     thread_id: int,
     data: schemas.MarkThreadViewedInput,
 ):
-    """Record that the principal has seen the thread up to the given post."""
+    """Record that the principal has seen the thread up to the given post, and
+    dismiss their mentions in the posts that loaded on the page (``post_ids``)."""
     thread, _ = await get_readable_thread(db_session, principal, thread_id)
     post = await PostRepository(db_session, principal=principal).get(data.post_id)
     if (
@@ -342,6 +344,9 @@ async def mark_thread_viewed(
 
     await ReadTrackingRepository(db_session, principal=principal).mark_viewed(
         thread, post.published_at
+    )
+    await EventRepository(db_session).dismiss_for_posts(
+        principal.id, thread.id, data.post_ids
     )
 
 

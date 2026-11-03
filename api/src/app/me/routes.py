@@ -254,6 +254,18 @@ async def mark_mention_read(
 
 
 @me.post(
+    "/notifications/mentions/{event_id}/dismiss",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def dismiss_mention(
+    event_id: int, db_session: DBSessionDependency, principal: Principal
+):
+    """Hide the mention from the user's notifications for good (reading it too)."""
+    if not await EventRepository(db_session).dismiss(principal.id, event_id):
+        raise NotFoundException("Mention not found")
+
+
+@me.post(
     "/avatar",
     response_model=schemas.UpdateAvatarResponse,
 )

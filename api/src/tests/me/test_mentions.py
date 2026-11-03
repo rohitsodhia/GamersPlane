@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import select
 
+from app.configs import configs
 from app.models import Event, EventRecipient, Player, Post
 from app.repositories import PlayerRepository
 from tests.conftest import SITE_ROOT_FORUM_ID
@@ -43,15 +44,18 @@ def make_mention(create, db_session, actor):
         forum=None,
         created_at=None,
         read_at=None,
+        dismissed_at=None,
         post_state=Post.States.PUBLISHED,
         deleted=None,
         thread_deleted=None,
+        thread=None,
     ):
-        thread = await create(
-            ThreadFactory,
-            deleted=thread_deleted,
-            **({"forum": forum} if forum else {}),
-        )
+        if thread is None:
+            thread = await create(
+                ThreadFactory,
+                deleted=thread_deleted,
+                **({"forum": forum} if forum else {}),
+            )
         post = await create(
             PostFactory,
             thread=thread,
@@ -61,7 +65,8 @@ def make_mention(create, db_session, actor):
             state=post_state,
             deleted=deleted,
         )
-        thread.first_post_id = post.id
+        if thread.first_post_id is None:
+            thread.first_post_id = post.id
         event = Event(
             type=Event.Types.MENTION,
             actor_id=actor.id,
@@ -73,7 +78,12 @@ def make_mention(create, db_session, actor):
         db_session.add(event)
         await db_session.flush()
         db_session.add(
-            EventRecipient(event_id=event.id, user_id=user.id, read_at=read_at)
+            EventRecipient(
+                event_id=event.id,
+                user_id=user.id,
+                read_at=read_at,
+                dismissed_at=dismissed_at,
+            )
         )
         await db_session.flush()
         return event, post
@@ -271,3 +281,76 @@ class TestMarkRead:
         assert response.status_code == 204
         assert body["count"] == 0
         assert [m["read"] for m in body["mentions"]] == [True, True]
+
+
+class TestDismiss:
+    async def test_dismissing_reads_and_hides_the_mention_everywhere(
+        self, auth_as, make_mention, reader, db_session
+    ):
+        event, _ = await make_mention(reader)
+        kept, _ = await make_mention(reader)
+        client = auth_as(reader)
+
+        response = await client.post(f"/me/notifications/mentions/{event.id}/dismiss")
+        body = (await client.get("/me/notifications")).json()
+
+        assert response.status_code == 204
+        row = await db_session.get(EventRecipient, (event.id, reader.id))
+        assert row.read_at is not None
+        assert row.dismissed_at is not None
+        assert [m["eventId"] for m in body["mentions"]] == [kept.id]
+        assert body["count"] == 1
+
+    async def test_someone_elses_event_is_a_404_and_stays_listed(
+        self, auth_as, create, make_mention, reader, db_session
+    ):
+        event, _ = await make_mention(reader)
+        stranger = await create(ActivatedUserFactory)
+
+        response = await auth_as(stranger).post(
+            f"/me/notifications/mentions/{event.id}/dismiss"
+        )
+
+        assert response.status_code == 404
+        assert (await db_session.scalar(select(EventRecipient))).dismissed_at is None
+
+
+class TestViewingAThreadDismisses:
+    async def test_only_mentions_in_the_posts_that_loaded_are_dismissed(
+        self, auth_as, create, make_mention, reader, db_session
+    ):
+        thread = await create(ThreadFactory)
+        shown, shown_post = await make_mention(reader, thread=thread)
+        other_page, _ = await make_mention(reader, thread=thread)
+        shown_post.published_at = datetime.now(UTC)
+        await db_session.flush()
+
+        response = await auth_as(reader).post(
+            f"/threads/{thread.id}/read",
+            json={"post_id": shown_post.id, "post_ids": [shown_post.id]},
+        )
+
+        assert response.status_code == 204
+        rows = {
+            row.event_id: row
+            for row in await db_session.scalars(select(EventRecipient))
+        }
+        assert rows[shown.id].dismissed_at is not None
+        assert rows[shown.id].read_at is not None
+        assert rows[other_page.id].dismissed_at is None
+
+    async def test_more_ids_than_a_page_holds_is_rejected(
+        self, auth_as, create, make_mention, reader
+    ):
+        thread = await create(ThreadFactory)
+        _, post = await make_mention(reader, thread=thread)
+
+        response = await auth_as(reader).post(
+            f"/threads/{thread.id}/read",
+            json={
+                "post_id": post.id,
+                "post_ids": list(range(1, configs.PAGINATE_PER_PAGE + 2)),
+            },
+        )
+
+        assert response.status_code == 422

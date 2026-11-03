@@ -40,6 +40,7 @@ def upgrade() -> None:
         sa.Column("event_id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("read_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("dismissed_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["event_id"], ["events.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("event_id", "user_id"),

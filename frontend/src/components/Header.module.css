@@ -221,12 +221,30 @@
 			right: calc(var(--arrow-right, 10px) + var(--border-radius));
 		}
 
+		/* A mention row is its link plus a dismiss button; the link takes the rest. */
+		& > li {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+		}
+
 		& > li > a {
+			flex: 1 1 0;
+			min-width: 0;
 			height: auto;
 			line-height: 1.3;
 			padding: 0.6em 10px;
 			font-size: 1em;
 			white-space: normal;
+		}
+
+		/* Beats the generic `nav button` sizing above. */
+		& > li > button {
+			height: auto;
+			line-height: 1;
+			padding: 0 0.7em;
+			font-size: 1.2em;
+			font-weight: normal;
 		}
 	}
 

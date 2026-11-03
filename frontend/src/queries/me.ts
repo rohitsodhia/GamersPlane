@@ -202,6 +202,14 @@ export const markMentionRead = async (eventId: number): Promise<void> => {
 	if (!res.ok && res.status !== 404) return handleMeError(res);
 };
 
+/** Hides one mention for good (reading it too). A 404 means it is already gone. */
+export const dismissMention = async (eventId: number): Promise<void> => {
+	const res = await apiFetch(`/me/notifications/mentions/${eventId}/dismiss`, {
+		method: "POST",
+	});
+	if (!res.ok && res.status !== 404) return handleMeError(res);
+};
+
 export const markAllMentionsRead = async (): Promise<void> => {
 	const res = await apiFetch("/me/notifications/mentions/read-all", {
 		method: "POST",

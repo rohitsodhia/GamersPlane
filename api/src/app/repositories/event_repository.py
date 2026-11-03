@@ -97,6 +97,7 @@ class EventRepository:
             Post.deleted.is_(None),
             Thread.deleted.is_(None),
             first_post.deleted.is_(None),
+            EventRecipient.dismissed_at.is_(None),
         )
 
     async def get_mention_rows(
@@ -165,6 +166,53 @@ class EventRepository:
             recipient.read_at = datetime.now(UTC)
             await self.db_session.flush()
         return True
+
+    async def dismiss(self, user_id: int, event_id: int) -> bool:
+        """Dismiss the user's row for the event, which also reads it (rows already
+        read or dismissed keep their times). False when the user has no row."""
+        recipient = await self.db_session.get(EventRecipient, (event_id, user_id))
+        if recipient is None:
+            return False
+        now = datetime.now(UTC)
+        if recipient.read_at is None:
+            recipient.read_at = now
+        if recipient.dismissed_at is None:
+            recipient.dismissed_at = now
+        await self.db_session.flush()
+        return True
+
+    async def dismiss_for_posts(
+        self, user_id: int, thread_id: int, post_ids: Collection[int]
+    ) -> int:
+        """Dismiss (and read) the user's mention rows for the given posts, counting
+        only published posts that belong to the thread. How many rows changed."""
+        if not post_ids:
+            return 0
+        now = datetime.now(UTC)
+        events = (
+            select(Event.id)
+            .join(Post, Post.id == Event.post_id)
+            .where(
+                Event.type == Event.Types.MENTION,
+                Event.post_id.in_(post_ids),
+                Post.thread_id == thread_id,
+                Post.state == Post.States.PUBLISHED,
+            )
+        )
+        result = await self.db_session.execute(
+            update(EventRecipient)
+            .where(
+                EventRecipient.user_id == user_id,
+                EventRecipient.dismissed_at.is_(None),
+                EventRecipient.event_id.in_(events),
+            )
+            .values(
+                dismissed_at=now,
+                read_at=func.coalesce(EventRecipient.read_at, now),
+            )
+            .execution_options(synchronize_session="fetch")
+        )
+        return result.rowcount  # type: ignore[attr-defined]
 
     async def mark_all_read(self, user_id: int) -> int:
         """Mark every unread row of the user's read; how many there were."""

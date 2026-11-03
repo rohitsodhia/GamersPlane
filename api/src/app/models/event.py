@@ -49,3 +49,8 @@ class EventRecipient(Base):
     read_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Dismissed rows are hidden from the user's notifications for good (and count
+    # as read); the row stays so the user is never notified of the event again.
+    dismissed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
