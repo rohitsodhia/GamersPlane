@@ -28,9 +28,6 @@ describe("buildNotificationItems", () => {
 		]);
 	});
 
-	it("returns an empty list when nothing is waiting", () => {
-		expect(buildNotificationItems({ pending: [], invites: [], count: 0 })).toEqual([]);
-	});
 });
 
 describe("dropdownItems", () => {

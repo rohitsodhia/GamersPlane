@@ -129,6 +129,27 @@ class TestGetNotifications:
         assert invitee_body["pending"] == []
         assert gm_body["invites"] == []
 
+    async def test_items_are_ordered_by_title(self, auth_as, create, db_session, gf):
+        # Created out of order on purpose: the API order is the title order.
+        for title in ("Charlie", "Alpha", "Bravo"):
+            pending_game = await gf.make_game(title)
+            await _attach(
+                db_session, pending_game.game, gf.gm, Player.States.ACCEPTED, True
+            )
+            applicant = await create(ActivatedUserFactory)
+            await _attach(
+                db_session, pending_game.game, applicant, Player.States.APPLIED
+            )
+        for title in ("Zulu", "Yankee"):
+            invite_game = await gf.make_game(title)
+            await _attach(db_session, invite_game.game, gf.gm, Player.States.INVITED)
+        client = auth_as(gf.gm)
+
+        body = (await client.get("/me/notifications")).json()
+
+        assert [i["title"] for i in body["pending"]] == ["Alpha", "Bravo", "Charlie"]
+        assert [i["title"] for i in body["invites"]] == ["Yankee", "Zulu"]
+
     async def test_count_is_pending_games_plus_invites(
         self, auth_as, create, db_session, gf
     ):
