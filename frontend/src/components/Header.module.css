@@ -159,7 +159,7 @@
 
 	.header-register,
 	.header-theme-toggle,
-	.header-avatar {
+	.header-bell {
 		position: relative;
 		padding-left: calc(10px * 2 + 2px);
 
@@ -175,8 +175,68 @@
 		}
 	}
 
+	.header-bell {
+		position: relative;
+
+		& > button {
+			position: relative;
+			display: flex;
+			align-items: center;
+			padding: 0 6px;
+			border: 0;
+			background: none;
+			cursor: pointer;
+		}
+	}
+
+	.bell-badge {
+		position: absolute;
+		top: 0.2em;
+		right: -0.1em;
+		min-width: 1.4em;
+		padding: 0 0.3em;
+		border-radius: 1em;
+		background: var(--gp-red);
+		color: #fff;
+		font-size: 0.6em;
+		font-weight: bold;
+		line-height: 1.4em;
+		text-align: center;
+	}
+
+	/* An ID selector, like the user menu below: the shared `nav .dropdown` rules
+	   (including the triangle) out-rank a plain class here. */
+	:global(#header_notifications) {
+		width: min(22rem, calc(100vw - 2rem));
+		max-width: calc(100vw - 2rem);
+
+		/* --arrow-right is set from the bell's position when the panel opens. */
+		&::before {
+			left: auto;
+			right: var(--arrow-right, 10px);
+		}
+
+		&::after {
+			left: auto;
+			right: calc(var(--arrow-right, 10px) + var(--border-radius));
+		}
+
+		& > li > a {
+			height: auto;
+			line-height: 1.3;
+			padding: 0.6em 10px;
+			font-size: 1em;
+			white-space: normal;
+		}
+	}
+
+	.notification-empty {
+		padding: 0.6em 10px;
+		color: var(--text);
+	}
+
 	.header-avatar {
-		padding-left: calc(10px * 2 + 0.75em);
+		margin-left: 1em;
 
 		& > button {
 			height: 2.5em;

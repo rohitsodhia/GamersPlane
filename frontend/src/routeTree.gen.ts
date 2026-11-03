@@ -19,6 +19,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as FaqsRouteImport } from './routes/faqs'
 import { Route as GamersRouteImport } from './routes/gamers'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SystemsRouteImport } from './routes/systems'
@@ -118,6 +119,11 @@ const GamersRoute = GamersRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
@@ -392,6 +398,7 @@ export interface FileRoutesByFullPath {
   '/faqs': typeof FaqsRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
@@ -453,6 +460,7 @@ export interface FileRoutesByTo {
   '/faqs': typeof FaqsRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
@@ -514,6 +522,7 @@ export interface FileRoutesById {
   '/faqs': typeof FaqsRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
   '/systems': typeof SystemsRoute
@@ -578,6 +587,7 @@ export interface FileRouteTypes {
     | '/faqs'
     | '/gamers'
     | '/login'
+    | '/notifications'
     | '/privacy-policy'
     | '/profile'
     | '/systems'
@@ -639,6 +649,7 @@ export interface FileRouteTypes {
     | '/faqs'
     | '/gamers'
     | '/login'
+    | '/notifications'
     | '/privacy-policy'
     | '/profile'
     | '/systems'
@@ -699,6 +710,7 @@ export interface FileRouteTypes {
     | '/faqs'
     | '/gamers'
     | '/login'
+    | '/notifications'
     | '/privacy-policy'
     | '/profile'
     | '/systems'
@@ -762,6 +774,7 @@ export interface RootRouteChildren {
   FaqsRoute: typeof FaqsRoute
   GamersRoute: typeof GamersRoute
   LoginRoute: typeof LoginRoute
+  NotificationsRoute: typeof NotificationsRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ProfileRoute: typeof ProfileRoute
   SystemsRoute: typeof SystemsRoute
@@ -869,6 +882,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy-policy': {
@@ -1294,6 +1314,7 @@ const rootRouteChildren: RootRouteChildren = {
   FaqsRoute: FaqsRoute,
   GamersRoute: GamersRoute,
   LoginRoute: LoginRoute,
+  NotificationsRoute: NotificationsRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ProfileRoute: ProfileRoute,
   SystemsRoute: SystemsRoute,

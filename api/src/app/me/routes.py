@@ -33,6 +33,7 @@ from app.quick_npcs.schemas import (
 )
 from app.repositories import NPCOwner, QuickNPCRepository
 from app.repositories.game_repository import GAMES_ROOT_FORUM_ID
+from app.repositories.player_repository import PlayerRepository
 from app.repositories.pm_repository import PMRepository
 from app.repositories.rbac_repository import RBACkRepository
 from app.repositories.system_repository import SystemRepository
@@ -209,6 +210,14 @@ async def get_header(db_session: DBSessionDependency, principal: Principal):
         "pmCount": await pm_repository.count_pms(user_id=principal.id, state="unread")
         or 0,
     }
+
+
+@me.get("/notifications", response_model=schemas.GetNotificationsResponse)
+async def get_notifications(db_session: DBSessionDependency, principal: Principal):
+    items = await PlayerRepository(db_session, principal=principal).get_attention_items(
+        principal.id
+    )
+    return {**items, "count": len(items["pending"]) + len(items["invites"])}
 
 
 @me.post(
