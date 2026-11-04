@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from typing import ClassVar
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, String, Uuid, func, select
@@ -59,7 +60,18 @@ class Token(Base, TimestampMixin):
 
 
 class PasswordResetToken(Token):
+    # How long after being requested a reset link keeps working.
+    TTL: ClassVar[timedelta] = timedelta(hours=1)
+
     __mapper_args__ = {"polymorphic_identity": Token.TokenTypes.PASSWORD_RESET.value}
+
+    @property
+    def is_usable(self) -> bool:
+        """Unused and requested within ``TTL``."""
+        return (
+            self.used is None
+            and datetime.now(timezone.utc) - self.requested_on <= self.TTL
+        )
 
 
 class AccountActivationToken(Token):

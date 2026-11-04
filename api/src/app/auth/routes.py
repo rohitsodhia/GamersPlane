@@ -1,20 +1,20 @@
 from fastapi import APIRouter, Body, status
+from fastapi.responses import JSONResponse
 from pydantic import EmailStr
-from sqlalchemy import select
 
 from app.auth import schemas
 from app.auth.functions import (
     activate_account,
+    get_usable_reset_token,
     send_activation_email,
+    send_password_reset_email,
     validate_password_change,
 )
-from app.configs import configs
 from app.database import DBSessionDependency
 from app.helpers.decorators import public
-from app.helpers.email import get_template, send_email
 from app.helpers.functions import error_response
 from app.middleware import Principal, enforce_login_eligibility
-from app.models import PasswordResetToken, User
+from app.models import User
 from app.repositories import UserRepository
 from app.schemas import ErrorItem
 from app.users import functions as users_functions
@@ -38,6 +38,21 @@ async def login(user_details: schemas.UserInput, db_session: DBSessionDependency
         # isn't a probe for which accounts exist. Raises BannedException /
         # SuspendedException, handled as a 403 with a "banned"/"suspended" code.
         enforce_login_eligibility(user)
+        if user.activated_on is None:
+            # Safe to include the email: the password already checked out. The
+            # frontend uses it to offer POST /auth/resendActivation.
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={
+                    "errors": [
+                        ErrorItem(
+                            code="not_activated",
+                            detail="This account hasn't been activated yet",
+                        ).model_dump(exclude_none=True)
+                    ],
+                    "email": user.email,
+                },
+            )
         await user_repository.update_last_activity(user)
         return {
             "logged_in": True,
@@ -130,27 +145,11 @@ async def activate_user(token: str, db_session: DBSessionDependency):
 async def generate_password_reset(
     db_session: DBSessionDependency, email: EmailStr = Body(..., embed=True)
 ):
-    user = await db_session.scalar(select(User).where(User.email == email).limit(1))
-    if not user:
-        return error_response(
-            status_code=status.HTTP_404_NOT_FOUND,
-            errors=[ErrorItem(code="no_account", detail="No account found")],
-        )
-
-    password_reset_token = await db_session.scalar(
-        select(PasswordResetToken).where(PasswordResetToken.user_id == user.id).limit(1)
-    )
-    if not password_reset_token:
-        password_reset_token = PasswordResetToken(user=user)
-        db_session.add(password_reset_token)
-        # Flush so the column-default token is populated before building the link
-        await db_session.flush()
-    email_content = get_template(
-        "auth/templates/reset_password.html",
-        # TODO: the frontend reset-password page doesn't exist yet
-        reset_link=f"{configs.HOST_NAME}/reset-password?token={password_reset_token.token}",
-    )
-    await send_email(email, "Password reset for Gamers' Plane", email_content)
+    # Always the same response, so this can't be used to probe which emails have
+    # accounts. Unknown and unactivated emails silently get nothing.
+    user = await UserRepository(db_session).get_user_by_email(email)
+    if user and user.activated_on is not None:
+        await send_password_reset_email(db_session, user)
 
     return {"success": True}
 
@@ -160,13 +159,8 @@ async def generate_password_reset(
     response_model=schemas.PasswordResetResponse,
 )
 @public
-async def check_password_reset(
-    email: EmailStr, token: str, db_session: DBSessionDependency
-):
-    valid_token = await PasswordResetToken.validate_token(
-        db_session, token=token, email=email
-    )
-    return {"valid_token": bool(valid_token)}
+async def check_password_reset(token: str, db_session: DBSessionDependency):
+    return {"valid_token": bool(await get_usable_reset_token(db_session, token=token))}
 
 
 @auth.patch("/password_reset")
@@ -174,9 +168,7 @@ async def check_password_reset(
 async def reset_password(
     reset_details: schemas.ResetPasswordInput, db_session: DBSessionDependency
 ):
-    password_reset = await PasswordResetToken.validate_token(
-        db_session, token=reset_details.token, email=reset_details.email
-    )
+    password_reset = await get_usable_reset_token(db_session, token=reset_details.token)
     if not password_reset:
         return error_response(
             status_code=status.HTTP_404_NOT_FOUND,

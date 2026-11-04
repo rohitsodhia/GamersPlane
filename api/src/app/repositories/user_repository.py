@@ -316,14 +316,15 @@ class UserRepository:
         await self.db_session.flush()
 
     async def get_user_by_identifier(self, identifier: str) -> User | None:
+        """Match a lowercased username or email. Includes unactivated accounts
+        so login can tell their owners to activate."""
         return await self.db_session.scalar(
             select(User)
             .where(
                 or_(
                     func.lower(User.username) == identifier,
                     func.lower(User.email) == identifier,
-                ),
-                User.activated_on.is_not(None),
+                )
             )
             .limit(1)
         )

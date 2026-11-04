@@ -189,6 +189,39 @@ class TestUserRepository:
         assert user.last_activity == recent
 
 
+class TestGetUserByIdentifier:
+    @pytest.fixture
+    async def repository(self, db_session, wrap_in_savepoint):
+        return UserRepository(db_session)
+
+    @pytest.mark.parametrize("identifier", ["findme", "findme@example.com"])
+    async def test_matches_username_or_email_case_insensitively(
+        self, repository, create, identifier
+    ):
+        # Mixed-case stored values, lowercased lookup.
+        user = await create(
+            ActivatedUserFactory, username="FindMe", email="FindMe@Example.com"
+        )
+
+        found = await repository.get_user_by_identifier(identifier)
+
+        assert found is not None
+        assert found.id == user.id
+
+    async def test_includes_unactivated_users(self, repository, create):
+        user = await create(UserFactory, username="pending")
+
+        found = await repository.get_user_by_identifier("pending")
+
+        assert found is not None
+        assert found.id == user.id
+
+    async def test_returns_none_when_no_match(self, repository, create):
+        await create(ActivatedUserFactory, username="someone")
+
+        assert await repository.get_user_by_identifier("nobody") is None
+
+
 class TestGetNewGameMailRecipients:
     @pytest.fixture
     async def repository(self, db_session, wrap_in_savepoint):

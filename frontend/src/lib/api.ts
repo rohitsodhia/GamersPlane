@@ -11,6 +11,8 @@ export class ApiError extends Error {
 	constructor(
 		public status: number,
 		public errors: ApiErrorItem[],
+		/** Account email, sent alongside the errors on a `not_activated` login. */
+		public email?: string,
 	) {
 		super("API error");
 	}

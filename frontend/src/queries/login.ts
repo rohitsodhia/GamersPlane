@@ -6,8 +6,8 @@ export const login = async (data: { identifier: string; password: string }) => {
 		body: JSON.stringify(data),
 	});
 	if (!res.ok) {
-		const { errors } = await res.json();
-		throw new ApiError(res.status, errors);
+		const { errors, email } = await res.json();
+		throw new ApiError(res.status, errors, email);
 	}
 	return res.json();
 };
