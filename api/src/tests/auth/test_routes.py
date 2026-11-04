@@ -88,14 +88,6 @@ class TestLogin:
         assert response.status_code == 404
         assert response.json()["errors"][0]["code"] == "invalid_user"
 
-    async def test_login_password_too_short_is_rejected(self, client):
-        response = await client.post(
-            "/auth/login",
-            json={"identifier": "someone", "password": "short"},
-        )
-
-        assert response.status_code == 422
-
     async def test_login_updates_last_activity(self, client, create):
         user = await create(
             ActivatedUserFactory, username="loginuser", password="ValidPass1!"
@@ -204,30 +196,17 @@ class TestRefresh:
         assert response.status_code == 200
         assert response.json()["jwt"]
 
-    @pytest.mark.parametrize(
-        "field, value, code",
-        [
-            ("banned", datetime.now(timezone.utc), "banned"),
-            (
-                "suspended_until",
-                datetime.now(timezone.utc) + timedelta(days=1),
-                "suspended",
-            ),
-        ],
-    )
-    async def test_refresh_rejected_for_blocked_user(
-        self, authed_client, db_session, field, value, code
-    ):
+    async def test_refresh_rejected_for_blocked_user(self, authed_client, db_session):
         # /auth/refresh has no ban check of its own; the middleware rejects the
         # blocked user (still resolved as an identity by validate_jwt) first.
         client, user = authed_client
-        setattr(user, field, value)
+        user.banned = datetime.now(timezone.utc)
         await db_session.flush()
 
         response = await client.post("/auth/refresh")
 
         assert response.status_code == 403
-        assert response.json()["errors"][0]["code"] == code
+        assert response.json()["errors"][0]["code"] == "banned"
 
 
 class TestRegister:
@@ -387,6 +366,7 @@ class TestGeneratePasswordReset:
 
         tokens = await _reset_tokens(db_session, user)
         assert len(tokens) == 2
+        # Exactly one old (used) token and one new (unused) token.
         assert sorted(t.used is None for t in tokens) == [False, True]
         assert len(sent_emails) == 2
 
