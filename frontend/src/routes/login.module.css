@@ -3,6 +3,14 @@
 	margin-inline: auto;
 }
 
+.login-links {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25em;
+	margin-top: 1em;
+	font-size: 0.9em;
+}
+
 .login-form {
 	grid-template-columns: 150px 1fr;
 	gap: 0.5em 1em;

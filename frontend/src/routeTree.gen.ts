@@ -17,11 +17,13 @@ import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as CommunityGuidelinesRouteImport } from './routes/community-guidelines'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as FaqsRouteImport } from './routes/faqs'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as GamersRouteImport } from './routes/gamers'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SystemsRouteImport } from './routes/systems'
 import { Route as AcpIndexRouteImport } from './routes/acp/index'
 import { Route as AcpFaqsRouteImport } from './routes/acp/faqs'
@@ -111,6 +113,11 @@ const FaqsRoute = FaqsRouteImport.update({
   path: '/faqs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GamersRoute = GamersRouteImport.update({
   id: '/gamers',
   path: '/gamers',
@@ -134,6 +141,11 @@ const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SystemsRoute = SystemsRouteImport.update({
@@ -396,11 +408,13 @@ export interface FileRoutesByFullPath {
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/contact': typeof ContactRoute
   '/faqs': typeof FaqsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/systems': typeof SystemsRoute
   '/acp/faqs': typeof AcpFaqsRoute
   '/acp/rbac': typeof AcpRbacRoute
@@ -458,11 +472,13 @@ export interface FileRoutesByTo {
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/contact': typeof ContactRoute
   '/faqs': typeof FaqsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/systems': typeof SystemsRoute
   '/acp/faqs': typeof AcpFaqsRoute
   '/acp/rbac': typeof AcpRbacRoute
@@ -520,11 +536,13 @@ export interface FileRoutesById {
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/contact': typeof ContactRoute
   '/faqs': typeof FaqsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/gamers': typeof GamersRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/systems': typeof SystemsRoute
   '/acp/faqs': typeof AcpFaqsRoute
   '/acp/rbac': typeof AcpRbacRoute
@@ -585,11 +603,13 @@ export interface FileRouteTypes {
     | '/community-guidelines'
     | '/contact'
     | '/faqs'
+    | '/forgot-password'
     | '/gamers'
     | '/login'
     | '/notifications'
     | '/privacy-policy'
     | '/profile'
+    | '/reset-password'
     | '/systems'
     | '/acp/faqs'
     | '/acp/rbac'
@@ -647,11 +667,13 @@ export interface FileRouteTypes {
     | '/community-guidelines'
     | '/contact'
     | '/faqs'
+    | '/forgot-password'
     | '/gamers'
     | '/login'
     | '/notifications'
     | '/privacy-policy'
     | '/profile'
+    | '/reset-password'
     | '/systems'
     | '/acp/faqs'
     | '/acp/rbac'
@@ -708,11 +730,13 @@ export interface FileRouteTypes {
     | '/community-guidelines'
     | '/contact'
     | '/faqs'
+    | '/forgot-password'
     | '/gamers'
     | '/login'
     | '/notifications'
     | '/privacy-policy'
     | '/profile'
+    | '/reset-password'
     | '/systems'
     | '/acp/faqs'
     | '/acp/rbac'
@@ -772,11 +796,13 @@ export interface RootRouteChildren {
   CommunityGuidelinesRoute: typeof CommunityGuidelinesRoute
   ContactRoute: typeof ContactRoute
   FaqsRoute: typeof FaqsRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   GamersRoute: typeof GamersRoute
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ProfileRoute: typeof ProfileRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SystemsRoute: typeof SystemsRoute
   CharactersLibraryRoute: typeof CharactersLibraryRoute
   ForumsRecentRoute: typeof ForumsRecentRoute
@@ -870,6 +896,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FaqsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gamers': {
       id: '/gamers'
       path: '/gamers'
@@ -903,6 +936,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/systems': {
@@ -1312,11 +1352,13 @@ const rootRouteChildren: RootRouteChildren = {
   CommunityGuidelinesRoute: CommunityGuidelinesRoute,
   ContactRoute: ContactRoute,
   FaqsRoute: FaqsRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   GamersRoute: GamersRoute,
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ProfileRoute: ProfileRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SystemsRoute: SystemsRoute,
   CharactersLibraryRoute: CharactersLibraryRoute,
   ForumsRecentRoute: ForumsRecentRoute,
