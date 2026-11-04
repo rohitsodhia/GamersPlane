@@ -87,6 +87,9 @@ export type Post = {
 	content_npcs: ContentNpc[];
 	// The users the body's @mentions name (quoted ones too); unknown users are left out.
 	content_mentions: ContentMention[];
+	// The users the body's notes are addressed to (a note's stub too); unknown users
+	// are left out. The body itself is already stripped of notes this viewer can't read.
+	note_recipients: ContentMention[];
 	rolls: PostRoll[];
 	draws: PostDraw[];
 };

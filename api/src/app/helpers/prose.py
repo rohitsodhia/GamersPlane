@@ -190,6 +190,97 @@ def mentioned_user_ids(body: dict) -> list[int]:
     return list(dict.fromkeys(ids))
 
 
+NOTE_NODE_TYPE = "note"
+NOTE_MODE_PRIVATE = "private"
+# Most users one note may name.
+MAX_NOTE_RECIPIENTS = 20
+
+
+def _node_attrs(node: dict) -> dict:
+    attrs = node.get("attrs")
+    return attrs if isinstance(attrs, dict) else {}
+
+
+def raw_note_recipient_ids(node: dict) -> list | None:
+    """The ``userIds`` of a note node as stored (so possibly not an int each), or
+    ``None`` when it isn't a list. A note without the attr has no recipients."""
+    ids = _node_attrs(node).get("userIds", [])
+    return ids if isinstance(ids, list) else None
+
+
+def note_recipient_ids(node: dict) -> list[int]:
+    """The distinct, well-formed recipient ids of a note node, in order."""
+    ids = raw_note_recipient_ids(node) or []
+    return list(dict.fromkeys(i for i in ids if is_valid_id(i)))
+
+
+def is_hidden_note(node: dict) -> bool:
+    return (
+        node.get("type") == NOTE_NODE_TYPE and _node_attrs(node).get("hidden") is True
+    )
+
+
+def note_nodes(body: dict) -> list[dict]:
+    """Every note node in the document, nested ones too, in document order."""
+    return [node for node in _walk(body) if node.get("type") == NOTE_NODE_TYPE]
+
+
+def all_note_recipient_ids(body: dict) -> list[int]:
+    """The distinct, well-formed recipient ids across every note in the document."""
+    ids = [i for node in note_nodes(body) for i in note_recipient_ids(node)]
+    return list(dict.fromkeys(ids))
+
+
+def redact_notes(body: dict, viewer_id: int | None, sees_all_notes: bool) -> dict:
+    """A copy of the document with the notes the viewer can't read taken out.
+
+    A viewer reads a note if ``sees_all_notes`` (the post's author, a GM of its
+    game, or a moderator of its forum) or if they are one of its recipients. Any
+    other note becomes a stub: its attrs (recipients, mode) with ``hidden`` set and
+    a single empty paragraph for content, so none of its text is in the result. A
+    private note is dropped instead, with no stub. The whole document is walked, so
+    notes inside quotes, lists, or other notes are covered. The input isn't
+    changed.
+    """
+    redacted = _redact_node(body, viewer_id, sees_all_notes)
+    if redacted is None:
+        # Only possible for a malformed document whose root is a private note.
+        return {"type": "doc", "content": [{"type": "paragraph"}]}
+    return redacted
+
+
+def _redact_node(node: object, viewer_id: int | None, sees_all: bool):
+    """The redacted copy of ``node``, or ``None`` when it is to be dropped."""
+    if not isinstance(node, dict):
+        return node
+    if node.get("type") == NOTE_NODE_TYPE and not sees_all:
+        attrs = _node_attrs(node)
+        if viewer_id is None or viewer_id not in note_recipient_ids(node):
+            if attrs.get("mode") == NOTE_MODE_PRIVATE:
+                return None
+            return {
+                "type": NOTE_NODE_TYPE,
+                "attrs": {
+                    "mode": "note",
+                    "userIds": note_recipient_ids(node),
+                    "hidden": True,
+                },
+                "content": [{"type": "paragraph"}],
+            }
+    content = node.get("content")
+    if not isinstance(content, list):
+        return dict(node)
+    redacted = []
+    for child in content:
+        new_child = _redact_node(child, viewer_id, sees_all)
+        if new_child is not None:
+            redacted.append(new_child)
+    if content and not redacted:
+        # Every child was a private note; a block container can't be left empty.
+        redacted = [{"type": "paragraph"}]
+    return {**node, "content": redacted}
+
+
 def prose_snippet(
     body: dict,
     limit: int,

@@ -12,16 +12,15 @@ from app.middleware import Principal
 from app.models import Post
 from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import (
-    build_content_mentions,
-    build_content_npcs,
+    build_post_body_views,
     build_posted_as,
     build_posted_npc,
     check_post_change,
-    load_content_mentions,
-    load_content_npcs,
     validate_content_mentions,
+    validate_content_notes,
     validate_content_npcs,
     validate_poster,
+    viewer_sees_all_notes,
 )
 from app.posts.schemas import AuthorData, PostData
 from app.repositories import (
@@ -119,7 +118,9 @@ async def search_threads(
 async def get_announcement(db_session: DBSessionDependency, principal: Principal):
     """A random sticky thread of the announcements forum, else its newest thread,
     with its first post. 404 when the forum has no threads."""
-    forum, _ = await get_readable_forum(db_session, principal, ANNOUNCEMENTS_FORUM_ID)
+    forum, permissions = await get_readable_forum(
+        db_session, principal, ANNOUNCEMENTS_FORUM_ID
+    )
     thread = await ThreadRepository(db_session, principal=principal).get_featured(
         forum.id
     )
@@ -131,8 +132,14 @@ async def get_announcement(db_session: DBSessionDependency, principal: Principal
     )
     assert post is not None and post.published_at is not None
 
-    speakers = await load_content_npcs(db_session, principal, [post.body])
-    mentions = await load_content_mentions(db_session, [post.body])
+    view = (
+        await build_post_body_views(
+            db_session,
+            principal,
+            [post],
+            await viewer_sees_all_notes(db_session, principal, forum, permissions),
+        )
+    )[post.id]
     return schemas.AnnouncementResponse(
         id=thread.id,
         title=post.title,
@@ -149,9 +156,10 @@ async def get_announcement(db_session: DBSessionDependency, principal: Principal
             # Not a game forum, so no viewer is a game's GM here.
             posted_as=build_posted_as(post, principal, None),
             posted_npc=build_posted_npc(post),
-            body=post.body,
-            content_npcs=build_content_npcs(post.body, speakers),
-            content_mentions=build_content_mentions(post.body, mentions),
+            body=view.body,
+            content_npcs=view.content_npcs,
+            content_mentions=view.content_mentions,
+            note_recipients=view.note_recipients,
         ),
     )
 
@@ -194,6 +202,9 @@ async def get_thread(
             principal.id, thread_id=thread.id
         ),
         permissions=sorted(verb.value for verb in permissions.allowed(thread.forum)),
+        sees_all_notes=await viewer_sees_all_notes(
+            db_session, principal, thread.forum, permissions
+        ),
         poll=poll,
     )
 
@@ -226,6 +237,7 @@ async def create_thread(
     )
     await validate_content_npcs(db_session, principal, forum, thread_data.body)
     await validate_content_mentions(db_session, thread_data.body)
+    await validate_content_notes(db_session, thread_data.body)
     attachments = await plan_attachments(
         db_session,
         principal,

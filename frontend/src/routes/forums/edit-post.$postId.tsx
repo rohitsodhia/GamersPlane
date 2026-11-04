@@ -11,6 +11,7 @@ import {
 	useNavigate,
 } from "@tanstack/react-router";
 import { useState } from "react";
+import { addMentions } from "#/components/tiptap/tiptap-node/mention-node/mention";
 import { ApiError } from "#/lib/api";
 import { requireAuth } from "#/lib/auth-route";
 import { forumCharactersQueryOptions, forumQueryOptions } from "#/queries/forums";
@@ -119,7 +120,8 @@ function RouteComponent() {
 			defaultPostedAs={post.posted_as}
 			defaultPostedNpc={post.posted_npc}
 			defaultContentNpcs={post.content_npcs}
-			defaultContentMentions={post.content_mentions}
+			// Note recipients share the mentions' name lookup in the editor.
+			defaultContentMentions={addMentions(post.content_mentions, post.note_recipients)}
 			submitLabel="Save Changes"
 			apiErrors={apiErrors}
 			isSubmitting={mutation.isPending}

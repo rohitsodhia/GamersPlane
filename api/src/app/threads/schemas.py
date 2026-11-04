@@ -131,6 +131,9 @@ class GetThreadResponse(SchemaBase):
     subscribed: bool = False
     # The principal's verbs on the thread's forum.
     permissions: list[str]
+    # The principal reads every note in the thread (a moderator or the game's GM),
+    # so quoting a post keeps them all.
+    sees_all_notes: bool = False
     poll: PollData | None = None
 
 

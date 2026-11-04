@@ -46,7 +46,12 @@ import "#/components/tiptap/tiptap-node/quote-node/quote-node.scss";
 // read-only content renders identically to how it was authored, without the
 // cost of mounting a full ProseMirror editor view per message. `npcs` are the
 // quick NPCs the content's speech and roster blocks name (the document only holds their ids).
-const extensionsFor = (npcs: SpeakerLookup, users: MentionLookup) => [
+const extensionsFor = (
+	npcs: SpeakerLookup,
+	users: MentionLookup,
+	recipients: MentionLookup,
+	author: string | null,
+) => [
 	StarterKit.configure({
 		horizontalRule: false,
 		link: {
@@ -55,7 +60,7 @@ const extensionsFor = (npcs: SpeakerLookup, users: MentionLookup) => [
 		},
 	}),
 	HorizontalRule,
-	Note,
+	Note.configure({ recipients, author }),
 	NpcSpeaker.configure({ npcs }),
 	NpcRoster.configure({ npcs }),
 	Quote,
@@ -76,6 +81,8 @@ export function TiptapContent({
 	className,
 	npcs,
 	mentions,
+	noteRecipients,
+	author,
 }: {
 	content: JSONContent;
 	className?: string;
@@ -83,14 +90,24 @@ export function TiptapContent({
 	npcs?: readonly ContentNpc[];
 	// The post's `content_mentions`.
 	mentions?: readonly ContentMention[];
+	// The post's `note_recipients`: who its notes are addressed to.
+	noteRecipients?: readonly ContentMention[];
+	// The post author's username, for the stub that stands in for a note the viewer
+	// can't read.
+	author?: string;
 }) {
 	const html = useMemo(
 		() =>
 			generateHTML(
 				trimTrailingEmptyParagraph(content),
-				extensionsFor(speakerLookup(npcs), mentionLookup(mentions)),
+				extensionsFor(
+					speakerLookup(npcs),
+					mentionLookup(mentions),
+					mentionLookup(noteRecipients),
+					author ?? null,
+				),
 			),
-		[content, npcs, mentions],
+		[content, npcs, mentions, noteRecipients, author],
 	);
 
 	const navigate = useNavigate();

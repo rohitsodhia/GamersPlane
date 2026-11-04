@@ -56,6 +56,8 @@ function AnnouncementWidget() {
 					content={data.post.body}
 					npcs={data.post.content_npcs}
 					mentions={data.post.content_mentions}
+					noteRecipients={data.post.note_recipients}
+					author={data.post.author.username}
 				/>
 			)}
 		</Widget>

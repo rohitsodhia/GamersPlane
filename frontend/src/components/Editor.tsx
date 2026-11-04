@@ -29,13 +29,17 @@ import {
 	MentionContext,
 } from "#/components/tiptap/tiptap-node/mention-node/mention-node-extension";
 import { useMentionPicker } from "#/components/tiptap/tiptap-node/mention-node/mention-picker";
-import { Note } from "#/components/tiptap/tiptap-node/note-node/note-node-extension";
+import {
+	Note,
+	NoteContext,
+} from "#/components/tiptap/tiptap-node/note-node/note-node-extension";
 import { NpcRoster } from "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node-extension";
 import {
 	NpcSpeaker,
 	NpcSpeakerContext,
 } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node-extension";
 import { Quote } from "#/components/tiptap/tiptap-node/quote-node/quote-node-extension";
+import type { SearchUser } from "#/queries/users";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
@@ -578,6 +582,12 @@ const Editor = ({
 	// Memoize the provider value to avoid unnecessary re-renders
 	const providerValue = useMemo(() => ({ editor }), [editor]);
 	const speakerContext = { library: npcLibrary, fallback: contentNpcs };
+	// A note's recipient picked in this editor gets a name before the post is saved,
+	// the same way a picked @mention does.
+	const noteContext = {
+		remember: (user: SearchUser) =>
+			setPickedMentions((picked) => addMentions(picked, [user])),
+	};
 
 	return (
 		<div className="tiptap-editor simple-editor-wrapper">
@@ -621,11 +631,13 @@ const Editor = ({
 					<MentionContext.Provider
 						value={findMentionNames(pickedMentions, contentMentions)}
 					>
-						<EditorContent
-							editor={editor}
-							role="presentation"
-							className={clsx("simple-editor-content", className)}
-						/>
+						<NoteContext.Provider value={noteContext}>
+							<EditorContent
+								editor={editor}
+								role="presentation"
+								className={clsx("simple-editor-content", className)}
+							/>
+						</NoteContext.Provider>
 					</MentionContext.Provider>
 				</NpcSpeakerContext.Provider>
 				{mentions && mentionPicker.popup}

@@ -35,6 +35,7 @@ import {
 	addMentions,
 	type ContentMention,
 } from "#/components/tiptap/tiptap-node/mention-node/mention";
+import { dropUnreadableNotes } from "#/components/tiptap/tiptap-node/note-node/note";
 import { flattenNpcBlocks } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker";
 import { ApiError } from "#/lib/api";
 import { PAGINATE_PER_PAGE } from "#/lib/config";
@@ -319,6 +320,8 @@ function PostItem({
 						className="post-body"
 						npcs={post.content_npcs}
 						mentions={post.content_mentions}
+						noteRecipients={post.note_recipients}
+						author={post.author.username}
 					/>
 					<PostRollList rolls={post.rolls} />
 					<PostDrawList
@@ -568,9 +571,14 @@ function RouteComponent() {
 	const handleQuote = (post: Post) => {
 		// Speech blocks are flattened: a quote is a reference, and mustn't carry
 		// NPC ids the quoter may not be allowed to use.
+		// Notes too: the quote is read by everyone, so it keeps only the notes the
+		// quoter was meant to read (all of them for a GM or moderator).
 		const quotedBody = trimTrailingEmptyParagraph({
 			...post.body,
-			content: flattenNpcBlocks(post.body.content ?? [], post.content_npcs),
+			content: dropUnreadableNotes(
+				flattenNpcBlocks(post.body.content ?? [], post.content_npcs),
+				{ userId: me?.id ?? null, seesAllNotes: thread.sees_all_notes },
+			),
 		});
 		const quoteNode: JSONContent = {
 			type: "quote",
@@ -581,7 +589,10 @@ function RouteComponent() {
 					: [{ type: "paragraph" }],
 		};
 
-		setQuotedMentions((quoted) => addMentions(quoted, post.content_mentions));
+		// Note recipients share the mentions' name lookup in the editor.
+		setQuotedMentions((quoted) =>
+			addMentions(addMentions(quoted, post.content_mentions), post.note_recipients),
+		);
 		replyForm.setFieldValue("body", (current) => {
 			const base = isContentEmpty(current) ? emptyContent : current;
 			// Always follow the quote with a real (not just tiptap's implicit
