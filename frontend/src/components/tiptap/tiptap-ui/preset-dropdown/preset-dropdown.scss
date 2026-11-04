@@ -1,0 +1,44 @@
+// The menu's choices (radio items): a fixed-width slot for the check, so it sits
+// beside the selected item's text and the labels line up whichever is selected.
+.tiptap-dropdown-menu-radio-item {
+  --tt-radio-item-highlight: var(--tt-gray-light-a-100);
+
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.5rem 0.375rem 0.25rem;
+  border-radius: var(--tt-radius-md, 0.375rem);
+  font-size: 0.875rem;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+
+  .dark & {
+    --tt-radio-item-highlight: var(--tt-gray-dark-a-100);
+  }
+
+  &[data-highlighted] {
+    background-color: var(--tt-radio-item-highlight);
+  }
+
+  .tiptap-dropdown-menu-item-indicator {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+
+    svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+  }
+}
+
+.tiptap-preset-dropdown-text {
+  max-width: 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,4 +1,23 @@
-.tiptap-text-color-picker {
+// Side padding leaves room for the picker's round handles, which hang half their
+// width past the saturation and hue edges.
+.tiptap-text-color-body {
+  padding: 0.375rem 0.75rem;
+
+  &.tiptap-text-color-body-mobile {
+    padding-block: 0;
+  }
+}
+
+// The picker sets the width of the popover (the group is as wide as its widest
+// child); the swatch grid and hex row stretch to match it.
+.tiptap-text-color-group {
+  gap: 0.5rem;
+  min-width: 15rem;
+}
+
+// react-colorful's own `.react-colorful { width: 200px }` has the same specificity
+// as a single class, so the second class is needed to win.
+.react-colorful.tiptap-text-color-picker {
   width: 100%;
 
   .react-colorful__saturation {
@@ -8,8 +27,26 @@
   .react-colorful__hue {
     border-radius: 0 0 var(--tt-radius-md) var(--tt-radius-md);
   }
+
+  .react-colorful__pointer {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+}
+
+.tiptap-text-color-hex-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .tiptap-text-color-hex-input {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
   text-transform: uppercase;
+
+  &[aria-invalid="true"] {
+    border-color: var(--tt-color-text-red, #d92d20);
+  }
 }

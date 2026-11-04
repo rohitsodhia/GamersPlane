@@ -106,12 +106,10 @@ export const HeadingDropdownMenu = forwardRef<
 					<DropdownMenuGroup>
 						{levels.map((level) => (
 							<DropdownMenuItem key={`heading-${level}`} asChild>
-								<HeadingButton
-									editor={editor}
-									level={level}
-									text={`Heading ${level}`}
-									showTooltip={false}
-								/>
+								<HeadingButton editor={editor} level={level} showTooltip={false}>
+									{/* Text only: the level icon would read "H1 Heading 1". */}
+									<span className="tiptap-button-text">{`Heading ${level}`}</span>
+								</HeadingButton>
 							</DropdownMenuItem>
 						))}
 					</DropdownMenuGroup>

@@ -13,6 +13,10 @@ import { StarterKit } from "@tiptap/starter-kit";
 import clsx from "clsx";
 import { type MouseEvent, useMemo } from "react";
 import { trimTrailingEmptyParagraph } from "#/components/Editor";
+import { FontFamily } from "#/components/tiptap/tiptap-extension/font-family-extension";
+import { FontSize } from "#/components/tiptap/tiptap-extension/font-size-extension";
+import { SafeHighlight } from "#/components/tiptap/tiptap-extension/highlight-extension";
+import { SafeOrderedList } from "#/components/tiptap/tiptap-extension/ordered-list-extension";
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
 import {
 	type ContentMention,
@@ -29,6 +33,8 @@ import {
 import { NpcSpeaker } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node-extension";
 import { Quote } from "#/components/tiptap/tiptap-node/quote-node/quote-node-extension";
 import type { ContentNpc } from "#/queries/quick-npcs";
+import "#/components/tiptap/tiptap-extension/font-faces";
+import "#/components/tiptap/tiptap-extension/text-format.scss";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
@@ -54,11 +60,13 @@ const extensionsFor = (
 ) => [
 	StarterKit.configure({
 		horizontalRule: false,
+		orderedList: false,
 		link: {
 			openOnClick: false,
 			enableClickSelection: true,
 		},
 	}),
+	SafeOrderedList,
 	HorizontalRule,
 	Note.configure({ recipients, author }),
 	NpcSpeaker.configure({ npcs }),
@@ -70,6 +78,9 @@ const extensionsFor = (
 	TaskItem.configure({ nested: true }),
 	TextStyle,
 	Color,
+	SafeHighlight,
+	FontSize,
+	FontFamily,
 	Image,
 	Typography,
 	Superscript,

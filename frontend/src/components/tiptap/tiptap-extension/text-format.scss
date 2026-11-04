@@ -1,0 +1,59 @@
+// Looks for the font size and font family marks. The document holds only the keys
+// (see font-size-extension.ts and font-family-extension.ts); everything the keys
+// mean is here, so an unknown key matches nothing and renders as plain text. These
+// selectors are global on purpose: the editor, read-only content, and the toolbar's
+// own previews all use them.
+
+@use "sass:list";
+
+// v1's sizes. `line-height: 1` is v1's 100%: a span's line-height only changes the
+// line it sits on when it is taller than the paragraph's own, so this just keeps
+// huge text from stretching its line more than its size does.
+$font-sizes: (
+  "tiny": 60%,
+  "small": 80%,
+  "large": 150%,
+  "huge": 200%,
+  "gargantuan": 400%,
+);
+
+@each $key, $size in $font-sizes {
+  span[data-font-size="#{$key}"] {
+    font-size: $size;
+    line-height: 1;
+  }
+}
+
+// Each stack ends in a generic family so the text is still styled while the web
+// font loads (`font-display: swap`) or if it fails. The @font-face rules are in
+// src/fonts.css (local files) and font-faces.ts (Fontsource packages); a font
+// downloads only once something with its family is actually on the page.
+$font-families: (
+  "agency": ('"AgencyFB"', sans-serif),
+  "aladin": ('"Aladin"', cursive),
+  "aniron": ('"Aniron"', fantasy),
+  "blackops": ('"Black Ops One"', sans-serif),
+  "cabin": ('"Cabin Sketch"', cursive),
+  "cursive": ('"Brush Script MT", "Segoe Script"', cursive),
+  "dumbledor": ('"Dumbledor"', fantasy),
+  "eagle": ('"Eagle Lake"', cursive),
+  "elite": ('"Special Elite"', monospace),
+  "fell": ('"IM Fell English"', serif),
+  "goudy": ('"Goudy Bookletter 1911"', serif),
+  "gugi": ('"Gugi"', sans-serif),
+  "iceland": ('"Iceland"', sans-serif),
+  "kelt": ('"Kelt"', fantasy),
+  "neuropol": ('"Neuropol"', sans-serif),
+  "nightshade": ('"Jim Nightshade"', cursive),
+  "opensans": ('"Open Sans"', sans-serif),
+  "ostrich": ('"OstrichSans"', sans-serif),
+  "quint": ('"Quintessential"', serif),
+  "stalinist": ('"Stalinist One"', sans-serif),
+  "start": ('"Press Start 2P"', monospace),
+);
+
+@each $key, $stack in $font-families {
+  span[data-font="#{$key}"] {
+    font-family: #{list.nth($stack, 1)}, #{list.nth($stack, 2)};
+  }
+}

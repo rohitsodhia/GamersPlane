@@ -43,3 +43,64 @@
     margin-top: 2em;
   }
 }
+
+/* v1's banner headings, for the editor and read-only content alike (read-only
+   content has no `.tiptap` class). h1 is a dark banner and h2 an orange one, both
+   with white text and angled end caps; h3 is a red rule-underlined heading. The
+   caps sit in the 20px side margins (19.5px out, 20px wide), so they stay inside
+   the container and cannot make the page scroll sideways. */
+:is(.tiptap.ProseMirror, .tiptap-content) {
+  h1,
+  h2 {
+    --banner-bg: light-dark(#222, #111);
+
+    position: relative;
+    display: block;
+    margin-inline: 20px;
+    padding: 0.2rem;
+    background-color: var(--banner-bg);
+    color: #fff;
+    font-weight: 700;
+
+    &::before,
+    &::after {
+      content: " ";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 20px;
+      background-color: var(--banner-bg);
+    }
+
+    &::before {
+      left: -19.5px;
+      clip-path: polygon(100% 100%, 0% 100%, 70% 0%, 100% 0%);
+    }
+
+    &::after {
+      right: -19.5px;
+      clip-path: polygon(0% 0%, 0% 100%, 70% 0%);
+    }
+  }
+
+  h1 {
+    font-size: 150%;
+    line-height: 150%;
+  }
+
+  h2 {
+    --banner-bg: #c60;
+
+    font-size: 120%;
+  }
+
+  h3 {
+    display: block;
+    padding-bottom: 0.2em;
+    border-bottom: 1px solid currentColor;
+    color: light-dark(#a71300, #ff8a75);
+    font-size: 1.1em;
+    line-height: 1.2em;
+    font-weight: bold;
+  }
+}

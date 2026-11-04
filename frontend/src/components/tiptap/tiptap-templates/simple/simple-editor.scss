@@ -9,10 +9,12 @@
 
 .simple-editor-search-and-replace {
   position: absolute;
-  top: calc(var(--tt-toolbar-height) + 0.5rem);
+  top: calc(var(--editor-toolbar-height, var(--tt-toolbar-height)) + 0.5rem);
   right: 0.5rem;
   z-index: 51;
-  max-height: calc(100% - var(--tt-toolbar-height) - 1rem);
+  max-height: calc(
+    100% - var(--editor-toolbar-height, var(--tt-toolbar-height)) - 1rem
+  );
 }
 
 .simple-editor-content {

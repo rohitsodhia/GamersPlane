@@ -637,6 +637,23 @@ h1 .forum-icon {
 		list-style-type: decimal;
 	}
 
+	/* An explicit numbering style (the list's `type`) beats the default above. */
+	ol[type="a"] {
+		list-style-type: lower-alpha;
+	}
+
+	ol[type="A"] {
+		list-style-type: upper-alpha;
+	}
+
+	ol[type="i"] {
+		list-style-type: lower-roman;
+	}
+
+	ol[type="I"] {
+		list-style-type: upper-roman;
+	}
+
 	ul {
 		list-style-type: disc;
 	}

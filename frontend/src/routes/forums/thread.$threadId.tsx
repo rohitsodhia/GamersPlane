@@ -771,33 +771,19 @@ function RouteComponent() {
 								</div>
 							)}
 
-						<replyForm.Field
-							name="body"
-							validators={{
-								onBlur: ({ value }) =>
-									isContentEmpty(value) ? "Message required!" : undefined,
-								onSubmit: ({ value }) =>
-									isContentEmpty(value) ? "Message required!" : undefined,
-							}}
-						>
+						{/* An empty message just keeps the Post button disabled (below); there's
+						    nothing else on the field to explain. */}
+						<replyForm.Field name="body">
 							{(field) => (
-								<>
-									<Editor
-										id={field.name}
-										value={field.state.value}
-										onBlur={field.handleBlur}
-										onChange={(value) => field.handleChange(value)}
-										className={field.state.meta.isValid ? "" : "field-invalid"}
-										npcLibrary={npcLibrary}
-										mentions
-										contentMentions={quotedMentions}
-									/>
-									{field.state.meta.errors[0] && (
-										<div className="error" role="alert">
-											{field.state.meta.errors[0]}
-										</div>
-									)}
-								</>
+								<Editor
+									id={field.name}
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(value) => field.handleChange(value)}
+									npcLibrary={npcLibrary}
+									mentions
+									contentMentions={quotedMentions}
+								/>
 							)}
 						</replyForm.Field>
 
@@ -824,7 +810,11 @@ function RouteComponent() {
 							</div>
 						)}
 
-						<replyForm.Subscribe selector={(state) => state.canSubmit}>
+						<replyForm.Subscribe
+							selector={(state) =>
+								state.canSubmit && !isContentEmpty(state.values.body)
+							}
+						>
 							{(canSubmit) => (
 								<div className="align-center">
 									<button

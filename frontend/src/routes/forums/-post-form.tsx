@@ -450,38 +450,26 @@ export function PostForm({
 							</form.Field>
 						)}
 
-					<form.Field
-						name="body"
-						validators={{
-							onBlur: ({ value }) =>
-								isContentEmpty(value) ? "Message required!" : undefined,
-							onSubmit: ({ value }) =>
-								isContentEmpty(value) ? "Message required!" : undefined,
-						}}
-					>
+					{/* An empty message just keeps the submit button disabled (below); there's
+					    nothing else on the field to explain. */}
+					<form.Field name="body">
 						{(field) => (
-							<>
-								<Editor
-									id={field.name}
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(value) => field.handleChange(value)}
-									className={field.state.meta.isValid ? "" : "field-invalid"}
-									npcLibrary={npcLibrary}
-									contentNpcs={defaultContentNpcs}
-									contentMentions={defaultContentMentions}
-									mentions
-								/>
-								{field.state.meta.errors[0] && (
-									<div className="error" role="alert">
-										<FieldError message={field.state.meta.errors[0]} />
-									</div>
-								)}
-							</>
+							<Editor
+								id={field.name}
+								value={field.state.value}
+								onBlur={field.handleBlur}
+								onChange={(value) => field.handleChange(value)}
+								npcLibrary={npcLibrary}
+								contentNpcs={defaultContentNpcs}
+								contentMentions={defaultContentMentions}
+								mentions
+							/>
 						)}
 					</form.Field>
 
-					<form.Subscribe selector={(state) => state.canSubmit}>
+					<form.Subscribe
+						selector={(state) => state.canSubmit && !isContentEmpty(state.values.body)}
+					>
 						{(canSubmit) => (
 							<div>
 								{showMinorEdit && (
