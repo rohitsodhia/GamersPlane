@@ -13,6 +13,8 @@
 
   .note-node {
     position: relative;
+    // Contains a floated box or image inside the note.
+    display: flow-root;
     border: 1px solid var(--note-border-color);
     border-radius: 0.5rem;
     margin: 1.5rem 0;

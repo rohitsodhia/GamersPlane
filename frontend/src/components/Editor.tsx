@@ -1,7 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { Color } from "@tiptap/extension-color";
 import { FindAndReplace } from "@tiptap/extension-find-and-replace";
-import { Image } from "@tiptap/extension-image";
 import { Link } from "@tiptap/extension-link";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Subscript } from "@tiptap/extension-subscript";
@@ -21,7 +20,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FontFamily } from "#/components/tiptap/tiptap-extension/font-family-extension";
 import { FontSize } from "#/components/tiptap/tiptap-extension/font-size-extension";
 import { SafeHighlight } from "#/components/tiptap/tiptap-extension/highlight-extension";
+import { FloatImage } from "#/components/tiptap/tiptap-extension/image-extension";
 import { SafeOrderedList } from "#/components/tiptap/tiptap-extension/ordered-list-extension";
+import { Box } from "#/components/tiptap/tiptap-node/box-node/box-node-extension";
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
 import {
 	addMentions,
@@ -47,6 +48,7 @@ import type { SearchUser } from "#/queries/users";
 import "#/components/tiptap/tiptap-extension/font-faces";
 import "#/components/tiptap/tiptap-extension/text-format.scss";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
+import "#/components/tiptap/tiptap-node/box-node/box-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
 import "#/components/tiptap/tiptap-node/list-node/list-node.scss";
@@ -68,6 +70,10 @@ import { ImagePlusIcon } from "#/components/tiptap/tiptap-icons/image-plus-icon"
 import { LinkIcon } from "#/components/tiptap/tiptap-icons/link-icon";
 // --- Tiptap UI ---
 import { BlockquoteButton } from "#/components/tiptap/tiptap-ui/blockquote-button";
+import {
+	BoxDropdown,
+	ImageFloatDropdown,
+} from "#/components/tiptap/tiptap-ui/box-dropdown/box-dropdown";
 import { CodeBlockButton } from "#/components/tiptap/tiptap-ui/code-block-button";
 import { HeadingDropdownMenu } from "#/components/tiptap/tiptap-ui/heading-dropdown-menu";
 import { HighlightPopover } from "#/components/tiptap/tiptap-ui/highlight-popover/highlight-popover";
@@ -335,6 +341,8 @@ const MainToolbarContent = ({
 					<ImageUrlButton editor={editor} />
 					<HorizontalRuleButton editor={editor} />
 					<NoteButton editor={editor} />
+					<BoxDropdown editor={editor} />
+					<ImageFloatDropdown editor={editor} />
 					{npcLibrary && <NpcSpeakerButton editor={editor} library={npcLibrary} />}
 					{npcLibrary && <NpcRosterButton editor={editor} />}
 				</ToolbarGroup>
@@ -489,6 +497,7 @@ const Editor = ({
 			NpcSpeaker,
 			NpcRoster,
 			Quote,
+			Box,
 			...(mentions
 				? [Mention.configure({ suggestion: mentionPicker.suggestion })]
 				: []),
@@ -500,7 +509,7 @@ const Editor = ({
 			SafeHighlight,
 			FontSize,
 			FontFamily,
-			Image,
+			FloatImage,
 			Typography,
 			Superscript,
 			Subscript,

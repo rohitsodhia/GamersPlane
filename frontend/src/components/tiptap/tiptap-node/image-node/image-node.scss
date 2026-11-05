@@ -9,8 +9,12 @@
     display: inline-block;
   }
 
-  > img:not([data-type="emoji"] img) {
+  // A floated image (see box-node.scss) sets its own margin.
+  > img:not([data-type="emoji"] img, [data-float="left"], [data-float="right"]) {
     margin: 2rem 0;
+  }
+
+  > img:not([data-type="emoji"] img) {
     outline: 0.125rem solid transparent;
     border-radius: var(--tt-radius-xs, 0.25rem);
   }

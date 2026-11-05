@@ -1,0 +1,164 @@
+// The box node's looks (ported from v1's gpFormat-border and gpFormat-fancy-*) and
+// the float rules shared by boxes and images. The document stores only keys
+// (`data-variant`, `data-float`); an unknown key matches nothing and renders as a
+// plain box. Global on purpose: the editor and the read-only content both use these.
+//
+// The paper, parchment, and terminal variants are fixed-color props, like a sheet of
+// paper or a terminal screen, so they look the same in light and dark themes.
+
+[data-type="box"] {
+  display: flow-root; // contains a floated image inside the box
+  box-sizing: border-box;
+  margin: 0.75rem 0;
+
+  // Keep the box's own padding the only space around its content.
+  > :first-child {
+    margin-top: 0;
+  }
+
+  > :last-child {
+    margin-bottom: 0;
+  }
+}
+
+[data-type="box"][data-variant="border"] {
+  border: 1px solid currentColor;
+  padding: 0.5rem;
+}
+
+[data-type="box"][data-variant="paper"] {
+  width: fit-content;
+  min-width: 3rem;
+  max-width: 100%;
+  padding: 1em;
+  box-shadow:
+    0 0 5px rgba(0, 0, 0, 0.2),
+    0 0 2rem #ccc inset;
+  background: #f8f8f8;
+  color: #303136;
+}
+
+// The rough-edged sheet is the ::before layer, behind the text: `isolation: isolate`
+// gives the box its own stacking context, so the layer's z-index -1 sits above the
+// page but below the box's content (v1 got the same with z-index: 1).
+[data-type="box"][data-variant="parchment"] {
+  position: relative;
+  isolation: isolate;
+  width: fit-content;
+  min-width: 3rem;
+  max-width: 100%;
+  padding: 1.5em;
+  color: #303136;
+
+  &::before {
+    content: " ";
+    position: absolute;
+    display: block;
+    inset: 0;
+    margin: 0 0.5rem 0.5rem 0;
+    z-index: -1;
+    pointer-events: none;
+    background-color: #fff;
+    box-shadow:
+      0 0 8px rgba(0, 0, 0, 0.2),
+      0 0 2rem #805326 inset;
+    filter: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"><filter id="gpFormatParchmentSvg"><feTurbulence x="0" y="0" baseFrequency="0.02" numOctaves="5"></feTurbulence><feDisplacementMap in="SourceGraphic" scale="20" /></filter></svg>#gpFormatParchmentSvg');
+  }
+}
+
+@keyframes gp-box-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+[data-type="box"][data-variant="terminal"] {
+  position: relative;
+  width: fit-content;
+  min-width: 3rem;
+  max-width: 100%;
+  padding: 0.5rem 0.8rem;
+  border-radius: 1rem;
+  background-color: #222;
+  color: #41ff00;
+  // The editor's own caret is dark grey by default, which vanishes on this background.
+  caret-color: #41ff00;
+  font-family: "Press Start 2P", monospace;
+
+  // The scanlines, over the text but never catching a click.
+  &::before {
+    content: " ";
+    position: absolute;
+    display: block;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    border-radius: 1rem;
+    background: linear-gradient(rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.3) 50%);
+    background-size:
+      100% 2px,
+      3px 100%;
+  }
+
+  // The cursor sits at the end of the last block, like v1's at the end of its text.
+  // A block as tall as the letters, sitting on the baseline.
+  > :last-child::after {
+    content: " ";
+    display: inline-block;
+    width: 0.8em;
+    height: 1em;
+    margin-left: 0.2rem;
+    vertical-align: baseline;
+    background-color: #41ff00;
+    animation: gp-box-blink 1s step-start 0s infinite;
+  }
+
+  // Not while editing: a blinking block that is not where you are typing reads as a
+  // second text cursor. It shows in the posted result only.
+  .ProseMirror[contenteditable="true"] & > :last-child::after {
+    display: none;
+  }
+
+  // A steady cursor for readers who ask for less motion.
+  @media (prefers-reduced-motion: reduce) {
+    > :last-child::after {
+      animation: none;
+    }
+  }
+}
+
+// Floats, for boxes and images alike (v1's gpFormat-float-left and -right). Written
+// last, and under `.ProseMirror` so they out-rank the variants' own widths and the
+// editor's stock `img { max-width: 100% }`.
+.ProseMirror :is([data-type="box"], img)[data-float="left"],
+.ProseMirror :is([data-type="box"], img)[data-float="right"] {
+  box-sizing: border-box;
+  max-width: calc(49% - 1rem);
+}
+
+.ProseMirror :is([data-type="box"], img)[data-float="left"] {
+  float: left;
+  margin: 0 1rem 0 0;
+}
+
+.ProseMirror :is([data-type="box"], img)[data-float="right"] {
+  float: right;
+  margin: 0 0 0 1rem;
+}
+
+// Too narrow to share a line with text: drop the float and let the box or image
+// take the full width.
+@media (max-width: 480px) {
+  .ProseMirror :is([data-type="box"], img)[data-float="left"],
+  .ProseMirror :is([data-type="box"], img)[data-float="right"] {
+    float: none;
+    max-width: 100%;
+    margin: 0.75rem 0;
+  }
+}
+
+// A floated box or image at the end of a post must not escape its container.
+.tiptap-content,
+.tiptap.ProseMirror {
+  display: flow-root;
+}

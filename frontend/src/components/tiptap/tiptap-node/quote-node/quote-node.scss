@@ -17,6 +17,8 @@
   blockquote.quote,
   .quote-node {
     position: relative;
+    // Contains a floated box or image inside the quote.
+    display: flow-root;
     padding: 0.75rem 1rem;
     margin: 1.5rem 0;
     border-radius: 0.5rem;

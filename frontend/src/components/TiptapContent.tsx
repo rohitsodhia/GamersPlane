@@ -2,7 +2,6 @@ import { useNavigate } from "@tanstack/react-router";
 import type { JSONContent } from "@tiptap/core";
 import { generateHTML } from "@tiptap/core";
 import { Color } from "@tiptap/extension-color";
-import { Image } from "@tiptap/extension-image";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Subscript } from "@tiptap/extension-subscript";
 import { Superscript } from "@tiptap/extension-superscript";
@@ -16,7 +15,9 @@ import { trimTrailingEmptyParagraph } from "#/components/Editor";
 import { FontFamily } from "#/components/tiptap/tiptap-extension/font-family-extension";
 import { FontSize } from "#/components/tiptap/tiptap-extension/font-size-extension";
 import { SafeHighlight } from "#/components/tiptap/tiptap-extension/highlight-extension";
+import { FloatImage } from "#/components/tiptap/tiptap-extension/image-extension";
 import { SafeOrderedList } from "#/components/tiptap/tiptap-extension/ordered-list-extension";
+import { Box } from "#/components/tiptap/tiptap-node/box-node/box-node-extension";
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
 import {
 	type ContentMention,
@@ -36,6 +37,7 @@ import type { ContentNpc } from "#/queries/quick-npcs";
 import "#/components/tiptap/tiptap-extension/font-faces";
 import "#/components/tiptap/tiptap-extension/text-format.scss";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
+import "#/components/tiptap/tiptap-node/box-node/box-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
 import "#/components/tiptap/tiptap-node/list-node/list-node.scss";
@@ -72,6 +74,7 @@ const extensionsFor = (
 	NpcSpeaker.configure({ npcs }),
 	NpcRoster.configure({ npcs }),
 	Quote,
+	Box,
 	Mention.configure({ users }),
 	TextAlign.configure({ types: ["heading", "paragraph"] }),
 	TaskList,
@@ -81,7 +84,7 @@ const extensionsFor = (
 	SafeHighlight,
 	FontSize,
 	FontFamily,
-	Image,
+	FloatImage,
 	Typography,
 	Superscript,
 	Subscript,
