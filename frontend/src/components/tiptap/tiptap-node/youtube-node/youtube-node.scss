@@ -1,0 +1,35 @@
+/* =====================
+     YOUTUBE
+     A responsive 16:9 frame around the video iframe. Shared by the editor and the
+     read-only content, so it is scoped to .ProseMirror.
+     ===================== */
+.ProseMirror {
+  .youtube-embed {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 40rem;
+    aspect-ratio: 16 / 9;
+    margin: 1rem 0;
+    background-color: #000;
+
+    iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+  }
+
+  // While editing, clicks should select the embed (to move or delete it) instead of
+  // landing inside the video.
+  &[contenteditable="true"] .youtube-embed iframe {
+    pointer-events: none;
+  }
+
+  .youtube-embed.ProseMirror-selectednode {
+    outline: 2px solid var(--tt-brand-color-500, #6229ff);
+    outline-offset: 2px;
+  }
+}

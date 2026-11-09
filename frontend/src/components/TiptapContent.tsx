@@ -33,6 +33,8 @@ import {
 } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker";
 import { NpcSpeaker } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node-extension";
 import { Quote } from "#/components/tiptap/tiptap-node/quote-node/quote-node-extension";
+import { Spoiler } from "#/components/tiptap/tiptap-node/spoiler-node/spoiler-node-extension";
+import { Youtube } from "#/components/tiptap/tiptap-node/youtube-node/youtube-node-extension";
 import type { ContentNpc } from "#/queries/quick-npcs";
 import "#/components/tiptap/tiptap-extension/font-faces";
 import "#/components/tiptap/tiptap-extension/text-format.scss";
@@ -49,6 +51,8 @@ import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
 import "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node.scss";
 import "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node.scss";
 import "#/components/tiptap/tiptap-node/quote-node/quote-node.scss";
+import "#/components/tiptap/tiptap-node/spoiler-node/spoiler-node.scss";
+import "#/components/tiptap/tiptap-node/youtube-node/youtube-node.scss";
 
 // Mirrors the node/mark extensions registered in #/components/Editor.tsx so
 // read-only content renders identically to how it was authored, without the
@@ -74,6 +78,8 @@ const extensionsFor = (
 	NpcSpeaker.configure({ npcs }),
 	NpcRoster.configure({ npcs }),
 	Quote,
+	Spoiler,
+	Youtube,
 	Box,
 	Mention.configure({ users }),
 	TextAlign.configure({ types: ["heading", "paragraph"] }),

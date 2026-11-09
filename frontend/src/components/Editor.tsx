@@ -11,7 +11,7 @@ import { Typography } from "@tiptap/extension-typography";
 import { Selection } from "@tiptap/extensions";
 import { AllSelection } from "@tiptap/pm/state";
 import type { Editor as TiptapEditor } from "@tiptap/react";
-import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
+import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import clsx from "clsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -44,6 +44,8 @@ import {
 	NpcSpeakerContext,
 } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node-extension";
 import { Quote } from "#/components/tiptap/tiptap-node/quote-node/quote-node-extension";
+import { Spoiler } from "#/components/tiptap/tiptap-node/spoiler-node/spoiler-node-extension";
+import { Youtube } from "#/components/tiptap/tiptap-node/youtube-node/youtube-node-extension";
 import type { SearchUser } from "#/queries/users";
 import "#/components/tiptap/tiptap-extension/font-faces";
 import "#/components/tiptap/tiptap-extension/text-format.scss";
@@ -60,6 +62,8 @@ import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
 import "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node.scss";
 import "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node.scss";
 import "#/components/tiptap/tiptap-node/quote-node/quote-node.scss";
+import "#/components/tiptap/tiptap-node/spoiler-node/spoiler-node.scss";
+import "#/components/tiptap/tiptap-node/youtube-node/youtube-node.scss";
 
 import { NpcChooser } from "#/components/NpcChooser";
 // --- Icons ---
@@ -100,6 +104,7 @@ import {
 	TextColorPopoverContent,
 } from "#/components/tiptap/tiptap-ui/text-color-popover";
 import { UndoRedoButton } from "#/components/tiptap/tiptap-ui/undo-redo-button";
+import { YoutubePopover } from "#/components/tiptap/tiptap-ui/youtube-popover/youtube-popover";
 // --- UI primitives ---
 import { Button } from "#/components/tiptap/tiptap-ui-primitive/button";
 import {
@@ -130,7 +135,7 @@ export const emptyContent: JSONContent = { type: "doc", content: [] };
 
 // Nodes that hold no text but are content in their own right, so a post made of
 // just one of them isn't empty.
-const CONTENT_ATOMS = new Set(["image", "npcRoster"]);
+const CONTENT_ATOMS = new Set(["image", "npcRoster", "youtube"]);
 
 export function isContentEmpty(content: JSONContent | null | undefined): boolean {
 	if (!content) return true;
@@ -207,6 +212,55 @@ function QuoteButton({ editor }: { editor: TiptapEditor | null }) {
 			onClick={() => editor.chain().focus().setQuote().run()}
 		>
 			Quote
+		</Button>
+	);
+}
+
+// Out-of-character aside: a variant of the quote node. Marked on while the caret is
+// in one; clicking then takes the content back out, and in a plain quote it turns
+// that quote into an OOC block. Always rendered once the editor exists: the editor
+// state below is empty on the first render, so it must not decide visibility.
+function OocButton({ editor }: { editor: TiptapEditor | null }) {
+	const isActive = useEditorState({
+		editor,
+		selector: ({ editor }) => editor?.isActive("quote", { variant: "ooc" }) ?? false,
+	});
+
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Out of character"
+			aria-label="Out of character"
+			data-active-state={isActive ? "on" : "off"}
+			onClick={() => editor.chain().focus().toggleOoc().run()}
+		>
+			OOC
+		</Button>
+	);
+}
+
+// A collapsible block with a title. Same on/off behavior as the OOC button.
+function SpoilerButton({ editor }: { editor: TiptapEditor | null }) {
+	const isActive = useEditorState({
+		editor,
+		selector: ({ editor }) => editor?.isActive("spoiler") ?? false,
+	});
+
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Spoiler"
+			aria-label="Spoiler"
+			data-active-state={isActive ? "on" : "off"}
+			onClick={() => editor.chain().focus().toggleSpoiler().run()}
+		>
+			Spoiler
 		</Button>
 	);
 }
@@ -332,6 +386,8 @@ const MainToolbarContent = ({
 					/>
 					<BlockquoteButton />
 					<QuoteButton editor={editor} />
+					<OocButton editor={editor} />
+					<SpoilerButton editor={editor} />
 					<CodeBlockButton />
 					<OrderedListOptions />
 				</ToolbarGroup>
@@ -339,6 +395,7 @@ const MainToolbarContent = ({
 				<ToolbarGroup>
 					{!isMobile ? <LinkPopover /> : <LinkButton onClick={onLinkClick} />}
 					<ImageUrlButton editor={editor} />
+					<YoutubePopover editor={editor} />
 					<HorizontalRuleButton editor={editor} />
 					<NoteButton editor={editor} />
 					<BoxDropdown editor={editor} />
@@ -497,6 +554,8 @@ const Editor = ({
 			NpcSpeaker,
 			NpcRoster,
 			Quote,
+			Spoiler,
+			Youtube,
 			Box,
 			...(mentions
 				? [Mention.configure({ suggestion: mentionPicker.suggestion })]
