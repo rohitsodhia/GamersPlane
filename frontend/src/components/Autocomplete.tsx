@@ -33,6 +33,7 @@ export function Autocomplete<T>({
 	onClear,
 	className,
 	noPasswordManager,
+	onBlur,
 }: {
 	id: string;
 	/** The input's `name`, so password managers don't mistake it for a username field. */
@@ -57,6 +58,8 @@ export function Autocomplete<T>({
 	className?: string;
 	/** Adds each password manager's ignore hint, for fields that hold usernames of other people. */
 	noPasswordManager?: boolean;
+	/** Fired when focus leaves the field and its menu entirely. */
+	onBlur?: () => void;
 }) {
 	const { contains } = useFilter({ sensitivity: "base" });
 	const [isOpen, setIsOpen] = useState(false);
@@ -113,7 +116,9 @@ export function Autocomplete<T>({
 				} as CSSProperties
 			}
 			onBlur={(e) => {
-				if (!e.currentTarget.contains(e.relatedTarget)) setIsOpen(false);
+				if (e.currentTarget.contains(e.relatedTarget)) return;
+				setIsOpen(false);
+				onBlur?.();
 			}}
 		>
 			<RACAutocomplete

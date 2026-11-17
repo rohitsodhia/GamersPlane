@@ -8,6 +8,7 @@ import {
 } from "@tiptap/react";
 import clsx from "clsx";
 import { closestNode } from "#/components/tiptap/tiptap-extension/closest-node";
+import { NO_PASSWORD_MANAGER_ATTRS } from "#/lib/constants";
 
 export interface QuoteOptions {
 	HTMLAttributes: Record<string, unknown>;
@@ -96,6 +97,8 @@ function QuoteView({ node, updateAttributes, deleteNode, editor }: NodeViewProps
 							className="quote-node-quotee-input"
 							type="text"
 							name="quote_author"
+							autoComplete="off"
+							{...NO_PASSWORD_MANAGER_ATTRS}
 							value={quotee}
 							placeholder="Username"
 							onChange={(event) => updateAttributes({ quotee: event.target.value })}

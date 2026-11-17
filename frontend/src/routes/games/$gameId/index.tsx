@@ -13,6 +13,7 @@ import { characterDisplayName, ownerLabelHint } from "#/components/game-bar";
 import { QuickNpcList } from "#/components/QuickNpcList";
 import { ReportLink } from "#/components/ReportLink";
 import { TiptapContent } from "#/components/TiptapContent";
+import { UserAutocomplete } from "#/components/UserAutocomplete";
 import { ApiError } from "#/lib/api";
 import { formatDate } from "#/lib/format-date";
 import { useHbMargined } from "#/lib/use-hb-margined";
@@ -188,6 +189,8 @@ function RouteComponent() {
 	});
 
 	const [inviteUsername, setInviteUsername] = useState("");
+	// UserAutocomplete owns its text, so remounting is how a successful invite clears it.
+	const [inviteResetKey, setInviteResetKey] = useState(0);
 	const [inviteError, setInviteError] = useState<string | null>(null);
 	const inviteMutation = useMutation({
 		mutationFn: async (username: string) => {
@@ -209,6 +212,7 @@ function RouteComponent() {
 				},
 			]);
 			setInviteUsername("");
+			setInviteResetKey((key) => key + 1);
 		},
 		onError: (error: unknown) => {
 			if (error instanceof ApiError && error.errors[0]?.detail) {
@@ -902,15 +906,15 @@ function RouteComponent() {
 										{isGM && (
 											<>
 												<form className={styles["invite-form"]} onSubmit={submitInvite}>
-													<label htmlFor="invitee-lookup">Invite player:</label>
-													<input
+													<UserAutocomplete
+														key={inviteResetKey}
 														id="invitee-lookup"
 														name="invitee_username"
-														type="text"
-														value={inviteUsername}
-														onChange={(e) => setInviteUsername(e.target.value)}
-														placeholder="Username"
-														disabled={inviteMutation.isPending}
+														label="Invite player:"
+														onChange={(user) => setInviteUsername(user.username)}
+														exclude={(user) =>
+															players.some((player) => player.id === user.id)
+														}
 													/>
 													<button
 														type="submit"

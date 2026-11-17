@@ -35,6 +35,7 @@ export function NoteRecipientPicker({
 		<Autocomplete
 			id={id}
 			name="note_recipient"
+			noPasswordManager
 			className="note-node-recipient-picker"
 			inputValue={inputValue}
 			onInputChange={setInputValue}

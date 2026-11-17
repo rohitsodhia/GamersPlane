@@ -98,7 +98,7 @@ function Register() {
 									value={field.state.value}
 									onBlur={field.handleBlur}
 									onChange={(e) => field.handleChange(e.target.value)}
-									autoComplete="off"
+									autoComplete="username"
 									className={field.state.meta.isValid ? "" : styles["field-invalid"]}
 								/>
 								<p
@@ -167,7 +167,7 @@ function Register() {
 									value={field.state.value}
 									onBlur={field.handleBlur}
 									onChange={(e) => field.handleChange(e.target.value)}
-									autoComplete="off"
+									autoComplete="new-password"
 									className={field.state.meta.isValid ? "" : styles["field-invalid"]}
 								/>
 								<p
@@ -205,7 +205,7 @@ function Register() {
 									value={field.state.value}
 									onBlur={field.handleBlur}
 									onChange={(e) => field.handleChange(e.target.value)}
-									autoComplete="off"
+									autoComplete="new-password"
 									className={field.state.meta.isValid ? "" : styles["field-invalid"]}
 								/>
 								<p className={styles["field-message"]}>
