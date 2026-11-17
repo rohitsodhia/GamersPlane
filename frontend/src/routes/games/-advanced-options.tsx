@@ -135,6 +135,7 @@ export function AdvancedOptions({
 					<label htmlFor="adr-gm-exclude-npcs">GM - exclude NPC sheets:</label>
 					<Checkbox
 						id="adr-gm-exclude-npcs"
+						name="gm_exclude_npcs"
 						checked={gmExcludeNpcs}
 						onChange={setGmExcludeNpcs}
 					/>
@@ -143,6 +144,7 @@ export function AdvancedOptions({
 					<label htmlFor="adr-gm-exclude-pcs">GM - exclude PC sheets:</label>
 					<Checkbox
 						id="adr-gm-exclude-pcs"
+						name="gm_exclude_pcs"
 						checked={gmExcludePcs}
 						onChange={setGmExcludePcs}
 					/>
@@ -151,6 +153,7 @@ export function AdvancedOptions({
 					<label htmlFor="adr-reroll-aces">Reroll aces by default:</label>
 					<Checkbox
 						id="adr-reroll-aces"
+						name="reroll_aces"
 						checked={rerollAces}
 						onChange={setRerollAces}
 					/>
@@ -212,6 +215,7 @@ export function AdvancedOptions({
 									<div>
 										<input
 											id="adr-background-color"
+											name="background_color"
 											type="color"
 											value={background.settings.color ?? "#ffffff"}
 											onChange={(e) => setSettings({ color: e.target.value })}
@@ -232,6 +236,7 @@ export function AdvancedOptions({
 									<label htmlFor="adr-background-position">Position</label>
 									<Select
 										id="adr-background-position"
+										name="background_position"
 										items={POSITIONS}
 										getId={(option) => option.id}
 										getLabel={(option) => option.label}
@@ -245,6 +250,7 @@ export function AdvancedOptions({
 									<label htmlFor="adr-background-size">Size</label>
 									<Select
 										id="adr-background-size"
+										name="background_size"
 										items={SIZES}
 										getId={(option) => option.id}
 										getLabel={(option) => option.label}
@@ -260,6 +266,7 @@ export function AdvancedOptions({
 									<label htmlFor="adr-background-repeat">Repeat</label>
 									<Select
 										id="adr-background-repeat"
+										name="background_repeat"
 										items={REPEATS}
 										getId={(option) => option.id}
 										getLabel={(option) => option.label}
@@ -274,6 +281,7 @@ export function AdvancedOptions({
 									</label>
 									<Checkbox
 										id="adr-background-fixed"
+										name="background_fixed"
 										checked={background.settings.fixed}
 										onChange={(fixed) => setSettings({ fixed })}
 									/>

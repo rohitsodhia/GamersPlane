@@ -159,6 +159,7 @@ function RouteComponent() {
 							{admin && (
 								<UserAutocomplete
 									id="create-role-owner"
+									name="role_owner"
 									label="Owner"
 									defaultUsername={owner.username}
 									onChange={setOwner}

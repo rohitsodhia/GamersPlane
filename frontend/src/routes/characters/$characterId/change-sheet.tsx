@@ -121,6 +121,7 @@ function CopyRow({
 				<span id={`copy-version-label-${copy.id}`}>Version</span>
 				<Select
 					id={`copy-version-${copy.id}`}
+					name="copy_version"
 					ariaLabelledBy={`copy-version-label-${copy.id}`}
 					items={versionOptions}
 					getId={(option) => option.id}

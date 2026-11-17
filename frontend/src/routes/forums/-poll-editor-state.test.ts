@@ -3,10 +3,12 @@ import type { PollData } from "#/queries/threads";
 import {
 	applyPaste,
 	clampOptionsPerUser,
+	effectivePoll,
 	MAX_POLL_OPTIONS,
 	MAX_POLL_TEXT_LENGTH,
 	moveRows,
 	newOptionRow,
+	newPollState,
 	type PollOptionRow,
 	type PollState,
 	pollErrors,
@@ -254,5 +256,29 @@ describe("pollPayload", () => {
 		expect(pollPayload(initial, { ...initial, allowRevoting: false })).toMatchObject({
 			allow_revoting: false,
 		});
+	});
+});
+
+describe("effectivePoll", () => {
+	it("keeps a saved poll, and emptying it entirely removes it on save", () => {
+		const saved = pollStateFromData(loaded);
+		expect(effectivePoll(saved)).toBe(saved);
+		const cleared = { ...newPollState(), optionsPerUser: 1 };
+		expect(pollPayload(saved, effectivePoll(cleared))).toBeNull();
+	});
+
+	it("is no poll while the form is blank, whatever its settings", () => {
+		const blank = { ...newPollState(), optionsPerUser: 2, allowRevoting: true };
+		expect(effectivePoll(blank)).toBeNull();
+		expect(
+			effectivePoll(poll({ question: "  ", options: [row(" "), row("")] })),
+		).toBeNull();
+	});
+
+	it("is the poll as soon as anything is typed, so a half-filled one gets its errors", () => {
+		const question = poll({ question: "Which day?", options: [row(""), row("")] });
+		expect(effectivePoll(question)).toBe(question);
+		const option = { ...newPollState(), options: [row("Friday"), row("")] };
+		expect(effectivePoll(option)).toBe(option);
 	});
 });

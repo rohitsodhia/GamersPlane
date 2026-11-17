@@ -127,6 +127,7 @@ function ChooserBody({
 		<div className={styles["body"]}>
 			<SearchField
 				className={styles["search"]}
+				name="npc_search"
 				value={query}
 				onChange={setQuery}
 				autoFocus

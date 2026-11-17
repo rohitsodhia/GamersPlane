@@ -155,6 +155,7 @@ function RouteComponent() {
 									<div>
 										<input
 											id="edit-settings_avatar-delete"
+											name={field.name}
 											type="checkbox"
 											checked={field.state.value}
 											onChange={(e) => field.handleChange(e.target.checked)}
@@ -349,6 +350,7 @@ function RouteComponent() {
 							<div>
 								<Select
 									id="edit-settings_forum-sub-type"
+									name={field.name}
 									ariaLabelledBy="edit-settings_forum-sub-type-label"
 									items={FORUM_SUB_TYPE_OPTIONS}
 									getId={(option) => option.id}

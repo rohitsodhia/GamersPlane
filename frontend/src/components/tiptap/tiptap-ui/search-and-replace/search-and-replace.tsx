@@ -493,6 +493,7 @@ export const SearchAndReplace = forwardRef<HTMLDivElement, SearchAndReplaceProps
 							<InputGroup className="tiptap-search-replace-input-group">
 								<InputGroupInput
 									data-field="search-query"
+									name="editor_search_query"
 									placeholder="Search"
 									aria-label="Search"
 									value={searchTerm}
@@ -522,6 +523,7 @@ export const SearchAndReplace = forwardRef<HTMLDivElement, SearchAndReplaceProps
 							<InputGroup className="tiptap-search-replace-input-group">
 								<InputGroupInput
 									data-field="replace-query"
+									name="editor_replace_query"
 									placeholder="Replace"
 									aria-label="Replace"
 									value={replaceTerm}
@@ -585,6 +587,7 @@ export const SearchAndReplace = forwardRef<HTMLDivElement, SearchAndReplaceProps
 								Use regular expression
 							</span>
 							<Switch
+								name="use_regex"
 								checked={useRegex}
 								onCheckedChange={toggleUseRegex}
 								disabled={!canSearch}

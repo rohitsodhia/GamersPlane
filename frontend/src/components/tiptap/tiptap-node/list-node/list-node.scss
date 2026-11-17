@@ -86,6 +86,24 @@
     }
   }
 
+  // An explicit numbering style (the list's `type`) beats the depth-based defaults
+  // above, which would otherwise win over the browser's `type` handling.
+  ol[type="a"] {
+    list-style-type: lower-alpha;
+  }
+
+  ol[type="A"] {
+    list-style-type: upper-alpha;
+  }
+
+  ol[type="i"] {
+    list-style-type: lower-roman;
+  }
+
+  ol[type="I"] {
+    list-style-type: upper-roman;
+  }
+
   // Unordered lists
   ul:not([data-type="taskList"]) {
     list-style: disc;

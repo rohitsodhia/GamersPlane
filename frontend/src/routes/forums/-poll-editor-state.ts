@@ -48,6 +48,17 @@ export function pollStateFromData(poll: PollData): PollState {
 	};
 }
 
+// A poll form nobody has filled in: no question and no option text. The form is
+// always on the page, so this is what "no poll" looks like.
+export function isBlankPoll(state: PollState): boolean {
+	return !state.question.trim() && state.options.every((row) => !row.text.trim());
+}
+
+// The poll the form stands for: null while the form is blank.
+export function effectivePoll(state: PollState): PollState | null {
+	return isBlankPoll(state) ? null : state;
+}
+
 // "Options per voter" can't exceed the number of options.
 export function clampOptionsPerUser(state: PollState): PollState {
 	const max = Math.max(1, state.options.length);

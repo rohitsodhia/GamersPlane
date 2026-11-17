@@ -179,6 +179,7 @@ function RouteComponent() {
 								<label htmlFor="new-subforum-title">Title</label>
 								<input
 									id="new-subforum-title"
+									name="subforum_title"
 									type="text"
 									maxLength={200}
 									value={field.state.value}
@@ -193,6 +194,7 @@ function RouteComponent() {
 								<label htmlFor="new-subforum-type">Type</label>
 								<Select
 									id="new-subforum-type"
+									name="subforum_type"
 									items={TYPE_OPTIONS}
 									getId={(option) => option.value}
 									getLabel={(option) => option.label}

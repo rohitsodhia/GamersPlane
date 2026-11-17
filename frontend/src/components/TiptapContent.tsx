@@ -2,7 +2,6 @@ import { useNavigate } from "@tanstack/react-router";
 import type { JSONContent } from "@tiptap/core";
 import { generateHTML } from "@tiptap/core";
 import { Color } from "@tiptap/extension-color";
-import { Image } from "@tiptap/extension-image";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Subscript } from "@tiptap/extension-subscript";
 import { Superscript } from "@tiptap/extension-superscript";
@@ -11,8 +10,27 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { Typography } from "@tiptap/extension-typography";
 import { StarterKit } from "@tiptap/starter-kit";
 import clsx from "clsx";
-import { type MouseEvent, useMemo } from "react";
+import {
+	type MouseEvent,
+	type ReactNode,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { trimTrailingEmptyParagraph } from "#/components/Editor";
+import { FontFamily } from "#/components/tiptap/tiptap-extension/font-family-extension";
+import { FontSize } from "#/components/tiptap/tiptap-extension/font-size-extension";
+import { BannerHeading } from "#/components/tiptap/tiptap-extension/heading-extension";
+import { SafeHighlight } from "#/components/tiptap/tiptap-extension/highlight-extension";
+import { FloatImage } from "#/components/tiptap/tiptap-extension/image-extension";
+import { SafeOrderedList } from "#/components/tiptap/tiptap-extension/ordered-list-extension";
+import { Box } from "#/components/tiptap/tiptap-node/box-node/box-node-extension";
+import {
+	Column,
+	Columns,
+} from "#/components/tiptap/tiptap-node/columns-node/columns-node-extension";
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
 import {
 	type ContentMention,
@@ -27,10 +45,18 @@ import {
 	speakerLookup,
 } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker";
 import { NpcSpeaker } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node-extension";
+import { Poll } from "#/components/tiptap/tiptap-node/poll-node/poll-node-extension";
 import { Quote } from "#/components/tiptap/tiptap-node/quote-node/quote-node-extension";
+import { Spoiler } from "#/components/tiptap/tiptap-node/spoiler-node/spoiler-node-extension";
+import { TABLE_EXTENSIONS } from "#/components/tiptap/tiptap-node/table-node/table-node-extension";
+import { Youtube } from "#/components/tiptap/tiptap-node/youtube-node/youtube-node-extension";
 import type { ContentNpc } from "#/queries/quick-npcs";
+import "#/components/tiptap/tiptap-extension/font-faces";
+import "#/components/tiptap/tiptap-extension/text-format.scss";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
+import "#/components/tiptap/tiptap-node/box-node/box-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
+import "#/components/tiptap/tiptap-node/columns-node/columns-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
 import "#/components/tiptap/tiptap-node/list-node/list-node.scss";
 import "#/components/tiptap/tiptap-node/image-node/image-node.scss";
@@ -40,32 +66,55 @@ import "#/components/tiptap/tiptap-node/mention-node/mention-node.scss";
 import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
 import "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node.scss";
 import "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node.scss";
+import "#/components/tiptap/tiptap-node/poll-node/poll-node.scss";
 import "#/components/tiptap/tiptap-node/quote-node/quote-node.scss";
+import "#/components/tiptap/tiptap-node/spoiler-node/spoiler-node.scss";
+import "#/components/tiptap/tiptap-node/table-node/table-node.scss";
+import "#/components/tiptap/tiptap-node/youtube-node/youtube-node.scss";
 
 // Mirrors the node/mark extensions registered in #/components/Editor.tsx so
 // read-only content renders identically to how it was authored, without the
 // cost of mounting a full ProseMirror editor view per message. `npcs` are the
 // quick NPCs the content's speech and roster blocks name (the document only holds their ids).
-const extensionsFor = (npcs: SpeakerLookup, users: MentionLookup) => [
+const extensionsFor = (
+	npcs: SpeakerLookup,
+	users: MentionLookup,
+	recipients: MentionLookup,
+	author: string | null,
+) => [
 	StarterKit.configure({
+		heading: false,
 		horizontalRule: false,
+		orderedList: false,
 		link: {
 			openOnClick: false,
 			enableClickSelection: true,
 		},
 	}),
+	SafeOrderedList,
+	BannerHeading,
 	HorizontalRule,
-	Note,
+	Note.configure({ recipients, author }),
 	NpcSpeaker.configure({ npcs }),
 	NpcRoster.configure({ npcs }),
 	Quote,
+	Spoiler,
+	Youtube,
+	Poll,
+	Box,
+	Columns,
+	Column,
+	...TABLE_EXTENSIONS,
 	Mention.configure({ users }),
 	TextAlign.configure({ types: ["heading", "paragraph"] }),
 	TaskList,
 	TaskItem.configure({ nested: true }),
 	TextStyle,
 	Color,
-	Image,
+	SafeHighlight,
+	FontSize,
+	FontFamily,
+	FloatImage,
 	Typography,
 	Superscript,
 	Subscript,
@@ -76,6 +125,9 @@ export function TiptapContent({
 	className,
 	npcs,
 	mentions,
+	noteRecipients,
+	author,
+	poll,
 }: {
 	content: JSONContent;
 	className?: string;
@@ -83,15 +135,43 @@ export function TiptapContent({
 	npcs?: readonly ContentNpc[];
 	// The post's `content_mentions`.
 	mentions?: readonly ContentMention[];
+	// The post's `note_recipients`: who its notes are addressed to.
+	noteRecipients?: readonly ContentMention[];
+	// The post author's username, for the stub that stands in for a note the viewer
+	// can't read.
+	author?: string;
+	// What fills the content's poll marker, when it has one. Only the thread page's
+	// first post passes this; everywhere else the marker renders as nothing.
+	poll?: ReactNode;
 }) {
 	const html = useMemo(
 		() =>
 			generateHTML(
 				trimTrailingEmptyParagraph(content),
-				extensionsFor(speakerLookup(npcs), mentionLookup(mentions)),
+				extensionsFor(
+					speakerLookup(npcs),
+					mentionLookup(mentions),
+					mentionLookup(noteRecipients),
+					author ?? null,
+				),
 			),
-		[content, npcs, mentions],
+		[content, npcs, mentions, noteRecipients, author],
 	);
+
+	// The poll marker is an empty slot in the static HTML; the poll is portalled into
+	// it. The slot is found after each render of the HTML (a new string replaces the
+	// whole DOM, and the slot with it).
+	const containerRef = useRef<HTMLDivElement>(null);
+	const [pollSlot, setPollSlot] = useState<Element | null>(null);
+	const wantsPoll = poll !== undefined && poll !== null && poll !== false;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: html is the trigger, the slot is looked up in the DOM it produced
+	useLayoutEffect(() => {
+		setPollSlot(
+			wantsPoll
+				? (containerRef.current?.querySelector('[data-type="poll"]') ?? null)
+				: null,
+		);
+	}, [html, wantsPoll]);
 
 	const navigate = useNavigate();
 
@@ -120,13 +200,17 @@ export function TiptapContent({
 	};
 
 	return (
-		// biome-ignore lint/a11y/noStaticElementInteractions: delegates clicks from the real anchors inside, which stay keyboard-operable on their own
-		// biome-ignore lint/a11y/useKeyWithClickEvents: same, the anchors handle the keyboard
-		<div
-			className={clsx("tiptap-content ProseMirror", className)}
-			onClick={followMention}
-			// biome-ignore lint/security/noDangerouslySetInnerHtml: html is generated by Tiptap's own serializer from a fixed extension schema, not raw user input
-			dangerouslySetInnerHTML={{ __html: html }}
-		/>
+		<>
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: delegates clicks from the real anchors inside, which stay keyboard-operable on their own */}
+			{/* biome-ignore lint/a11y/useKeyWithClickEvents: same, the anchors handle the keyboard */}
+			<div
+				ref={containerRef}
+				className={clsx("tiptap-content ProseMirror", className)}
+				onClick={followMention}
+				// biome-ignore lint/security/noDangerouslySetInnerHtml: html is generated by Tiptap's own serializer from a fixed extension schema, not raw user input
+				dangerouslySetInnerHTML={{ __html: html }}
+			/>
+			{pollSlot && createPortal(poll, pollSlot)}
+		</>
 	);
 }

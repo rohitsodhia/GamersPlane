@@ -118,6 +118,7 @@ export function FilterableListBox<T>(props: FilterableListBoxProps<T>) {
 			<Autocomplete filter={contains}>
 				<SearchField
 					id={id}
+					name="listbox_filter"
 					onKeyDown={(event) => {
 						// Don't let Enter submit an enclosing <form>. RAC's Autocomplete
 						// already prevents it today; this keeps that from depending on it.

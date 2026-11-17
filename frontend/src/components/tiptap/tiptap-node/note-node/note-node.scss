@@ -1,30 +1,30 @@
-.tiptap.ProseMirror {
-  --note-bg-color: var(--white);
-  --note-border-color: var(--tt-gray-light-a-200);
-  --note-header-bg: var(--tt-gray-light-a-50);
-  --note-text-color: var(--tt-gray-light-a-800);
-  --note-chip-bg: var(--tt-brand-color-500);
-
-  .dark & {
-    --note-bg-color: var(--tt-gray-dark-50);
-    --note-border-color: var(--tt-gray-dark-a-200);
-    --note-header-bg: var(--tt-gray-dark-a-50);
-    --note-text-color: var(--tt-gray-dark-a-800);
-    --note-chip-bg: var(--tt-brand-color-400);
-  }
-}
-
 /* =====================
      NOTE
+     A block addressed to some users. Shared by the editor's node view and the
+     read-only render, so it is scoped to .ProseMirror rather than the
+     editor-only .tiptap. Colors come from the page's light/dark tokens.
      ===================== */
-.tiptap.ProseMirror {
-  [data-type="note"],
+.ProseMirror {
+  --note-bg-color: var(--bg);
+  --note-border-color: color-mix(in srgb, var(--text) 25%, transparent);
+  --note-header-bg: color-mix(in srgb, var(--text) 8%, transparent);
+  --note-text-color: var(--text);
+  --note-chip-bg: color-mix(in srgb, var(--text) 16%, transparent);
+
   .note-node {
     position: relative;
+    // Contains a floated box or image inside the note.
+    display: flow-root;
     border: 1px solid var(--note-border-color);
     border-radius: 0.5rem;
     margin: 1.5rem 0;
     background-color: var(--note-bg-color);
+  }
+
+  // A private note is told apart from a plain one by a dashed edge, not by color
+  // alone.
+  .note-node-private {
+    border-style: dashed;
   }
 
   .note-node-header {
@@ -64,9 +64,9 @@
     font-size: 1rem;
     opacity: 0.6;
 
-    &:hover {
+    &:hover,
+    &:focus-visible {
       background-color: var(--note-chip-bg);
-      color: #fff;
       opacity: 1;
     }
   }
@@ -83,7 +83,7 @@
     padding: 0.125rem 0.5rem;
     border-radius: 999px;
     background-color: var(--note-chip-bg);
-    color: #fff;
+    color: var(--note-text-color);
     font-size: 0.8125rem;
     font-weight: 500;
   }
@@ -96,17 +96,25 @@
     line-height: 1;
     padding: 0;
     font-size: 1rem;
+
+    &:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: 1px;
+    }
   }
 
-  .note-node-user-input {
-    border: none;
-    background: none;
-    outline: none;
-    font: inherit;
-    font-size: 0.8125rem;
-    color: var(--note-text-color);
-    min-width: 8ch;
+  .note-node-recipient-picker {
     flex: 1;
+    min-width: 10ch;
+    font-size: 0.8125rem;
+    font-weight: 400;
+  }
+
+  .note-node-hint {
+    flex-basis: 100%;
+    font-size: 0.75rem;
+    font-weight: 400;
+    opacity: 0.75;
   }
 
   .note-node-content {
@@ -115,5 +123,14 @@
     > *:last-child {
       margin-bottom: 0;
     }
+  }
+
+  // What a reader sees in place of a note they can't read: one line, no body.
+  .note-node-hidden {
+    padding: 0.5rem 0.75rem;
+    background-color: var(--note-header-bg);
+    color: var(--note-text-color);
+    font-size: 0.875rem;
+    font-style: italic;
   }
 }

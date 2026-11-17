@@ -13,12 +13,9 @@ from app.posts.attachments import plan_attachments, save_attachments
 from app.posts.functions import (
     build_posted_as,
     build_posted_npc,
-    build_content_mentions,
-    build_content_npcs,
+    build_post_body_views,
     check_post_change,
     is_same_npc,
-    load_content_mentions,
-    load_content_npcs,
     require_one_poster,
     resolve_posted_npc,
     validate_posted_as,
@@ -26,8 +23,10 @@ from app.posts.functions import (
     validate_posted_avatar,
     validate_roll_visibility,
     validate_content_mentions,
+    validate_content_notes,
     validate_content_npcs,
     viewer_gm_game_id,
+    viewer_sees_all_notes,
 )
 from app.posts.visibility import redact_draw, redact_roll
 from app.repositories import (
@@ -100,15 +99,18 @@ async def get_posts(
     rolls = await post_repository.get_rolls([post.id for post in posts])
     draws = await post_repository.get_draws([post.id for post in posts])
     gm_game_id = await viewer_gm_game_id(db_session, principal, thread.forum, posts)
-    speakers = await load_content_npcs(
-        db_session, principal, [post.body for post in posts]
+    views = await build_post_body_views(
+        db_session,
+        principal,
+        posts,
+        await viewer_sees_all_notes(db_session, principal, thread.forum, permissions),
     )
-    mentions = await load_content_mentions(db_session, [post.body for post in posts])
 
     posts_data = []
     for post in posts:
         assert post.published_at
         is_author = principal is not None and post.author_id == principal.id
+        view = views[post.id]
         posts_data.append(
             schemas.PostData(
                 id=post.id,
@@ -122,9 +124,10 @@ async def get_posts(
                 ),
                 posted_as=build_posted_as(post, principal, gm_game_id),
                 posted_npc=build_posted_npc(post),
-                body=post.body,
-                content_npcs=build_content_npcs(post.body, speakers),
-                content_mentions=build_content_mentions(post.body, mentions),
+                body=view.body,
+                content_npcs=view.content_npcs,
+                content_mentions=view.content_mentions,
+                note_recipients=view.note_recipients,
                 rolls=[
                     redact_roll(roll, full_view=is_author or is_moderator)
                     for roll in rolls[post.id]
@@ -161,8 +164,18 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
     gm_game_id = await viewer_gm_game_id(
         db_session, principal, post.thread.forum, [post]
     )
-    speakers = await load_content_npcs(db_session, principal, [post.body])
-    mentions = await load_content_mentions(db_session, [post.body])
+    # The author and moderators (full_view) are the ones who may edit, and both read
+    # every note, so an edit never starts from a redacted body.
+    view = (
+        await build_post_body_views(
+            db_session,
+            principal,
+            [post],
+            await viewer_sees_all_notes(
+                db_session, principal, post.thread.forum, permissions
+            ),
+        )
+    )[post.id]
     # The edit form needs the counts (to warn before dropping voted options), so
     # the poll goes to whoever may edit the first post, whatever they'd see on the
     # thread page.
@@ -193,9 +206,10 @@ async def get_post(db_session: DBSessionDependency, principal: Principal, post_i
         ),
         posted_as=build_posted_as(post, principal, gm_game_id),
         posted_npc=build_posted_npc(post),
-        body=post.body,
-        content_npcs=build_content_npcs(post.body, speakers),
-        content_mentions=build_content_mentions(post.body, mentions),
+        body=view.body,
+        content_npcs=view.content_npcs,
+        content_mentions=view.content_mentions,
+        note_recipients=view.note_recipients,
         rolls=[redact_roll(roll, full_view=full_view) for roll in rolls],
         draws=[
             redact_draw(draw, is_author=principal.id == post.author_id)
@@ -238,6 +252,7 @@ async def create_post(
 
     await validate_content_npcs(db_session, principal, thread.forum, post_data.body)
     await validate_content_mentions(db_session, post_data.body)
+    await validate_content_notes(db_session, post_data.body)
 
     attachments = await plan_attachments(
         db_session,
@@ -361,6 +376,7 @@ async def edit_post(
         db_session, post.author, post.thread.forum, post_data.body, post.body
     )
     await validate_content_mentions(db_session, post_data.body)
+    await validate_content_notes(db_session, post_data.body)
     existing_rolls = (await post_repository.get_rolls([post.id]))[post.id]
     visibility_changes = validate_roll_visibility(
         existing_rolls, post_data.roll_visibility

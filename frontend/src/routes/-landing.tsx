@@ -100,6 +100,7 @@ function Landing() {
 								<div className={styles["system-search"]}>
 									<Autocomplete
 										id="landing-system-search"
+										name="system_search"
 										items={systems}
 										getId={(system: BasicSystem) => system.id}
 										getLabel={(system: BasicSystem) => system.name}

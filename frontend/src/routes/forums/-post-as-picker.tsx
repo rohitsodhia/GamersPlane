@@ -56,7 +56,6 @@ export function PostAsPicker({
 	current = null,
 	currentNpc = null,
 }: {
-	// The visible "Post as" label's id, naming the buttons.
 	labelId: string;
 	characters: PostableCharacter[];
 	// The quick NPCs to post as (the game's, or the viewer's own outside games).
@@ -121,7 +120,6 @@ export function PostAsPicker({
 	const entries = expanded === null ? [] : entriesOfType(characters, npcs, expanded);
 	const ordered = orderEntries(entries, query);
 	const newEntry = isNpcList && canCreateNpc ? newNpcEntry(query, npcs) : null;
-	// The new-NPC row leads the list, ahead of the recents and their divider.
 	const items = newEntry ? [newEntry, ...ordered.items] : ordered.items;
 	const recentCount = ordered.recentCount;
 	const afterRecents = newEntry ? recentCount + 1 : recentCount;
@@ -160,7 +158,6 @@ export function PostAsPicker({
 					selectedKeys={lit === null ? [] : [lit]}
 					onSelectionChange={(keys) => {
 						const [key] = [...keys];
-						// Pressing the lit button toggles its list.
 						if (key === undefined) {
 							if (mode === "pc" || mode === "npc") {
 								setExpanded(expanded === mode ? null : mode);
@@ -203,6 +200,7 @@ export function PostAsPicker({
 									: "Filter by name or owner"}
 							</Label>
 							<Input
+								name="post_as_filter"
 								onKeyDown={(e) => {
 									// Inside the post form, where Enter would submit the post.
 									if (e.key === "Enter") {

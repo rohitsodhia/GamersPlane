@@ -902,9 +902,10 @@ function RouteComponent() {
 										{isGM && (
 											<>
 												<form className={styles["invite-form"]} onSubmit={submitInvite}>
-													<label htmlFor="invite-username">Invite player:</label>
+													<label htmlFor="invitee-lookup">Invite player:</label>
 													<input
-														id="invite-username"
+														id="invitee-lookup"
+														name="invitee_username"
 														type="text"
 														value={inviteUsername}
 														onChange={(e) => setInviteUsername(e.target.value)}
@@ -1231,6 +1232,7 @@ function RouteComponent() {
 											<Autocomplete
 												key={characterPickerKey}
 												id="submit-character-picker"
+												name="submit_character"
 												items={submittableCharacters}
 												getId={(character) => String(character.id)}
 												getLabel={(character) =>

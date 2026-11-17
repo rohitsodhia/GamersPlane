@@ -101,6 +101,10 @@ class PostData(SchemaBase):
     # The users the body's @mentions name (quoted ones too), once each. Unknown
     # users are left out; the UI shows those as "@[deleted]".
     content_mentions: list[ContentMentionData] = []
+    # The users the body's notes are addressed to (stubs' too), once each. Unknown
+    # users are left out; the UI shows those as "[deleted]". The body is already
+    # redacted for this viewer; this is only where the names come from.
+    note_recipients: list[ContentMentionData] = []
     rolls: list[PostRollData] = []
     draws: list[PostDrawData] = []
 

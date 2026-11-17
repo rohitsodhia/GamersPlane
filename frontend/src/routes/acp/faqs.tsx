@@ -105,6 +105,7 @@ function FAQForm({
 						<label htmlFor={`${field.name}-${initial?.id ?? "new"}`}>Category</label>
 						<Select
 							id={`${field.name}-${initial?.id ?? "new"}`}
+							name={field.name}
 							items={categories}
 							getId={(category) => category.category}
 							getLabel={(category) => category.label}
@@ -127,6 +128,7 @@ function FAQForm({
 							<label htmlFor={id}>Question</label>
 							<input
 								id={id}
+								name={field.name}
 								type="text"
 								value={field.state.value}
 								onBlur={field.handleBlur}

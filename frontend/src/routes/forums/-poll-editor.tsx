@@ -38,16 +38,16 @@ function RemoveOption({ row, onRemove }: { row: PollOptionRow; onRemove: () => v
 	);
 }
 
-// A poll the thread's first post carries. Controlled: `value` is the poll (null
-// for none) and `onChange` gets the whole updated state. Errors stay hidden until
-// a submit has been attempted.
+// The form for the poll the thread's first post carries. Controlled: `onChange`
+// gets the whole updated state. A form left blank means no poll (see
+// `effectivePoll`). Errors stay hidden until a submit has been attempted.
 export function PollEditor({
 	value,
 	onChange,
 	showErrors,
 }: {
-	value: PollState | null;
-	onChange: (value: PollState | null) => void;
+	value: PollState;
+	onChange: (value: PollState) => void;
 	showErrors: boolean;
 }) {
 	const id = useId();
@@ -56,7 +56,6 @@ export function PollEditor({
 	const { dragAndDropHooks } = useDragAndDrop({
 		getItems: (keys) => [...keys].map((key) => ({ "text/plain": String(key) })),
 		onReorder: (event) => {
-			if (!value) return;
 			onChange({
 				...value,
 				options: moveRows(
@@ -68,13 +67,6 @@ export function PollEditor({
 			});
 		},
 	});
-
-	if (!value)
-		return (
-			<button type="button" onClick={() => onChange(newPollState())}>
-				Add a poll
-			</button>
-		);
 
 	const errors = showErrors ? pollErrors(value) : { rows: {} };
 	const voteTotal = totalVotes(value.options);
@@ -97,6 +89,7 @@ export function PollEditor({
 				<input
 					type="text"
 					id={`${id}-question`}
+					name="poll_question"
 					maxLength={MAX_POLL_TEXT_LENGTH}
 					className={clsx(errors.question && "field-invalid")}
 					value={value.question}
@@ -134,6 +127,7 @@ export function PollEditor({
 									</Button>
 									<input
 										type="text"
+										name="poll_option"
 										aria-label={`Option ${index + 1}`}
 										maxLength={MAX_POLL_TEXT_LENGTH}
 										className={clsx(styles["option-text"], error && "field-invalid")}
@@ -181,6 +175,7 @@ export function PollEditor({
 				<span id={perUserLabelId}>Options per voter</span>
 				<Select
 					id={`${id}-per-user`}
+					name="poll_options_per_user"
 					ariaLabelledBy={perUserLabelId}
 					items={perUserChoices}
 					getId={(choice) => choice}
@@ -192,28 +187,33 @@ export function PollEditor({
 			<div className={styles["setting"]}>
 				<Checkbox
 					id={`${id}-revoting`}
+					name="poll_allow_revoting"
 					checked={value.allowRevoting}
 					onChange={(checked) => update({ allowRevoting: checked })}
 				/>
 				<label htmlFor={`${id}-revoting`}>Allow changing votes</label>
 			</div>
 
-			<div className={styles["setting"]}>
-				{voteTotal > 0 ? (
-					<>
-						<span>Remove poll</span>
-						<ConfirmDeleteButton
-							label="Remove poll"
-							message={`Removing the poll also deletes its ${votesLabel(voteTotal)}.`}
-							onConfirm={() => onChange(null)}
-						/>
-					</>
-				) : (
-					<button type="button" onClick={() => onChange(null)}>
-						Remove poll
-					</button>
-				)}
-			</div>
+			{/* Only a saved poll needs removing; an unsaved one is cleared by emptying
+			    the form. */}
+			{value.options.some((row) => row.id !== null) && (
+				<div className={styles["setting"]}>
+					{voteTotal > 0 ? (
+						<>
+							<span>Remove poll</span>
+							<ConfirmDeleteButton
+								label="Remove poll"
+								message={`Removing the poll also deletes its ${votesLabel(voteTotal)}.`}
+								onConfirm={() => onChange(newPollState())}
+							/>
+						</>
+					) : (
+						<button type="button" onClick={() => onChange(newPollState())}>
+							Remove poll
+						</button>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }

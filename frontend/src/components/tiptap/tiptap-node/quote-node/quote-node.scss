@@ -17,6 +17,8 @@
   blockquote.quote,
   .quote-node {
     position: relative;
+    // Contains a floated box or image inside the quote.
+    display: flow-root;
     padding: 0.75rem 1rem;
     margin: 1.5rem 0;
     border-radius: 0.5rem;
@@ -84,6 +86,45 @@
   .quote-node-content {
     > *:last-child {
       margin-bottom: 0;
+    }
+  }
+}
+
+/* =====================
+     OOC
+     The out-of-character variant of the quote (v1's [ooc]): no box, an indented
+     italic aside in a muted blue, labelled "OOC:". Applies to the editor and the
+     read-only content alike, so it is scoped to .ProseMirror.
+     ===================== */
+.ProseMirror {
+  --ooc-color: #44b;
+
+  .dark & {
+    --ooc-color: #89c;
+  }
+
+  :is(blockquote.quote, .quote-node).ooc {
+    margin: 1em 0 1em 1.25rem;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: var(--ooc-color);
+    font-style: italic;
+
+    // The label and the delete button keep the aside's color, upright.
+    .ooc-label {
+      margin-bottom: 0.25rem;
+      color: var(--ooc-color);
+      font-size: 0.85em;
+      font-style: normal;
+      font-weight: 700;
+      font-variant: small-caps;
+    }
+
+    // Emphasis inside an italic aside reads as upright, like v1.
+    em {
+      font-style: normal;
     }
   }
 }

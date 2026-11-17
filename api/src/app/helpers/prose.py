@@ -3,6 +3,20 @@
 # Nodes whose content must not leak into a text excerpt: quotes repeat someone
 # else's post, and a note is hidden from everyone but the users it names.
 EXCLUDED_NODE_TYPES = frozenset({"quote", "blockquote", "note"})
+SPOILER_NODE_TYPE = "spoiler"
+QUOTE_NODE_TYPE = "quote"
+OOC_VARIANT = "ooc"
+SPOILER_PREVIEW_PLACEHOLDER = "[Spoiler]"
+
+
+def _is_excluded(node: dict) -> bool:
+    """Whether the node's content is left out of text and mentions. An OOC block is
+    a quote node, but it's the author's own words, so it stays."""
+    node_type = node.get("type")
+    if node_type == QUOTE_NODE_TYPE:
+        attrs = node.get("attrs")
+        return not (isinstance(attrs, dict) and attrs.get("variant") == OOC_VARIANT)
+    return node_type in EXCLUDED_NODE_TYPES
 
 
 SPEAKER_NODE_TYPE = "npcSpeaker"
@@ -39,11 +53,15 @@ def _collect(
     npc_names: dict[int, str],
     image_placeholder: str | None = None,
     user_names: dict[int, str] | None = None,
+    spoiler_placeholder: str | None = None,
 ) -> None:
     node_type = node.get("type")
-    if node_type in EXCLUDED_NODE_TYPES:
+    if _is_excluded(node):
         # Still a block boundary, so the text around it doesn't run together.
         parts.append(" ")
+        return
+    if node_type == SPOILER_NODE_TYPE and spoiler_placeholder is not None:
+        parts.append(f" {spoiler_placeholder} ")
         return
     if node_type == "text":
         parts.append(node.get("text", ""))
@@ -65,7 +83,9 @@ def _collect(
     if node_type == ROSTER_NODE_TYPE:
         parts.append(f" {_roster_text(node.get('attrs') or {}, npc_names)} ")
     for child in node.get("content") or []:
-        _collect(child, parts, npc_names, image_placeholder, user_names)
+        _collect(
+            child, parts, npc_names, image_placeholder, user_names, spoiler_placeholder
+        )
     # Block nodes, hard breaks and rules all separate the text around them.
     parts.append(" ")
 
@@ -75,6 +95,7 @@ def prose_to_text(
     npc_names: dict[int, str] | None = None,
     image_placeholder: str | None = None,
     user_names: dict[int, str] | None = None,
+    spoiler_placeholder: str | None = None,
 ) -> str:
     """The visible text of a document, with whitespace collapsed to single spaces.
 
@@ -83,10 +104,13 @@ def prose_to_text(
     becomes ``"Title: Name, Name"`` from the same names. Images contribute nothing
     unless ``image_placeholder`` is given, which then stands in for each one. An
     @mention becomes ``"@username"`` from ``user_names``, or ``"@[deleted]"`` when
-    its id isn't in there.
+    its id isn't in there. A spoiler block's text is kept unless
+    ``spoiler_placeholder`` is given, which then stands in for the whole block.
     """
     parts: list[str] = []
-    _collect(body, parts, npc_names or {}, image_placeholder, user_names)
+    _collect(
+        body, parts, npc_names or {}, image_placeholder, user_names, spoiler_placeholder
+    )
     return " ".join("".join(parts).split())
 
 
@@ -147,7 +171,7 @@ def content_npc_ids(body: dict) -> list[int]:
 def _walk_visible(node: object):
     """Like ``_walk``, but without descending into quotes and notes (and not
     yielding them either)."""
-    if not isinstance(node, dict) or node.get("type") in EXCLUDED_NODE_TYPES:
+    if not isinstance(node, dict) or _is_excluded(node):
         return
     yield node
     content = node.get("content")
@@ -190,6 +214,97 @@ def mentioned_user_ids(body: dict) -> list[int]:
     return list(dict.fromkeys(ids))
 
 
+NOTE_NODE_TYPE = "note"
+NOTE_MODE_PRIVATE = "private"
+# Most users one note may name.
+MAX_NOTE_RECIPIENTS = 20
+
+
+def _node_attrs(node: dict) -> dict:
+    attrs = node.get("attrs")
+    return attrs if isinstance(attrs, dict) else {}
+
+
+def raw_note_recipient_ids(node: dict) -> list | None:
+    """The ``userIds`` of a note node as stored (so possibly not an int each), or
+    ``None`` when it isn't a list. A note without the attr has no recipients."""
+    ids = _node_attrs(node).get("userIds", [])
+    return ids if isinstance(ids, list) else None
+
+
+def note_recipient_ids(node: dict) -> list[int]:
+    """The distinct, well-formed recipient ids of a note node, in order."""
+    ids = raw_note_recipient_ids(node) or []
+    return list(dict.fromkeys(i for i in ids if is_valid_id(i)))
+
+
+def is_hidden_note(node: dict) -> bool:
+    return (
+        node.get("type") == NOTE_NODE_TYPE and _node_attrs(node).get("hidden") is True
+    )
+
+
+def note_nodes(body: dict) -> list[dict]:
+    """Every note node in the document, nested ones too, in document order."""
+    return [node for node in _walk(body) if node.get("type") == NOTE_NODE_TYPE]
+
+
+def all_note_recipient_ids(body: dict) -> list[int]:
+    """The distinct, well-formed recipient ids across every note in the document."""
+    ids = [i for node in note_nodes(body) for i in note_recipient_ids(node)]
+    return list(dict.fromkeys(ids))
+
+
+def redact_notes(body: dict, viewer_id: int | None, sees_all_notes: bool) -> dict:
+    """A copy of the document with the notes the viewer can't read taken out.
+
+    A viewer reads a note if ``sees_all_notes`` (the post's author, a GM of its
+    game, or a moderator of its forum) or if they are one of its recipients. Any
+    other note becomes a stub: its attrs (recipients, mode) with ``hidden`` set and
+    a single empty paragraph for content, so none of its text is in the result. A
+    private note is dropped instead, with no stub. The whole document is walked, so
+    notes inside quotes, lists, or other notes are covered. The input isn't
+    changed.
+    """
+    redacted = _redact_node(body, viewer_id, sees_all_notes)
+    if redacted is None:
+        # Only possible for a malformed document whose root is a private note.
+        return {"type": "doc", "content": [{"type": "paragraph"}]}
+    return redacted
+
+
+def _redact_node(node: object, viewer_id: int | None, sees_all: bool):
+    """The redacted copy of ``node``, or ``None`` when it is to be dropped."""
+    if not isinstance(node, dict):
+        return node
+    if node.get("type") == NOTE_NODE_TYPE and not sees_all:
+        attrs = _node_attrs(node)
+        if viewer_id is None or viewer_id not in note_recipient_ids(node):
+            if attrs.get("mode") == NOTE_MODE_PRIVATE:
+                return None
+            return {
+                "type": NOTE_NODE_TYPE,
+                "attrs": {
+                    "mode": "note",
+                    "userIds": note_recipient_ids(node),
+                    "hidden": True,
+                },
+                "content": [{"type": "paragraph"}],
+            }
+    content = node.get("content")
+    if not isinstance(content, list):
+        return dict(node)
+    redacted = []
+    for child in content:
+        new_child = _redact_node(child, viewer_id, sees_all)
+        if new_child is not None:
+            redacted.append(new_child)
+    if content and not redacted:
+        # Every child was a private note; a block container can't be left empty.
+        redacted = [{"type": "paragraph"}]
+    return {**node, "content": redacted}
+
+
 def prose_snippet(
     body: dict,
     limit: int,
@@ -198,8 +313,10 @@ def prose_snippet(
     user_names: dict[int, str] | None = None,
 ) -> str:
     """``prose_to_text`` cut to at most ``limit`` characters, ending in an ellipsis
-    when it was cut."""
-    text = prose_to_text(body, npc_names, image_placeholder, user_names)
+    when it was cut. A preview never shows spoiler text; it reads ``[Spoiler]``."""
+    text = prose_to_text(
+        body, npc_names, image_placeholder, user_names, SPOILER_PREVIEW_PLACEHOLDER
+    )
     if len(text) <= limit:
         return text
     return text[: limit - 1].rstrip() + "…"

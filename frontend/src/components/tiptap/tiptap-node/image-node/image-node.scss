@@ -9,13 +9,23 @@
     display: inline-block;
   }
 
-  > img:not([data-type="emoji"] img) {
+  // A linked image is `<a class="image-link"><img></a>`. The anchor stays inline
+  // and its image is block-level (above), so margins, max-width, and floats
+  // (box-node.scss, written against the img) apply to the image either way.
+  // A floated image (see box-node.scss) sets its own margin.
+  > img:not([data-type="emoji"] img, [data-float="left"], [data-float="right"]),
+  > a.image-link > img:not([data-float="left"], [data-float="right"]) {
     margin: 2rem 0;
+  }
+
+  > img:not([data-type="emoji"] img),
+  > a.image-link > img {
     outline: 0.125rem solid transparent;
     border-radius: var(--tt-radius-xs, 0.25rem);
   }
 
-  img:not([data-type="emoji"] img).ProseMirror-selectednode {
+  img:not([data-type="emoji"] img).ProseMirror-selectednode,
+  a.image-link.ProseMirror-selectednode > img {
     outline-color: var(--tt-brand-color-500);
   }
 

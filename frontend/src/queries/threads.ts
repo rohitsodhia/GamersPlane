@@ -154,6 +154,8 @@ export type ThreadDetails = {
 	first_post_id: number;
 	// The user's permissions on the thread's forum.
 	permissions: ForumPermission[];
+	// The user reads every note in the thread (a moderator or the game's GM).
+	sees_all_notes: boolean;
 	// Null for guests, or when the thread is fully read.
 	first_unread_post_id: number | null;
 	first_unread_page: number | null;

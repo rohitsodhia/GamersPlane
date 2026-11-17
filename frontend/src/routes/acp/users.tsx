@@ -89,6 +89,7 @@ function RouteComponent() {
 				<form className={styles.search} onSubmit={submitSearch}>
 					<input
 						type="text"
+						name="user_search"
 						placeholder="Username search"
 						value={searchInput}
 						onChange={(event) => setSearchInput(event.target.value)}

@@ -1,0 +1,24 @@
+// Fills the width of its group: the text color popover's picker sets that width,
+// and the highlight popover (no picker) falls back to the minimum below.
+.tiptap-color-swatches {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 12.5rem;
+
+  .tiptap-color-swatch {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    min-width: 0;
+    padding: 0;
+    border: 1px solid var(--tt-border-color);
+    border-radius: var(--tt-radius-xs, 0.25rem);
+
+    &[data-active-state="on"] {
+      outline: 2px solid var(--tt-brand-color-500);
+      outline-offset: 1px;
+    }
+  }
+}

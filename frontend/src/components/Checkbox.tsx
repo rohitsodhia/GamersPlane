@@ -2,12 +2,14 @@ import { Checkbox as RACCheckbox } from "react-aria-components";
 
 export function Checkbox({
 	id,
+	name,
 	checked,
 	onChange,
 	disabled,
 	className,
 }: {
 	id: string;
+	name: string;
 	checked: boolean;
 	onChange: (checked: boolean) => void;
 	disabled?: boolean;
@@ -16,6 +18,7 @@ export function Checkbox({
 	return (
 		<RACCheckbox
 			id={id}
+			name={name}
 			isSelected={checked}
 			onChange={onChange}
 			isDisabled={disabled}

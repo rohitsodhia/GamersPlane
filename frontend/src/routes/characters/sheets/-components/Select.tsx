@@ -85,6 +85,7 @@ export function Select({
 		<>
 			<RACSelect
 				id={domId}
+				name={name}
 				className={clsx(
 					"char-sheet-select",
 					live.saving && "char-sheet-live--saving",

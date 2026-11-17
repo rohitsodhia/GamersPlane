@@ -14,7 +14,7 @@ import {
 } from "@tanstack/react-router";
 import type { JSONContent } from "@tiptap/core";
 import clsx from "clsx";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { ActionsMenu, type MenuAction } from "#/components/ActionsMenu";
 import { ConfirmDialog } from "#/components/ConfirmDialog";
@@ -35,7 +35,9 @@ import {
 	addMentions,
 	type ContentMention,
 } from "#/components/tiptap/tiptap-node/mention-node/mention";
+import { dropUnreadableNotes } from "#/components/tiptap/tiptap-node/note-node/note";
 import { flattenNpcBlocks } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker";
+import { contentHasPoll } from "#/components/tiptap/tiptap-node/poll-node/poll-node-extension";
 import { ApiError } from "#/lib/api";
 import { PAGINATE_PER_PAGE } from "#/lib/config";
 import { formatDateTime } from "#/lib/format-date";
@@ -187,8 +189,11 @@ function PostItem({
 	onQuote,
 	onDelete,
 	onMarkUnread,
+	poll,
 }: {
 	post: Post;
+	// The thread's poll, for a first post whose body marks where it goes.
+	poll?: ReactNode;
 	sideClass: string;
 	threadId: number;
 	page: number;
@@ -319,6 +324,9 @@ function PostItem({
 						className="post-body"
 						npcs={post.content_npcs}
 						mentions={post.content_mentions}
+						noteRecipients={post.note_recipients}
+						author={post.author.username}
+						poll={poll}
 					/>
 					<PostRollList rolls={post.rolls} />
 					<PostDrawList
@@ -452,6 +460,18 @@ function RouteComponent() {
 	const firstPost = posts.find((post) => post.id === thread.first_post_id);
 	const canReportThread = me !== undefined && firstPost?.author.id !== me.id;
 
+	// The poll shows inside the first post when its body marks a spot for it; with no
+	// marker, or when the first post isn't on this page, it stays above the posts.
+	const threadPoll = thread.poll && (
+		<ThreadPoll
+			threadId={threadId}
+			poll={thread.poll}
+			locked={thread.options.locked}
+			loggedIn={loggedIn}
+		/>
+	);
+	const pollInFirstPost = thread.poll != null && contentHasPoll(firstPost?.body);
+
 	const isModerator = thread.permissions.includes("forum_moderate");
 	const [modError, setModError] = useState<string | null>(null);
 	const modMutation = useMutation({
@@ -568,9 +588,14 @@ function RouteComponent() {
 	const handleQuote = (post: Post) => {
 		// Speech blocks are flattened: a quote is a reference, and mustn't carry
 		// NPC ids the quoter may not be allowed to use.
+		// Notes too: the quote is read by everyone, so it keeps only the notes the
+		// quoter was meant to read (all of them for a GM or moderator).
 		const quotedBody = trimTrailingEmptyParagraph({
 			...post.body,
-			content: flattenNpcBlocks(post.body.content ?? [], post.content_npcs),
+			content: dropUnreadableNotes(
+				flattenNpcBlocks(post.body.content ?? [], post.content_npcs),
+				{ userId: me?.id ?? null, seesAllNotes: thread.sees_all_notes },
+			),
 		});
 		const quoteNode: JSONContent = {
 			type: "quote",
@@ -581,7 +606,10 @@ function RouteComponent() {
 					: [{ type: "paragraph" }],
 		};
 
-		setQuotedMentions((quoted) => addMentions(quoted, post.content_mentions));
+		// Note recipients share the mentions' name lookup in the editor.
+		setQuotedMentions((quoted) =>
+			addMentions(addMentions(quoted, post.content_mentions), post.note_recipients),
+		);
 		replyForm.setFieldValue("body", (current) => {
 			const base = isContentEmpty(current) ? emptyContent : current;
 			// Always follow the quote with a real (not just tiptap's implicit
@@ -658,14 +686,7 @@ function RouteComponent() {
 				</div>
 				{modError && <div className="error">{modError}</div>}
 
-				{thread.poll && (
-					<ThreadPoll
-						threadId={threadId}
-						poll={thread.poll}
-						locked={thread.options.locked}
-						loggedIn={loggedIn}
-					/>
-				)}
+				{thread.poll && !pollInFirstPost && threadPoll}
 
 				<div className="thread-pagination">
 					<Paginate numItems={count} current={page} onPageChange={setPage} />
@@ -702,6 +723,11 @@ function RouteComponent() {
 							canReport={me !== undefined && post.author.id !== me.id}
 							canToggleDraws={canToggleDraws}
 							onQuote={handleQuote}
+							poll={
+								post.id === thread.first_post_id && pollInFirstPost
+									? threadPoll
+									: undefined
+							}
 							onDelete={(post) => deleteMutation.mutate(post.id)}
 							onMarkUnread={
 								loggedIn && isLastPage && index === posts.length - 1
@@ -760,33 +786,19 @@ function RouteComponent() {
 								</div>
 							)}
 
-						<replyForm.Field
-							name="body"
-							validators={{
-								onBlur: ({ value }) =>
-									isContentEmpty(value) ? "Message required!" : undefined,
-								onSubmit: ({ value }) =>
-									isContentEmpty(value) ? "Message required!" : undefined,
-							}}
-						>
+						{/* An empty message just keeps the Post button disabled (below); there's
+						    nothing else on the field to explain. */}
+						<replyForm.Field name="body">
 							{(field) => (
-								<>
-									<Editor
-										id={field.name}
-										value={field.state.value}
-										onBlur={field.handleBlur}
-										onChange={(value) => field.handleChange(value)}
-										className={field.state.meta.isValid ? "" : "field-invalid"}
-										npcLibrary={npcLibrary}
-										mentions
-										contentMentions={quotedMentions}
-									/>
-									{field.state.meta.errors[0] && (
-										<div className="error" role="alert">
-											{field.state.meta.errors[0]}
-										</div>
-									)}
-								</>
+								<Editor
+									id={field.name}
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(value) => field.handleChange(value)}
+									npcLibrary={npcLibrary}
+									mentions
+									contentMentions={quotedMentions}
+								/>
 							)}
 						</replyForm.Field>
 
@@ -813,7 +825,11 @@ function RouteComponent() {
 							</div>
 						)}
 
-						<replyForm.Subscribe selector={(state) => state.canSubmit}>
+						<replyForm.Subscribe
+							selector={(state) =>
+								state.canSubmit && !isContentEmpty(state.values.body)
+							}
+						>
 							{(canSubmit) => (
 								<div className="align-center">
 									<button

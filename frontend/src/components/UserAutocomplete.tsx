@@ -14,12 +14,14 @@ export type UserRef = { username: string; id: number | null };
  */
 export function UserAutocomplete({
 	id,
+	name,
 	label,
 	defaultUsername = "",
 	onChange,
 	exclude,
 }: {
 	id: string;
+	name: string;
 	label: string;
 	defaultUsername?: string;
 	onChange: (value: UserRef) => void;
@@ -66,6 +68,7 @@ export function UserAutocomplete({
 			<label htmlFor={id}>{label}</label>
 			<Autocomplete
 				id={id}
+				name={name}
 				inputValue={inputValue}
 				items={candidates}
 				getId={(user) => String(user.id)}

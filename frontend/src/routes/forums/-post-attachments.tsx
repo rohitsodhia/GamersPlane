@@ -37,18 +37,20 @@ const FENGSHUI_ROLL_TYPES: { value: FengShuiRollType; label: string }[] = [
 
 export function LabelledCheckbox({
 	id,
+	name,
 	label,
 	checked,
 	onChange,
 }: {
 	id: string;
+	name: string;
 	label: string;
 	checked: boolean;
 	onChange: (checked: boolean) => void;
 }) {
 	return (
 		<span className={styles["labelled"]}>
-			<Checkbox id={id} checked={checked} onChange={onChange} />
+			<Checkbox id={id} name={name} checked={checked} onChange={onChange} />
 			<label htmlFor={id}>{label}</label>
 		</span>
 	);
@@ -94,6 +96,7 @@ function RollEditor({
 			<div className={styles["row-main"]}>
 				<Select
 					id={`roll-system-${row.key}`}
+					name="roll_system"
 					ariaLabel="Dice system"
 					items={SYSTEMS}
 					getId={(item) => item.value}
@@ -103,6 +106,7 @@ function RollEditor({
 				/>
 				<input
 					type="text"
+					name="roll_input"
 					aria-label="Roll"
 					className={clsx(styles["grow"], error && "field-invalid")}
 					placeholder={system?.placeholder}
@@ -115,6 +119,7 @@ function RollEditor({
 			</div>
 			<input
 				type="text"
+				name="roll_reason"
 				aria-label="Reason"
 				placeholder="Reason (optional)"
 				maxLength={100}
@@ -125,6 +130,7 @@ function RollEditor({
 				{row.system === "basic" && (
 					<LabelledCheckbox
 						id={`roll-reroll-aces-${row.key}`}
+						name="roll_reroll_aces"
 						label="Reroll aces"
 						checked={row.rerollAces}
 						onChange={(checked) => onChange({ rerollAces: checked })}
@@ -135,6 +141,7 @@ function RollEditor({
 						Modifier{" "}
 						<input
 							type="number"
+							name="roll_modifier"
 							step={1}
 							className={styles["number"]}
 							value={row.modifier}
@@ -147,6 +154,7 @@ function RollEditor({
 						<span id={`roll-type-label-${row.key}`}>Roll type</span>
 						<Select
 							id={`roll-type-${row.key}`}
+							name="roll_type"
 							ariaLabelledBy={`roll-type-label-${row.key}`}
 							items={FENGSHUI_ROLL_TYPES}
 							getId={(item) => item.value}
@@ -158,18 +166,21 @@ function RollEditor({
 				)}
 				<LabelledCheckbox
 					id={`roll-hide-reason-${row.key}`}
+					name="roll_hide_reason"
 					label="Hide reason"
 					checked={row.hideReason}
 					onChange={(checked) => onChange({ hideReason: checked })}
 				/>
 				<LabelledCheckbox
 					id={`roll-hide-dice-${row.key}`}
+					name="roll_hide_dice"
 					label="Hide dice"
 					checked={row.hideDice}
 					onChange={(checked) => onChange({ hideDice: checked })}
 				/>
 				<LabelledCheckbox
 					id={`roll-hide-result-${row.key}`}
+					name="roll_hide_result"
 					label="Hide result"
 					checked={row.hideResult}
 					onChange={(checked) => onChange({ hideResult: checked })}
@@ -201,6 +212,7 @@ function DrawEditor({
 			<div className={styles["row-main"]}>
 				<Select
 					id={`draw-deck-${row.key}`}
+					name="draw_deck"
 					ariaLabel="Deck"
 					className={styles["grow"]}
 					items={choices}
@@ -211,6 +223,7 @@ function DrawEditor({
 				/>
 				<input
 					type="number"
+					name="draw_count"
 					aria-label="Cards to draw"
 					className={styles["number"]}
 					min={1}
@@ -225,6 +238,7 @@ function DrawEditor({
 			</div>
 			<input
 				type="text"
+				name="draw_reason"
 				aria-label="Reason"
 				placeholder="Reason (required)"
 				maxLength={100}

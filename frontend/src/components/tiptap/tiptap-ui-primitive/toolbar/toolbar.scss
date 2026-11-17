@@ -65,6 +65,25 @@
     }
   }
 
+  // Several `.tiptap-toolbar-row`s stacked in one bordered block. Declared after
+  // the fixed variant (same specificity) so it overrides its single-row layout.
+  &--stacked[data-variant="fixed"] {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0.25rem 0.5rem;
+    overflow: visible;
+
+    @media (max-width: 480px) {
+      // The floating-at-the-bottom toolbar grows with its rows instead of
+      // being cut off by the single-row height.
+      height: auto;
+      padding: 0.25rem 0.5rem calc(0.25rem + var(--tt-safe-area-bottom));
+      // Rows stay on one line each and the block scrolls sideways as one.
+      overflow-x: auto;
+    }
+  }
+
   &[data-variant="floating"] {
     --tt-toolbar-padding: 0.125rem;
     --tt-toolbar-border-width: 1px;
@@ -93,6 +112,54 @@
       border-radius: 0;
       border: none;
       box-shadow: none;
+    }
+  }
+}
+
+.tiptap-toolbar-row {
+  --tt-row-divider-color: var(--tt-gray-light-a-200);
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.375rem;
+  // Clips the divider of whichever group starts a wrapped line (see below).
+  overflow: hidden;
+  padding: 0.125rem 0;
+
+  .dark & {
+    --tt-row-divider-color: var(--tt-gray-dark-a-200);
+  }
+
+  // Groups are divided by a left border instead of separator elements. Each
+  // group is pulled 1px left, so the one that starts a line puts its border
+  // outside the row, where overflow clips it: no divider dangles at a wrap.
+  > .tiptap-toolbar-group {
+    margin-left: -1px;
+    padding-left: 0.375rem;
+    border-left: 1px solid var(--tt-row-divider-color);
+  }
+
+  // Pushes a group (search and replace) to the right edge of its line.
+  > .tiptap-toolbar-group--end {
+    margin-left: auto;
+    border-left: none;
+  }
+
+  @media (max-width: 480px) {
+    flex-wrap: nowrap;
+    width: max-content;
+    min-width: 100%;
+    overflow: visible;
+
+    > .tiptap-toolbar-group {
+      flex: 0 0 auto;
+    }
+
+    > .tiptap-toolbar-group:first-child {
+      margin-left: 0;
+      padding-left: 0;
+      border-left: none;
     }
   }
 }

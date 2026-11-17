@@ -116,6 +116,7 @@ export function NpcImageChooser({
 				</FileTrigger>
 				<TextField
 					aria-label="Image URL"
+					name="npc_image_url"
 					className={styles["url"]}
 					value={url}
 					onChange={setUrl}

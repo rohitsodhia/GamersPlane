@@ -1,7 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { Color } from "@tiptap/extension-color";
 import { FindAndReplace } from "@tiptap/extension-find-and-replace";
-import { Image } from "@tiptap/extension-image";
 import { Link } from "@tiptap/extension-link";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Subscript } from "@tiptap/extension-subscript";
@@ -12,12 +11,23 @@ import { Typography } from "@tiptap/extension-typography";
 import { Selection } from "@tiptap/extensions";
 import { AllSelection } from "@tiptap/pm/state";
 import type { Editor as TiptapEditor } from "@tiptap/react";
-import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
+import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import clsx from "clsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // --- Tiptap node styles ---
+import { FontFamily } from "#/components/tiptap/tiptap-extension/font-family-extension";
+import { FontSize } from "#/components/tiptap/tiptap-extension/font-size-extension";
+import { BannerHeading } from "#/components/tiptap/tiptap-extension/heading-extension";
+import { SafeHighlight } from "#/components/tiptap/tiptap-extension/highlight-extension";
+import { FloatImage } from "#/components/tiptap/tiptap-extension/image-extension";
+import { SafeOrderedList } from "#/components/tiptap/tiptap-extension/ordered-list-extension";
+import { Box } from "#/components/tiptap/tiptap-node/box-node/box-node-extension";
+import {
+	Column,
+	Columns,
+} from "#/components/tiptap/tiptap-node/columns-node/columns-node-extension";
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
 import {
 	addMentions,
@@ -29,15 +39,30 @@ import {
 	MentionContext,
 } from "#/components/tiptap/tiptap-node/mention-node/mention-node-extension";
 import { useMentionPicker } from "#/components/tiptap/tiptap-node/mention-node/mention-picker";
-import { Note } from "#/components/tiptap/tiptap-node/note-node/note-node-extension";
+import {
+	Note,
+	NoteContext,
+} from "#/components/tiptap/tiptap-node/note-node/note-node-extension";
 import { NpcRoster } from "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node-extension";
 import {
 	NpcSpeaker,
 	NpcSpeakerContext,
 } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node-extension";
+import {
+	hasPoll,
+	Poll,
+} from "#/components/tiptap/tiptap-node/poll-node/poll-node-extension";
 import { Quote } from "#/components/tiptap/tiptap-node/quote-node/quote-node-extension";
+import { Spoiler } from "#/components/tiptap/tiptap-node/spoiler-node/spoiler-node-extension";
+import { TABLE_EXTENSIONS } from "#/components/tiptap/tiptap-node/table-node/table-node-extension";
+import { Youtube } from "#/components/tiptap/tiptap-node/youtube-node/youtube-node-extension";
+import type { SearchUser } from "#/queries/users";
+import "#/components/tiptap/tiptap-extension/font-faces";
+import "#/components/tiptap/tiptap-extension/text-format.scss";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
+import "#/components/tiptap/tiptap-node/box-node/box-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
+import "#/components/tiptap/tiptap-node/columns-node/columns-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
 import "#/components/tiptap/tiptap-node/list-node/list-node.scss";
 import "#/components/tiptap/tiptap-node/image-node/image-node.scss";
@@ -47,7 +72,11 @@ import "#/components/tiptap/tiptap-node/mention-node/mention-node.scss";
 import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
 import "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node.scss";
 import "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node.scss";
+import "#/components/tiptap/tiptap-node/poll-node/poll-node.scss";
 import "#/components/tiptap/tiptap-node/quote-node/quote-node.scss";
+import "#/components/tiptap/tiptap-node/spoiler-node/spoiler-node.scss";
+import "#/components/tiptap/tiptap-node/table-node/table-node.scss";
+import "#/components/tiptap/tiptap-node/youtube-node/youtube-node.scss";
 
 import { NpcChooser } from "#/components/NpcChooser";
 // --- Icons ---
@@ -58,8 +87,15 @@ import { ImagePlusIcon } from "#/components/tiptap/tiptap-icons/image-plus-icon"
 import { LinkIcon } from "#/components/tiptap/tiptap-icons/link-icon";
 // --- Tiptap UI ---
 import { BlockquoteButton } from "#/components/tiptap/tiptap-ui/blockquote-button";
+import {
+	BoxDropdown,
+	ImageFloatDropdown,
+} from "#/components/tiptap/tiptap-ui/box-dropdown/box-dropdown";
 import { CodeBlockButton } from "#/components/tiptap/tiptap-ui/code-block-button";
+import { ColumnsDropdown } from "#/components/tiptap/tiptap-ui/columns-dropdown/columns-dropdown";
 import { HeadingDropdownMenu } from "#/components/tiptap/tiptap-ui/heading-dropdown-menu";
+import { HighlightPopover } from "#/components/tiptap/tiptap-ui/highlight-popover/highlight-popover";
+import { ImageLinkPopover } from "#/components/tiptap/tiptap-ui/image-link-popover/image-link-popover";
 import {
 	LinkButton,
 	LinkContent,
@@ -67,10 +103,16 @@ import {
 } from "#/components/tiptap/tiptap-ui/link-popover";
 import { ListDropdownMenu } from "#/components/tiptap/tiptap-ui/list-dropdown-menu";
 import { MarkButton } from "#/components/tiptap/tiptap-ui/mark-button";
+import { OrderedListOptions } from "#/components/tiptap/tiptap-ui/ordered-list-options/ordered-list-options";
+import {
+	FontFamilyDropdown,
+	FontSizeDropdown,
+} from "#/components/tiptap/tiptap-ui/preset-dropdown/font-dropdowns";
 import {
 	SearchAndReplace,
 	SearchAndReplaceButton,
 } from "#/components/tiptap/tiptap-ui/search-and-replace";
+import { TableDropdown } from "#/components/tiptap/tiptap-ui/table-dropdown/table-dropdown";
 import { TextAlignButton } from "#/components/tiptap/tiptap-ui/text-align-button";
 import {
 	TextColorPopover,
@@ -78,9 +120,9 @@ import {
 	TextColorPopoverContent,
 } from "#/components/tiptap/tiptap-ui/text-color-popover";
 import { UndoRedoButton } from "#/components/tiptap/tiptap-ui/undo-redo-button";
+import { YoutubePopover } from "#/components/tiptap/tiptap-ui/youtube-popover/youtube-popover";
 // --- UI primitives ---
 import { Button } from "#/components/tiptap/tiptap-ui-primitive/button";
-import { Spacer } from "#/components/tiptap/tiptap-ui-primitive/spacer";
 import {
 	Toolbar,
 	ToolbarGroup,
@@ -105,21 +147,11 @@ const NonInclusiveLink = Link.extend({
 	},
 });
 
-// TextStyle (used to carry the text color mark) is inclusive by default,
-// which extends the color to text typed right after a colored run. Make it
-// exclusive so typing after colored text doesn't inherit the color, same as
-// NonInclusiveLink above.
-const NonInclusiveTextStyle = TextStyle.extend({
-	inclusive() {
-		return false;
-	},
-});
-
 export const emptyContent: JSONContent = { type: "doc", content: [] };
 
 // Nodes that hold no text but are content in their own right, so a post made of
 // just one of them isn't empty.
-const CONTENT_ATOMS = new Set(["image", "npcRoster"]);
+const CONTENT_ATOMS = new Set(["image", "npcRoster", "youtube"]);
 
 export function isContentEmpty(content: JSONContent | null | undefined): boolean {
 	if (!content) return true;
@@ -196,6 +228,82 @@ function QuoteButton({ editor }: { editor: TiptapEditor | null }) {
 			onClick={() => editor.chain().focus().setQuote().run()}
 		>
 			Quote
+		</Button>
+	);
+}
+
+// Out-of-character aside: a variant of the quote node. Marked on while the caret is
+// in one; clicking then takes the content back out, and in a plain quote it turns
+// that quote into an OOC block. Always rendered once the editor exists: the editor
+// state below is empty on the first render, so it must not decide visibility.
+function OocButton({ editor }: { editor: TiptapEditor | null }) {
+	const isActive = useEditorState({
+		editor,
+		selector: ({ editor }) => editor?.isActive("quote", { variant: "ooc" }) ?? false,
+	});
+
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Out of character"
+			aria-label="Out of character"
+			data-active-state={isActive ? "on" : "off"}
+			onClick={() => editor.chain().focus().toggleOoc().run()}
+		>
+			OOC
+		</Button>
+	);
+}
+
+// A collapsible block with a title. Same on/off behavior as the OOC button.
+function SpoilerButton({ editor }: { editor: TiptapEditor | null }) {
+	const isActive = useEditorState({
+		editor,
+		selector: ({ editor }) => editor?.isActive("spoiler") ?? false,
+	});
+
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Spoiler"
+			aria-label="Spoiler"
+			data-active-state={isActive ? "on" : "off"}
+			onClick={() => editor.chain().focus().toggleSpoiler().run()}
+		>
+			Spoiler
+		</Button>
+	);
+}
+
+// Marks where the thread's poll appears in the post. Only passed the thread's first
+// post (see `pollAvailable`); a document holds one marker, so the button is disabled
+// once there is one. Whether it is disabled is read from the editor on each render
+// (the subscription below only triggers that render), since the subscribed state is
+// empty on the first one.
+function PollButton({ editor }: { editor: TiptapEditor | null }) {
+	useEditorState({
+		editor,
+		selector: ({ editor }) => (editor ? hasPoll(editor.state.doc) : false),
+	});
+
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Place the thread's poll here"
+			aria-label="Poll"
+			disabled={hasPoll(editor.state.doc)}
+			onClick={() => editor.chain().focus().insertPoll().run()}
+		>
+			Poll
 		</Button>
 	);
 }
@@ -293,9 +401,11 @@ const MainToolbarContent = ({
 	searchAndReplaceButtonRef,
 	isMobile,
 	npcLibrary,
+	pollAvailable,
 }: {
 	editor: TiptapEditor | null;
 	npcLibrary: NpcLibrary | null;
+	pollAvailable: boolean;
 	onTextColorClick: () => void;
 	onLinkClick: () => void;
 	onSearchAndReplaceClick: () => void;
@@ -305,75 +415,87 @@ const MainToolbarContent = ({
 }) => {
 	return (
 		<>
-			{/* <Spacer /> */}
+			{/* Row 1: structure and inserts. Groups are divided by CSS borders that
+			    hide themselves at a wrap point (see toolbar.scss). */}
+			<div className="tiptap-toolbar-row">
+				<ToolbarGroup>
+					<UndoRedoButton action="undo" />
+					<UndoRedoButton action="redo" />
+				</ToolbarGroup>
 
-			<ToolbarGroup>
-				<UndoRedoButton action="undo" />
-				<UndoRedoButton action="redo" />
-			</ToolbarGroup>
+				<ToolbarGroup>
+					<HeadingDropdownMenu modal={false} levels={[1, 2, 3, 4]} />
+					<ListDropdownMenu
+						modal={false}
+						types={["bulletList", "orderedList", "taskList"]}
+					/>
+					<BlockquoteButton />
+					<QuoteButton editor={editor} />
+					<OocButton editor={editor} />
+					<SpoilerButton editor={editor} />
+					<CodeBlockButton />
+					<OrderedListOptions />
+				</ToolbarGroup>
 
-			<ToolbarSeparator />
+				<ToolbarGroup>
+					{!isMobile ? <LinkPopover /> : <LinkButton onClick={onLinkClick} />}
+					<ImageUrlButton editor={editor} />
+					<YoutubePopover editor={editor} />
+					<HorizontalRuleButton editor={editor} />
+					<NoteButton editor={editor} />
+					<BoxDropdown editor={editor} />
+					<TableDropdown editor={editor} />
+					<ColumnsDropdown editor={editor} />
+					<ImageFloatDropdown editor={editor} />
+					<ImageLinkPopover editor={editor} />
+					{pollAvailable && <PollButton editor={editor} />}
+					{npcLibrary && <NpcSpeakerButton editor={editor} library={npcLibrary} />}
+					{npcLibrary && <NpcRosterButton editor={editor} />}
+				</ToolbarGroup>
 
-			<ToolbarGroup>
-				<HeadingDropdownMenu modal={false} levels={[1, 2, 3, 4]} />
-				<ListDropdownMenu
-					modal={false}
-					types={["bulletList", "orderedList", "taskList"]}
-				/>
-				<BlockquoteButton />
-				<QuoteButton editor={editor} />
-				<CodeBlockButton />
-			</ToolbarGroup>
+				<ToolbarGroup className="tiptap-toolbar-group--end">
+					<SearchAndReplaceButton
+						ref={searchAndReplaceButtonRef}
+						aria-expanded={isSearchAndReplaceOpen}
+						data-active-state={isSearchAndReplaceOpen ? "on" : "off"}
+						onClick={onSearchAndReplaceClick}
+					/>
+				</ToolbarGroup>
+			</div>
 
-			<ToolbarSeparator />
+			{/* Row 2: text formatting. */}
+			<div className="tiptap-toolbar-row">
+				<ToolbarGroup>
+					<MarkButton type="bold" />
+					<MarkButton type="italic" />
+					<MarkButton type="strike" />
+					<MarkButton type="code" />
+					<MarkButton type="underline" />
+					<MarkButton type="superscript" />
+					<MarkButton type="subscript" />
+				</ToolbarGroup>
 
-			<ToolbarGroup>
-				<MarkButton type="bold" />
-				<MarkButton type="italic" />
-				<MarkButton type="strike" />
-				<MarkButton type="code" />
-				<MarkButton type="underline" />
-				{!isMobile ? (
-					<TextColorPopover />
-				) : (
-					<TextColorPopoverButton onClick={onTextColorClick} />
-				)}
-				{!isMobile ? <LinkPopover /> : <LinkButton onClick={onLinkClick} />}
-				<ImageUrlButton editor={editor} />
-				<HorizontalRuleButton editor={editor} />
-				<NoteButton editor={editor} />
-				{npcLibrary && <NpcSpeakerButton editor={editor} library={npcLibrary} />}
-				{npcLibrary && <NpcRosterButton editor={editor} />}
-			</ToolbarGroup>
+				<ToolbarGroup>
+					{!isMobile ? (
+						<TextColorPopover />
+					) : (
+						<TextColorPopoverButton onClick={onTextColorClick} />
+					)}
+					<HighlightPopover />
+				</ToolbarGroup>
 
-			<ToolbarSeparator />
+				<ToolbarGroup>
+					<FontSizeDropdown />
+					<FontFamilyDropdown />
+				</ToolbarGroup>
 
-			<ToolbarGroup>
-				<MarkButton type="superscript" />
-				<MarkButton type="subscript" />
-			</ToolbarGroup>
-
-			<ToolbarSeparator />
-
-			<ToolbarGroup>
-				<TextAlignButton align="left" />
-				<TextAlignButton align="center" />
-				<TextAlignButton align="right" />
-				<TextAlignButton align="justify" />
-			</ToolbarGroup>
-
-			<Spacer />
-
-			{isMobile && <ToolbarSeparator />}
-
-			<ToolbarGroup>
-				<SearchAndReplaceButton
-					ref={searchAndReplaceButtonRef}
-					aria-expanded={isSearchAndReplaceOpen}
-					data-active-state={isSearchAndReplaceOpen ? "on" : "off"}
-					onClick={onSearchAndReplaceClick}
-				/>
-			</ToolbarGroup>
+				<ToolbarGroup>
+					<TextAlignButton align="left" />
+					<TextAlignButton align="center" />
+					<TextAlignButton align="right" />
+					<TextAlignButton align="justify" />
+				</ToolbarGroup>
+			</div>
 		</>
 	);
 };
@@ -385,7 +507,7 @@ const MobileToolbarContent = ({
 	type: "color" | "link";
 	onBack: () => void;
 }) => (
-	<>
+	<div className="tiptap-toolbar-row">
 		<ToolbarGroup>
 			<Button variant="ghost" onClick={onBack}>
 				<ArrowLeftIcon className="tiptap-button-icon" />
@@ -399,8 +521,8 @@ const MobileToolbarContent = ({
 
 		<ToolbarSeparator />
 
-		{type === "color" ? <TextColorPopoverContent /> : <LinkContent />}
-	</>
+		{type === "color" ? <TextColorPopoverContent onDone={onBack} /> : <LinkContent />}
+	</div>
 );
 
 type EditorProps = {
@@ -432,6 +554,12 @@ type EditorProps = {
 	 * for post editors: the API validates mentions on posts alone.
 	 */
 	mentions?: boolean;
+	/**
+	 * Whether the toolbar offers a Poll button, which marks where the thread's poll
+	 * appears in the post. Only for the first post of a thread that has (or is getting)
+	 * a poll.
+	 */
+	pollAvailable?: boolean;
 };
 
 const NO_CONTENT_NPCS: readonly ContentNpc[] = [];
@@ -448,6 +576,7 @@ const Editor = ({
 	contentNpcs = NO_CONTENT_NPCS,
 	contentMentions = NO_CONTENT_MENTIONS,
 	mentions = false,
+	pollAvailable = false,
 }: EditorProps) => {
 	// Users picked since the editor opened, whom the post's own lookup doesn't list.
 	const [pickedMentions, setPickedMentions] = useState<ContentMention[]>([]);
@@ -459,16 +588,21 @@ const Editor = ({
 	const [mobileView, setMobileView] = useState<"main" | "color" | "link">("main");
 	const [isSearchAndReplaceOpen, setIsSearchAndReplaceOpen] = useState(false);
 	const toolbarRef = useRef<HTMLDivElement>(null);
+	const wrapperRef = useRef<HTMLDivElement>(null);
 	const searchAndReplaceButtonRef = useRef<HTMLButtonElement>(null);
 
 	const editor = useEditor({
 		immediatelyRender: false,
 		extensions: [
 			StarterKit.configure({
+				heading: false,
 				horizontalRule: false,
 				hardBreak: false,
 				link: false,
+				orderedList: false,
 			}),
+			SafeOrderedList,
+			BannerHeading,
 			NonInclusiveLink.configure({
 				openOnClick: false,
 				enableClickSelection: false,
@@ -478,15 +612,25 @@ const Editor = ({
 			NpcSpeaker,
 			NpcRoster,
 			Quote,
+			Spoiler,
+			Youtube,
+			Poll,
+			Box,
+			Columns,
+			Column,
+			...TABLE_EXTENSIONS,
 			...(mentions
 				? [Mention.configure({ suggestion: mentionPicker.suggestion })]
 				: []),
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			TaskList,
 			TaskItem.configure({ nested: true }),
-			NonInclusiveTextStyle,
+			TextStyle,
 			Color,
-			Image,
+			SafeHighlight,
+			FontSize,
+			FontFamily,
+			FloatImage,
 			Typography,
 			Superscript,
 			Subscript,
@@ -533,6 +677,22 @@ const Editor = ({
 		overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
 	});
 
+	// The toolbar wraps onto more lines as the editor narrows, so the search panel
+	// (which hangs below it) reads the toolbar's real height from a CSS variable.
+	useEffect(() => {
+		const toolbar = toolbarRef.current;
+		const wrapper = wrapperRef.current;
+		if (!toolbar || !wrapper) return;
+		const observer = new ResizeObserver(() => {
+			wrapper.style.setProperty(
+				"--editor-toolbar-height",
+				`${toolbar.getBoundingClientRect().height}px`,
+			);
+		});
+		observer.observe(toolbar);
+		return () => observer.disconnect();
+	}, []);
+
 	useEffect(() => {
 		if (!isMobile && mobileView !== "main") {
 			setMobileView("main");
@@ -578,12 +738,19 @@ const Editor = ({
 	// Memoize the provider value to avoid unnecessary re-renders
 	const providerValue = useMemo(() => ({ editor }), [editor]);
 	const speakerContext = { library: npcLibrary, fallback: contentNpcs };
+	// A note's recipient picked in this editor gets a name before the post is saved,
+	// the same way a picked @mention does.
+	const noteContext = {
+		remember: (user: SearchUser) =>
+			setPickedMentions((picked) => addMentions(picked, [user])),
+	};
 
 	return (
-		<div className="tiptap-editor simple-editor-wrapper">
+		<div ref={wrapperRef} className="tiptap-editor simple-editor-wrapper">
 			<EditorContext.Provider value={providerValue}>
 				<Toolbar
 					ref={toolbarRef}
+					className="tiptap-toolbar--stacked"
 					style={{
 						...(isMobile ? { bottom: `calc(100% - ${height - rect.y}px)` } : {}),
 					}}
@@ -598,6 +765,7 @@ const Editor = ({
 							searchAndReplaceButtonRef={searchAndReplaceButtonRef}
 							isMobile={isMobile}
 							npcLibrary={npcLibrary}
+							pollAvailable={pollAvailable}
 						/>
 					) : (
 						<MobileToolbarContent
@@ -621,11 +789,13 @@ const Editor = ({
 					<MentionContext.Provider
 						value={findMentionNames(pickedMentions, contentMentions)}
 					>
-						<EditorContent
-							editor={editor}
-							role="presentation"
-							className={clsx("simple-editor-content", className)}
-						/>
+						<NoteContext.Provider value={noteContext}>
+							<EditorContent
+								editor={editor}
+								role="presentation"
+								className={clsx("simple-editor-content", className)}
+							/>
+						</NoteContext.Provider>
 					</MentionContext.Provider>
 				</NpcSpeakerContext.Provider>
 				{mentions && mentionPicker.popup}

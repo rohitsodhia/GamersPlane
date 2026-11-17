@@ -37,6 +37,7 @@ function ForumSearchForm({
 		>
 			<input
 				type="search"
+				name="forum_search"
 				value={value}
 				maxLength={SEARCH_MAX_LENGTH}
 				placeholder={placeholder}

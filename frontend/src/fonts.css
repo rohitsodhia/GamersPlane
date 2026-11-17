@@ -53,6 +53,14 @@
 }
 
 @font-face {
+    font-family: "Kelt";
+    src: url("/fonts/Kelt.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
     font-family: "Aniron";
     src:
         url("/fonts/Aniron.woff2") format("woff2"),

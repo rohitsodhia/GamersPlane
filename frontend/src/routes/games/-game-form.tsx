@@ -210,6 +210,7 @@ export function GameForm({
 								<div>
 									<Select
 										id={field.name}
+										name={field.name}
 										items={systems}
 										getId={(system: BasicSystem) => system.id}
 										getLabel={(system: BasicSystem) => system.name}
@@ -263,6 +264,7 @@ export function GameForm({
 										<div className={styles["char-sheet-picker"]}>
 											<Autocomplete
 												id="allowed-char-sheets-combo"
+												name="allowed_char_sheet"
 												items={available}
 												getId={(system: BasicSystem) => system.id}
 												getLabel={(system: BasicSystem) => system.name}
@@ -314,6 +316,7 @@ export function GameForm({
 								{(field) => (
 									<input
 										id="times-per"
+										name="times_per"
 										type="number"
 										min={1}
 										max={99}
@@ -326,6 +329,7 @@ export function GameForm({
 							<form.Field name="perPeriod">
 								{(field) => (
 									<select
+										name={field.name}
 										value={field.state.value}
 										onChange={(e) => field.handleChange(e.target.value as "d" | "w")}
 									>
@@ -344,6 +348,7 @@ export function GameForm({
 								<div>
 									<input
 										id={field.name}
+										name={field.name}
 										type="number"
 										min={1}
 										max={99}
@@ -365,6 +370,7 @@ export function GameForm({
 										type="number"
 										min={1}
 										max={9}
+										name={field.name}
 										value={field.state.value}
 										onChange={(e) => field.handleChange(Number(e.target.value))}
 									/>
@@ -414,6 +420,7 @@ export function GameForm({
 								<div>
 									<Checkbox
 										id={field.name}
+										name={field.name}
 										checked={field.state.value}
 										onChange={(checked) => field.handleChange(checked)}
 										className={styles["public-input"]}
@@ -436,6 +443,7 @@ export function GameForm({
 										/forums/thread/
 										<input
 											id={field.name}
+											name={field.name}
 											type="number"
 											min={1}
 											value={field.state.value}

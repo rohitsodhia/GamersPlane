@@ -344,6 +344,7 @@ function SheetEditor({
 						</label>
 						<input
 							id="sheet-name"
+							name="sheet_name"
 							type="text"
 							value={nameInput}
 							onChange={(e) => setNameInput(e.target.value)}

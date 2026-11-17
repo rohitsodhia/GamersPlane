@@ -1,0 +1,26 @@
+// Where the thread's poll appears. The node renders as an empty slot everywhere;
+// the thread page fills it (read-only), and the editor shows a label instead.
+
+.poll-slot:not(:empty) {
+  margin: 1rem 0;
+}
+
+.ProseMirror[contenteditable="true"] .poll-slot {
+  box-sizing: border-box;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 2px dashed currentColor;
+  border-radius: var(--tt-radius-xs, 0.25rem);
+  opacity: 0.7;
+  text-align: center;
+
+  &::before {
+    content: "The thread's poll appears here";
+    font-style: italic;
+  }
+
+  &.ProseMirror-selectednode {
+    outline: 2px solid var(--tt-brand-color-500, #6229ff);
+    outline-offset: 2px;
+  }
+}

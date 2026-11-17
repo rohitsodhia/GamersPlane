@@ -6,10 +6,32 @@ import {
 	NodeViewWrapper,
 	ReactNodeViewRenderer,
 } from "@tiptap/react";
-import { type KeyboardEvent, useState } from "react";
+import clsx from "clsx";
+import { createContext, useContext, useId } from "react";
+import { Select } from "#/components/Select";
+import type { SearchUser } from "#/queries/users";
+import type { MentionLookup } from "../mention-node/mention";
+import { MentionContext } from "../mention-node/mention-node-extension";
+import {
+	MAX_NOTE_RECIPIENTS,
+	NOTE_MODES,
+	type NoteMode,
+	noteLabel,
+	noteMode,
+	noteRecipientName,
+	noteStubText,
+	noteUserIds,
+} from "./note";
+import { NoteRecipientPicker } from "./note-recipient-picker";
 
 export interface NoteOptions {
 	HTMLAttributes: Record<string, unknown>;
+	// Read-only rendering (`generateHTML`): the names of the users the document's
+	// notes name, by id (the post's `note_recipients`). The document only holds ids.
+	recipients: MentionLookup;
+	// Read-only rendering: the post author's name, for the stub a reader who can't
+	// read a note sees ("<author> sent a note to ...").
+	author: string | null;
 }
 
 declare module "@tiptap/core" {
@@ -17,44 +39,64 @@ declare module "@tiptap/core" {
 		note: {
 			/**
 			 * Wrap the current selection (or insert at the cursor) in a Note
-			 * block visible only to the given usernames.
+			 * block for the users with the given ids.
 			 */
-			setNote: (attributes?: { users?: string[] }) => ReturnType;
+			setNote: (attributes?: { userIds?: number[]; mode?: NoteMode }) => ReturnType;
 		};
 	}
 }
 
-// Editable view: renders the target usernames as removable chips plus a text
-// input to add more, rather than a raw comma-separated string field. This is
-// the part worth stress-testing tiptap on — non-trivial attribute editing UI
-// living inside the document, not just styled text.
-function NoteView({ node, updateAttributes, deleteNode, editor }: NodeViewProps) {
-	const [draft, setDraft] = useState("");
-	const users = (node.attrs.users as string[]) ?? [];
+// What the editable node view needs from the surrounding Editor besides the names
+// (those come from `MentionContext`): a way to tell the Editor about a user just
+// picked, so their name shows before the post is saved.
+export const NoteContext = createContext<{ remember: (user: SearchUser) => void }>({
+	remember: () => {},
+});
 
-	const addUser = (raw: string) => {
-		const name = raw.trim();
-		if (!name || users.includes(name)) return;
-		updateAttributes({ users: [...users, name] });
-	};
+const MODE_LABELS: Record<NoteMode, string> = {
+	note: "Note",
+	private: "Private",
+};
 
-	const removeUser = (name: string) => {
-		updateAttributes({ users: users.filter((user) => user !== name) });
-	};
+const MODE_HINTS: Record<NoteMode, string> = {
+	note: "Others see that a note was sent, not what it says.",
+	private: "Hidden from everyone but its recipients, the GM, and moderators.",
+};
 
-	const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-		if (event.key === "Enter" || event.key === ",") {
-			event.preventDefault();
-			addUser(draft);
-			setDraft("");
-		} else if (event.key === "Backspace" && draft === "" && users.length > 0) {
-			removeUser(users[users.length - 1]);
-		}
-	};
+// A stub the API sent in place of a note this viewer can't read.
+function HiddenNoteView({ node }: NodeViewProps) {
+	const names = useContext(MentionContext);
+	const ids = noteUserIds(node.attrs["userIds"]);
 
 	return (
-		<NodeViewWrapper className="note-node" data-type="note">
-			{editor.isEditable && (
+		<NodeViewWrapper className="note-node note-node-hidden" contentEditable={false}>
+			{noteStubText(
+				null,
+				ids.map((id) => noteRecipientName(id, names)),
+			)}
+		</NodeViewWrapper>
+	);
+}
+
+// Editable view. The document only keeps the recipients' ids.
+function NoteView(props: NodeViewProps) {
+	const { node, updateAttributes, deleteNode, editor } = props;
+	const names = useContext(MentionContext);
+	const { remember } = useContext(NoteContext);
+	const modeId = useId();
+	if (node.attrs["hidden"] === true) return <HiddenNoteView {...props} />;
+
+	const mode = noteMode(node.attrs["mode"]);
+	const userIds = noteUserIds(node.attrs["userIds"]);
+	const editable = editor.isEditable;
+
+	return (
+		<NodeViewWrapper
+			className={clsx("note-node", mode === "private" && "note-node-private")}
+			data-type="note"
+			data-mode={mode}
+		>
+			{editable && (
 				<button
 					type="button"
 					className="note-node-delete"
@@ -66,47 +108,63 @@ function NoteView({ node, updateAttributes, deleteNode, editor }: NodeViewProps)
 				</button>
 			)}
 			<div className="note-node-header" contentEditable={false}>
-				<span className="note-node-label">Note for:</span>
-				{users.map((user) => (
-					<span key={user} className="note-node-chip">
-						{user}
-						{editor.isEditable && (
+				{editable ? (
+					<>
+						<Select
+							id={modeId}
+							name="note_visibility"
+							className="note-node-mode"
+							ariaLabel="Note visibility"
+							items={[...NOTE_MODES]}
+							getId={(item) => item}
+							getLabel={(item) => MODE_LABELS[item]}
+							selectedId={mode}
+							onChange={(value) => updateAttributes({ mode: noteMode(value) })}
+						/>
+						<span className="note-node-label">for:</span>
+					</>
+				) : (
+					<span className="note-node-label">{noteLabel(mode, userIds.length > 0)}</span>
+				)}
+				{userIds.map((id) => (
+					<span key={id} className="note-node-chip">
+						{noteRecipientName(id, names)}
+						{editable && (
 							<button
 								type="button"
 								className="note-node-chip-remove"
-								aria-label={`Remove ${user}`}
-								onClick={() => removeUser(user)}
+								aria-label={`Remove ${noteRecipientName(id, names)}`}
+								onClick={() =>
+									updateAttributes({ userIds: userIds.filter((other) => other !== id) })
+								}
 							>
 								&times;
 							</button>
 						)}
 					</span>
 				))}
-				{editor.isEditable && (
-					<input
-						className="note-node-user-input"
-						type="text"
-						value={draft}
-						placeholder="Add username..."
-						onChange={(event) => setDraft(event.target.value)}
-						onKeyDown={handleKeyDown}
-						onBlur={() => {
-							addUser(draft);
-							setDraft("");
+				{editable && userIds.length < MAX_NOTE_RECIPIENTS && (
+					<NoteRecipientPicker
+						exclude={userIds}
+						onPick={(user) => {
+							remember(user);
+							updateAttributes({ userIds: [...userIds, user.id] });
 						}}
 					/>
 				)}
+				{editable && <span className="note-node-hint">{MODE_HINTS[mode]}</span>}
 			</div>
 			<NodeViewContent className="note-node-content" />
 		</NodeViewWrapper>
 	);
 }
 
-// A block node whose `users` attribute names who the note is targeted at.
-// Equivalent to the old BBCode `[note="alice,bob"]...[/note]` block, but
-// modeled as a typed node (attribute + child content) instead of a regex
-// pair. Visibility enforcement (hiding the node's content from anyone not
-// in `users`) is a backend concern and out of scope here.
+// A block node whose `userIds` attribute names who the note is for, and whose `mode`
+// says what everyone else sees: a "note" leaves a stub saying it exists, a
+// "private" one leaves nothing. Equivalent to the old BBCode `[note]` and
+// `[private]` blocks. Hiding is done by the API, which strips the text of any note
+// the viewer can't read before it sends the post (`hidden: true` marks the stub it
+// leaves); the frontend only draws what it is sent.
 export const Note = Node.create<NoteOptions>({
 	name: "note",
 	group: "block",
@@ -117,25 +175,37 @@ export const Note = Node.create<NoteOptions>({
 	addOptions() {
 		return {
 			HTMLAttributes: {},
+			recipients: {},
+			author: null,
 		};
 	},
 
 	addAttributes() {
 		return {
-			users: {
-				default: [] as string[],
-				parseHTML: (element) => {
-					const raw = element.getAttribute("data-users") ?? "";
-					return raw
-						.split(",")
-						.map((user) => user.trim())
-						.filter(Boolean);
-				},
+			userIds: {
+				default: [] as number[],
+				parseHTML: (element) =>
+					noteUserIds(
+						(element.getAttribute("data-user-ids") ?? "")
+							.split(",")
+							.map((id) => Number(id.trim())),
+					),
 				renderHTML: (attributes) => {
-					const users = (attributes.users as string[]) ?? [];
-					if (users.length === 0) return {};
-					return { "data-users": users.join(",") };
+					const ids = noteUserIds(attributes["userIds"]);
+					return ids.length > 0 ? { "data-user-ids": ids.join(",") } : {};
 				},
+			},
+			mode: {
+				default: "note",
+				parseHTML: (element) => noteMode(element.getAttribute("data-mode")),
+				renderHTML: (attributes) => ({ "data-mode": noteMode(attributes["mode"]) }),
+			},
+			// Set by the API on a note's stub only; never read back from pasted HTML
+			// (the API refuses to save one).
+			hidden: {
+				default: false,
+				parseHTML: () => false,
+				rendered: false,
 			},
 		};
 	},
@@ -153,15 +223,35 @@ export const Note = Node.create<NoteOptions>({
 	},
 
 	renderHTML({ node, HTMLAttributes }) {
-		const users = (node.attrs.users as string[]) ?? [];
-		const label = users.length > 0 ? `Note for: ${users.join(", ")}` : "Note";
+		const mode = noteMode(node.attrs["mode"]);
+		const ids = noteUserIds(node.attrs["userIds"]);
+		const names = ids.map((id) => noteRecipientName(id, this.options.recipients));
+
+		if (node.attrs["hidden"] === true) {
+			// No data-type, so a copy of the stub can't parse back into a note.
+			return [
+				"div",
+				{ class: "note-node note-node-hidden" },
+				noteStubText(this.options.author, names),
+			];
+		}
 
 		return [
 			"div",
 			mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
 				"data-type": this.name,
+				class: clsx("note-node", mode === "private" && "note-node-private"),
 			}),
-			["div", { class: "note-node-header" }, label],
+			[
+				"div",
+				{ class: "note-node-header" },
+				["span", { class: "note-node-label" }, noteLabel(mode, ids.length > 0)],
+				...names.map((name): [string, Record<string, string>, string] => [
+					"span",
+					{ class: "note-node-chip" },
+					name,
+				]),
+			],
 			["div", { class: "note-node-content" }, 0],
 		];
 	},

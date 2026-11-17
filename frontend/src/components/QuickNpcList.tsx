@@ -142,6 +142,7 @@ function NpcRow({
 					{editing === "name" ? (
 						<TextField
 							aria-label={`Name for ${npc.name}`}
+							name="npc_name"
 							value={name}
 							onChange={setName}
 							isDisabled={update.isPending}

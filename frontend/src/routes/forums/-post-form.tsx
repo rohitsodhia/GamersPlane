@@ -36,7 +36,13 @@ import {
 } from "./-attachment-rows";
 import { Breadcrumbs } from "./-breadcrumbs";
 import { PollEditor, pollHasErrors } from "./-poll-editor";
-import { type PollState, pollPayload, pollStateFromData } from "./-poll-editor-state";
+import {
+	effectivePoll,
+	newPollState,
+	type PollState,
+	pollPayload,
+	pollStateFromData,
+} from "./-poll-editor-state";
 import { npcLibraryOf, PLAYER, type PostAsValue } from "./-post-as";
 import { PostAsPicker } from "./-post-as-picker";
 import { PostAttachmentsEditor } from "./-post-attachments";
@@ -190,11 +196,13 @@ export function PostForm({
 	);
 	const hbMarginedVisibility = useHbMargined<HTMLHeadingElement>();
 
-	// The poll as loaded, to tell whether it changed; `poll` is null for none.
+	// The poll as loaded, to tell whether it changed; null for none. The form itself
+	// is always there, and while it's blank (see `effectivePoll`) there's no poll.
 	const [initialPoll] = useState<PollState | null>(() =>
 		existingPoll ? pollStateFromData(existingPoll) : null,
 	);
-	const [poll, setPoll] = useState<PollState | null>(initialPoll);
+	const [poll, setPoll] = useState<PollState>(() => initialPoll ?? newPollState());
+	const pollToSave = effectivePoll(poll);
 	const [showPollErrors, setShowPollErrors] = useState(false);
 
 	const form = useForm({
@@ -219,7 +227,7 @@ export function PostForm({
 					: PLAYER) as PostAsValue,
 		} satisfies PostFormFields,
 		onSubmit: async ({ value }) => {
-			const pollProblems = canAddPoll && pollHasErrors(poll);
+			const pollProblems = canAddPoll && pollHasErrors(pollToSave);
 			const attachmentProblems = Object.keys(attachmentRowErrors).length > 0;
 			if (pollProblems || attachmentProblems) {
 				setShowPollErrors(pollProblems);
@@ -238,7 +246,7 @@ export function PostForm({
 				...value,
 				...buildAttachmentPayload(attachments, submitAccess),
 				rollVisibility: changedRollVisibility(existingRolls, rollVisibility),
-				poll: canAddPoll ? pollPayload(initialPoll, poll) : undefined,
+				poll: canAddPoll ? pollPayload(initialPoll, pollToSave) : undefined,
 			});
 		},
 	});
@@ -256,7 +264,15 @@ export function PostForm({
 		permissions.includes(permission) || permissions.includes("forum_moderate");
 	// The poll belongs to the thread, so it's set wherever the thread options are.
 	const canAddPoll = showThreadOptions && canSet("forum_add_poll");
-	const pollInvalid = canAddPoll && pollHasErrors(poll);
+	const pollInvalid = canAddPoll && pollHasErrors(pollToSave);
+	// The header names the tab showing under it. Without thread options the only
+	// panel is Rolls and Decks.
+	const optionsHeading =
+		showThreadOptions && optionsState === "options"
+			? "Thread Options"
+			: showThreadOptions && optionsState === "poll"
+				? "Poll"
+				: "Rolls and Decks";
 
 	// A new thread's options are the form's own; an edit follows the thread's.
 	const formOptions = useStore(form.store, (state) => state.values.options);
@@ -301,10 +317,10 @@ export function PostForm({
 							<div className={styles["option-checkbox"]}>
 								<Checkbox
 									id={field.name}
+									name={field.name}
 									checked={field.state.value}
 									onChange={(checked) => {
 										field.handleChange(checked);
-										// Turning rolls or draws off drops the rows already added.
 										if (checked) return;
 										if (name === "options.allow_rolls")
 											setAttachments((current) => ({ ...current, rolls: [] }));
@@ -327,6 +343,7 @@ export function PostForm({
 								<input
 									type="text"
 									id={field.name}
+									name={field.name}
 									value={field.state.value ?? ""}
 									onBlur={field.handleBlur}
 									onChange={(e) => field.handleChange(e.target.value)}
@@ -450,38 +467,27 @@ export function PostForm({
 							</form.Field>
 						)}
 
-					<form.Field
-						name="body"
-						validators={{
-							onBlur: ({ value }) =>
-								isContentEmpty(value) ? "Message required!" : undefined,
-							onSubmit: ({ value }) =>
-								isContentEmpty(value) ? "Message required!" : undefined,
-						}}
-					>
+					{/* An empty message just keeps the submit button disabled (below); there's
+					    nothing else on the field to explain. */}
+					<form.Field name="body">
 						{(field) => (
-							<>
-								<Editor
-									id={field.name}
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(value) => field.handleChange(value)}
-									className={field.state.meta.isValid ? "" : "field-invalid"}
-									npcLibrary={npcLibrary}
-									contentNpcs={defaultContentNpcs}
-									contentMentions={defaultContentMentions}
-									mentions
-								/>
-								{field.state.meta.errors[0] && (
-									<div className="error" role="alert">
-										<FieldError message={field.state.meta.errors[0]} />
-									</div>
-								)}
-							</>
+							<Editor
+								id={field.name}
+								value={field.state.value}
+								onBlur={field.handleBlur}
+								onChange={(value) => field.handleChange(value)}
+								npcLibrary={npcLibrary}
+								contentNpcs={defaultContentNpcs}
+								contentMentions={defaultContentMentions}
+								mentions
+								pollAvailable={canAddPoll && pollToSave !== null}
+							/>
 						)}
 					</form.Field>
 
-					<form.Subscribe selector={(state) => state.canSubmit}>
+					<form.Subscribe
+						selector={(state) => state.canSubmit && !isContentEmpty(state.values.body)}
+					>
 						{(canSubmit) => (
 							<div>
 								{showMinorEdit && (
@@ -491,6 +497,7 @@ export function PostForm({
 												<Checkbox
 													id={field.name}
 													checked={field.state.value}
+													name={field.name}
 													onChange={(checked) => field.handleChange(checked)}
 												/>
 												<label htmlFor={field.name}>This is a minor edit</label>
@@ -546,7 +553,7 @@ export function PostForm({
 			{(showThreadOptions || hasAttachmentUI) && (
 				<>
 					<h2 className="headerbar hb-dark has-topper" ref={hbMarginedOptions.ref}>
-						{showThreadOptions ? "Thread Options" : "Rolls and Decks"}
+						{optionsHeading}
 					</h2>
 					<div style={{ marginInline: `${hbMarginedOptions.margin}px` }}>
 						{optionsState === "options" && optionsPanel}

@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.configs import configs
@@ -19,13 +21,20 @@ from app.posts.schemas import (
     RollVisibilityInput,
 )
 from app.helpers.prose import (
+    MAX_NOTE_RECIPIENTS,
     MAX_ROSTER_TITLE_LENGTH,
+    NOTE_MODE_PRIVATE,
     all_mention_user_ids,
+    all_note_recipient_ids,
     content_npc_ids,
+    is_hidden_note,
     is_valid_id,
     mentioned_user_ids,
+    note_nodes,
     raw_content_npc_ids,
     raw_mention_user_ids,
+    raw_note_recipient_ids,
+    redact_notes,
     roster_attrs,
 )
 from app.quick_npcs.functions import (
@@ -262,6 +271,115 @@ def build_content_mentions(
 ) -> list[ContentMentionData]:
     """The users ``body``'s mentions name, from ``load_content_mentions``' result."""
     return [loaded[i] for i in all_mention_user_ids(body) if i in loaded]
+
+
+async def viewer_is_gm(
+    db_session: AsyncSession, viewer: User | None, forum: Forum
+) -> bool:
+    """Whether ``viewer`` is a GM of the forum's game (false outside game forums)."""
+    if viewer is None or forum.game_id is None:
+        return False
+    return await PlayerRepository(db_session, principal=viewer).is_gm(
+        forum.game_id, viewer.id
+    )
+
+
+async def viewer_sees_all_notes(
+    db_session: AsyncSession,
+    viewer: User | None,
+    forum: Forum,
+    permissions: ForumPermissions,
+) -> bool:
+    """Whether ``viewer`` reads every note in the forum's threads (whoever they are
+    addressed to): a moderator of the forum or a GM of its game. A post's own
+    author reads the notes in it too, which is decided per post."""
+    return permissions.has(forum, Verbs.FORUM_MODERATE) or await viewer_is_gm(
+        db_session, viewer, forum
+    )
+
+
+@dataclass
+class PostBodyView:
+    """A post's body as one viewer may see it, and the lookups that go with it, all
+    built from the redacted body so they reveal nothing the body doesn't."""
+
+    body: dict
+    content_npcs: list[ContentNPCData]
+    content_mentions: list[ContentMentionData]
+    note_recipients: list[ContentMentionData]
+
+
+async def build_post_body_views(
+    db_session: AsyncSession,
+    viewer: User | None,
+    posts: list[Post],
+    sees_all_notes: bool,
+) -> dict[int, PostBodyView]:
+    """The body of each post as ``viewer`` may read it, by post id. Every route
+    that sends a post body goes through here, which is what keeps notes meant for
+    other users out of the response. ``sees_all_notes`` is
+    ``viewer_sees_all_notes``; a post's author always reads their own notes."""
+    viewer_id = viewer.id if viewer is not None else None
+    bodies = {
+        post.id: redact_notes(
+            post.body,
+            viewer_id,
+            sees_all_notes or (viewer_id is not None and post.author_id == viewer_id),
+        )
+        for post in posts
+    }
+    body_list = list(bodies.values())
+    speakers = await load_content_npcs(db_session, viewer, body_list)
+    mentions = await load_content_mentions(db_session, body_list)
+    recipient_ids = list(
+        dict.fromkeys(i for body in body_list for i in all_note_recipient_ids(body))
+    )
+    recipient_names = await UserRepository(db_session).get_usernames(recipient_ids)
+    recipients = {
+        user_id: ContentMentionData(id=user_id, username=username)
+        for user_id, username in recipient_names.items()
+    }
+    return {
+        post_id: PostBodyView(
+            body=body,
+            content_npcs=build_content_npcs(body, speakers),
+            content_mentions=build_content_mentions(body, mentions),
+            note_recipients=[
+                recipients[i] for i in all_note_recipient_ids(body) if i in recipients
+            ],
+        )
+        for post_id, body in bodies.items()
+    }
+
+
+def validate_note_attrs(body: dict) -> None:
+    """Raise ``ValidationError`` unless every note in ``body`` is well-formed: a
+    known mode (or none), at most ``MAX_NOTE_RECIPIENTS`` recipients that are valid
+    ids, and not a redacted stub (``hidden``), which only the server may send."""
+    for node in note_nodes(body):
+        if is_hidden_note(node):
+            raise ValidationError("A hidden note can't be saved")
+        attrs = node.get("attrs")
+        mode = attrs.get("mode") if isinstance(attrs, dict) else None
+        if mode is not None and mode not in ("note", NOTE_MODE_PRIVATE):
+            raise ValidationError("A note's mode must be note or private")
+        ids = raw_note_recipient_ids(node)
+        if ids is None or not all(is_valid_id(i) for i in ids):
+            raise ValidationError("A note needs a valid list of recipients")
+        if len(ids) > MAX_NOTE_RECIPIENTS:
+            raise ValidationError(
+                f"A note can name at most {MAX_NOTE_RECIPIENTS} recipients"
+            )
+
+
+async def validate_content_notes(db_session: AsyncSession, body: dict) -> None:
+    """Raise ``ValidationError`` unless the notes in ``body`` are well-formed (see
+    ``validate_note_attrs``) and every recipient is an existing user."""
+    validate_note_attrs(body)
+    ids = all_note_recipient_ids(body)
+    known = await UserRepository(db_session).get_usernames(ids)
+    if len(known) != len(ids):
+        raise ValidationError("A note names a user who doesn't exist")
 
 
 def is_same_npc(npc: QuickNPC | None, posted_npc: PostedNPCInput | None) -> bool:

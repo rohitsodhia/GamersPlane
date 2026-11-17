@@ -33,18 +33,21 @@ export function RollVisibilityEditor({
 						<div className={styles["options"]}>
 							<LabelledCheckbox
 								id={`roll-visibility-reason-${roll.id}`}
+								name="roll_hide_reason"
 								label="Hide reason"
 								checked={flags.hideReason}
 								onChange={(checked) => update(roll.id, { hideReason: checked })}
 							/>
 							<LabelledCheckbox
 								id={`roll-visibility-dice-${roll.id}`}
+								name="roll_hide_dice"
 								label="Hide dice"
 								checked={flags.hideDice}
 								onChange={(checked) => update(roll.id, { hideDice: checked })}
 							/>
 							<LabelledCheckbox
 								id={`roll-visibility-result-${roll.id}`}
+								name="roll_hide_result"
 								label="Hide result"
 								checked={flags.hideResult}
 								onChange={(checked) => update(roll.id, { hideResult: checked })}

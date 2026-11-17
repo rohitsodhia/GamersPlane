@@ -207,16 +207,16 @@ function RouteComponent() {
 									{(field) => {
 										const error = errorFor(field, "username");
 										return (
-											<FieldBox id={field.name} label="Username" error={error}>
+											<FieldBox id="contact-username" label="Username" error={error}>
 												<input
-													id={field.name}
-													name={field.name}
+													id="contact-username"
+													name="contact_username"
 													type="text"
 													maxLength={USERNAME_MAX}
 													value={field.state.value}
 													onBlur={field.handleBlur}
 													onChange={(e) => field.handleChange(e.target.value)}
-													autoComplete="username"
+													autoComplete="off"
 													className={error ? styles["field-invalid"] : ""}
 												/>
 											</FieldBox>
