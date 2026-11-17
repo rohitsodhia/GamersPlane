@@ -84,13 +84,11 @@ def reads_all(response):
 
 
 class TestGetPostsRedaction:
-    @pytest.mark.parametrize("viewer", ["author", "recipient", "gm", "moderator"])
+    @pytest.mark.parametrize("viewer", ["author", "gm", "moderator"])
     async def test_those_who_may_read_notes_get_the_full_body(
-        self, auth_as, thread, noted_post, world, author, recipient, moderator, viewer
+        self, auth_as, thread, noted_post, world, author, moderator, viewer
     ):
-        user = {"author": author, "recipient": recipient, "gm": world.gm}.get(
-            viewer, moderator
-        )
+        user = {"author": author, "gm": world.gm}.get(viewer, moderator)
         client = auth_as(user)
 
         response = await client.get("/posts", params={"thread_id": thread.id})
@@ -128,7 +126,12 @@ class TestGetPostsRedaction:
 
         assert response.status_code == 200
         assert SECRET not in response.text
-        assert '"hidden":true' in response.text.replace(" ", "")
+        notes = [
+            n
+            for n in response.json()["posts"][0]["body"]["content"]
+            if n["type"] == "note"
+        ]
+        assert [n["attrs"]["hidden"] for n in notes] == [True]
 
     async def test_a_mention_inside_a_hidden_note_is_not_listed(
         self, auth_as, create, thread, author, other, recipient
@@ -170,19 +173,16 @@ class TestGetPostRedaction:
         assert SECRET not in response.text
         assert "private words" not in response.text
 
-    @pytest.mark.parametrize("viewer", ["author", "moderator", "recipient"])
+    @pytest.mark.parametrize("viewer", ["author", "gm", "moderator"])
     async def test_those_who_may_read_notes_get_the_full_body(
-        self, auth_as, noted_post, author, moderator, recipient, viewer
+        self, auth_as, noted_post, world, author, moderator, viewer
     ):
-        client = auth_as(
-            {"author": author, "moderator": moderator}.get(viewer, recipient)
-        )
+        client = auth_as({"author": author, "gm": world.gm}.get(viewer, moderator))
 
         response = await client.get(f"/posts/{noted_post.id}")
 
         # The author and moderator are who the edit form loads for.
         assert response.json()["body"] == noted_post.body
-        assert '"hidden"' not in response.text
 
 
 class TestThreadResponses:

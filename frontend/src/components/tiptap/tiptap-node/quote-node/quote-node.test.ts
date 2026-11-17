@@ -73,6 +73,7 @@ describe("toggleOoc", () => {
 		editor.commands.setTextSelection(3);
 		editor.commands.toggleOoc();
 		expect(types(editor)).toEqual(["paragraph", "paragraph", "paragraph"]);
+		editor.destroy();
 	});
 
 	it("turns a quote into an OOC block and drops its quotee", () => {
@@ -82,5 +83,6 @@ describe("toggleOoc", () => {
 		editor.commands.setTextSelection(2);
 		editor.commands.toggleOoc();
 		expect(first(editor.getJSON())?.attrs).toEqual({ quotee: "", variant: "ooc" });
+		editor.destroy();
 	});
 });

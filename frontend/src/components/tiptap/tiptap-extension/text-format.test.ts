@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Editor, generateHTML, generateJSON, type JSONContent } from "@tiptap/core";
 import { Color } from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
@@ -87,14 +88,11 @@ describe("pasted inline styles", () => {
 });
 
 describe("preset lists", () => {
-	const scss = readFileSync(
-		"src/components/tiptap/tiptap-extension/text-format.scss",
-		"utf8",
-	);
+	const scss = readFileSync(join(import.meta.dirname, "text-format.scss"), "utf8");
 
 	it("has a stylesheet rule for every size and font key", () => {
 		for (const { key } of [...FONT_SIZES, ...FONT_FAMILIES]) {
-			expect(scss).toContain(`"${key}":`);
+			expect(scss).toMatch(new RegExp(`^\\s*["']${key}["']\\s*:`, "m"));
 		}
 	});
 });

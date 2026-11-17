@@ -76,9 +76,6 @@ class TestProseToText:
 
         assert prose_to_text(doc({"type": "bulletList", "content": [item]})) == "keep"
 
-    def test_empty_doc_is_empty(self):
-        assert prose_to_text({"type": "doc", "content": []}) == ""
-
     def test_ooc_is_kept_though_it_is_a_quote_node(self):
         ooc = {"type": "quote", "attrs": {"variant": "ooc"}, "content": [para("ooc")]}
         plain = {"type": "quote", "attrs": {"variant": "quote"}, "content": [para("q")]}

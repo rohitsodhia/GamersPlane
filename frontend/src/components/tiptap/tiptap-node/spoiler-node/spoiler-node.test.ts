@@ -82,6 +82,7 @@ describe("spoiler commands", () => {
 		editor.commands.setTextSelection(3);
 		editor.commands.toggleSpoiler();
 		expect(types(editor)).toEqual(["paragraph", "paragraph", "paragraph"]);
+		editor.destroy();
 	});
 
 	it("setSpoiler at an empty caret inserts an empty one with the given title", () => {
@@ -90,9 +91,12 @@ describe("spoiler commands", () => {
 		editor.commands.setSpoiler({ title: "Ending" });
 		const spoiler = editor.getJSON().content?.find((n) => n.type === "spoiler");
 		expect(spoiler?.attrs).toEqual({ title: "Ending" });
+		editor.destroy();
 	});
 
 	it("unsetSpoiler reports false outside a spoiler", () => {
-		expect(makeEditor().commands.unsetSpoiler()).toBe(false);
+		const editor = makeEditor();
+		expect(editor.commands.unsetSpoiler()).toBe(false);
+		editor.destroy();
 	});
 });

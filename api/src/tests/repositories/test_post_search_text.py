@@ -52,15 +52,6 @@ class TestPostSearchText:
 
         assert post.body_text == "The goblins attack at dawn"
 
-    async def test_update_refreshes_body_text(self, repository, create):
-        thread = await create(ThreadFactory)
-        author = await create(UserFactory)
-        post = await repository.create(thread.id, author.id, "Title", doc("Old text"))
-
-        await repository.update(post, "Title", doc("New text"))
-
-        assert post.body_text == "New text"
-
     async def test_spoiler_text_is_left_out_of_body_text_on_create_and_update(
         self, repository, create, db_session
     ):
@@ -104,6 +95,33 @@ class TestPostSearchText:
         assert post.body_text == "Before After"
         assert await self.matching_ids(db_session, "maid") == []
 
+    async def test_note_text_is_left_out_of_body_text_and_search(
+        self, repository, create, db_session
+    ):
+        thread = await create(ThreadFactory)
+        author = await create(UserFactory)
+
+        def note(secret: str, **attrs) -> dict:
+            return {
+                "type": "note",
+                "attrs": {"userIds": [], **attrs},
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [{"type": "text", "text": secret}],
+                    }
+                ],
+            }
+
+        body = doc("Before")
+        body["content"] += [note("ambushes"), note("poisons", mode="private")]
+
+        post = await repository.create(thread.id, author.id, "Title", body)
+
+        assert post.body_text == "Before"
+        assert await self.matching_ids(db_session, "ambush") == []
+        assert await self.matching_ids(db_session, "poison") == []
+
     async def test_tsvector_matches_stemmed_words(self, repository, create, db_session):
         thread = await create(ThreadFactory)
         author = await create(UserFactory)
@@ -140,5 +158,6 @@ class TestPostSearchText:
 
         await repository.update(post, "Title", doc("goblins"))
 
+        assert post.body_text == "goblins"
         assert await self.matching_ids(db_session, "dragon") == []
         assert await self.matching_ids(db_session, "goblin") == [post.id]

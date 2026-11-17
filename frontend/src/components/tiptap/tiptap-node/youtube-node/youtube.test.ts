@@ -41,16 +41,13 @@ describe("parseYoutubeVideoId", () => {
 	])("rejects %s", (input) => {
 		expect(parseYoutubeVideoId(input)).toBeNull();
 	});
-
-	it("builds the embed address from the id alone", () => {
-		expect(youtubeEmbedUrl(ID)).toBe(`https://www.youtube-nocookie.com/embed/${ID}`);
-	});
 });
 
 describe("youtube node", () => {
 	it("renders a lazy no-cookie iframe built from the id, and round-trips", () => {
 		const html = generateHTML(doc({ videoId: ID }), extensions);
-		expect(html).toContain(`src="https://www.youtube-nocookie.com/embed/${ID}"`);
+		expect(youtubeEmbedUrl(ID)).toBe(`https://www.youtube-nocookie.com/embed/${ID}`);
+		expect(html).toContain(`src="${youtubeEmbedUrl(ID)}"`);
 		expect(html).toContain('loading="lazy"');
 		expect(html).toContain('referrerpolicy="strict-origin-when-cross-origin"');
 		expect(html).toContain("allowfullscreen");
@@ -94,6 +91,7 @@ describe("setYoutube", () => {
 		expect(editor.commands.setYoutube({ url: `https://youtu.be/${ID}` })).toBe(true);
 		const videos = editor.getJSON().content?.filter((n) => n.type === "youtube");
 		expect(videos).toEqual([{ type: "youtube", attrs: { videoId: ID } }]);
+		editor.destroy();
 	});
 
 	it("inserts nothing and reports failure for anything else", () => {
@@ -102,5 +100,6 @@ describe("setYoutube", () => {
 			false,
 		);
 		expect(editor.getJSON().content?.map((n) => n.type)).toEqual(["paragraph"]);
+		editor.destroy();
 	});
 });

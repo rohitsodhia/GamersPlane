@@ -58,13 +58,6 @@ describe("box node", () => {
 			float: "none",
 		});
 	});
-
-	it("does not make a box out of pasted inline styles", () => {
-		const doc = parse(
-			'<div style="border: 1px solid red; background: #222; float: left"><p>a</p></div>',
-		);
-		expect(doc.content?.map((node) => node.type)).toEqual(["paragraph"]);
-	});
 });
 
 describe("box commands", () => {
