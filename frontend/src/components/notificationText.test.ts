@@ -48,6 +48,14 @@ describe("notificationSegments", () => {
 				gameTitle: "Gamma",
 			}),
 		).toBe("Ann applied to Gamma");
+		expect(
+			notificationPlainText({
+				...base(3),
+				type: "game_gm_invite",
+				gameId: 3,
+				gameTitle: "Gamma",
+			}),
+		).toBe("Ann asked you to co-GM Gamma");
 	});
 
 	it("names both the character and the game when one is submitted", () => {

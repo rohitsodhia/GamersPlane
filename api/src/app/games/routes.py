@@ -16,6 +16,7 @@ from app.exceptions import (
 from app.events.functions import (
     notify_character_submitted,
     notify_game_application,
+    notify_game_gm_invite,
     notify_game_invite,
 )
 from app.games import schemas
@@ -312,6 +313,7 @@ async def get_game(game_id: int, db_session: DBSessionDependency, principal: Pri
             id=player.user.id,
             username=player.user.username,
             is_gm=player.is_gm,
+            gm_invited=player.gm_invited,
             state=player.state.value,
             characters=characters_by_user.get(player.user.id, []),
         )
@@ -623,9 +625,9 @@ async def accept_invite(
 
 
 @games.post(
-    "/{game_id}/player/{user_id}/toggle_gm", status_code=status.HTTP_204_NO_CONTENT
+    "/{game_id}/player/{user_id}/invite_gm", status_code=status.HTTP_204_NO_CONTENT
 )
-async def toggle_gm(
+async def invite_gm(
     game_id: int,
     user_id: int,
     db_session: DBSessionDependency,
@@ -640,38 +642,159 @@ async def toggle_gm(
         player_repository,
         game_id,
         principal.id,
-        "Only game masters can toggle GM status",
+        "Only game masters can ask players to co-GM",
     )
-
-    if user_id == game.gm_id:
-        raise ForbiddenException("Primary GM cannot be demoted")
 
     player = await get_player_or_404(player_repository, game_id, user_id)
     if player.state is not Player.States.ACCEPTED:
-        raise ConflictException("Only accepted players can be made GMs")
-
-    await player_repository.update_state(player, is_gm=not player.is_gm)
-
+        raise ConflictException("Only accepted players can be asked to co-GM")
     if player.is_gm:
-        subject, message = (
-            "You're now a GM",
-            f"{principal.username} made you a GM of this game.",
-        )
-    else:
-        subject, message = (
-            "You're no longer a GM",
-            f"{principal.username} removed you as a GM of this game. "
-            "You're still a player in it.",
-        )
+        raise ConflictException("Player is already a GM")
+    if player.gm_invited:
+        raise ConflictException("Player has already been asked to co-GM")
+
+    await player_repository.update_state(player, gm_invited=True)
+
+    await notify_game_gm_invite(db_session, principal, game_id, user_id)
+
     await queue_player_email(
         background_tasks,
         db_session,
         game,
         principal,
         user_id,
-        subject=subject,
-        headline=subject,
-        message=message,
+        subject="Co-GM request",
+        headline="You've been asked to co-GM",
+        message=f"{principal.username} asked you to co-GM this game. "
+        "Open the game to accept or decline.",
+    )
+
+
+@games.delete(
+    "/{game_id}/player/{user_id}/invite_gm", status_code=status.HTTP_204_NO_CONTENT
+)
+async def cancel_gm_invite(
+    game_id: int,
+    user_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    await get_game_or_404(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    await require_gm(
+        player_repository,
+        game_id,
+        principal.id,
+        "Only game masters can cancel co-GM requests",
+    )
+
+    player = await get_player_or_404(player_repository, game_id, user_id)
+    if not player.gm_invited:
+        raise ConflictException("No pending co-GM request for this player")
+
+    await player_repository.update_state(player, gm_invited=False)
+
+
+@games.post("/{game_id}/accept_gm", status_code=status.HTTP_204_NO_CONTENT)
+async def accept_gm(
+    game_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    background_tasks: BackgroundTasks,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    player = await get_player_or_404(player_repository, game_id, principal.id)
+    if not player.gm_invited:
+        raise ConflictException("No pending co-GM request for this game")
+
+    await player_repository.update_state(player, is_gm=True, gm_invited=False)
+
+    await queue_gm_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        exclude_user_ids=[principal.id],
+        subject="Co-GM request accepted",
+        headline="Co-GM request accepted",
+        message=f"{principal.username} accepted the request to co-GM this game.",
+    )
+
+
+@games.post("/{game_id}/decline_gm", status_code=status.HTTP_204_NO_CONTENT)
+async def decline_gm(
+    game_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    background_tasks: BackgroundTasks,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    player = await get_player_or_404(player_repository, game_id, principal.id)
+    if not player.gm_invited:
+        raise ConflictException("No pending co-GM request for this game")
+
+    await player_repository.update_state(player, gm_invited=False)
+
+    await queue_gm_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        exclude_user_ids=[principal.id],
+        subject="Co-GM request declined",
+        headline="Co-GM request declined",
+        message=f"{principal.username} declined the request to co-GM this game.",
+    )
+
+
+@games.post(
+    "/{game_id}/player/{user_id}/remove_gm", status_code=status.HTTP_204_NO_CONTENT
+)
+async def remove_gm(
+    game_id: int,
+    user_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    background_tasks: BackgroundTasks,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    await require_gm(
+        player_repository,
+        game_id,
+        principal.id,
+        "Only game masters can remove GMs",
+    )
+
+    if user_id == game.gm_id:
+        raise ForbiddenException("Primary GM cannot be demoted")
+
+    player = await get_player_or_404(player_repository, game_id, user_id)
+    if not player.is_gm:
+        raise ConflictException("Player is not a GM")
+
+    await player_repository.update_state(player, is_gm=False)
+
+    await queue_player_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        user_id,
+        subject="You're no longer a GM",
+        headline="You're no longer a GM",
+        message=f"{principal.username} removed you as a GM of this game. "
+        "You're still a player in it.",
         to_gms=True,
     )
 

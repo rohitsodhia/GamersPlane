@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
+import { Button } from "react-aria-components";
 import { ActionsMenu, type MenuAction } from "#/components/ActionsMenu";
 import { Autocomplete } from "#/components/Autocomplete";
 import GMBadge from "#/components/GMBadge";
@@ -20,23 +21,27 @@ import { useHbMargined } from "#/lib/use-hb-margined";
 import { myCharactersQueryOptions } from "#/queries/character";
 import { deckTypesQueryOptions } from "#/queries/deckTypes";
 import {
+	acceptGm,
 	acceptInvite,
 	applyToGame,
 	approveCharacter,
 	approvePlayer,
+	cancelGmInvite,
 	decksQueryOptions,
+	declineGm,
 	deleteDeck,
 	deletePlayer,
 	favoriteGame,
 	type GamePlayer,
 	type GamePlayerCharacter,
 	gameDetailsQueryOptions,
+	inviteGm,
 	invitePlayer,
 	removeCharacter,
+	removeGm,
 	shuffleDeck,
 	submitCharacter,
 	toggleGameFlag,
-	toggleGm,
 	toggleRetireGame,
 } from "#/queries/game";
 import { meNotificationsQueryOptions, meQueryOptions } from "#/queries/me";
@@ -207,6 +212,7 @@ function RouteComponent() {
 					id: user.id,
 					username: user.username,
 					is_gm: false,
+					gm_invited: false,
 					state: "invited",
 					characters: [],
 				},
@@ -262,19 +268,66 @@ function RouteComponent() {
 		onError: () => setDeleteDeckError("Failed to delete deck"),
 	});
 
-	const [toggleGmError, setToggleGmError] = useState<string | null>(null);
-	const toggleGmMutation = useMutation({
-		mutationFn: (userId: number) => toggleGm(gameId, userId),
+	const [gmError, setGmError] = useState<string | null>(null);
+	const updatePlayer = (userId: number, changes: Partial<GamePlayer>) =>
+		setPlayers((prev) =>
+			prev.map((player) => (player.id === userId ? { ...player, ...changes } : player)),
+		);
+	const gmMutationOptions = (fallback: string) => ({
+		onMutate: () => setGmError(null),
+		onError: (error: unknown) =>
+			setGmError(
+				error instanceof ApiError && error.errors[0]?.detail
+					? error.errors[0].detail
+					: fallback,
+			),
+	});
+	const inviteGmMutation = useMutation({
+		mutationFn: (userId: number) => inviteGm(gameId, userId),
 		onSuccess: (_data, userId) => {
-			setPlayers((prev) =>
-				prev.map((player) =>
-					player.id === userId ? { ...player, is_gm: !player.is_gm } : player,
-				),
-			);
+			updatePlayer(userId, { gm_invited: true });
 			refreshNotifications();
 		},
-		onError: () => setToggleGmError("Failed to toggle GM status"),
+		...gmMutationOptions("Failed to send the co-GM request"),
 	});
+	const cancelGmInviteMutation = useMutation({
+		mutationFn: (userId: number) => cancelGmInvite(gameId, userId),
+		onSuccess: (_data, userId) => {
+			updatePlayer(userId, { gm_invited: false });
+			refreshNotifications();
+		},
+		...gmMutationOptions("Failed to cancel the co-GM request"),
+	});
+	const removeGmMutation = useMutation({
+		mutationFn: (userId: number) => removeGm(gameId, userId),
+		onSuccess: (_data, userId) => {
+			updatePlayer(userId, { is_gm: false });
+			refreshNotifications();
+		},
+		...gmMutationOptions("Failed to remove GM"),
+	});
+	const acceptGmMutation = useMutation({
+		mutationFn: () => acceptGm(gameId),
+		onSuccess: () => {
+			if (me) updatePlayer(me.id, { is_gm: true, gm_invited: false });
+			refreshNotifications();
+		},
+		...gmMutationOptions("Failed to accept the co-GM request"),
+	});
+	const declineGmMutation = useMutation({
+		mutationFn: () => declineGm(gameId),
+		onSuccess: () => {
+			if (me) updatePlayer(me.id, { gm_invited: false });
+			refreshNotifications();
+		},
+		...gmMutationOptions("Failed to decline the co-GM request"),
+	});
+	const gmRequestPending =
+		inviteGmMutation.isPending ||
+		cancelGmInviteMutation.isPending ||
+		removeGmMutation.isPending ||
+		acceptGmMutation.isPending ||
+		declineGmMutation.isPending;
 
 	const isPrimaryGM = me?.id === game.gm.id;
 	const viewerPlayer = me ? players.find((player) => player.id === me.id) : undefined;
@@ -453,6 +506,7 @@ function RouteComponent() {
 					id: me.id,
 					username: me.username,
 					is_gm: false,
+					gm_invited: false,
 					state: "accepted",
 					characters: [],
 				},
@@ -472,12 +526,26 @@ function RouteComponent() {
 				disabled: deletePlayerMutation.isPending,
 			});
 		}
-		if (isPrimaryGM) {
-			actions.push({
-				label: player.is_gm ? "Remove as GM" : "Make GM",
-				onAction: () => toggleGmMutation.mutate(player.id),
-				disabled: toggleGmMutation.isPending,
-			});
+		if (isGM && player.state === "accepted") {
+			if (player.is_gm) {
+				actions.push({
+					label: "Remove GM",
+					onAction: () => removeGmMutation.mutate(player.id),
+					disabled: gmRequestPending,
+				});
+			} else if (player.gm_invited) {
+				actions.push({
+					label: "Cancel GM request",
+					onAction: () => cancelGmInviteMutation.mutate(player.id),
+					disabled: gmRequestPending,
+				});
+			} else {
+				actions.push({
+					label: "Ask to co-GM",
+					onAction: () => inviteGmMutation.mutate(player.id),
+					disabled: gmRequestPending,
+				});
+			}
 		}
 		return actions;
 	};
@@ -531,6 +599,28 @@ function RouteComponent() {
 								Report background
 							</ReportLink>
 						)}
+					</div>
+				)}
+				{viewerPlayer?.gm_invited && !retired && (
+					<div className="banner">
+						<p>You've been asked to co-GM this game.</p>
+						<p className="align-center">
+							<Button
+								className="skew-btn"
+								onPress={() => acceptGmMutation.mutate()}
+								isDisabled={gmRequestPending}
+							>
+								Accept
+							</Button>{" "}
+							<Button
+								className="skew-btn"
+								onPress={() => declineGmMutation.mutate()}
+								isDisabled={gmRequestPending}
+							>
+								Decline
+							</Button>
+						</p>
+						{gmError && <div className="error">{gmError}</div>}
 					</div>
 				)}
 				{retired && (
@@ -719,6 +809,9 @@ function RouteComponent() {
 													{player.username}
 												</Link>
 												{player.is_gm && <GMBadge />}
+												{player.gm_invited && (
+													<span className={styles["pending-badge"]}>Pending GM</span>
+												)}
 											</div>
 											<ActionsMenu
 												label={`Actions for ${player.username}`}
@@ -806,7 +899,7 @@ function RouteComponent() {
 								))}
 							</ul>
 							{deletePlayerError && <div className="error">{deletePlayerError}</div>}
-							{toggleGmError && <div className="error">{toggleGmError}</div>}
+							{gmError && <div className="error">{gmError}</div>}
 							{characterActionError && (
 								<div className="error">{characterActionError}</div>
 							)}

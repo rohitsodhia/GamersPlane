@@ -147,6 +147,12 @@ export type GameInviteNotification = NotificationBase & {
 	gameTitle: string;
 };
 
+export type GameGmInviteNotification = NotificationBase & {
+	type: "game_gm_invite";
+	gameId: number;
+	gameTitle: string;
+};
+
 export type GameApplicationNotification = NotificationBase & {
 	type: "game_application";
 	gameId: number;
@@ -164,6 +170,7 @@ export type CharacterSubmittedNotification = NotificationBase & {
 export type Notification =
 	| MentionNotification
 	| GameInviteNotification
+	| GameGmInviteNotification
 	| GameApplicationNotification
 	| CharacterSubmittedNotification;
 

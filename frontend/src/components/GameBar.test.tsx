@@ -31,6 +31,7 @@ const player = (overrides: Partial<GamePlayer>): GamePlayer => ({
 	id: 1,
 	username: "alice",
 	is_gm: false,
+	gm_invited: false,
 	state: "accepted",
 	characters: [],
 	...overrides,

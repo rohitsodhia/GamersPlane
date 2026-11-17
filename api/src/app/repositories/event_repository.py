@@ -166,6 +166,8 @@ class EventRepository:
           forum is for the caller to check, using each row's ``forum_id``.
         - invite: the user is still invited and the game is live (not retired or
           deleted).
+        - GM invite: the user is still an accepted player with the request pending
+          and the game is live.
         - application: the applicant is still applied, the game is live, and the
           user is still an accepted GM of it.
         - character: the character is still in the event's game, unapproved, and
@@ -190,6 +192,12 @@ class EventRepository:
         invite = and_(
             Event.type == Event.Types.GAME_INVITE,
             subject.state == Player.States.INVITED,
+            game_live,
+        )
+        gm_invite = and_(
+            Event.type == Event.Types.GAME_GM_INVITE,
+            subject.state == Player.States.ACCEPTED,
+            subject.gm_invited.is_(True),
             game_live,
         )
         application = and_(
@@ -234,7 +242,7 @@ class EventRepository:
             .where(
                 EventRecipient.user_id == user_id,
                 EventRecipient.dismissed_at.is_(None),
-                or_(mention, invite, application, character),
+                or_(mention, invite, gm_invite, application, character),
             )
         )
 

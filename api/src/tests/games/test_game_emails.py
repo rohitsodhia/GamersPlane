@@ -364,21 +364,51 @@ class TestGMActsMailsPlayer(_GameEmailFixtures):
         assert response.status_code == 204
         assert self.recipients(sent) == [co_gm.email]
 
-    @pytest.mark.parametrize(
-        ("start_as_gm", "subject"),
-        [(False, "You're now a GM"), (True, "You're no longer a GM")],
-    )
-    async def test_toggle_gm_mails_the_affected_player_only(
-        self, auth_as, client, game, gm, add_player, sent, start_as_gm, subject
+    async def test_remove_gm_mails_the_demoted_player_only(
+        self, auth_as, client, game, gm, add_player, sent
     ):
-        target = await add_player(is_gm=start_as_gm)
+        target = await add_player(is_gm=True)
         await add_player(is_gm=True)
         client = auth_as(gm)
 
-        response = await client.post(f"/games/{game.id}/player/{target.id}/toggle_gm")
+        response = await client.post(f"/games/{game.id}/player/{target.id}/remove_gm")
 
         assert response.status_code == 204
         assert self.recipients(sent) == [target.email]
+        assert "You're no longer a GM" in sent[0]["subject"]
+
+    async def test_invite_gm_mails_the_invitee_only(
+        self, auth_as, client, game, gm, add_player, sent
+    ):
+        target = await add_player()
+        await add_player(is_gm=True)
+        client = auth_as(gm)
+
+        response = await client.post(f"/games/{game.id}/player/{target.id}/invite_gm")
+
+        assert response.status_code == 204
+        assert self.recipients(sent) == [target.email]
+        assert "Co-GM request" in sent[0]["subject"]
+
+    @pytest.mark.parametrize(
+        ("action", "subject"),
+        [
+            ("accept_gm", "Co-GM request accepted"),
+            ("decline_gm", "Co-GM request declined"),
+        ],
+    )
+    async def test_answering_a_gm_invite_mails_the_gms_but_not_the_invitee(
+        self, auth_as, client, game, gm, add_player, sent, action, subject
+    ):
+        co_gm = await add_player(is_gm=True)
+        target = await add_player()
+        await auth_as(gm).post(f"/games/{game.id}/player/{target.id}/invite_gm")
+        sent.clear()
+
+        response = await auth_as(target).post(f"/games/{game.id}/{action}")
+
+        assert response.status_code == 204
+        assert self.recipients(sent) == sorted([gm.email, co_gm.email])
         assert subject in sent[0]["subject"]
 
     async def test_approve_character_mails_owner(

@@ -347,6 +347,43 @@ class TestCharacterSubmitted:
         assert again["read"] is False
 
 
+class TestGMInvite:
+    async def test_notifies_the_player_with_the_gm_as_actor(
+        self, auth_as, game, gm, add_player, listed
+    ):
+        player = await add_player()
+
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{player.id}/invite_gm"
+        )
+
+        assert response.status_code == 204
+        body = await listed(player)
+        assert body["count"] == 1
+        [item] = body["items"]
+        assert item["type"] == "game_gm_invite"
+        assert item["actor"] == {"id": gm.id, "username": gm.username}
+        assert item["gameId"] == game.id
+        assert item["gameTitle"] == "My Campaign"
+        assert (await listed(gm))["items"] == []
+
+    async def test_asking_again_after_a_cancel_reuses_and_raises_the_event(
+        self, auth_as, db_session, game, gm, add_player, listed, events
+    ):
+        player = await add_player()
+        await auth_as(gm).post(f"/games/{game.id}/player/{player.id}/invite_gm")
+        [first] = (await listed(player))["items"]
+        await auth_as(player).post(f"/me/notifications/{first['eventId']}/dismiss")
+        await auth_as(gm).delete(f"/games/{game.id}/player/{player.id}/invite_gm")
+
+        await auth_as(gm).post(f"/games/{game.id}/player/{player.id}/invite_gm")
+
+        assert await _event_count(db_session) == 1
+        [again] = (await listed(player))["items"]
+        assert again["eventId"] == first["eventId"]
+        assert again["read"] is False
+
+
 class TestResolution:
     """Nothing is deleted when the thing is dealt with; the item just stops
     showing once the live state no longer matches."""
@@ -403,12 +440,31 @@ class TestResolution:
         )
         assert len((await listed(co_gm))["items"]) == 1
 
-        await auth_as(gm).post(f"/games/{game.id}/player/{co_gm.id}/toggle_gm")
+        await auth_as(gm).post(f"/games/{game.id}/player/{co_gm.id}/remove_gm")
 
         body = await listed(co_gm)
         assert body["items"] == []
         assert body["count"] == 0
         assert len((await listed(gm))["items"]) == 1
+
+    async def test_a_gm_invite_goes_when_accepted_declined_cancelled_or_removed(
+        self, auth_as, game, gm, add_player, listed
+    ):
+        others = [await add_player() for _ in range(4)]
+        for user in others:
+            await auth_as(gm).post(f"/games/{game.id}/player/{user.id}/invite_gm")
+            assert len((await listed(user))["items"]) == 1
+        accepter, decliner, cancelled, left = others
+
+        await auth_as(accepter).post(f"/games/{game.id}/accept_gm")
+        await auth_as(decliner).post(f"/games/{game.id}/decline_gm")
+        await auth_as(gm).delete(f"/games/{game.id}/player/{cancelled.id}/invite_gm")
+        await auth_as(left).delete(f"/games/{game.id}/player/{left.id}")
+
+        for user in others:
+            body = await listed(user)
+            assert body["items"] == []
+            assert body["count"] == 0
 
     async def test_a_character_goes_when_approved_or_removed(
         self, auth_as, db_session, game, gm, add_player, listed
