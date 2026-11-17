@@ -1,0 +1,111 @@
+// Table looks (ported from v1's bbTable* classes). The document stores choices only
+// (`data-compact`, `data-grid`, `data-zebra`, `data-header`, `data-align` on the
+// <table>); an unknown value matches nothing and renders as a plain table. Global on
+// purpose: the editor and the read-only content both use these.
+//
+// Greys are translucent so they work on both the light and dark themes. The header
+// color is fixed, like v1's dark header, so the text on it is always readable.
+
+// The wrapper scrolls sideways when the table is wider than the post (a phone), so a
+// wide table never forces the whole page to scroll.
+.tableWrapper {
+  max-width: 100%;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tableWrapper > table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  margin: 0;
+
+  td,
+  th {
+    // Narrow enough for several columns on a phone, wide enough to stay readable;
+    // more columns than fit makes the wrapper scroll.
+    min-width: 4.5rem;
+    padding: 0.375rem 0.625rem;
+    vertical-align: top;
+    text-align: left;
+    box-sizing: border-box;
+    position: relative;
+
+    > p {
+      margin: 0;
+    }
+
+    > p + p {
+      margin-top: 0.5rem;
+    }
+  }
+
+  th {
+    font-weight: 600;
+  }
+
+  &[data-compact="true"] {
+    width: auto;
+
+    td,
+    th {
+      min-width: 0;
+      padding: 2px 0.5em;
+    }
+  }
+
+  &[data-grid="true"] {
+    td,
+    th {
+      border: 1px solid rgba(128, 128, 128, 0.7);
+    }
+  }
+
+  &[data-zebra="true"] tbody tr:nth-child(even) {
+    background-color: rgba(128, 128, 128, 0.15);
+  }
+
+  &[data-align="center"] {
+    td,
+    th {
+      text-align: center;
+    }
+  }
+
+  &[data-align="right"] {
+    td,
+    th {
+      text-align: right;
+    }
+  }
+
+  // v1's dark header row (ht), first column (hl), or both (htl).
+  &[data-header="row"] tbody tr:first-child > :is(td, th),
+  &[data-header="both"] tbody tr:first-child > :is(td, th),
+  &[data-header="column"] tbody tr > :is(td, th):first-child,
+  &[data-header="both"] tbody tr > :is(td, th):first-child {
+    background-color: #222;
+    color: #fff;
+    font-weight: 600;
+  }
+}
+
+// Only while editing: faint cell outlines so the structure is visible even without
+// grid lines, and the highlight over a multi-cell selection.
+.ProseMirror[contenteditable="true"] .tableWrapper > table {
+  td,
+  th {
+    outline: 1px dotted rgba(128, 128, 128, 0.5);
+    outline-offset: -1px;
+  }
+
+  .selectedCell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: rgba(80, 140, 255, 0.3);
+  }
+}

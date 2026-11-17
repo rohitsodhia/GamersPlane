@@ -14,7 +14,7 @@ import {
 } from "@tanstack/react-router";
 import type { JSONContent } from "@tiptap/core";
 import clsx from "clsx";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { ActionsMenu, type MenuAction } from "#/components/ActionsMenu";
 import { ConfirmDialog } from "#/components/ConfirmDialog";
@@ -37,6 +37,7 @@ import {
 } from "#/components/tiptap/tiptap-node/mention-node/mention";
 import { dropUnreadableNotes } from "#/components/tiptap/tiptap-node/note-node/note";
 import { flattenNpcBlocks } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker";
+import { contentHasPoll } from "#/components/tiptap/tiptap-node/poll-node/poll-node-extension";
 import { ApiError } from "#/lib/api";
 import { PAGINATE_PER_PAGE } from "#/lib/config";
 import { formatDateTime } from "#/lib/format-date";
@@ -188,8 +189,11 @@ function PostItem({
 	onQuote,
 	onDelete,
 	onMarkUnread,
+	poll,
 }: {
 	post: Post;
+	// The thread's poll, for a first post whose body marks where it goes.
+	poll?: ReactNode;
 	sideClass: string;
 	threadId: number;
 	page: number;
@@ -322,6 +326,7 @@ function PostItem({
 						mentions={post.content_mentions}
 						noteRecipients={post.note_recipients}
 						author={post.author.username}
+						poll={poll}
 					/>
 					<PostRollList rolls={post.rolls} />
 					<PostDrawList
@@ -454,6 +459,18 @@ function RouteComponent() {
 	// on this page; on later pages the link shows even for the author's own thread.
 	const firstPost = posts.find((post) => post.id === thread.first_post_id);
 	const canReportThread = me !== undefined && firstPost?.author.id !== me.id;
+
+	// The poll shows inside the first post when its body marks a spot for it; with no
+	// marker, or when the first post isn't on this page, it stays above the posts.
+	const threadPoll = thread.poll && (
+		<ThreadPoll
+			threadId={threadId}
+			poll={thread.poll}
+			locked={thread.options.locked}
+			loggedIn={loggedIn}
+		/>
+	);
+	const pollInFirstPost = thread.poll != null && contentHasPoll(firstPost?.body);
 
 	const isModerator = thread.permissions.includes("forum_moderate");
 	const [modError, setModError] = useState<string | null>(null);
@@ -669,14 +686,7 @@ function RouteComponent() {
 				</div>
 				{modError && <div className="error">{modError}</div>}
 
-				{thread.poll && (
-					<ThreadPoll
-						threadId={threadId}
-						poll={thread.poll}
-						locked={thread.options.locked}
-						loggedIn={loggedIn}
-					/>
-				)}
+				{thread.poll && !pollInFirstPost && threadPoll}
 
 				<div className="thread-pagination">
 					<Paginate numItems={count} current={page} onPageChange={setPage} />
@@ -713,6 +723,11 @@ function RouteComponent() {
 							canReport={me !== undefined && post.author.id !== me.id}
 							canToggleDraws={canToggleDraws}
 							onQuote={handleQuote}
+							poll={
+								post.id === thread.first_post_id && pollInFirstPost
+									? threadPoll
+									: undefined
+							}
 							onDelete={(post) => deleteMutation.mutate(post.id)}
 							onMarkUnread={
 								loggedIn && isLastPage && index === posts.length - 1

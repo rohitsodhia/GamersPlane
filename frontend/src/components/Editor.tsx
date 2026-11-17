@@ -23,6 +23,10 @@ import { SafeHighlight } from "#/components/tiptap/tiptap-extension/highlight-ex
 import { FloatImage } from "#/components/tiptap/tiptap-extension/image-extension";
 import { SafeOrderedList } from "#/components/tiptap/tiptap-extension/ordered-list-extension";
 import { Box } from "#/components/tiptap/tiptap-node/box-node/box-node-extension";
+import {
+	Column,
+	Columns,
+} from "#/components/tiptap/tiptap-node/columns-node/columns-node-extension";
 import { HorizontalRule } from "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
 import {
 	addMentions,
@@ -43,8 +47,13 @@ import {
 	NpcSpeaker,
 	NpcSpeakerContext,
 } from "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node-extension";
+import {
+	hasPoll,
+	Poll,
+} from "#/components/tiptap/tiptap-node/poll-node/poll-node-extension";
 import { Quote } from "#/components/tiptap/tiptap-node/quote-node/quote-node-extension";
 import { Spoiler } from "#/components/tiptap/tiptap-node/spoiler-node/spoiler-node-extension";
+import { TABLE_EXTENSIONS } from "#/components/tiptap/tiptap-node/table-node/table-node-extension";
 import { Youtube } from "#/components/tiptap/tiptap-node/youtube-node/youtube-node-extension";
 import type { SearchUser } from "#/queries/users";
 import "#/components/tiptap/tiptap-extension/font-faces";
@@ -52,6 +61,7 @@ import "#/components/tiptap/tiptap-extension/text-format.scss";
 import "#/components/tiptap/tiptap-node/blockquote-node/blockquote-node.scss";
 import "#/components/tiptap/tiptap-node/box-node/box-node.scss";
 import "#/components/tiptap/tiptap-node/code-block-node/code-block-node.scss";
+import "#/components/tiptap/tiptap-node/columns-node/columns-node.scss";
 import "#/components/tiptap/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
 import "#/components/tiptap/tiptap-node/list-node/list-node.scss";
 import "#/components/tiptap/tiptap-node/image-node/image-node.scss";
@@ -61,8 +71,10 @@ import "#/components/tiptap/tiptap-node/mention-node/mention-node.scss";
 import "#/components/tiptap/tiptap-node/note-node/note-node.scss";
 import "#/components/tiptap/tiptap-node/npc-roster-node/npc-roster-node.scss";
 import "#/components/tiptap/tiptap-node/npc-speaker-node/npc-speaker-node.scss";
+import "#/components/tiptap/tiptap-node/poll-node/poll-node.scss";
 import "#/components/tiptap/tiptap-node/quote-node/quote-node.scss";
 import "#/components/tiptap/tiptap-node/spoiler-node/spoiler-node.scss";
+import "#/components/tiptap/tiptap-node/table-node/table-node.scss";
 import "#/components/tiptap/tiptap-node/youtube-node/youtube-node.scss";
 
 import { NpcChooser } from "#/components/NpcChooser";
@@ -79,8 +91,10 @@ import {
 	ImageFloatDropdown,
 } from "#/components/tiptap/tiptap-ui/box-dropdown/box-dropdown";
 import { CodeBlockButton } from "#/components/tiptap/tiptap-ui/code-block-button";
+import { ColumnsDropdown } from "#/components/tiptap/tiptap-ui/columns-dropdown/columns-dropdown";
 import { HeadingDropdownMenu } from "#/components/tiptap/tiptap-ui/heading-dropdown-menu";
 import { HighlightPopover } from "#/components/tiptap/tiptap-ui/highlight-popover/highlight-popover";
+import { ImageLinkPopover } from "#/components/tiptap/tiptap-ui/image-link-popover/image-link-popover";
 import {
 	LinkButton,
 	LinkContent,
@@ -97,6 +111,7 @@ import {
 	SearchAndReplace,
 	SearchAndReplaceButton,
 } from "#/components/tiptap/tiptap-ui/search-and-replace";
+import { TableDropdown } from "#/components/tiptap/tiptap-ui/table-dropdown/table-dropdown";
 import { TextAlignButton } from "#/components/tiptap/tiptap-ui/text-align-button";
 import {
 	TextColorPopover,
@@ -265,6 +280,33 @@ function SpoilerButton({ editor }: { editor: TiptapEditor | null }) {
 	);
 }
 
+// Marks where the thread's poll appears in the post. Only passed the thread's first
+// post (see `pollAvailable`); a document holds one marker, so the button is disabled
+// once there is one. Whether it is disabled is read from the editor on each render
+// (the subscription below only triggers that render), since the subscribed state is
+// empty on the first one.
+function PollButton({ editor }: { editor: TiptapEditor | null }) {
+	useEditorState({
+		editor,
+		selector: ({ editor }) => (editor ? hasPoll(editor.state.doc) : false),
+	});
+
+	if (!editor) return null;
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			tooltip="Place the thread's poll here"
+			aria-label="Poll"
+			disabled={hasPoll(editor.state.doc)}
+			onClick={() => editor.chain().focus().insertPoll().run()}
+		>
+			Poll
+		</Button>
+	);
+}
+
 // Opens the speaker chooser; picking (or making) a quick NPC wraps the selection in
 // one of its speech blocks. Only shown where the editor was given an NPC library.
 function NpcSpeakerButton({
@@ -358,9 +400,11 @@ const MainToolbarContent = ({
 	searchAndReplaceButtonRef,
 	isMobile,
 	npcLibrary,
+	pollAvailable,
 }: {
 	editor: TiptapEditor | null;
 	npcLibrary: NpcLibrary | null;
+	pollAvailable: boolean;
 	onTextColorClick: () => void;
 	onLinkClick: () => void;
 	onSearchAndReplaceClick: () => void;
@@ -399,7 +443,11 @@ const MainToolbarContent = ({
 					<HorizontalRuleButton editor={editor} />
 					<NoteButton editor={editor} />
 					<BoxDropdown editor={editor} />
+					<TableDropdown editor={editor} />
+					<ColumnsDropdown editor={editor} />
 					<ImageFloatDropdown editor={editor} />
+					<ImageLinkPopover editor={editor} />
+					{pollAvailable && <PollButton editor={editor} />}
 					{npcLibrary && <NpcSpeakerButton editor={editor} library={npcLibrary} />}
 					{npcLibrary && <NpcRosterButton editor={editor} />}
 				</ToolbarGroup>
@@ -505,6 +553,12 @@ type EditorProps = {
 	 * for post editors: the API validates mentions on posts alone.
 	 */
 	mentions?: boolean;
+	/**
+	 * Whether the toolbar offers a Poll button, which marks where the thread's poll
+	 * appears in the post. Only for the first post of a thread that has (or is getting)
+	 * a poll.
+	 */
+	pollAvailable?: boolean;
 };
 
 const NO_CONTENT_NPCS: readonly ContentNpc[] = [];
@@ -521,6 +575,7 @@ const Editor = ({
 	contentNpcs = NO_CONTENT_NPCS,
 	contentMentions = NO_CONTENT_MENTIONS,
 	mentions = false,
+	pollAvailable = false,
 }: EditorProps) => {
 	// Users picked since the editor opened, whom the post's own lookup doesn't list.
 	const [pickedMentions, setPickedMentions] = useState<ContentMention[]>([]);
@@ -556,7 +611,11 @@ const Editor = ({
 			Quote,
 			Spoiler,
 			Youtube,
+			Poll,
 			Box,
+			Columns,
+			Column,
+			...TABLE_EXTENSIONS,
 			...(mentions
 				? [Mention.configure({ suggestion: mentionPicker.suggestion })]
 				: []),
@@ -703,6 +762,7 @@ const Editor = ({
 							searchAndReplaceButtonRef={searchAndReplaceButtonRef}
 							isMobile={isMobile}
 							npcLibrary={npcLibrary}
+							pollAvailable={pollAvailable}
 						/>
 					) : (
 						<MobileToolbarContent

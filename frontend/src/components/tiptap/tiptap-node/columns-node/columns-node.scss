@@ -1,0 +1,48 @@
+// Column layout (ported from v1's layout-columns-2, -3, and layout-column). The
+// document stores the count (`data-count`); the columns are equal width and stack
+// into one when the post gets narrow. Global on purpose: the editor and the
+// read-only content both use these.
+
+[data-type="columns"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+
+  &[data-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  img {
+    max-width: 100%;
+  }
+
+  // Contains a floated image or box inside the column.
+  > [data-type="column"] {
+    display: flow-root;
+    min-width: 0;
+
+    > :first-child {
+      margin-top: 0;
+    }
+
+    > :last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  @media (max-width: 600px) {
+    &,
+    &[data-count="3"] {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}
+
+// Only while editing: a faint outline per column so the structure is visible. A
+// posted result has a clean look.
+.ProseMirror[contenteditable="true"] [data-type="columns"] > [data-type="column"] {
+  padding: 0.25rem 0.5rem;
+  outline: 1px dashed rgba(128, 128, 128, 0.6);
+  outline-offset: -1px;
+}

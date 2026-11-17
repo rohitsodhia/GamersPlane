@@ -1,0 +1,18 @@
+.tiptap-image-link-input {
+  font-size: 0.875rem;
+  border: none;
+
+  /* Clamp the input */
+  min-width: 14rem;
+  padding-right: 0;
+}
+
+.tiptap-image-link-error {
+  padding: 0.25rem 0.5rem 0;
+  color: #d62828;
+  font-size: 0.8125rem;
+}
+
+.dark .tiptap-image-link-error {
+  color: #ff7b7b;
+}

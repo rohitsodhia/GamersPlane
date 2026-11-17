@@ -79,6 +79,28 @@ class TestProseToText:
     def test_empty_doc_is_empty(self):
         assert prose_to_text({"type": "doc", "content": []}) == ""
 
+    def test_ooc_is_kept_though_it_is_a_quote_node(self):
+        ooc = {"type": "quote", "attrs": {"variant": "ooc"}, "content": [para("ooc")]}
+        plain = {"type": "quote", "attrs": {"variant": "quote"}, "content": [para("q")]}
+
+        assert prose_to_text(doc(para("a"), ooc, plain)) == "a ooc"
+
+
+class TestSpoilerText:
+    spoiler = {
+        "type": "spoiler",
+        "attrs": {"title": "Twist"},
+        "content": [para("the butler did it")],
+    }
+
+    def test_spoiler_text_is_kept_for_search_by_default(self):
+        assert prose_to_text(doc(para("a"), self.spoiler)) == "a the butler did it"
+
+    def test_a_preview_shows_a_placeholder_instead_of_the_spoiler(self):
+        body = doc(para("before"), self.spoiler, para("after"))
+
+        assert prose_snippet(body, 200) == "before [Spoiler] after"
+
 
 class TestImagePlaceholder:
     def test_images_are_dropped_by_default(self):
@@ -238,6 +260,16 @@ class TestMentionIds:
         body = doc(inline(mention(3)), nested, inline(mention(3), mention(5)))
 
         assert mentioned_user_ids(body) == [3, 7, 5]
+
+    def test_a_mention_in_ooc_counts_but_one_in_a_plain_quote_does_not(self):
+        ooc = {
+            "type": "quote",
+            "attrs": {"variant": "ooc"},
+            "content": [inline(mention(4))],
+        }
+        quote = {"type": "quote", "content": [inline(mention(5))]}
+
+        assert mentioned_user_ids(doc(ooc, quote)) == [4]
 
     def test_quotes_and_notes_are_skipped_but_still_listed_for_rendering(self):
         quote = {"type": "quote", "content": [inline(mention(4))]}

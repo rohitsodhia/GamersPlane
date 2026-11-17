@@ -61,6 +61,49 @@ class TestPostSearchText:
 
         assert post.body_text == "New text"
 
+    async def test_spoiler_text_is_left_out_of_body_text_on_create_and_update(
+        self, repository, create, db_session
+    ):
+        thread = await create(ThreadFactory)
+        author = await create(UserFactory)
+
+        def spoiler_doc(secret: str) -> dict:
+            return {
+                "type": "doc",
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [{"type": "text", "text": "Before"}],
+                    },
+                    {
+                        "type": "spoiler",
+                        "attrs": {"title": "Twist"},
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "content": [{"type": "text", "text": secret}],
+                            }
+                        ],
+                    },
+                    {
+                        "type": "paragraph",
+                        "content": [{"type": "text", "text": "After"}],
+                    },
+                ],
+            }
+
+        post = await repository.create(
+            thread.id, author.id, "Title", spoiler_doc("the butler did it")
+        )
+
+        assert post.body_text == "Before After"
+        assert await self.matching_ids(db_session, "butler") == []
+
+        await repository.update(post, "Title", spoiler_doc("the maid did it"))
+
+        assert post.body_text == "Before After"
+        assert await self.matching_ids(db_session, "maid") == []
+
     async def test_tsvector_matches_stemmed_words(self, repository, create, db_session):
         thread = await create(ThreadFactory)
         author = await create(UserFactory)

@@ -294,11 +294,12 @@ class PostRepository:
 
     async def _body_text(self, body: dict) -> str:
         """The search text for ``body``, with its @mentions spelled with the
-        users' current names."""
+        users' current names. Spoiler text is left out: search results show excerpts
+        of this text, and a match would give the spoiler away."""
         names = await UserRepository(self.db_session).get_usernames(
             mentioned_user_ids(body)
         )
-        return prose_to_text(body, user_names=names)
+        return prose_to_text(body, user_names=names, spoiler_placeholder="")
 
     async def create(
         self,
