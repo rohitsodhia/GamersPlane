@@ -163,13 +163,7 @@ export function PmForm({
 						)}
 					</form.Field>
 
-					<form.Field
-						name="message"
-						validators={{
-							onBlur: ({ value }) =>
-								isContentEmpty(value) ? "Message required!" : undefined,
-						}}
-					>
+					<form.Field name="message">
 						{(field) => (
 							<div>
 								<label htmlFor={field.name} className="push-down">
@@ -181,19 +175,17 @@ export function PmForm({
 										value={field.state.value}
 										onBlur={field.handleBlur}
 										onChange={(value) => field.handleChange(value)}
-										className={field.state.meta.isValid ? "" : "field-invalid"}
 									/>
-									{field.state.meta.errors[0] && (
-										<p className="error">
-											<FieldError message={field.state.meta.errors[0]} />
-										</p>
-									)}
 								</div>
 							</div>
 						)}
 					</form.Field>
 
-					<form.Subscribe selector={(state) => state.canSubmit}>
+					<form.Subscribe
+						selector={(state) =>
+							state.canSubmit && !isContentEmpty(state.values.message)
+						}
+					>
 						{(canSubmit) => (
 							<div className="is-container">
 								<button
