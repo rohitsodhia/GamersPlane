@@ -1,6 +1,4 @@
 .tiptap.ProseMirror {
-  h1,
-  h2,
   h3,
   h4 {
     position: relative;
@@ -8,27 +6,11 @@
     font-style: inherit;
   }
 
-  > h1:first-child,
-  > h2:first-child,
   > h3:first-child,
   > h4:first-child,
-  > .ProseMirror-widget + h1,
-  > .ProseMirror-widget + h2,
   > .ProseMirror-widget + h3,
   > .ProseMirror-widget + h4 {
     margin-top: 0;
-  }
-
-  h1 {
-    font-size: 1.5em;
-    font-weight: 700;
-    margin-top: 3em;
-  }
-
-  h2 {
-    font-size: 1.25em;
-    font-weight: 700;
-    margin-top: 2.5em;
   }
 
   h3 {
@@ -44,52 +26,21 @@
   }
 }
 
-/* v1's banner headings, for the editor and read-only content alike (read-only
-   content has no `.tiptap` class). h1 is a dark banner and h2 an orange one, both
-   with white text and angled end caps; h3 is a red rule-underlined heading. The
-   caps sit in the 20px side margins (19.5px out, 20px wide), so they stay inside
-   the container and cannot make the page scroll sideways. */
+/* h1 and h2 are the site's `headerbar` banners (the heading extension adds the
+   classes), so only h3 is styled here: a red rule-underlined heading, for the
+   editor and read-only content alike (read-only content has no `.tiptap` class).
+   If the site gets global h3/h4 styles, delete the h3/h4 rules here and use those. */
 :is(.tiptap.ProseMirror, .tiptap-content) {
-  h1,
-  h2 {
-    --banner-bg: light-dark(#222, #111);
-
-    position: relative;
-    display: block;
-    margin-inline: 20px;
-    padding: 0.2rem;
-    background-color: var(--banner-bg);
-    color: #fff;
-    font-weight: 700;
-
-    &::before,
-    &::after {
-      content: " ";
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 20px;
-      background-color: var(--banner-bg);
-    }
-
-    &::before {
-      left: -19.5px;
-      clip-path: polygon(100% 100%, 0% 100%, 70% 0%, 100% 0%);
-    }
-
-    &::after {
-      right: -19.5px;
-      clip-path: polygon(0% 0%, 0% 100%, 70% 0%);
-    }
-  }
-
+  /* Post-sized banners: smaller than the page-level `headerbar` sizes. The bar's
+     height and skew come from --line-height, so set that rather than line-height. */
   h1 {
+    --line-height: 1.5em;
+
     font-size: 150%;
-    line-height: 150%;
   }
 
   h2 {
-    --banner-bg: #c60;
+    --line-height: 1.5em;
 
     font-size: 120%;
   }

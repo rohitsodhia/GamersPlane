@@ -22,6 +22,7 @@ import { createPortal } from "react-dom";
 import { trimTrailingEmptyParagraph } from "#/components/Editor";
 import { FontFamily } from "#/components/tiptap/tiptap-extension/font-family-extension";
 import { FontSize } from "#/components/tiptap/tiptap-extension/font-size-extension";
+import { BannerHeading } from "#/components/tiptap/tiptap-extension/heading-extension";
 import { SafeHighlight } from "#/components/tiptap/tiptap-extension/highlight-extension";
 import { FloatImage } from "#/components/tiptap/tiptap-extension/image-extension";
 import { SafeOrderedList } from "#/components/tiptap/tiptap-extension/ordered-list-extension";
@@ -82,6 +83,7 @@ const extensionsFor = (
 	author: string | null,
 ) => [
 	StarterKit.configure({
+		heading: false,
 		horizontalRule: false,
 		orderedList: false,
 		link: {
@@ -90,6 +92,7 @@ const extensionsFor = (
 		},
 	}),
 	SafeOrderedList,
+	BannerHeading,
 	HorizontalRule,
 	Note.configure({ recipients, author }),
 	NpcSpeaker.configure({ npcs }),

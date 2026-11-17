@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // --- Tiptap node styles ---
 import { FontFamily } from "#/components/tiptap/tiptap-extension/font-family-extension";
 import { FontSize } from "#/components/tiptap/tiptap-extension/font-size-extension";
+import { BannerHeading } from "#/components/tiptap/tiptap-extension/heading-extension";
 import { SafeHighlight } from "#/components/tiptap/tiptap-extension/highlight-extension";
 import { FloatImage } from "#/components/tiptap/tiptap-extension/image-extension";
 import { SafeOrderedList } from "#/components/tiptap/tiptap-extension/ordered-list-extension";
@@ -594,12 +595,14 @@ const Editor = ({
 		immediatelyRender: false,
 		extensions: [
 			StarterKit.configure({
+				heading: false,
 				horizontalRule: false,
 				hardBreak: false,
 				link: false,
 				orderedList: false,
 			}),
 			SafeOrderedList,
+			BannerHeading,
 			NonInclusiveLink.configure({
 				openOnClick: false,
 				enableClickSelection: false,
