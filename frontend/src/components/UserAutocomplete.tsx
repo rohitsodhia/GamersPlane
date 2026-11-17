@@ -16,6 +16,7 @@ export function UserAutocomplete({
 	id,
 	name,
 	label,
+	labelClassName,
 	defaultUsername = "",
 	onChange,
 	exclude,
@@ -25,6 +26,7 @@ export function UserAutocomplete({
 	id: string;
 	name: string;
 	label: string;
+	labelClassName?: string;
 	defaultUsername?: string;
 	onChange: (value: UserRef) => void;
 	exclude?: (user: SearchUser) => boolean;
@@ -69,7 +71,9 @@ export function UserAutocomplete({
 
 	return (
 		<div>
-			<label htmlFor={id}>{label}</label>
+			<label htmlFor={id} className={labelClassName}>
+				{label}
+			</label>
 			<div>
 				<Autocomplete
 					id={id}

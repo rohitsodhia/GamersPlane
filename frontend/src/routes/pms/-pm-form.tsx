@@ -104,6 +104,7 @@ export function PmForm({
 								id="pm-recipient"
 								name="pm_recipient"
 								label="Username:"
+								labelClassName="center-vertically"
 								defaultUsername={defaultUsername}
 								onChange={(user) => field.handleChange(user.username)}
 								onBlur={field.handleBlur}
@@ -120,7 +121,7 @@ export function PmForm({
 					>
 						{(field) => (
 							<div>
-								<label htmlFor={field.name} className="push-down">
+								<label htmlFor={field.name} className="center-vertically">
 									Title:
 								</label>
 								<div>

@@ -468,7 +468,7 @@ function RouteComponent() {
 							<UserAutocomplete
 								key={userFieldKey}
 								id="add-user-combo"
-								name="role_member_username"
+								name="role_member_lookup"
 								label="Add user"
 								onChange={setNewUser}
 								exclude={(user) => role.users.some((member) => member.id === user.id)}

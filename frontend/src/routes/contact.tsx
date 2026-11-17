@@ -208,10 +208,10 @@ function RouteComponent() {
 									{(field) => {
 										const error = errorFor(field, "username");
 										return (
-											<FieldBox id="contact-username" label="Username" error={error}>
+											<FieldBox id="contact-handle" label="Username" error={error}>
 												<input
-													id="contact-username"
-													name="contact_username"
+													id="contact-handle"
+													name="contact_handle"
 													type="text"
 													maxLength={USERNAME_MAX}
 													value={field.state.value}

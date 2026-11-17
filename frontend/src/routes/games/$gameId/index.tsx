@@ -909,7 +909,7 @@ function RouteComponent() {
 													<UserAutocomplete
 														key={inviteResetKey}
 														id="invitee-lookup"
-														name="invitee_username"
+														name="invitee_lookup"
 														label="Invite player:"
 														onChange={(user) => setInviteUsername(user.username)}
 														exclude={(user) =>

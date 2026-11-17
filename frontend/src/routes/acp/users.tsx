@@ -90,7 +90,7 @@ function RouteComponent() {
 				<form className={styles.search} onSubmit={submitSearch}>
 					<input
 						type="text"
-						name="user_search"
+						name="member_search"
 						autoComplete="off"
 						{...NO_PASSWORD_MANAGER_ATTRS}
 						placeholder="Username search"
