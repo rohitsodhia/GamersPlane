@@ -79,7 +79,8 @@ export function YoutubePopover({ editor: providedEditor }: { editor?: Editor | n
 								type="text"
 								inputMode="url"
 								placeholder="Paste a YouTube link..."
-								aria-label="YouTube link"
+								name="youtube_url"
+							aria-label="YouTube link"
 								aria-invalid={error ? true : undefined}
 								aria-describedby={error ? "youtube-popover-error" : undefined}
 								value={url}
