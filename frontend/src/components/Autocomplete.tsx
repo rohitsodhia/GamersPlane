@@ -9,6 +9,7 @@ import {
 	Autocomplete as RACAutocomplete,
 	SearchField,
 } from "react-aria-components";
+import { NO_PASSWORD_MANAGER_ATTRS } from "#/lib/constants";
 
 // The HTML `size` attribute (default 20) sets an <input>'s intrinsic width in
 // characters. A percentage CSS width can't override that for the grid's
@@ -31,6 +32,8 @@ export function Autocomplete<T>({
 	placeholder,
 	onClear,
 	className,
+	noPasswordManager,
+	onBlur,
 }: {
 	id: string;
 	/** The input's `name`, so password managers don't mistake it for a username field. */
@@ -53,6 +56,10 @@ export function Autocomplete<T>({
 	onClear?: () => void;
 	/** Extra classes on the wrapper (the "autocomplete" default class is kept). */
 	className?: string;
+	/** Adds each password manager's ignore hint, for fields that hold usernames of other people. */
+	noPasswordManager?: boolean;
+	/** Fired when focus leaves the field and its menu entirely. */
+	onBlur?: () => void;
 }) {
 	const { contains } = useFilter({ sensitivity: "base" });
 	const [isOpen, setIsOpen] = useState(false);
@@ -109,7 +116,9 @@ export function Autocomplete<T>({
 				} as CSSProperties
 			}
 			onBlur={(e) => {
-				if (!e.currentTarget.contains(e.relatedTarget)) setIsOpen(false);
+				if (e.currentTarget.contains(e.relatedTarget)) return;
+				setIsOpen(false);
+				onBlur?.();
 			}}
 		>
 			<RACAutocomplete
@@ -124,6 +133,8 @@ export function Autocomplete<T>({
 				<SearchField id={id} name={name} onFocus={() => setIsOpen(true)}>
 					<Input
 						placeholder={placeholder}
+						autoComplete={noPasswordManager ? "off" : undefined}
+						{...(noPasswordManager ? NO_PASSWORD_MANAGER_ATTRS : {})}
 						size={MIN_INPUT_SIZE}
 						onKeyDown={() => setIsOpen(true)}
 					/>

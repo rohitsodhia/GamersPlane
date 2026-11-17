@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
 import { z } from "zod";
 import { ApiError } from "#/lib/api";
+import { NO_PASSWORD_MANAGER_ATTRS } from "#/lib/constants";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import { sendContact } from "#/queries/contact";
 import { meFullQueryOptions } from "#/queries/me";
@@ -207,16 +208,17 @@ function RouteComponent() {
 									{(field) => {
 										const error = errorFor(field, "username");
 										return (
-											<FieldBox id="contact-username" label="Username" error={error}>
+											<FieldBox id="contact-handle" label="Username" error={error}>
 												<input
-													id="contact-username"
-													name="contact_username"
+													id="contact-handle"
+													name="contact_handle"
 													type="text"
 													maxLength={USERNAME_MAX}
 													value={field.state.value}
 													onBlur={field.handleBlur}
 													onChange={(e) => field.handleChange(e.target.value)}
-													autoComplete="off"
+													autoComplete="on"
+													{...NO_PASSWORD_MANAGER_ATTRS}
 													className={error ? styles["field-invalid"] : ""}
 												/>
 											</FieldBox>

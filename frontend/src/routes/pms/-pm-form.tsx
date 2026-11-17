@@ -5,6 +5,7 @@ import type { JSONContent } from "@tiptap/core";
 import clsx from "clsx";
 import { useState } from "react";
 import Editor, { emptyContent, isContentEmpty } from "#/components/Editor";
+import { UserAutocomplete } from "#/components/UserAutocomplete";
 import { ApiError } from "#/lib/api";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import type { PM } from "#/queries/pms";
@@ -99,32 +100,16 @@ export function PmForm({
 						}}
 					>
 						{(field) => (
-							<div>
-								<label htmlFor="pm-recipient" className="push-down">
-									Username:
-								</label>
-								<div>
-									<input
-										id="pm-recipient"
-										name="pm_recipient"
-										type="text"
-										maxLength={24}
-										value={field.state.value}
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-										autoComplete="off"
-										className={clsx(
-											styles["input-field"],
-											field.state.meta.isValid ? "" : "field-invalid",
-										)}
-									/>
-									{field.state.meta.errors[0] && (
-										<div className="error">
-											<FieldError message={field.state.meta.errors[0]} />
-										</div>
-									)}
-								</div>
-							</div>
+							<UserAutocomplete
+								id="pm-recipient"
+								name="pm_recipient"
+								label="Username:"
+								labelClassName="center-vertically"
+								defaultUsername={defaultUsername}
+								onChange={(user) => field.handleChange(user.username)}
+								onBlur={field.handleBlur}
+								error={field.state.meta.errors[0]}
+							/>
 						)}
 					</form.Field>
 
@@ -136,7 +121,7 @@ export function PmForm({
 					>
 						{(field) => (
 							<div>
-								<label htmlFor={field.name} className="push-down">
+								<label htmlFor={field.name} className="center-vertically">
 									Title:
 								</label>
 								<div>

@@ -243,6 +243,10 @@
 	align-items: center;
 	gap: 0.5em;
 	margin-bottom: 1.5em;
+
+	& > div {
+		display: contents;
+	}
 }
 
 .deck-info {

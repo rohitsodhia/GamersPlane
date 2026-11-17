@@ -4,6 +4,7 @@ import { type FormEvent, useState } from "react";
 import { z } from "zod";
 import Paginate from "#/components/Paginate";
 import { requireAcpPermission } from "#/lib/auth-route";
+import { NO_PASSWORD_MANAGER_ATTRS } from "#/lib/constants";
 import { useHbMargined } from "#/lib/use-hb-margined";
 import {
 	sendActivationLink,
@@ -89,7 +90,9 @@ function RouteComponent() {
 				<form className={styles.search} onSubmit={submitSearch}>
 					<input
 						type="text"
-						name="user_search"
+						name="member_search"
+						autoComplete="off"
+						{...NO_PASSWORD_MANAGER_ATTRS}
 						placeholder="Username search"
 						value={searchInput}
 						onChange={(event) => setSearchInput(event.target.value)}

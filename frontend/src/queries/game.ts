@@ -21,6 +21,8 @@ export type GamePlayer = {
 	id: number;
 	username: string;
 	is_gm: boolean;
+	// A pending co-GM request the player hasn't answered yet.
+	gm_invited: boolean;
 	state: GamePlayerState;
 	// Pending characters are only included for the game's GMs and their owner.
 	characters: GamePlayerCharacter[];
@@ -292,15 +294,28 @@ export const approvePlayer = async (gameId: number, userId: number): Promise<voi
 	}
 };
 
-export const toggleGm = async (gameId: number, userId: number): Promise<void> => {
-	const res = await apiFetch(`/games/${gameId}/player/${userId}/toggle_gm`, {
-		method: "POST",
-	});
+const gmRequest = async (path: string, method: "POST" | "DELETE"): Promise<void> => {
+	const res = await apiFetch(path, { method });
 	if (!res.ok) {
 		const { errors } = await res.json();
 		throw new ApiError(res.status, errors);
 	}
 };
+
+export const inviteGm = (gameId: number, userId: number): Promise<void> =>
+	gmRequest(`/games/${gameId}/player/${userId}/invite_gm`, "POST");
+
+export const cancelGmInvite = (gameId: number, userId: number): Promise<void> =>
+	gmRequest(`/games/${gameId}/player/${userId}/invite_gm`, "DELETE");
+
+export const removeGm = (gameId: number, userId: number): Promise<void> =>
+	gmRequest(`/games/${gameId}/player/${userId}/remove_gm`, "POST");
+
+export const acceptGm = (gameId: number): Promise<void> =>
+	gmRequest(`/games/${gameId}/accept_gm`, "POST");
+
+export const declineGm = (gameId: number): Promise<void> =>
+	gmRequest(`/games/${gameId}/decline_gm`, "POST");
 
 export const deletePlayer = async (gameId: number, userId: number): Promise<void> => {
 	const res = await apiFetch(`/games/${gameId}/player/${userId}`, {

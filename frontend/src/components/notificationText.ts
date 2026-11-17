@@ -19,6 +19,8 @@ export function notificationSegments(item: Notification): TextSegment[] {
 			return [actor, plain(" mentioned you in "), name(item.threadTitle)];
 		case "game_invite":
 			return [actor, plain(" invited you to "), name(item.gameTitle)];
+		case "game_gm_invite":
+			return [actor, plain(" asked you to co-GM "), name(item.gameTitle)];
 		case "game_application":
 			return [actor, plain(" applied to "), name(item.gameTitle)];
 		case "character_submitted":

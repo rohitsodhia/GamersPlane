@@ -25,6 +25,8 @@ class Event(Base):
       the users the post mentions (see ``sync_post_mentions``).
     - ``game_invite``: one per invited user per game (``game_id``,
       ``subject_user_id`` is the invitee), the invitee is the recipient.
+    - ``game_gm_invite``: one per player asked to co-GM per game (``game_id``,
+      ``subject_user_id`` is the player), the player is the recipient.
     - ``game_application``: one per applicant per game (``game_id``,
       ``subject_user_id`` is the applicant), the game's GMs are the recipients.
     - ``character_submitted``: one per character (``game_id``, ``character_id``),
@@ -38,6 +40,7 @@ class Event(Base):
     class Types(LabelEnum):
         MENTION = "mention", "Mention"
         GAME_INVITE = "game_invite", "Game invite"
+        GAME_GM_INVITE = "game_gm_invite", "Game GM invite"
         GAME_APPLICATION = "game_application", "Game application"
         CHARACTER_SUBMITTED = "character_submitted", "Character submitted"
 
@@ -56,7 +59,9 @@ class Event(Base):
             "game_id",
             "subject_user_id",
             unique=True,
-            postgresql_where=text("type IN ('game_invite', 'game_application')"),
+            postgresql_where=text(
+                "type IN ('game_invite', 'game_application', 'game_gm_invite')"
+            ),
         ),
         Index(
             "uq_events_character",
@@ -66,7 +71,7 @@ class Event(Base):
         ),
         CheckConstraint(
             "(type = 'mention' AND post_id IS NOT NULL AND thread_id IS NOT NULL)"
-            " OR (type IN ('game_invite', 'game_application')"
+            " OR (type IN ('game_invite', 'game_application', 'game_gm_invite')"
             " AND game_id IS NOT NULL AND subject_user_id IS NOT NULL)"
             " OR (type = 'character_submitted'"
             " AND game_id IS NOT NULL AND character_id IS NOT NULL)",

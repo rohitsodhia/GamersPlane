@@ -16,16 +16,22 @@ export function UserAutocomplete({
 	id,
 	name,
 	label,
+	labelClassName,
 	defaultUsername = "",
 	onChange,
 	exclude,
+	onBlur,
+	error,
 }: {
 	id: string;
 	name: string;
 	label: string;
+	labelClassName?: string;
 	defaultUsername?: string;
 	onChange: (value: UserRef) => void;
 	exclude?: (user: SearchUser) => boolean;
+	onBlur?: () => void;
+	error?: string;
 }) {
 	const [inputValue, setInputValue] = useState(defaultUsername);
 	const [results, setResults] = useState<SearchUser[]>([]);
@@ -65,20 +71,27 @@ export function UserAutocomplete({
 
 	return (
 		<div>
-			<label htmlFor={id}>{label}</label>
-			<Autocomplete
-				id={id}
-				name={name}
-				inputValue={inputValue}
-				items={candidates}
-				getId={(user) => String(user.id)}
-				getLabel={(user) => user.username}
-				onInputChange={onInput}
-				onAction={(pickedId) => {
-					const picked = results.find((user) => String(user.id) === pickedId);
-					if (picked) select(picked);
-				}}
-			/>
+			<label htmlFor={id} className={labelClassName}>
+				{label}
+			</label>
+			<div>
+				<Autocomplete
+					id={id}
+					name={name}
+					noPasswordManager
+					inputValue={inputValue}
+					items={candidates}
+					getId={(user) => String(user.id)}
+					getLabel={(user) => user.username}
+					onInputChange={onInput}
+					onAction={(pickedId) => {
+						const picked = results.find((user) => String(user.id) === pickedId);
+						if (picked) select(picked);
+					}}
+					onBlur={onBlur}
+				/>
+				{error && <div className="error">{error}</div>}
+			</div>
 		</div>
 	);
 }

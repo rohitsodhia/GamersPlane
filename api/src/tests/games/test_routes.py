@@ -379,6 +379,7 @@ class TestGetGame:
                 "id": gm.id,
                 "username": gm.username,
                 "is_gm": True,
+                "gm_invited": False,
                 "state": "accepted",
                 "characters": [],
             },
@@ -386,6 +387,7 @@ class TestGetGame:
                 "id": user.id,
                 "username": user.username,
                 "is_gm": False,
+                "gm_invited": False,
                 "state": "accepted",
                 "characters": [
                     {
@@ -1577,7 +1579,7 @@ class TestAcceptInvite:
         assert player.state == Player.States.ACCEPTED
 
 
-class TestToggleGm:
+class TestGmRequests:
     @pytest.fixture(autouse=True)
     async def games_root_forum(self, create, db_session):
         forum = await create(ForumFactory, id=2, heritage=[])
@@ -1627,61 +1629,172 @@ class TestToggleGm:
         )
         return target
 
-    async def test_toggle_gm_primary_gm_forbidden(self, auth_as, client, game, gm):
-        client = auth_as(gm)
+    async def _player(self, db_session, game, user):
+        return await db_session.get(Player, {"game_id": game.id, "user_id": user.id})
 
-        response = await client.post(f"/games/{game.id}/player/{gm.id}/toggle_gm")
+    async def test_invite_gm_requires_a_gm(
+        self, auth_as, db_session, game, accepted_player, create
+    ):
+        outsider = await create(ActivatedUserFactory)
+
+        response = await auth_as(outsider).post(
+            f"/games/{game.id}/player/{accepted_player.id}/invite_gm"
+        )
 
         assert response.status_code == 403
 
-    async def test_toggle_gm_unaccepted_player_conflict(
-        self, auth_as, client, db_session, game, gm, create
+    async def test_invite_gm_unaccepted_player_conflict(
+        self, auth_as, db_session, game, gm, create
     ):
-        client = auth_as(gm)
         target = await create(ActivatedUserFactory)
-        player_repository = PlayerRepository(db_session, principal=gm)
-        await player_repository.attach_player_to_game(
+        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
             game.id, target.id, state=Player.States.APPLIED
         )
 
-        response = await client.post(f"/games/{game.id}/player/{target.id}/toggle_gm")
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{target.id}/invite_gm"
+        )
 
         assert response.status_code == 409
-        player = await db_session.get(
-            Player, {"game_id": game.id, "user_id": target.id}
-        )
-        assert player.is_gm is False
+        assert (await self._player(db_session, game, target)).gm_invited is False
 
-    async def test_toggle_gm_promotes_player(
-        self, auth_as, client, db_session, game, gm, accepted_player
+    async def test_invite_gm_existing_gm_conflict(self, auth_as, game, gm):
+        response = await auth_as(gm).post(f"/games/{game.id}/player/{gm.id}/invite_gm")
+
+        assert response.status_code == 409
+
+    async def test_invite_gm_sets_pending_without_promoting(
+        self, auth_as, db_session, game, gm, accepted_player
     ):
-        client = auth_as(gm)
-
-        response = await client.post(
-            f"/games/{game.id}/player/{accepted_player.id}/toggle_gm"
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/invite_gm"
         )
 
         assert response.status_code == 204
-        player = await db_session.get(
-            Player, {"game_id": game.id, "user_id": accepted_player.id}
+        player = await self._player(db_session, game, accepted_player)
+        assert player.gm_invited is True
+        assert player.is_gm is False
+        assert player.state is Player.States.ACCEPTED
+
+    async def test_invite_gm_twice_conflict(self, auth_as, game, gm, accepted_player):
+        await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/invite_gm"
         )
+
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/invite_gm"
+        )
+
+        assert response.status_code == 409
+
+    async def test_pending_request_is_listed_on_the_game(
+        self, auth_as, game, gm, accepted_player
+    ):
+        await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/invite_gm"
+        )
+
+        body = (await auth_as(gm).get(f"/games/{game.id}")).json()
+
+        by_id = {p["id"]: p for p in body["players"]}
+        assert by_id[accepted_player.id]["gm_invited"] is True
+        assert by_id[gm.id]["gm_invited"] is False
+
+    async def test_cancel_gm_invite_clears_pending(
+        self, auth_as, db_session, game, gm, accepted_player
+    ):
+        await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/invite_gm"
+        )
+
+        response = await auth_as(gm).delete(
+            f"/games/{game.id}/player/{accepted_player.id}/invite_gm"
+        )
+
+        assert response.status_code == 204
+        player = await self._player(db_session, game, accepted_player)
+        assert player.gm_invited is False
+
+    async def test_cancel_gm_invite_without_pending_conflict(
+        self, auth_as, game, gm, accepted_player
+    ):
+        response = await auth_as(gm).delete(
+            f"/games/{game.id}/player/{accepted_player.id}/invite_gm"
+        )
+
+        assert response.status_code == 409
+
+    async def test_accept_gm_promotes_the_invitee(
+        self, auth_as, db_session, game, gm, accepted_player
+    ):
+        await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/invite_gm"
+        )
+
+        response = await auth_as(accepted_player).post(f"/games/{game.id}/accept_gm")
+
+        assert response.status_code == 204
+        player = await self._player(db_session, game, accepted_player)
         assert player.is_gm is True
+        assert player.gm_invited is False
 
-    async def test_toggle_gm_twice_demotes_player(
-        self, auth_as, client, db_session, game, gm, accepted_player
+    async def test_accept_gm_without_pending_conflict(
+        self, auth_as, db_session, game, accepted_player
     ):
-        client = auth_as(gm)
-        await client.post(f"/games/{game.id}/player/{accepted_player.id}/toggle_gm")
+        response = await auth_as(accepted_player).post(f"/games/{game.id}/accept_gm")
 
-        response = await client.post(
-            f"/games/{game.id}/player/{accepted_player.id}/toggle_gm"
+        assert response.status_code == 409
+        assert (await self._player(db_session, game, accepted_player)).is_gm is False
+
+    async def test_decline_gm_clears_pending(
+        self, auth_as, db_session, game, gm, accepted_player
+    ):
+        await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/invite_gm"
+        )
+
+        response = await auth_as(accepted_player).post(f"/games/{game.id}/decline_gm")
+
+        assert response.status_code == 204
+        player = await self._player(db_session, game, accepted_player)
+        assert player.is_gm is False
+        assert player.gm_invited is False
+
+    async def test_decline_gm_without_pending_conflict(
+        self, auth_as, game, accepted_player
+    ):
+        response = await auth_as(accepted_player).post(f"/games/{game.id}/decline_gm")
+
+        assert response.status_code == 409
+
+    async def test_remove_gm_primary_gm_forbidden(self, auth_as, game, gm):
+        response = await auth_as(gm).post(f"/games/{game.id}/player/{gm.id}/remove_gm")
+
+        assert response.status_code == 403
+
+    async def test_remove_gm_non_gm_conflict(self, auth_as, game, gm, accepted_player):
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/remove_gm"
+        )
+
+        assert response.status_code == 409
+
+    async def test_remove_gm_demotes_co_gm(
+        self, auth_as, db_session, game, gm, accepted_player
+    ):
+        await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/invite_gm"
+        )
+        await auth_as(accepted_player).post(f"/games/{game.id}/accept_gm")
+
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/remove_gm"
         )
 
         assert response.status_code == 204
-        player = await db_session.get(
-            Player, {"game_id": game.id, "user_id": accepted_player.id}
-        )
+        player = await self._player(db_session, game, accepted_player)
         assert player.is_gm is False
+        assert player.state is Player.States.ACCEPTED
 
 
 class TestToggleGameFlag:

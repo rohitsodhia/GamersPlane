@@ -78,6 +78,7 @@ class PlayerRepository:
         player: Player,
         state: Player.States | None = None,
         is_gm: bool | None = None,
+        gm_invited: bool | None = None,
     ) -> None:
         newly_accepted = (
             state is Player.States.ACCEPTED
@@ -89,6 +90,8 @@ class PlayerRepository:
             player.state = state
         if is_gm is not None:
             player.is_gm = is_gm
+        if gm_invited is not None:
+            player.gm_invited = gm_invited
 
         if newly_accepted or promoted or demoted:
             gm_role_id, player_role_id, root_forum_id = (

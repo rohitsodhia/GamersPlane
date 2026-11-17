@@ -27,3 +27,5 @@ class Player(Base, TimestampMixin):
         LabelEnumType(States, String(8)), default=States.APPLIED
     )
     is_gm: Mapped[bool] = mapped_column(default=False)
+    # A pending co-GM request; independent of state, so the player keeps playing.
+    gm_invited: Mapped[bool] = mapped_column(default=False)

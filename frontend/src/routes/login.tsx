@@ -164,11 +164,11 @@ function RouteComponent() {
 									<input
 										id={field.name}
 										name={field.name}
-										type="input"
+										type="text"
 										value={field.state.value}
 										onBlur={field.handleBlur}
 										onChange={(e) => field.handleChange(e.target.value)}
-										autoComplete="yes"
+										autoComplete="username"
 										className={field.state.meta.isValid ? "" : "field-invalid"}
 									/>
 								</div>
