@@ -10,6 +10,9 @@ import { defineConfig } from "vite";
 const config = defineConfig({
 	envDir: "../",
 	resolve: { tsconfigPaths: true },
+	// The production build's output (hundreds of copied images) is never a source
+	// file, and each file in it would take one of the system's limited file watchers.
+	server: { watch: { ignored: ["**/.output/**"] } },
 	plugins: [
 		devtools(),
 		nitro({ rollupConfig: { external: [/^@sentry\//] } }),
