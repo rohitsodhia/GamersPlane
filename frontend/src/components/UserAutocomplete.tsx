@@ -69,6 +69,7 @@ export function UserAutocomplete({
 			<Autocomplete
 				id={id}
 				name={name}
+				noPasswordManager
 				inputValue={inputValue}
 				items={candidates}
 				getId={(user) => String(user.id)}
