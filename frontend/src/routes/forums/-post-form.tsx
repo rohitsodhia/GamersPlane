@@ -317,10 +317,10 @@ export function PostForm({
 							<div className={styles["option-checkbox"]}>
 								<Checkbox
 									id={field.name}
+									name={field.name}
 									checked={field.state.value}
 									onChange={(checked) => {
 										field.handleChange(checked);
-										// Turning rolls or draws off drops the rows already added.
 										if (checked) return;
 										if (name === "options.allow_rolls")
 											setAttachments((current) => ({ ...current, rolls: [] }));
@@ -343,6 +343,7 @@ export function PostForm({
 								<input
 									type="text"
 									id={field.name}
+									name={field.name}
 									value={field.state.value ?? ""}
 									onBlur={field.handleBlur}
 									onChange={(e) => field.handleChange(e.target.value)}
@@ -496,6 +497,7 @@ export function PostForm({
 												<Checkbox
 													id={field.name}
 													checked={field.state.value}
+													name={field.name}
 													onChange={(checked) => field.handleChange(checked)}
 												/>
 												<label htmlFor={field.name}>This is a minor edit</label>

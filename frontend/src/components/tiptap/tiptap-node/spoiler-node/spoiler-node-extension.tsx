@@ -61,6 +61,7 @@ function SpoilerView({ node, updateAttributes, deleteNode, editor }: NodeViewPro
 						<input
 							className="spoiler-node-title-input"
 							type="text"
+							name="spoiler_title"
 							aria-label="Spoiler title"
 							maxLength={MAX_SPOILER_TITLE_LENGTH}
 							value={title}

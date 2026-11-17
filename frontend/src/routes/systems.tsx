@@ -51,6 +51,7 @@ function RouteComponent() {
 						<input
 							id="systems-search"
 							type="text"
+							name="systems_search"
 							value={search}
 							onChange={(e) => setSearch(e.target.value)}
 						/>

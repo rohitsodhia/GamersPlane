@@ -175,6 +175,7 @@ export function PollEditor({
 				<span id={perUserLabelId}>Options per voter</span>
 				<Select
 					id={`${id}-per-user`}
+					name="poll_options_per_user"
 					ariaLabelledBy={perUserLabelId}
 					items={perUserChoices}
 					getId={(choice) => choice}
@@ -186,6 +187,7 @@ export function PollEditor({
 			<div className={styles["setting"]}>
 				<Checkbox
 					id={`${id}-revoting`}
+					name="poll_allow_revoting"
 					checked={value.allowRevoting}
 					onChange={(checked) => update({ allowRevoting: checked })}
 				/>

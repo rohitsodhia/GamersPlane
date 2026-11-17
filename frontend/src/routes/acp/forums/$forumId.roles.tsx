@@ -125,6 +125,7 @@ function CustomRoleCard({
 					<label htmlFor={`role-name-${role.id}`}>Name</label>
 					<input
 						id={`role-name-${role.id}`}
+						name="role_name"
 						type="text"
 						maxLength={NAME_MAX_LENGTH}
 						value={name}
@@ -149,6 +150,7 @@ function CustomRoleCard({
 							<li key={player.id}>
 								<Checkbox
 									id={`role-${role.id}-player-${player.id}`}
+									name="role_member"
 									checked={memberIds.includes(player.id)}
 									onChange={(checked) => toggleMember(player.id, checked)}
 								/>
@@ -272,6 +274,7 @@ function RouteComponent() {
 								<label htmlFor="new-role-name">Name</label>
 								<input
 									id="new-role-name"
+									name="new_role_name"
 									type="text"
 									maxLength={NAME_MAX_LENGTH}
 									value={field.state.value}

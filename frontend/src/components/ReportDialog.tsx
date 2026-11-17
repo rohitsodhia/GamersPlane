@@ -130,6 +130,7 @@ function ReportForm({
 				<span id="report-reason-label">Reason</span>
 				<Select
 					id="report-reason"
+					name="report_reason"
 					ariaLabelledBy="report-reason-label"
 					items={REPORT_REASONS}
 					getId={(item) => item}
@@ -141,6 +142,7 @@ function ReportForm({
 			</div>
 			<TextField
 				className={styles["field"]}
+				name="report_details"
 				value={details}
 				onChange={setDetails}
 				isDisabled={report.isPending}

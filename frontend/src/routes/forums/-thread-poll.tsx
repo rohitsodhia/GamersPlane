@@ -75,6 +75,7 @@ export function ThreadPoll({
 					{max === 1 ? (
 						<RadioGroup
 							aria-labelledby={`${id}-question`}
+							name="poll_choice"
 							value={selected[0] === undefined ? null : String(selected[0])}
 							onChange={(value) => setSelected([Number(value)])}
 							className={styles["poll-choices"]}
@@ -91,6 +92,7 @@ export function ThreadPoll({
 								<div key={option.id} className={styles["poll-choice"]}>
 									<Checkbox
 										id={`${id}-option-${option.id}`}
+										name="poll_choice"
 										checked={selected.includes(option.id)}
 										disabled={!selected.includes(option.id) && selected.length >= max}
 										onChange={() =>

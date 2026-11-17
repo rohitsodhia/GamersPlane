@@ -38,6 +38,7 @@ export function OrderedListOptions({
 		<div className="tiptap-ordered-list-options">
 			<NumberField
 				aria-label="List starts at"
+				name="list_start"
 				value={list.start}
 				minValue={1}
 				step={1}
@@ -51,6 +52,7 @@ export function OrderedListOptions({
 			</NumberField>
 			<Select
 				id="tiptap-ordered-list-type"
+				name="list_numbering"
 				ariaLabel="List numbering"
 				items={[...ORDERED_LIST_TYPES]}
 				getId={(item) => item.key}

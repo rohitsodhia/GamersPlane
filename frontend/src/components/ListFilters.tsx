@@ -117,6 +117,7 @@ function SearchFilter() {
 	return (
 		<input
 			type="text"
+			name="list_search"
 			className={styles["title-search"]}
 			placeholder="Search..."
 			value={searchInput}
@@ -131,6 +132,7 @@ function TypeFilter({ idPrefix }: { idPrefix: string }) {
 	return (
 		<Select
 			id={`${idPrefix}-type-filter`}
+			name="type_filter"
 			ariaLabel="Type"
 			items={TYPE_OPTIONS}
 			getId={(option) => option.id}
@@ -150,6 +152,7 @@ function SystemFilter({ idPrefix }: { idPrefix: string }) {
 	return (
 		<Autocomplete
 			id={`${idPrefix}-system-filter`}
+			name="system_filter"
 			items={systems}
 			getId={(system: BasicSystem) => system.id}
 			getLabel={(system: BasicSystem) => system.name}
@@ -179,6 +182,7 @@ function SystemsFilter({
 		<div className={styles["system-filter"]}>
 			<Autocomplete
 				id={`${idPrefix}-system-filter-combo`}
+				name="systems_filter"
 				placeholder="Systems..."
 				items={availableSystems}
 				getId={(system: BasicSystem) => system.id}

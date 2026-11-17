@@ -232,11 +232,18 @@ function RouteComponent() {
 					{isProtected || !role.admin ? (
 						<div>
 							<label htmlFor="role-owner">Owner</label>
-							<input id="role-owner" type="text" value={role.owner.username} disabled />
+							<input
+								id="role-owner"
+								name="role_owner"
+								type="text"
+								value={role.owner.username}
+								disabled
+							/>
 						</div>
 					) : (
 						<UserAutocomplete
 							id="role-owner"
+							name="role_owner"
 							label="Owner"
 							defaultUsername={role.owner.username}
 							onChange={setOwner}
@@ -295,6 +302,7 @@ function RouteComponent() {
 										<>
 											<Select
 												id={`grant-effect-${grant.id}`}
+												name="grant_effect"
 												items={EFFECT_OPTIONS}
 												getId={(option) => option.value}
 												getLabel={(option) => option.label}
@@ -337,6 +345,7 @@ function RouteComponent() {
 											<label htmlFor="grant-permission">Permission</label>
 											<Select
 												id="grant-permission"
+												name="grant_permission"
 												items={permissions}
 												getId={(permission) => permission.value}
 												getLabel={(permission) => permission.label}
@@ -363,6 +372,7 @@ function RouteComponent() {
 													<label htmlFor="grant-scope-type">Scope type</label>
 													<input
 														id="grant-scope-type"
+														name="grant_scope_type"
 														type="text"
 														value={scopeType}
 														disabled
@@ -374,6 +384,7 @@ function RouteComponent() {
 															<label htmlFor="grant-scope-id">Scope ID</label>
 															<input
 																id="grant-scope-id"
+																name="grant_scope_id"
 																type="number"
 																min={0}
 																value={field.state.value}
@@ -394,6 +405,7 @@ function RouteComponent() {
 											<label htmlFor="grant-effect">Effect</label>
 											<Select
 												id="grant-effect"
+												name="grant_effect"
 												items={EFFECT_OPTIONS}
 												getId={(option) => option.value}
 												getLabel={(option) => option.label}
@@ -456,6 +468,7 @@ function RouteComponent() {
 							<UserAutocomplete
 								key={userFieldKey}
 								id="add-user-combo"
+								name="role_member_username"
 								label="Add user"
 								onChange={setNewUser}
 								exclude={(user) => role.users.some((member) => member.id === user.id)}

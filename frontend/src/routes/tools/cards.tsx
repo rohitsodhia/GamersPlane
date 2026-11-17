@@ -81,6 +81,7 @@ function RouteComponent() {
 								Draw{" "}
 								<input
 									type="text"
+									name="cards_to_draw"
 									maxLength={2}
 									value={numToDraw}
 									autoComplete="off"

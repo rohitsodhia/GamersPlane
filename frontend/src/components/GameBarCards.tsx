@@ -67,6 +67,7 @@ export default function CardsMenu({ gameId }: { gameId: number }) {
 						Draw
 						<TextField
 							aria-label="Cards to draw"
+							name="cards_to_draw"
 							value={numToDraw}
 							onChange={(value) => setNumToDraw(value.replace(/\D/g, ""))}
 							autoComplete="off"

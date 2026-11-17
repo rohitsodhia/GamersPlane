@@ -99,6 +99,7 @@ function RouteComponent() {
 					<div className="controls-container">
 						<div className="trapezoid">
 							<select
+								name="dice_system"
 								className={styles["system-select"]}
 								value={system}
 								onChange={(e) => setSystem(e.target.value as DiceSystem)}
@@ -137,6 +138,7 @@ function RouteComponent() {
 									<div className={styles["basic-fields"]}>
 										<textarea
 											id="basic-dice"
+											name="basic_dice"
 											className={styles["basic-dice-input"]}
 											value={basicDice}
 											onChange={(e) => setBasicDice(e.target.value)}
@@ -154,6 +156,7 @@ function RouteComponent() {
 											<div className={styles["cb-wrapper"]}>
 												<input
 													id="basic-reroll-aces"
+													name="reroll_aces"
 													type="checkbox"
 													checked={rerollAces}
 													onChange={(e) => setRerollAces(e.target.checked)}
@@ -263,6 +266,7 @@ function RouteComponent() {
 								<label htmlFor="fate-count">Number of dice: </label>
 								<input
 									id="fate-count"
+									name="fate_count"
 									type="text"
 									value={fateCount}
 									autoComplete="off"
@@ -288,6 +292,7 @@ function RouteComponent() {
 								<label htmlFor="fengshui-av">Action Value: </label>
 								<input
 									id="fengshui-av"
+									name="fengshui_av"
 									type="number"
 									min={0}
 									step={1}
@@ -296,6 +301,7 @@ function RouteComponent() {
 								/>
 								<select
 									id="fengshui-type"
+									name="fengshui_type"
 									value={fengshuiType}
 									onChange={(e) => setFengshuiType(e.target.value as FengShuiRollType)}
 								>

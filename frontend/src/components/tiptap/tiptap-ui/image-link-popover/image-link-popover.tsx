@@ -22,12 +22,7 @@ import "./image-link-popover.scss";
 
 const INVALID_LINK_MESSAGE = "Enter a full address starting with http:// or https://";
 
-/**
- * Makes the selected image a link to a bigger image or a page. Shown only while an
- * image is selected. The trigger toggles the popover; Apply (or Enter) validates
- * the address and shows an error under the field when it isn't an http(s) URL, and
- * Remove link clears it.
- */
+/** Makes the selected image a link to a bigger image or a page. Shown only while an image is selected. */
 export function ImageLinkPopover({
 	editor: providedEditor,
 }: {
@@ -106,7 +101,7 @@ export function ImageLinkPopover({
 								inputMode="url"
 								placeholder="https://..."
 								name="image_link_url"
-							aria-label="Image link address"
+								aria-label="Image link address"
 								aria-invalid={error ? true : undefined}
 								aria-describedby={error ? "image-link-popover-error" : undefined}
 								value={url}

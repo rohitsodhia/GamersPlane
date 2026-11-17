@@ -107,7 +107,6 @@ function RouteComponent() {
 
 	const [searchInput, setSearchInput] = useState(search.search ?? "");
 
-	// Debounce typing into the URL; any filter change drops back to page 1.
 	useEffect(() => {
 		const next = searchInput.trim() || undefined;
 		if (next === search.search) return;
@@ -134,6 +133,7 @@ function RouteComponent() {
 				<div className={styles["filters"]}>
 					<input
 						type="text"
+						name="gamers_search"
 						className={styles["search"]}
 						placeholder="Search gamers..."
 						aria-label="Search gamers"
@@ -143,6 +143,7 @@ function RouteComponent() {
 					<div className={styles["check"]}>
 						<Checkbox
 							id="gamers-lfg"
+							name="lfg"
 							checked={search.lfg === true}
 							onChange={(checked) => setFilter({ lfg: checked || undefined })}
 						/>
@@ -151,6 +152,7 @@ function RouteComponent() {
 					<div className={styles["check"]}>
 						<Checkbox
 							id="gamers-inactive"
+							name="show_inactive"
 							checked={search.inactive === true}
 							onChange={(checked) => setFilter({ inactive: checked || undefined })}
 						/>
@@ -158,6 +160,7 @@ function RouteComponent() {
 					</div>
 					<Select
 						id="gamers-sort"
+						name="gamers_sort"
 						ariaLabel="Sort by"
 						items={SORT_OPTIONS}
 						getId={(option) => option.id}

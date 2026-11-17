@@ -34,6 +34,7 @@ export function NoteRecipientPicker({
 	return (
 		<Autocomplete
 			id={id}
+			name="note_recipient"
 			className="note-node-recipient-picker"
 			inputValue={inputValue}
 			onInputChange={setInputValue}

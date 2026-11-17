@@ -144,6 +144,7 @@ export function TextColorPopoverContent({
 						<input
 							className="tiptap-input tiptap-text-color-hex-input"
 							aria-label="Hex color"
+							name="hex_color"
 							value={hexText}
 							spellCheck={false}
 							maxLength={7}

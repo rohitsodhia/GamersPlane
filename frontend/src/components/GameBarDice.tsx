@@ -54,6 +54,7 @@ export default function DiceMenu() {
 			>
 				<TextField
 					aria-label="Custom roll"
+					name="custom_roll"
 					value={custom}
 					onChange={setCustom}
 					autoComplete="off"

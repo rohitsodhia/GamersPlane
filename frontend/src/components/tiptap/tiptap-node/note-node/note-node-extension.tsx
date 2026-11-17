@@ -78,8 +78,7 @@ function HiddenNoteView({ node }: NodeViewProps) {
 	);
 }
 
-// Editable view: the mode toggle and the recipients as removable chips, with a user
-// search to add more. The document only keeps the ids.
+// Editable view. The document only keeps the recipients' ids.
 function NoteView(props: NodeViewProps) {
 	const { node, updateAttributes, deleteNode, editor } = props;
 	const names = useContext(MentionContext);
@@ -113,6 +112,7 @@ function NoteView(props: NodeViewProps) {
 					<>
 						<Select
 							id={modeId}
+							name="note_visibility"
 							className="note-node-mode"
 							ariaLabel="Note visibility"
 							items={[...NOTE_MODES]}

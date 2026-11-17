@@ -95,6 +95,7 @@ function QuoteView({ node, updateAttributes, deleteNode, editor }: NodeViewProps
 						<input
 							className="quote-node-quotee-input"
 							type="text"
+							name="quote_author"
 							value={quotee}
 							placeholder="Username"
 							onChange={(event) => updateAttributes({ quotee: event.target.value })}
@@ -214,14 +215,12 @@ export const Quote = Node.create<QuoteOptions>({
 					if (!found) return commands.setQuote({ variant: "ooc" });
 					if (dispatch) {
 						if (quoteVariant(found.node.attrs.variant) === "ooc") {
-							// Already OOC: take the content out of it, all of it.
 							tr.replaceWith(
 								found.pos,
 								found.pos + found.node.nodeSize,
 								found.node.content,
 							);
 						} else {
-							// A quote becomes an OOC block (which names nobody).
 							tr.setNodeMarkup(found.pos, undefined, {
 								...found.node.attrs,
 								variant: "ooc",

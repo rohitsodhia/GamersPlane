@@ -223,6 +223,7 @@ function RouteComponent() {
 								</span>
 								<Select
 									id="character-type"
+									name={field.name}
 									ariaLabelledBy="character-type-label"
 									items={TYPE_OPTIONS}
 									getId={(option) => option.id}

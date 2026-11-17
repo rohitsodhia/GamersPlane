@@ -54,6 +54,7 @@ function NpcRosterView({ node, updateAttributes, deleteNode, editor }: NodeViewP
 				{canEdit ? (
 					<input
 						type="text"
+						name="npc_roster_title"
 						className="npc-roster-title-input"
 						aria-label="Roster title"
 						placeholder="Title (optional)"

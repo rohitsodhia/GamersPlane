@@ -162,6 +162,7 @@ function ActionPanel({
 			<label htmlFor="resolution-note">Note (optional)</label>
 			<textarea
 				id="resolution-note"
+				name="resolution_note"
 				value={note}
 				maxLength={REPORT_DETAILS_MAX}
 				rows={3}

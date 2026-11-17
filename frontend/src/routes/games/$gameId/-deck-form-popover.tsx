@@ -109,6 +109,7 @@ function DeckFormPopover({
 					</label>
 					<input
 						id={`${id}-label`}
+						name="deck_label"
 						type="text"
 						maxLength={50}
 						value={label}
@@ -168,6 +169,8 @@ function DeckFormPopover({
 								<label>
 									<input
 										type="checkbox"
+										name="deck_access"
+										value={player.id}
 										checked={permissions.has(player.id)}
 										disabled={player.is_gm}
 										onChange={() => togglePermission(player.id)}

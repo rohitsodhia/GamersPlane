@@ -149,6 +149,7 @@ function RouteComponent() {
 						</label>
 						<Select
 							id="forum-sub-type"
+							name="forum_sub_type"
 							ariaLabelledBy="forum-sub-type-label"
 							items={FORUM_SUB_TYPE_OPTIONS}
 							getId={(option) => option.id}

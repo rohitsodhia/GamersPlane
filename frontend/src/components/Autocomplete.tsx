@@ -21,6 +21,7 @@ const MIN_INPUT_SIZE = 1;
 
 export function Autocomplete<T>({
 	id,
+	name,
 	items,
 	getId,
 	getLabel,
@@ -32,6 +33,8 @@ export function Autocomplete<T>({
 	className,
 }: {
 	id: string;
+	/** The input's `name`, so password managers don't mistake it for a username field. */
+	name: string;
 	items: T[];
 	getId: (item: T) => string;
 	getLabel: (item: T) => string;
@@ -118,7 +121,7 @@ export function Autocomplete<T>({
 					if (value === "") onClear?.();
 				}}
 			>
-				<SearchField id={id} onFocus={() => setIsOpen(true)}>
+				<SearchField id={id} name={name} onFocus={() => setIsOpen(true)}>
 					<Input
 						placeholder={placeholder}
 						size={MIN_INPUT_SIZE}

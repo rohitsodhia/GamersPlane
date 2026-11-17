@@ -115,6 +115,7 @@ function NewNpcForm({
 			</Heading>
 			<TextField
 				className={styles["name"]}
+				name="npc_name"
 				value={name}
 				onChange={setName}
 				isDisabled={create.isPending}

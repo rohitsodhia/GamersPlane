@@ -100,13 +100,13 @@ export function PmForm({
 					>
 						{(field) => (
 							<div>
-								<label htmlFor={field.name} className="push-down">
+								<label htmlFor="pm-recipient" className="push-down">
 									Username:
 								</label>
 								<div>
 									<input
-										id={field.name}
-										name={field.name}
+										id="pm-recipient"
+										name="pm_recipient"
 										type="text"
 										maxLength={24}
 										value={field.state.value}

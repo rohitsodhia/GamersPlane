@@ -11,6 +11,7 @@ import {
 
 export function Select<T>({
 	id,
+	name,
 	items,
 	getId,
 	getLabel,
@@ -23,6 +24,8 @@ export function Select<T>({
 	ariaLabelledBy,
 }: {
 	id: string;
+	/** Name of the hidden native `<select>` React Aria renders for form submission. */
+	name: string;
 	items: T[];
 	getId: (item: T) => string;
 	getLabel: (item: T) => string;
@@ -41,6 +44,7 @@ export function Select<T>({
 		<RACSelect
 			className={clsx("react-aria-Select", className)}
 			style={style}
+			name={name}
 			selectedKey={selectedId}
 			isDisabled={isDisabled}
 			onSelectionChange={(key) => onChange(key as string)}

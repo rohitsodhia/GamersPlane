@@ -287,6 +287,7 @@ function RouteComponent() {
 						<>
 							<Select
 								id="sheet-version"
+								name="sheet_version"
 								ariaLabelledBy="sheet-version-label"
 								items={versionOptions}
 								getId={(option) => option.id}
@@ -321,6 +322,7 @@ function RouteComponent() {
 						<label htmlFor="character-label">Label</label>
 						<input
 							id="character-label"
+							name="character_label"
 							type="text"
 							value={label}
 							onChange={(e) => setLabel(e.target.value)}
@@ -330,6 +332,7 @@ function RouteComponent() {
 						<span id="character-type-label">Type</span>
 						<Select
 							id="character-type"
+							name="character_type"
 							ariaLabelledBy="character-type-label"
 							items={TYPE_OPTIONS}
 							getId={(option) => option.id}

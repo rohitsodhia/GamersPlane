@@ -84,6 +84,7 @@ function RoleSearch({
 			<label htmlFor="permission-role-search">Add a role</label>
 			<Autocomplete
 				id="permission-role-search"
+				name="permission_role_search"
 				placeholder="Search roles"
 				items={candidates}
 				getId={(role) => String(role.id)}
