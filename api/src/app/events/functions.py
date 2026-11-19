@@ -82,6 +82,10 @@ def _build_notification(row) -> schemas.Notification:
             return schemas.GameGMInviteNotification(
                 **common, gameId=row.game_id, gameTitle=row.game_title
             )
+        case Event.Types.GAME_GM_TRANSFER:
+            return schemas.GameGMTransferNotification(
+                **common, gameId=row.game_id, gameTitle=row.game_title
+            )
         case Event.Types.GAME_APPLICATION:
             return schemas.GameApplicationNotification(
                 **common, gameId=row.game_id, gameTitle=row.game_title
@@ -219,6 +223,22 @@ async def notify_game_gm_invite(
         {user.id for user in invitees},
         game_id=game_id,
         subject_user_id=invitee_id,
+    )
+
+
+async def notify_game_gm_transfer(
+    db_session: AsyncSession, actor: User, game_id: int, co_gm_id: int
+) -> None:
+    """Tell the co-GM the primary GM asked them to take over the game, unless
+    they can't be notified. Asking again reuses and re-raises the event."""
+    repo = EventRepository(db_session)
+    co_gms = await repo.get_notifiable_users({co_gm_id})
+    await repo.upsert_event(
+        Event.Types.GAME_GM_TRANSFER,
+        actor.id,
+        {user.id for user in co_gms},
+        game_id=game_id,
+        subject_user_id=co_gm_id,
     )
 
 

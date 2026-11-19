@@ -56,6 +56,14 @@ describe("notificationSegments", () => {
 				gameTitle: "Gamma",
 			}),
 		).toBe("Ann asked you to co-GM Gamma");
+		expect(
+			notificationPlainText({
+				...base(4),
+				type: "game_gm_transfer",
+				gameId: 3,
+				gameTitle: "Gamma",
+			}),
+		).toBe("Ann asked you to become the primary GM of Gamma");
 	});
 
 	it("names both the character and the game when one is submitted", () => {

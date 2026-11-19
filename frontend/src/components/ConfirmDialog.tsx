@@ -9,13 +9,21 @@ type Props = {
 	/** Explains what confirming does. */
 	message: ReactNode;
 	onConfirm: () => void;
+	/** Accessible name for the dialog. */
+	label?: string;
 };
 
 /**
  * Controlled confirm/cancel modal, for confirming from somewhere that can't host
  * a trigger (e.g. a menu item). Same body as ConfirmDeleteButton's popover.
  */
-export function ConfirmDialog({ isOpen, onOpenChange, message, onConfirm }: Props) {
+export function ConfirmDialog({
+	isOpen,
+	onOpenChange,
+	message,
+	onConfirm,
+	label = "Confirm delete",
+}: Props) {
 	return (
 		<ModalOverlay
 			className={styles["overlay"]}
@@ -24,7 +32,7 @@ export function ConfirmDialog({ isOpen, onOpenChange, message, onConfirm }: Prop
 			isDismissable
 		>
 			<Modal className={styles["modal"]}>
-				<Dialog aria-label="Confirm delete" className={confirmStyles["confirm-delete"]}>
+				<Dialog aria-label={label} className={confirmStyles["confirm-delete"]}>
 					{({ close }) => (
 						<>
 							<p>{message}</p>

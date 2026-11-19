@@ -21,6 +21,12 @@ export function notificationSegments(item: Notification): TextSegment[] {
 			return [actor, plain(" invited you to "), name(item.gameTitle)];
 		case "game_gm_invite":
 			return [actor, plain(" asked you to co-GM "), name(item.gameTitle)];
+		case "game_gm_transfer":
+			return [
+				actor,
+				plain(" asked you to become the primary GM of "),
+				name(item.gameTitle),
+			];
 		case "game_application":
 			return [actor, plain(" applied to "), name(item.gameTitle)];
 		case "character_submitted":

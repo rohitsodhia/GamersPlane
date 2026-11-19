@@ -110,6 +110,7 @@ class PlayerData(SchemaBase):
     username: str
     is_gm: bool
     gm_invited: bool
+    gm_transfer_offered: bool
     state: PlayerState
     characters: list[PlayerCharacterData]
 
