@@ -22,6 +22,7 @@ import { FontSize } from "#/components/tiptap/tiptap-extension/font-size-extensi
 import { BannerHeading } from "#/components/tiptap/tiptap-extension/heading-extension";
 import { SafeHighlight } from "#/components/tiptap/tiptap-extension/highlight-extension";
 import { FloatImage } from "#/components/tiptap/tiptap-extension/image-extension";
+import { isAllowedLinkUri } from "#/components/tiptap/tiptap-extension/link-options";
 import { SafeOrderedList } from "#/components/tiptap/tiptap-extension/ordered-list-extension";
 import { Box } from "#/components/tiptap/tiptap-node/box-node/box-node-extension";
 import {
@@ -606,6 +607,7 @@ const Editor = ({
 			NonInclusiveLink.configure({
 				openOnClick: false,
 				enableClickSelection: false,
+				isAllowedUri: isAllowedLinkUri,
 			}),
 			HorizontalRule,
 			Note,
