@@ -29,3 +29,5 @@ class Player(Base, TimestampMixin):
     is_gm: Mapped[bool] = mapped_column(default=False)
     # A pending co-GM request; independent of state, so the player keeps playing.
     gm_invited: Mapped[bool] = mapped_column(default=False)
+    # A pending offer to take over as primary GM; only ever set on an accepted co-GM.
+    gm_transfer_offered: Mapped[bool] = mapped_column(default=False)

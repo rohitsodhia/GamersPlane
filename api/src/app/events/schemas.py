@@ -42,6 +42,14 @@ class GameGMInviteNotification(NotificationBase):
     gameTitle: str
 
 
+class GameGMTransferNotification(NotificationBase):
+    """The actor is the primary GM who asked the user to take over."""
+
+    type: Literal["game_gm_transfer"] = "game_gm_transfer"
+    gameId: int
+    gameTitle: str
+
+
 class GameApplicationNotification(NotificationBase):
     """The actor is the applicant."""
 
@@ -64,6 +72,7 @@ Notification = Annotated[
     MentionNotification
     | GameInviteNotification
     | GameGMInviteNotification
+    | GameGMTransferNotification
     | GameApplicationNotification
     | CharacterSubmittedNotification,
     Field(discriminator="type"),

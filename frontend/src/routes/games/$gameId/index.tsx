@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Button } from "react-aria-components";
 import { ActionsMenu, type MenuAction } from "#/components/ActionsMenu";
 import { Autocomplete } from "#/components/Autocomplete";
+import { ConfirmDialog } from "#/components/ConfirmDialog";
 import GMBadge from "#/components/GMBadge";
 import { characterDisplayName, ownerLabelHint } from "#/components/game-bar";
 import { QuickNpcList } from "#/components/QuickNpcList";
@@ -23,12 +24,15 @@ import { deckTypesQueryOptions } from "#/queries/deckTypes";
 import {
 	acceptGm,
 	acceptInvite,
+	acceptTransfer,
 	applyToGame,
 	approveCharacter,
 	approvePlayer,
 	cancelGmInvite,
+	cancelTransferGm,
 	decksQueryOptions,
 	declineGm,
+	declineTransfer,
 	deleteDeck,
 	deletePlayer,
 	favoriteGame,
@@ -37,6 +41,7 @@ import {
 	gameDetailsQueryOptions,
 	inviteGm,
 	invitePlayer,
+	offerTransferGm,
 	removeCharacter,
 	removeGm,
 	shuffleDeck,
@@ -213,6 +218,7 @@ function RouteComponent() {
 					username: user.username,
 					is_gm: false,
 					gm_invited: false,
+					gm_transfer_offered: false,
 					state: "invited",
 					characters: [],
 				},
@@ -301,10 +307,51 @@ function RouteComponent() {
 	const removeGmMutation = useMutation({
 		mutationFn: (userId: number) => removeGm(gameId, userId),
 		onSuccess: (_data, userId) => {
-			updatePlayer(userId, { is_gm: false });
+			updatePlayer(userId, { is_gm: false, gm_transfer_offered: false });
 			refreshNotifications();
 		},
 		...gmMutationOptions("Failed to remove GM"),
+	});
+	const [transferTarget, setTransferTarget] = useState<GamePlayer | null>(null);
+	const offerTransferMutation = useMutation({
+		mutationFn: (target: GamePlayer) => offerTransferGm(gameId, target.id),
+		onSuccess: (_data, target) => {
+			updatePlayer(target.id, { gm_transfer_offered: true });
+			refreshNotifications();
+		},
+		...gmMutationOptions("Failed to send the primary GM transfer request"),
+	});
+	const cancelTransferMutation = useMutation({
+		mutationFn: (userId: number) => cancelTransferGm(gameId, userId),
+		onSuccess: (_data, userId) => {
+			updatePlayer(userId, { gm_transfer_offered: false });
+			refreshNotifications();
+		},
+		...gmMutationOptions("Failed to cancel the primary GM transfer request"),
+	});
+	const acceptTransferMutation = useMutation({
+		mutationFn: () => acceptTransfer(gameId),
+		onSuccess: async () => {
+			// What the new primary GM can see differs from what a co-GM sees,
+			// so replace the local copies of the game's data instead of patching.
+			const fresh = await queryClient.fetchQuery({
+				...gameDetailsQueryOptions(gameId),
+				staleTime: 0,
+			});
+			setPlayers(fresh.players);
+			setViewerPlayerState(fresh.viewer_state);
+			queryClient.invalidateQueries({ queryKey: ["games", "mine"] });
+			refreshNotifications();
+		},
+		...gmMutationOptions("Failed to accept the primary GM transfer"),
+	});
+	const declineTransferMutation = useMutation({
+		mutationFn: () => declineTransfer(gameId),
+		onSuccess: () => {
+			if (me) updatePlayer(me.id, { gm_transfer_offered: false });
+			refreshNotifications();
+		},
+		...gmMutationOptions("Failed to decline the primary GM transfer"),
 	});
 	const acceptGmMutation = useMutation({
 		mutationFn: () => acceptGm(gameId),
@@ -326,10 +373,15 @@ function RouteComponent() {
 		inviteGmMutation.isPending ||
 		cancelGmInviteMutation.isPending ||
 		removeGmMutation.isPending ||
+		offerTransferMutation.isPending ||
+		cancelTransferMutation.isPending ||
+		acceptTransferMutation.isPending ||
+		declineTransferMutation.isPending ||
 		acceptGmMutation.isPending ||
 		declineGmMutation.isPending;
 
 	const isPrimaryGM = me?.id === game.gm.id;
+	const pendingTransferPlayer = players.find((player) => player.gm_transfer_offered);
 	const viewerPlayer = me ? players.find((player) => player.id === me.id) : undefined;
 	const isGM = viewerPlayer?.is_gm ?? false;
 	const inGame = !!viewerPlayer;
@@ -344,7 +396,11 @@ function RouteComponent() {
 		enabled: isGM,
 	});
 
-	const playersInGame = players.filter((player) => player.state === "accepted");
+	const acceptedPlayers = players.filter((player) => player.state === "accepted");
+	const playersInGame = [
+		...acceptedPlayers.filter((player) => player.id === game.gm.id),
+		...acceptedPlayers.filter((player) => player.id !== game.gm.id),
+	];
 	// The primary GM doesn't take up one of the game's player slots.
 	const playerCount = playersInGame.filter((player) => player.id !== game.gm.id).length;
 	const playersInvited = players.filter((player) => player.state === "invited");
@@ -507,6 +563,7 @@ function RouteComponent() {
 					username: me.username,
 					is_gm: false,
 					gm_invited: false,
+					gm_transfer_offered: false,
 					state: "accepted",
 					characters: [],
 				},
@@ -533,6 +590,13 @@ function RouteComponent() {
 					onAction: () => removeGmMutation.mutate(player.id),
 					disabled: gmRequestPending,
 				});
+				if (isPrimaryGM && !pendingTransferPlayer) {
+					actions.push({
+						label: "Ask to become primary GM",
+						onAction: () => setTransferTarget(player),
+						disabled: gmRequestPending,
+					});
+				}
 			} else if (player.gm_invited) {
 				actions.push({
 					label: "Cancel GM request",
@@ -552,6 +616,21 @@ function RouteComponent() {
 
 	return (
 		<div>
+			<ConfirmDialog
+				isOpen={transferTarget !== null}
+				onOpenChange={(open) => {
+					if (!open) setTransferTarget(null);
+				}}
+				label="Confirm primary GM transfer"
+				message={
+					transferTarget
+						? `Ask ${transferTarget.username} to become the primary GM? They'll need to accept; until they do, you stay the primary GM. If they accept, you'll stay a co-GM, and they'll be able to remove you. This cannot be undone once they accept unless they offer you primary GM.`
+						: ""
+				}
+				onConfirm={() => {
+					if (transferTarget) offerTransferMutation.mutate(transferTarget);
+				}}
+			/>
 			{me && (
 				<div className={`hb-topper ${styles["topper"]}`}>
 					<div className="trapezoid">
@@ -618,6 +697,46 @@ function RouteComponent() {
 								isDisabled={gmRequestPending}
 							>
 								Decline
+							</Button>
+						</p>
+						{gmError && <div className="error">{gmError}</div>}
+					</div>
+				)}
+				{viewerPlayer?.gm_transfer_offered && !retired && (
+					<div className="banner">
+						<p>{game.gm.username} asked you to become the primary GM of this game.</p>
+						<p className="align-center">
+							<Button
+								className="skew-btn"
+								onPress={() => acceptTransferMutation.mutate()}
+								isDisabled={gmRequestPending}
+							>
+								Accept
+							</Button>{" "}
+							<Button
+								className="skew-btn"
+								onPress={() => declineTransferMutation.mutate()}
+								isDisabled={gmRequestPending}
+							>
+								Decline
+							</Button>
+						</p>
+						{gmError && <div className="error">{gmError}</div>}
+					</div>
+				)}
+				{isPrimaryGM && pendingTransferPlayer && !retired && (
+					<div className="banner">
+						<p>
+							You've asked {pendingTransferPlayer.username} to take over as primary GM
+							of this game.
+						</p>
+						<p className="align-center">
+							<Button
+								className="skew-btn"
+								onPress={() => cancelTransferMutation.mutate(pendingTransferPlayer.id)}
+								isDisabled={gmRequestPending}
+							>
+								Cancel request
 							</Button>
 						</p>
 						{gmError && <div className="error">{gmError}</div>}
@@ -811,6 +930,11 @@ function RouteComponent() {
 												{player.is_gm && <GMBadge />}
 												{player.gm_invited && (
 													<span className={styles["pending-badge"]}>Pending GM</span>
+												)}
+												{player.gm_transfer_offered && (
+													<span className={styles["pending-badge"]}>
+														Pending primary GM
+													</span>
 												)}
 											</div>
 											<ActionsMenu

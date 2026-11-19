@@ -41,14 +41,15 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.CheckConstraint(
             "(type = 'mention' AND post_id IS NOT NULL AND thread_id IS NOT NULL)"
-            " OR (type IN ('game_invite', 'game_application', 'game_gm_invite')"
+            " OR (type IN ('game_invite', 'game_application', 'game_gm_invite',"
+            " 'game_gm_transfer')"
             " AND game_id IS NOT NULL AND subject_user_id IS NOT NULL)"
             " OR (type = 'character_submitted'"
             " AND game_id IS NOT NULL AND character_id IS NOT NULL)",
             name="ck_events_type_columns",
         ),
     )
-    # One event per post's mentions, per invited, GM-invited, or applying user in a
+    # One event per post's mentions, per invited, GM-invited, transfer-asked, or applying user in a
     # game, and per submitted character; a repeat reuses the event.
     op.create_index(
         "uq_events_mention_post",
@@ -63,7 +64,8 @@ def upgrade() -> None:
         ["type", "game_id", "subject_user_id"],
         unique=True,
         postgresql_where=sa.text(
-            "type IN ('game_invite', 'game_application', 'game_gm_invite')"
+            "type IN ('game_invite', 'game_application', 'game_gm_invite',"
+            " 'game_gm_transfer')"
         ),
     )
     op.create_index(

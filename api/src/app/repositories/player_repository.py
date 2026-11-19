@@ -68,6 +68,18 @@ class PlayerRepository:
             ).all()
         )
 
+    async def has_pending_transfer(self, game_id: int) -> bool:
+        return (
+            await self.db_session.scalar(
+                select(Player.user_id)
+                .where(
+                    Player.game_id == game_id,
+                    Player.gm_transfer_offered.is_(True),
+                )
+                .limit(1)
+            )
+        ) is not None
+
     async def get_player(self, game_id: int, user_id: int) -> Player | None:
         return await self.db_session.get(
             Player, {"game_id": game_id, "user_id": user_id}
@@ -79,6 +91,7 @@ class PlayerRepository:
         state: Player.States | None = None,
         is_gm: bool | None = None,
         gm_invited: bool | None = None,
+        gm_transfer_offered: bool | None = None,
     ) -> None:
         newly_accepted = (
             state is Player.States.ACCEPTED
@@ -92,6 +105,8 @@ class PlayerRepository:
             player.is_gm = is_gm
         if gm_invited is not None:
             player.gm_invited = gm_invited
+        if gm_transfer_offered is not None:
+            player.gm_transfer_offered = gm_transfer_offered
 
         if newly_accepted or promoted or demoted:
             gm_role_id, player_role_id, root_forum_id = (

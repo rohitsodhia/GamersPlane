@@ -20,6 +20,7 @@ const player = (id: number, overrides: Partial<GamePlayer> = {}): GamePlayer => 
 	username: `user${id}`,
 	is_gm: false,
 	gm_invited: false,
+	gm_transfer_offered: false,
 	state: "accepted",
 	characters: [character(id * 10)],
 	...overrides,

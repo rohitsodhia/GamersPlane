@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -301,6 +301,14 @@ class GameRepository:
             root_forum.title = game.title
         await self.db_session.flush()
         return game
+
+    async def transfer_primary_gm(self, game: Game, new_gm_id: int) -> None:
+        game.gm_id = new_gm_id
+        await self.db_session.execute(
+            update(Role).where(Role.game_role == game.id).values(owner_id=new_gm_id)
+        )
+        await self.db_session.flush()
+        self.db_session.expire(game, ["gm"])
 
     async def toggle_retire(self, game: Game) -> None:
         if game.retired:

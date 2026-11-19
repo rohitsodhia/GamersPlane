@@ -17,6 +17,7 @@ from app.events.functions import (
     notify_character_submitted,
     notify_game_application,
     notify_game_gm_invite,
+    notify_game_gm_transfer,
     notify_game_invite,
 )
 from app.games import schemas
@@ -314,6 +315,7 @@ async def get_game(game_id: int, db_session: DBSessionDependency, principal: Pri
             username=player.user.username,
             is_gm=player.is_gm,
             gm_invited=player.gm_invited,
+            gm_transfer_offered=player.gm_transfer_offered,
             state=player.state.value,
             characters=characters_by_user.get(player.user.id, []),
         )
@@ -783,7 +785,7 @@ async def remove_gm(
     if not player.is_gm:
         raise ConflictException("Player is not a GM")
 
-    await player_repository.update_state(player, is_gm=False)
+    await player_repository.update_state(player, is_gm=False, gm_transfer_offered=False)
 
     await queue_player_email(
         background_tasks,
@@ -796,6 +798,131 @@ async def remove_gm(
         message=f"{principal.username} removed you as a GM of this game. "
         "You're still a player in it.",
         to_gms=True,
+    )
+
+
+@games.post(
+    "/{game_id}/player/{user_id}/transfer_gm", status_code=status.HTTP_204_NO_CONTENT
+)
+async def offer_transfer_gm(
+    game_id: int,
+    user_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    background_tasks: BackgroundTasks,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+
+    if principal.id != game.gm_id:
+        raise ForbiddenException("Only the primary GM can transfer the game")
+    if user_id == principal.id:
+        raise ConflictException("You're already the primary GM")
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    player = await get_player_or_404(player_repository, game_id, user_id)
+    if not player.is_gm or player.state is not Player.States.ACCEPTED:
+        raise ConflictException("Primary GM can only be transferred to a co-GM")
+    if await player_repository.has_pending_transfer(game_id):
+        raise ConflictException("A primary GM transfer is already pending")
+
+    await player_repository.update_state(player, gm_transfer_offered=True)
+
+    await notify_game_gm_transfer(db_session, principal, game_id, user_id)
+
+    await queue_player_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        user_id,
+        subject="Primary GM transfer request",
+        headline="You've been asked to become the primary GM",
+        message=f"{principal.username} asked you to become the primary GM of this "
+        "game. Open the game to accept or decline.",
+        to_gms=True,
+    )
+
+
+@games.delete(
+    "/{game_id}/player/{user_id}/transfer_gm", status_code=status.HTTP_204_NO_CONTENT
+)
+async def cancel_transfer_gm(
+    game_id: int,
+    user_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+
+    if principal.id != game.gm_id:
+        raise ForbiddenException("Only the primary GM can cancel a transfer request")
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    player = await get_player_or_404(player_repository, game_id, user_id)
+    if not player.gm_transfer_offered:
+        raise ConflictException("No pending transfer request for this player")
+
+    await player_repository.update_state(player, gm_transfer_offered=False)
+
+
+@games.post("/{game_id}/accept_transfer", status_code=status.HTTP_204_NO_CONTENT)
+async def accept_transfer(
+    game_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    background_tasks: BackgroundTasks,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    player = await get_player_or_404(player_repository, game_id, principal.id)
+    if not player.gm_transfer_offered:
+        raise ConflictException("No pending primary GM transfer for this game")
+
+    await player_repository.update_state(player, gm_transfer_offered=False)
+    await game_repository.transfer_primary_gm(game, principal.id)
+
+    await queue_gm_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        exclude_user_ids=[principal.id],
+        subject="Primary GM changed",
+        headline="Primary GM changed",
+        message=f"{principal.username} accepted and is now the primary GM.",
+    )
+
+
+@games.post("/{game_id}/decline_transfer", status_code=status.HTTP_204_NO_CONTENT)
+async def decline_transfer(
+    game_id: int,
+    db_session: DBSessionDependency,
+    principal: Principal,
+    background_tasks: BackgroundTasks,
+):
+    game_repository = GameRepository(db_session, principal=principal)
+    game = await get_game_or_404(game_repository, game_id)
+
+    player_repository = PlayerRepository(db_session, principal=principal)
+    player = await get_player_or_404(player_repository, game_id, principal.id)
+    if not player.gm_transfer_offered:
+        raise ConflictException("No pending primary GM transfer for this game")
+
+    await player_repository.update_state(player, gm_transfer_offered=False)
+
+    await queue_gm_email(
+        background_tasks,
+        db_session,
+        game,
+        principal,
+        exclude_user_ids=[principal.id],
+        subject="Primary GM transfer declined",
+        headline="Primary GM transfer declined",
+        message=f"{principal.username} declined the primary GM transfer.",
     )
 
 

@@ -384,6 +384,74 @@ class TestGMInvite:
         assert again["read"] is False
 
 
+class TestGMTransfer:
+    async def test_notifies_the_co_gm_with_the_primary_gm_as_actor(
+        self, auth_as, game, gm, add_player, listed
+    ):
+        co_gm = await add_player(is_gm=True)
+
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{co_gm.id}/transfer_gm"
+        )
+
+        assert response.status_code == 204
+        [item] = (await listed(co_gm))["items"]
+        assert item["type"] == "game_gm_transfer"
+        assert item["actor"] == {"id": gm.id, "username": gm.username}
+        assert item["gameId"] == game.id
+        assert item["gameTitle"] == "My Campaign"
+        assert (await listed(gm))["items"] == []
+
+    async def test_offering_again_after_a_cancel_reuses_and_raises_the_event(
+        self, auth_as, db_session, game, gm, add_player, listed
+    ):
+        co_gm = await add_player(is_gm=True)
+        await auth_as(gm).post(f"/games/{game.id}/player/{co_gm.id}/transfer_gm")
+        [first] = (await listed(co_gm))["items"]
+        await auth_as(co_gm).post(f"/me/notifications/{first['eventId']}/read")
+        assert (await listed(co_gm))["items"][0]["read"] is True
+        await auth_as(gm).delete(f"/games/{game.id}/player/{co_gm.id}/transfer_gm")
+
+        await auth_as(gm).post(f"/games/{game.id}/player/{co_gm.id}/transfer_gm")
+
+        assert await _event_count(db_session) == 1
+        [again] = (await listed(co_gm))["items"]
+        assert again["eventId"] == first["eventId"]
+        assert again["read"] is False
+
+    async def test_goes_when_accepted_declined_cancelled_or_demoted(
+        self, auth_as, game, gm, add_player, listed
+    ):
+        decliner, cancelled, demoted, accepter = [
+            await add_player(is_gm=True) for _ in range(4)
+        ]
+        resolutions = {
+            decliner.id: lambda: auth_as(decliner).post(
+                f"/games/{game.id}/decline_transfer"
+            ),
+            cancelled.id: lambda: auth_as(gm).delete(
+                f"/games/{game.id}/player/{cancelled.id}/transfer_gm"
+            ),
+            demoted.id: lambda: auth_as(gm).post(
+                f"/games/{game.id}/player/{demoted.id}/remove_gm"
+            ),
+            accepter.id: lambda: auth_as(accepter).post(
+                f"/games/{game.id}/accept_transfer"
+            ),
+        }
+        # Only one offer can be pending at a time, and accepting changes who the
+        # primary is, so the accepter goes last.
+        for user in (decliner, cancelled, demoted, accepter):
+            await auth_as(gm).post(f"/games/{game.id}/player/{user.id}/transfer_gm")
+            assert len((await listed(user))["items"]) == 1
+
+            await resolutions[user.id]()
+
+            body = await listed(user)
+            assert body["items"] == []
+            assert body["count"] == 0
+
+
 class TestResolution:
     """Nothing is deleted when the thing is dealt with; the item just stops
     showing once the live state no longer matches."""

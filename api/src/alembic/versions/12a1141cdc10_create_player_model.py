@@ -28,6 +28,7 @@ def upgrade() -> None:
         sa.Column("state", sa.String(8), nullable=False),
         sa.Column("is_gm", sa.Boolean(), nullable=False),
         sa.Column("gm_invited", sa.Boolean(), nullable=False),
+        sa.Column("gm_transfer_offered", sa.Boolean(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(

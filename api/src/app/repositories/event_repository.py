@@ -168,6 +168,8 @@ class EventRepository:
           deleted).
         - GM invite: the user is still an accepted player with the request pending
           and the game is live.
+        - GM transfer: the user is still an accepted co-GM with the offer pending
+          and the game is live.
         - application: the applicant is still applied, the game is live, and the
           user is still an accepted GM of it.
         - character: the character is still in the event's game, unapproved, and
@@ -198,6 +200,13 @@ class EventRepository:
             Event.type == Event.Types.GAME_GM_INVITE,
             subject.state == Player.States.ACCEPTED,
             subject.gm_invited.is_(True),
+            game_live,
+        )
+        gm_transfer = and_(
+            Event.type == Event.Types.GAME_GM_TRANSFER,
+            subject.state == Player.States.ACCEPTED,
+            subject.is_gm.is_(True),
+            subject.gm_transfer_offered.is_(True),
             game_live,
         )
         application = and_(
@@ -242,7 +251,7 @@ class EventRepository:
             .where(
                 EventRecipient.user_id == user_id,
                 EventRecipient.dismissed_at.is_(None),
-                or_(mention, invite, gm_invite, application, character),
+                or_(mention, invite, gm_invite, gm_transfer, application, character),
             )
         )
 

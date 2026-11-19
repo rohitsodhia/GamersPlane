@@ -377,6 +377,49 @@ class TestGMActsMailsPlayer(_GameEmailFixtures):
         assert self.recipients(sent) == [target.email]
         assert "You're no longer a GM" in sent[0]["subject"]
 
+    async def test_offering_a_transfer_mails_the_co_gm_only(
+        self, auth_as, game, gm, add_player, sent
+    ):
+        target = await add_player(is_gm=True)
+        await add_player(is_gm=True)
+
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{target.id}/transfer_gm"
+        )
+
+        assert response.status_code == 204
+        assert self.recipients(sent) == [target.email]
+        assert "Primary GM transfer request" in sent[0]["subject"]
+
+    async def test_accepting_a_transfer_mails_the_other_gms_including_the_old_primary(
+        self, auth_as, game, gm, add_player, sent
+    ):
+        target = await add_player(is_gm=True)
+        other_co_gm = await add_player(is_gm=True)
+        await auth_as(gm).post(f"/games/{game.id}/player/{target.id}/transfer_gm")
+        sent.clear()
+
+        response = await auth_as(target).post(f"/games/{game.id}/accept_transfer")
+
+        assert response.status_code == 204
+        assert self.recipients(sent) == sorted([gm.email, other_co_gm.email])
+        assert "Primary GM changed" in sent[0]["subject"]
+        assert f"{target.username} accepted" in sent[0]["content"]
+
+    async def test_declining_a_transfer_mails_the_gms_but_not_the_decliner(
+        self, auth_as, game, gm, add_player, sent
+    ):
+        target = await add_player(is_gm=True)
+        other_co_gm = await add_player(is_gm=True)
+        await auth_as(gm).post(f"/games/{game.id}/player/{target.id}/transfer_gm")
+        sent.clear()
+
+        response = await auth_as(target).post(f"/games/{game.id}/decline_transfer")
+
+        assert response.status_code == 204
+        assert self.recipients(sent) == sorted([gm.email, other_co_gm.email])
+        assert "Primary GM transfer declined" in sent[0]["subject"]
+
     async def test_invite_gm_mails_the_invitee_only(
         self, auth_as, client, game, gm, add_player, sent
     ):

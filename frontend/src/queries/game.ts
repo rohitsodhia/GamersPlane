@@ -23,6 +23,8 @@ export type GamePlayer = {
 	is_gm: boolean;
 	// A pending co-GM request the player hasn't answered yet.
 	gm_invited: boolean;
+	// A pending offer to take over as primary GM the co-GM hasn't answered yet.
+	gm_transfer_offered: boolean;
 	state: GamePlayerState;
 	// Pending characters are only included for the game's GMs and their owner.
 	characters: GamePlayerCharacter[];
@@ -310,6 +312,18 @@ export const cancelGmInvite = (gameId: number, userId: number): Promise<void> =>
 
 export const removeGm = (gameId: number, userId: number): Promise<void> =>
 	gmRequest(`/games/${gameId}/player/${userId}/remove_gm`, "POST");
+
+export const offerTransferGm = (gameId: number, userId: number): Promise<void> =>
+	gmRequest(`/games/${gameId}/player/${userId}/transfer_gm`, "POST");
+
+export const cancelTransferGm = (gameId: number, userId: number): Promise<void> =>
+	gmRequest(`/games/${gameId}/player/${userId}/transfer_gm`, "DELETE");
+
+export const acceptTransfer = (gameId: number): Promise<void> =>
+	gmRequest(`/games/${gameId}/accept_transfer`, "POST");
+
+export const declineTransfer = (gameId: number): Promise<void> =>
+	gmRequest(`/games/${gameId}/decline_transfer`, "POST");
 
 export const acceptGm = (gameId: number): Promise<void> =>
 	gmRequest(`/games/${gameId}/accept_gm`, "POST");

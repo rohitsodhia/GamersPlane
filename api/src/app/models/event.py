@@ -27,6 +27,8 @@ class Event(Base):
       ``subject_user_id`` is the invitee), the invitee is the recipient.
     - ``game_gm_invite``: one per player asked to co-GM per game (``game_id``,
       ``subject_user_id`` is the player), the player is the recipient.
+    - ``game_gm_transfer``: one per co-GM asked to become primary GM per game
+      (``game_id``, ``subject_user_id`` is the co-GM), the co-GM is the recipient.
     - ``game_application``: one per applicant per game (``game_id``,
       ``subject_user_id`` is the applicant), the game's GMs are the recipients.
     - ``character_submitted``: one per character (``game_id``, ``character_id``),
@@ -41,6 +43,7 @@ class Event(Base):
         MENTION = "mention", "Mention"
         GAME_INVITE = "game_invite", "Game invite"
         GAME_GM_INVITE = "game_gm_invite", "Game GM invite"
+        GAME_GM_TRANSFER = "game_gm_transfer", "Game GM transfer"
         GAME_APPLICATION = "game_application", "Game application"
         CHARACTER_SUBMITTED = "character_submitted", "Character submitted"
 
@@ -60,7 +63,8 @@ class Event(Base):
             "subject_user_id",
             unique=True,
             postgresql_where=text(
-                "type IN ('game_invite', 'game_application', 'game_gm_invite')"
+                "type IN ('game_invite', 'game_application', 'game_gm_invite',"
+                " 'game_gm_transfer')"
             ),
         ),
         Index(
@@ -71,7 +75,8 @@ class Event(Base):
         ),
         CheckConstraint(
             "(type = 'mention' AND post_id IS NOT NULL AND thread_id IS NOT NULL)"
-            " OR (type IN ('game_invite', 'game_application', 'game_gm_invite')"
+            " OR (type IN ('game_invite', 'game_application', 'game_gm_invite',"
+            " 'game_gm_transfer')"
             " AND game_id IS NOT NULL AND subject_user_id IS NOT NULL)"
             " OR (type = 'character_submitted'"
             " AND game_id IS NOT NULL AND character_id IS NOT NULL)",

@@ -13,6 +13,7 @@ from app.models import (
     Forum,
     Game,
     Player,
+    Role,
     RolePermission,
     UserLFGSystem,
     UserMeta,
@@ -380,6 +381,7 @@ class TestGetGame:
                 "username": gm.username,
                 "is_gm": True,
                 "gm_invited": False,
+                "gm_transfer_offered": False,
                 "state": "accepted",
                 "characters": [],
             },
@@ -388,6 +390,7 @@ class TestGetGame:
                 "username": user.username,
                 "is_gm": False,
                 "gm_invited": False,
+                "gm_transfer_offered": False,
                 "state": "accepted",
                 "characters": [
                     {
@@ -1795,6 +1798,186 @@ class TestGmRequests:
         player = await self._player(db_session, game, accepted_player)
         assert player.is_gm is False
         assert player.state is Player.States.ACCEPTED
+
+    async def _make_co_gm(self, auth_as, game, gm, user):
+        await auth_as(gm).post(f"/games/{game.id}/player/{user.id}/invite_gm")
+        await auth_as(user).post(f"/games/{game.id}/accept_gm")
+
+    async def _offer_transfer(self, auth_as, game, gm, co_gm):
+        await self._make_co_gm(auth_as, game, gm, co_gm)
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{co_gm.id}/transfer_gm"
+        )
+        assert response.status_code == 204
+
+    async def test_offer_transfer_gm_sets_flag_without_moving_primary(
+        self, auth_as, game, gm, accepted_player
+    ):
+        await self._offer_transfer(auth_as, game, gm, accepted_player)
+
+        body = (await auth_as(gm).get(f"/games/{game.id}")).json()
+        assert body["gm"]["id"] == gm.id
+        by_id = {p["id"]: p for p in body["players"]}
+        assert by_id[accepted_player.id]["gm_transfer_offered"] is True
+        assert by_id[gm.id]["gm_transfer_offered"] is False
+
+    async def test_offer_transfer_gm_while_one_pending_conflict(
+        self, auth_as, game, gm, accepted_player, create, db_session
+    ):
+        await self._offer_transfer(auth_as, game, gm, accepted_player)
+        other = await create(ActivatedUserFactory)
+        await PlayerRepository(db_session, principal=gm).attach_player_to_game(
+            game.id, other.id, is_gm=True, state=Player.States.ACCEPTED
+        )
+
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{other.id}/transfer_gm"
+        )
+
+        assert response.status_code == 409
+
+    async def test_cancel_transfer_gm_clears_flag(
+        self, auth_as, db_session, game, gm, accepted_player
+    ):
+        await self._offer_transfer(auth_as, game, gm, accepted_player)
+
+        response = await auth_as(gm).delete(
+            f"/games/{game.id}/player/{accepted_player.id}/transfer_gm"
+        )
+
+        assert response.status_code == 204
+        player = await self._player(db_session, game, accepted_player)
+        assert player.gm_transfer_offered is False
+
+    async def test_cancel_transfer_gm_without_pending_conflict(
+        self, auth_as, game, gm, accepted_player
+    ):
+        response = await auth_as(gm).delete(
+            f"/games/{game.id}/player/{accepted_player.id}/transfer_gm"
+        )
+
+        assert response.status_code == 409
+
+    async def test_cancel_transfer_gm_by_non_primary_forbidden(
+        self, auth_as, game, gm, accepted_player
+    ):
+        await self._offer_transfer(auth_as, game, gm, accepted_player)
+
+        response = await auth_as(accepted_player).delete(
+            f"/games/{game.id}/player/{accepted_player.id}/transfer_gm"
+        )
+
+        assert response.status_code == 403
+
+    async def test_accept_transfer_moves_primary_and_role_ownership(
+        self, auth_as, db_session, game, gm, accepted_player
+    ):
+        await self._offer_transfer(auth_as, game, gm, accepted_player)
+
+        response = await auth_as(accepted_player).post(
+            f"/games/{game.id}/accept_transfer"
+        )
+
+        assert response.status_code == 204
+        body = (await auth_as(accepted_player).get(f"/games/{game.id}")).json()
+        assert body["gm"]["id"] == accepted_player.id
+        owners = await db_session.scalars(
+            select(Role.owner_id).where(Role.game_role == game.id)
+        )
+        assert set(owners) == {accepted_player.id}
+        assert (
+            await self._player(db_session, game, accepted_player)
+        ).gm_transfer_offered is False
+        assert (await self._player(db_session, game, gm)).is_gm is True
+
+    async def test_accept_transfer_without_offer_conflict(
+        self, auth_as, game, gm, accepted_player
+    ):
+        await self._make_co_gm(auth_as, game, gm, accepted_player)
+
+        response = await auth_as(accepted_player).post(
+            f"/games/{game.id}/accept_transfer"
+        )
+
+        assert response.status_code == 409
+
+    async def test_decline_transfer_clears_flag_and_keeps_primary(
+        self, auth_as, db_session, game, gm, accepted_player
+    ):
+        await self._offer_transfer(auth_as, game, gm, accepted_player)
+
+        response = await auth_as(accepted_player).post(
+            f"/games/{game.id}/decline_transfer"
+        )
+
+        assert response.status_code == 204
+        player = await self._player(db_session, game, accepted_player)
+        assert player.gm_transfer_offered is False
+        await db_session.refresh(game)
+        assert game.gm_id == gm.id
+
+    async def test_decline_transfer_without_offer_conflict(
+        self, auth_as, game, accepted_player
+    ):
+        response = await auth_as(accepted_player).post(
+            f"/games/{game.id}/decline_transfer"
+        )
+
+        assert response.status_code == 409
+
+    async def test_remove_gm_clears_pending_transfer(
+        self, auth_as, db_session, game, gm, accepted_player
+    ):
+        await self._offer_transfer(auth_as, game, gm, accepted_player)
+
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/remove_gm"
+        )
+
+        assert response.status_code == 204
+        player = await self._player(db_session, game, accepted_player)
+        assert player.gm_transfer_offered is False
+
+    async def test_offer_transfer_gm_by_co_gm_forbidden(
+        self, auth_as, game, gm, accepted_player
+    ):
+        await self._make_co_gm(auth_as, game, gm, accepted_player)
+
+        response = await auth_as(accepted_player).post(
+            f"/games/{game.id}/player/{gm.id}/transfer_gm"
+        )
+
+        assert response.status_code == 403
+
+    async def test_transfer_gm_to_self_conflict(self, auth_as, game, gm):
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{gm.id}/transfer_gm"
+        )
+
+        assert response.status_code == 409
+
+    async def test_transfer_gm_to_non_gm_conflict(
+        self, auth_as, game, gm, accepted_player
+    ):
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/transfer_gm"
+        )
+
+        assert response.status_code == 409
+
+    async def test_transfer_gm_to_unaccepted_gm_conflict(
+        self, auth_as, db_session, game, gm, accepted_player
+    ):
+        await self._make_co_gm(auth_as, game, gm, accepted_player)
+        player = await self._player(db_session, game, accepted_player)
+        player.state = Player.States.APPLIED
+        await db_session.flush()
+
+        response = await auth_as(gm).post(
+            f"/games/{game.id}/player/{accepted_player.id}/transfer_gm"
+        )
+
+        assert response.status_code == 409
 
 
 class TestToggleGameFlag:
